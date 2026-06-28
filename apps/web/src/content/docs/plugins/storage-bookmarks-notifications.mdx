@@ -1,0 +1,85 @@
+---
+title: Storage, Bookmarks, and Notifications
+description: Store plugin-owned data and integrate with bookmarks, metadata, theme reads, notices, and notifications.
+section: Plugin Development
+sectionOrder: 3
+order: 8
+---
+
+These APIs integrate plugins with host-owned data, user bookmarks, metadata, themes, and native
+notifications.
+
+## Plugin Data
+
+Plugin data is vault-scoped and stored under the plugin directory:
+
+```text
+<vault>/.cortex/plugins/<plugin-id>/data/
+```
+
+```ts
+await this.api.data.write("cache.json", JSON.stringify({ lastRun: Date.now() }))
+const cached = await this.api.data.read("cache.json")
+await this.api.data.delete("cache.json")
+```
+
+Declare `data`. Filenames must not contain `..` and must not start with `/` or `\`.
+
+Use data files for plugin-owned state and caches. Use vault APIs for user-visible notes.
+
+## Metadata
+
+Metadata APIs require `vault:read`:
+
+```ts
+const frontmatter = await this.api.metadata.getFrontmatter("Projects/Plan.md")
+const tags = await this.api.metadata.getTags("Projects/Plan.md")
+const allTags = this.api.metadata.getAllTags()
+```
+
+Metadata paths are vault-relative Markdown paths.
+
+## Bookmarks
+
+```ts
+const bookmarks = this.api.bookmarks.list()
+await this.api.bookmarks.toggle("Projects/Plan.md")
+const isBookmarked = this.api.bookmarks.isBookmarked("Projects/Plan.md")
+```
+
+Reads require `bookmarks:read`. Mutations require `bookmarks:write`. Bookmark paths are
+vault-relative Markdown paths.
+
+## Theme Read API
+
+```ts
+const activeTheme = this.api.theme.getActiveThemeName()
+const disposable = this.api.theme.onThemeChange((name) => {
+	console.log("Theme changed", name)
+})
+```
+
+Declare `theme:read`. Plugins can observe the active theme name, but they should not mutate themes.
+
+## Notifications and Notices
+
+```ts
+const result = await this.notify({
+	title: "Task complete",
+	body: "Your plugin finished processing notes.",
+	kind: "success",
+})
+
+if (!result.delivered) {
+	console.warn(result.reason)
+}
+```
+
+Declare `notifications`. Plugins cannot request OS notification permission directly; Cortex owns
+permission prompts and platform support.
+
+`api.ui.showNotice(message)` also requires `notifications` and is delivered through the host notice
+path.
+
+Notifications are rate-limited per plugin. Keep them user-meaningful and avoid sending repeated
+status spam.

@@ -1,0 +1,32 @@
+---
+title: Welcome
+description: "Start with the Cortex model: local Markdown, a native workspace, optional encrypted sync, and extension points that keep files portable."
+section: Get Started
+sectionOrder: 0
+order: 0
+---
+
+Cortex is a local-first Markdown workspace. It opens a folder you control, keeps notes as plain `.md` files, and gives the writing surface enough structure to stay fast without taking ownership of the format.
+
+## Start here
+
+Use the first pass through the docs to understand three things: where your notes live, how Cortex reads Markdown, and which product surfaces are ready for extension work.
+
+<DocGrid>
+  <DocCard href="/docs/get-started/quickstart" title="Quickstart" description="Open a Markdown folder, write in Live Preview, and keep the file readable outside Cortex." />
+  <DocCard href="/docs/workspace/local-markdown" title="Local Markdown" description="See how folders, files, links, and metadata map back to plain text on disk." />
+  <DocCard href="/docs/plugins/overview" title="Plugin Development" description="Register Markdown transforms, commands, and views without changing note storage." />
+  <DocCard href="/docs/themes/overview" title="Theme Development" description="Customize the app surface with vault-scoped light and dark CSS." />
+</DocGrid>
+
+## What Cortex is
+
+Cortex is designed for people who already trust Markdown but still want a calmer workspace for reading, writing, searching, and arranging notes. The app keeps the local folder as the source of truth, so the same files remain usable in other editors.
+
+## What is still growing
+
+The public documentation starts with the product model, workspace basics, sync architecture, and developer surfaces. Public download, license, platform release, and registry details should only be documented when the repository adds those contracts.
+
+## Product boundaries
+
+Sync, plugins, themes, and the CLI are separate stories. Sync is about ownership, client-side encryption, history, and self-hosting. Plugins extend workflows through reviewed APIs. Themes change the app surface through CSS without making notes less portable.

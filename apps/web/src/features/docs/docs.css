@@ -1,0 +1,589 @@
+@import "../../../../../packages/editor/src/markdown.css";
+
+.docs-shell {
+	--bg-primary: #fbfbfc;
+	--bg-secondary: #f5f5f7;
+	--bg-tertiary: #eeeef1;
+	--bg-elevated: #ffffff;
+	--bg-hover: #eeeef1;
+	--bg-active: #e5e6eb;
+	--bg-selected: #fff1f2;
+	--bg-code: #f5f5f7;
+	--text-primary: #303342;
+	--text-secondary: #6a6d7c;
+	--text-muted: #8b8f9d;
+	--text-disabled: #b5b8c4;
+	--text-placeholder: #8b8f9d;
+	--text-on-accent: #11131a;
+	--accent: #fb7185;
+	--accent-hover: #f43f5e;
+	--accent-active: #e11d48;
+	--accent-subtle: #fff1f2;
+	--accent-border: #fecdd3;
+	--accent-text: #be123c;
+	--link: #e11d48;
+	--link-hover: #be123c;
+	--link-broken: #d45e6a;
+	--border: #d2d4dc;
+	--border-subtle: #e5e6eb;
+	--border-strong: #b5b8c4;
+	--border-focus: #f43f5e;
+	--input-focus-ring: rgba(251, 113, 133, 0.12);
+	--syntax-keyword: #e11d48;
+	--syntax-string: #3d8c68;
+	--syntax-comment: #8b8f9d;
+	--syntax-number: #a83848;
+	--syntax-function: #3f6fa8;
+	--syntax-type: #be123c;
+	--syntax-operator: #6a6d7c;
+	--syntax-property: #3f6fa8;
+	--syntax-heading: #303342;
+	--syntax-meta: #8b8f9d;
+	--font-editor: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	--editor-font-size: 16px;
+	--editor-line-height: 27px;
+	--editor-paragraph-spacing: 1em;
+	--markdown-content-width: 720px;
+	--markdown-content-gutter: 40px;
+	--markdown-block-radius: 6px;
+	--markdown-block-spacing: 1em;
+	--markdown-code-font-family: Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+	--markdown-code-font-size: 14px;
+	--markdown-code-padding-inline: 16px;
+	--markdown-code-padding-block: 10px;
+	--markdown-callout-padding-block: 12px;
+	--markdown-callout-padding-inline-start: 24px;
+	--markdown-callout-padding-inline-end: 12px;
+	--callout-note-color: #be123c;
+	--callout-note-bg: #fff1f2;
+	--callout-abstract-color: #4d5060;
+	--callout-abstract-bg: #f5f5f7;
+	--callout-info-color: #e11d48;
+	--callout-info-bg: #fff1f2;
+	--callout-todo-color: #be123c;
+	--callout-todo-bg: #fff1f2;
+	--callout-tip-color: #2f6f57;
+	--callout-tip-bg: #eaf4f0;
+	--callout-success-color: #2f6f57;
+	--callout-success-bg: #eaf4f0;
+	--callout-question-color: #765800;
+	--callout-question-bg: #f9f4e8;
+	--callout-warning-color: #765800;
+	--callout-warning-bg: #f9f4e8;
+	--callout-failure-color: #a83848;
+	--callout-failure-bg: #fdeaea;
+	--callout-danger-color: #a83848;
+	--callout-danger-bg: #fdeaea;
+	--callout-bug-color: #a83848;
+	--callout-bug-bg: #fdeaea;
+	--callout-example-color: #3f6fa8;
+	--callout-example-bg: #f5f5f7;
+	--callout-quote-color: #6a6d7c;
+	--callout-quote-bg: #f5f5f7;
+	color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme]) .docs-shell {
+		--bg-primary: #1e1e1e;
+		--bg-secondary: #282828;
+		--bg-tertiary: #373737;
+		--bg-elevated: #373737;
+		--bg-hover: #515151;
+		--bg-active: #686868;
+		--bg-selected: #3a101a;
+		--bg-code: #282828;
+		--text-primary: #f3f3f3;
+		--text-secondary: #dcdcdc;
+		--text-muted: #b8b8b8;
+		--text-disabled: #8c8c8c;
+		--text-placeholder: #8c8c8c;
+		--text-on-accent: #101010;
+		--accent: #fb7185;
+		--accent-hover: #fda4af;
+		--accent-active: #fecdd3;
+		--accent-subtle: #3a101a;
+		--accent-border: #fb7185;
+		--accent-text: #fda4af;
+		--link: #fda4af;
+		--link-hover: #fecdd3;
+		--link-broken: #d45e6a;
+		--border: #373737;
+		--border-subtle: #282828;
+		--border-strong: #515151;
+		--border-focus: #fb7185;
+		--input-focus-ring: rgba(251, 113, 133, 0.18);
+		--syntax-keyword: #fda4af;
+		--syntax-string: #7ecaa0;
+		--syntax-comment: #8c8c8c;
+		--syntax-number: #e09090;
+		--syntax-function: #90b8e0;
+		--syntax-type: #fda4af;
+		--syntax-operator: #dcdcdc;
+		--syntax-property: #90b8e0;
+		--syntax-heading: #f3f3f3;
+		--syntax-meta: #8c8c8c;
+		--callout-note-color: #fda4af;
+		--callout-note-bg: #3a101a;
+		--callout-abstract-color: #dcdcdc;
+		--callout-abstract-bg: #282828;
+		--callout-info-color: #fda4af;
+		--callout-info-bg: #3a101a;
+		--callout-todo-color: #fda4af;
+		--callout-todo-bg: #3a101a;
+		--callout-tip-color: #4a9b7a;
+		--callout-tip-bg: #0a1e16;
+		--callout-success-color: #4a9b7a;
+		--callout-success-bg: #0a1e16;
+		--callout-question-color: #b89b3a;
+		--callout-question-bg: #1a1608;
+		--callout-warning-color: #b89b3a;
+		--callout-warning-bg: #1a1608;
+		--callout-failure-color: #d45e6a;
+		--callout-failure-bg: #220a12;
+		--callout-danger-color: #d45e6a;
+		--callout-danger-bg: #220a12;
+		--callout-bug-color: #d45e6a;
+		--callout-bug-bg: #220a12;
+		--callout-example-color: #90b8e0;
+		--callout-example-bg: #282828;
+		--callout-quote-color: #b8b8b8;
+		--callout-quote-bg: #282828;
+		color-scheme: dark;
+	}
+}
+
+:root[data-theme="dark"] .docs-shell {
+	--bg-primary: #1e1e1e;
+	--bg-secondary: #282828;
+	--bg-tertiary: #373737;
+	--bg-elevated: #373737;
+	--bg-hover: #515151;
+	--bg-active: #686868;
+	--bg-selected: #3a101a;
+	--bg-code: #282828;
+	--text-primary: #f3f3f3;
+	--text-secondary: #dcdcdc;
+	--text-muted: #b8b8b8;
+	--text-disabled: #8c8c8c;
+	--text-placeholder: #8c8c8c;
+	--text-on-accent: #101010;
+	--accent: #fb7185;
+	--accent-hover: #fda4af;
+	--accent-active: #fecdd3;
+	--accent-subtle: #3a101a;
+	--accent-border: #fb7185;
+	--accent-text: #fda4af;
+	--link: #fda4af;
+	--link-hover: #fecdd3;
+	--link-broken: #d45e6a;
+	--border: #373737;
+	--border-subtle: #282828;
+	--border-strong: #515151;
+	--border-focus: #fb7185;
+	--input-focus-ring: rgba(251, 113, 133, 0.18);
+	--syntax-keyword: #fda4af;
+	--syntax-string: #7ecaa0;
+	--syntax-comment: #8c8c8c;
+	--syntax-number: #e09090;
+	--syntax-function: #90b8e0;
+	--syntax-type: #fda4af;
+	--syntax-operator: #dcdcdc;
+	--syntax-property: #90b8e0;
+	--syntax-heading: #f3f3f3;
+	--syntax-meta: #8c8c8c;
+	--callout-note-color: #fda4af;
+	--callout-note-bg: #3a101a;
+	--callout-abstract-color: #dcdcdc;
+	--callout-abstract-bg: #282828;
+	--callout-info-color: #fda4af;
+	--callout-info-bg: #3a101a;
+	--callout-todo-color: #fda4af;
+	--callout-todo-bg: #3a101a;
+	--callout-tip-color: #4a9b7a;
+	--callout-tip-bg: #0a1e16;
+	--callout-success-color: #4a9b7a;
+	--callout-success-bg: #0a1e16;
+	--callout-question-color: #b89b3a;
+	--callout-question-bg: #1a1608;
+	--callout-warning-color: #b89b3a;
+	--callout-warning-bg: #1a1608;
+	--callout-failure-color: #d45e6a;
+	--callout-failure-bg: #220a12;
+	--callout-danger-color: #d45e6a;
+	--callout-danger-bg: #220a12;
+	--callout-bug-color: #d45e6a;
+	--callout-bug-bg: #220a12;
+	--callout-example-color: #90b8e0;
+	--callout-example-bg: #282828;
+	--callout-quote-color: #b8b8b8;
+	--callout-quote-bg: #282828;
+	color-scheme: dark;
+}
+
+.docs-markdown {
+	max-width: none;
+	font-size: var(--editor-font-size);
+	line-height: var(--editor-line-height);
+}
+
+.docs-markdown > :first-child {
+	margin-top: 0;
+}
+
+.docs-markdown pre {
+	box-shadow: 0 0 0 1px var(--border-subtle);
+}
+
+.docs-markdown pre code {
+	font-family: var(--markdown-code-font-family);
+	font-size: var(--markdown-code-font-size);
+	line-height: 21px;
+}
+
+.docs-markdown .cortex-docs-shiki {
+	overflow-x: auto;
+}
+
+.docs-markdown .cortex-docs-shiki .line {
+	display: block;
+	min-height: 21px;
+}
+
+.docs-markdown .cortex-docs-shiki code {
+	display: block;
+	white-space: pre;
+}
+
+html:has(.changelog-shell),
+body:has(.changelog-shell) {
+	background: var(--background);
+}
+
+.changelog-shell {
+	--bg-primary: #fbfbfc;
+	--bg-secondary: #f5f5f7;
+	--bg-tertiary: #eeeef1;
+	--bg-elevated: #ffffff;
+	--bg-hover: #eeeef1;
+	--bg-active: #e5e6eb;
+	--bg-selected: #fff1f2;
+	--bg-code: #f5f5f7;
+	--text-primary: #303342;
+	--text-secondary: #4d5060;
+	--text-muted: #6a6d7c;
+	--text-disabled: #b5b8c4;
+	--text-placeholder: #8b8f9d;
+	--text-on-accent: #11131a;
+	--accent: #fb7185;
+	--accent-hover: #f43f5e;
+	--accent-active: #e11d48;
+	--accent-subtle: #fff1f2;
+	--accent-border: #fecdd3;
+	--accent-text: #be123c;
+	--link: #e11d48;
+	--link-hover: #be123c;
+	--link-broken: #d45e6a;
+	--border: #d2d4dc;
+	--border-subtle: #e5e6eb;
+	--border-strong: #b5b8c4;
+	--border-focus: #f43f5e;
+	--input-focus-ring: rgba(251, 113, 133, 0.12);
+	--syntax-keyword: #e11d48;
+	--syntax-string: #3d8c68;
+	--syntax-comment: #8b8f9d;
+	--syntax-number: #a83848;
+	--syntax-function: #3f6fa8;
+	--syntax-type: #be123c;
+	--syntax-operator: #6a6d7c;
+	--syntax-property: #3f6fa8;
+	--syntax-heading: #303342;
+	--syntax-meta: #8b8f9d;
+	--font-editor:
+		-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, "Segoe UI",
+		sans-serif;
+	--editor-font-size: 17px;
+	--editor-line-height: 30px;
+	--markdown-block-radius: 8px;
+	--markdown-block-spacing: 1.35em;
+	--markdown-code-padding-inline: 18px;
+	--markdown-code-padding-block: 13px;
+	--callout-note-color: #be123c;
+	--callout-note-bg: #fff1f2;
+	--callout-abstract-color: #4d5060;
+	--callout-abstract-bg: #f5f5f7;
+	--callout-info-color: #e11d48;
+	--callout-info-bg: #fff1f2;
+	--callout-todo-color: #be123c;
+	--callout-todo-bg: #fff1f2;
+	--callout-tip-color: #2f6f57;
+	--callout-tip-bg: #eaf4f0;
+	--callout-success-color: #2f6f57;
+	--callout-success-bg: #eaf4f0;
+	--callout-question-color: #765800;
+	--callout-question-bg: #f9f4e8;
+	--callout-warning-color: #765800;
+	--callout-warning-bg: #f9f4e8;
+	--callout-failure-color: #a83848;
+	--callout-failure-bg: #fdeaea;
+	--callout-danger-color: #a83848;
+	--callout-danger-bg: #fdeaea;
+	--callout-bug-color: #a83848;
+	--callout-bug-bg: #fdeaea;
+	--callout-example-color: #3f6fa8;
+	--callout-example-bg: #f5f5f7;
+	--callout-quote-color: #6a6d7c;
+	--callout-quote-bg: #f5f5f7;
+	color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme]) .changelog-shell {
+		--bg-primary: #10100d;
+		--bg-secondary: #191813;
+		--bg-tertiary: #24231d;
+		--bg-elevated: #1d1c17;
+		--bg-hover: #292820;
+		--bg-active: #333127;
+		--bg-selected: #3a101a;
+		--bg-code: #191813;
+		--text-primary: #f3f1ea;
+		--text-secondary: rgba(243, 241, 234, 0.78);
+		--text-muted: rgba(243, 241, 234, 0.52);
+		--text-disabled: rgba(243, 241, 234, 0.36);
+		--text-placeholder: rgba(243, 241, 234, 0.48);
+		--text-on-accent: #10100d;
+		--accent: #fb7185;
+		--accent-hover: #fda4af;
+		--accent-active: #fecdd3;
+		--accent-subtle: #3a101a;
+		--accent-border: #fb7185;
+		--accent-text: #fda4af;
+		--link: #fda4af;
+		--link-hover: #fecdd3;
+		--link-broken: #d45e6a;
+		--border: rgba(255, 255, 255, 0.16);
+		--border-subtle: rgba(255, 255, 255, 0.1);
+		--border-strong: rgba(255, 255, 255, 0.2);
+		--border-focus: #fb7185;
+		--input-focus-ring: rgba(251, 113, 133, 0.18);
+		--syntax-keyword: #fda4af;
+		--syntax-string: #7ecaa0;
+		--syntax-comment: rgba(243, 241, 234, 0.45);
+		--syntax-number: #e09090;
+		--syntax-function: #90b8e0;
+		--syntax-type: #fda4af;
+		--syntax-operator: rgba(243, 241, 234, 0.76);
+		--syntax-property: #90b8e0;
+		--syntax-heading: #f3f1ea;
+		--syntax-meta: rgba(243, 241, 234, 0.45);
+		--callout-note-color: #fda4af;
+		--callout-note-bg: #3a101a;
+		--callout-abstract-color: rgba(243, 241, 234, 0.78);
+		--callout-abstract-bg: #191813;
+		--callout-info-color: #fda4af;
+		--callout-info-bg: #3a101a;
+		--callout-todo-color: #fda4af;
+		--callout-todo-bg: #3a101a;
+		--callout-tip-color: #7ecaa0;
+		--callout-tip-bg: #0a1e16;
+		--callout-success-color: #7ecaa0;
+		--callout-success-bg: #0a1e16;
+		--callout-question-color: #d1b764;
+		--callout-question-bg: #1f1a09;
+		--callout-warning-color: #d1b764;
+		--callout-warning-bg: #1f1a09;
+		--callout-failure-color: #d45e6a;
+		--callout-failure-bg: #220a12;
+		--callout-danger-color: #d45e6a;
+		--callout-danger-bg: #220a12;
+		--callout-bug-color: #d45e6a;
+		--callout-bug-bg: #220a12;
+		--callout-example-color: #90b8e0;
+		--callout-example-bg: #191813;
+		--callout-quote-color: rgba(243, 241, 234, 0.62);
+		--callout-quote-bg: #191813;
+		color-scheme: dark;
+	}
+}
+
+:root[data-theme="dark"] .changelog-shell {
+	--bg-primary: #10100d;
+	--bg-secondary: #191813;
+	--bg-tertiary: #24231d;
+	--bg-elevated: #1d1c17;
+	--bg-hover: #292820;
+	--bg-active: #333127;
+	--bg-selected: #3a101a;
+	--bg-code: #191813;
+	--text-primary: #f3f1ea;
+	--text-secondary: rgba(243, 241, 234, 0.78);
+	--text-muted: rgba(243, 241, 234, 0.52);
+	--text-disabled: rgba(243, 241, 234, 0.36);
+	--text-placeholder: rgba(243, 241, 234, 0.48);
+	--text-on-accent: #10100d;
+	--accent: #fb7185;
+	--accent-hover: #fda4af;
+	--accent-active: #fecdd3;
+	--accent-subtle: #3a101a;
+	--accent-border: #fb7185;
+	--accent-text: #fda4af;
+	--link: #fda4af;
+	--link-hover: #fecdd3;
+	--link-broken: #d45e6a;
+	--border: rgba(255, 255, 255, 0.16);
+	--border-subtle: rgba(255, 255, 255, 0.1);
+	--border-strong: rgba(255, 255, 255, 0.2);
+	--border-focus: #fb7185;
+	--input-focus-ring: rgba(251, 113, 133, 0.18);
+	--syntax-keyword: #fda4af;
+	--syntax-string: #7ecaa0;
+	--syntax-comment: rgba(243, 241, 234, 0.45);
+	--syntax-number: #e09090;
+	--syntax-function: #90b8e0;
+	--syntax-type: #fda4af;
+	--syntax-operator: rgba(243, 241, 234, 0.76);
+	--syntax-property: #90b8e0;
+	--syntax-heading: #f3f1ea;
+	--syntax-meta: rgba(243, 241, 234, 0.45);
+	--callout-note-color: #fda4af;
+	--callout-note-bg: #3a101a;
+	--callout-abstract-color: rgba(243, 241, 234, 0.78);
+	--callout-abstract-bg: #191813;
+	--callout-info-color: #fda4af;
+	--callout-info-bg: #3a101a;
+	--callout-todo-color: #fda4af;
+	--callout-todo-bg: #3a101a;
+	--callout-tip-color: #7ecaa0;
+	--callout-tip-bg: #0a1e16;
+	--callout-success-color: #7ecaa0;
+	--callout-success-bg: #0a1e16;
+	--callout-question-color: #d1b764;
+	--callout-question-bg: #1f1a09;
+	--callout-warning-color: #d1b764;
+	--callout-warning-bg: #1f1a09;
+	--callout-failure-color: #d45e6a;
+	--callout-failure-bg: #220a12;
+	--callout-danger-color: #d45e6a;
+	--callout-danger-bg: #220a12;
+	--callout-bug-color: #d45e6a;
+	--callout-bug-bg: #220a12;
+	--callout-example-color: #90b8e0;
+	--callout-example-bg: #191813;
+	--callout-quote-color: rgba(243, 241, 234, 0.62);
+	--callout-quote-bg: #191813;
+	color-scheme: dark;
+}
+
+.changelog-markdown {
+	color: var(--text-secondary);
+	font-size: var(--editor-font-size);
+	line-height: var(--editor-line-height);
+}
+
+.changelog-markdown h1,
+.changelog-markdown h2,
+.changelog-markdown h3,
+.changelog-markdown h4 {
+	color: var(--text-primary);
+	line-height: 1.18;
+	text-wrap: balance;
+}
+
+.changelog-markdown h2 {
+	margin-top: 2.45em;
+	margin-bottom: 0.7em;
+	font-size: 1.36em;
+	font-weight: 650;
+}
+
+.changelog-markdown h3 {
+	margin-top: 2.1em;
+	font-size: 1.08em;
+	font-weight: 650;
+}
+
+.changelog-markdown p,
+.changelog-markdown li {
+	text-wrap: pretty;
+}
+
+.changelog-markdown ul,
+.changelog-markdown ol {
+	padding-left: 1.3em;
+}
+
+.changelog-markdown pre {
+	background: var(--bg-code);
+	box-shadow: 0 0 0 1px var(--border-subtle);
+}
+
+.docs-markdown.changelog-markdown :not(pre) > code {
+	background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+	color: var(--text-primary);
+}
+
+.changelog-markdown img,
+.changelog-release-image {
+	max-width: 100%;
+	height: auto;
+	border-radius: 8px;
+	outline: 1px solid rgba(0, 0, 0, 0.1);
+	outline-offset: -1px;
+}
+
+.changelog-shell .cortex-docs-shiki,
+.changelog-shell .cortex-docs-shiki span {
+	color: var(--shiki-light, var(--text-primary));
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme]) .changelog-markdown img,
+	:root:not([data-theme]) .changelog-release-image {
+		outline-color: rgba(255, 255, 255, 0.1);
+	}
+
+	:root:not([data-theme]) .changelog-shell .cortex-docs-shiki,
+	:root:not([data-theme]) .changelog-shell .cortex-docs-shiki span {
+		color: var(--shiki-dark, var(--text-primary));
+	}
+}
+
+:root[data-theme="dark"] .changelog-markdown img,
+:root[data-theme="dark"] .changelog-release-image {
+	outline-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme="dark"] .changelog-shell .cortex-docs-shiki,
+:root[data-theme="dark"] .changelog-shell .cortex-docs-shiki span {
+	color: var(--shiki-dark, var(--text-primary));
+}
+
+.docs-toc-indicator {
+	transition-property: transform, height, opacity;
+	transition-duration: 180ms;
+	transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.docs-toc-indicator {
+		transition-duration: 1ms;
+	}
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme]) .docs-markdown .cortex-docs-shiki,
+	:root:not([data-theme]) .docs-markdown .cortex-docs-shiki span {
+		color: var(--shiki-dark, var(--text-primary));
+	}
+}
+
+:root[data-theme="dark"] .docs-markdown .cortex-docs-shiki,
+:root[data-theme="dark"] .docs-markdown .cortex-docs-shiki span {
+	color: var(--shiki-dark, var(--text-primary));
+}
+
+:root[data-theme="light"] .docs-markdown .cortex-docs-shiki,
+:root[data-theme="light"] .docs-markdown .cortex-docs-shiki span {
+	color: var(--shiki-light, var(--text-primary));
+}

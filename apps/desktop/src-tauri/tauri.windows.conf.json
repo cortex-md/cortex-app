@@ -1,0 +1,24 @@
+{
+	"app": {
+		"windows": [
+			{
+				"title": "Cortex",
+				"width": 1200,
+				"height": 800,
+				"minWidth": 800,
+				"minHeight": 600,
+				"transparent": true,
+				"shadow": true,
+				"decorations": true,
+				"scrollBarStyle": "fluentOverlay"
+			}
+		]
+	},
+	"plugins": {
+		"updater": {
+			"windows": {
+				"installMode": "passive"
+			}
+		}
+	}
+}

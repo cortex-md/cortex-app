@@ -1,0 +1,33 @@
+{
+  "include": ["**/*.ts", "**/*.tsx", ".content-collections/generated/**/*.d.ts"],
+  "references": [{ "path": "../../packages/ui" }],
+  "compilerOptions": {
+    "composite": true,
+    "target": "ES2022",
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "paths": {
+      "#/*": ["./src/*"],
+      "@/*": ["./src/*"],
+      "@cortex/ui": ["../../packages/ui/src/index.ts"],
+      "@cortex/ui/*": ["../../packages/ui/src/*"],
+      "content-collections": ["./.content-collections/generated"],
+    },
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"],
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+
+    /* Linting */
+    "skipLibCheck": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+  },
+}

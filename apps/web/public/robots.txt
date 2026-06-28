@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://cortex-md.tech/sitemap.xml

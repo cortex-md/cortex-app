@@ -1,0 +1,41 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"jsx": "react-jsx",
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"noEmit": true
+	},
+	"references": [
+		{ "path": "packages/ipc" },
+		{ "path": "packages/commands" },
+		{ "path": "packages/templates" },
+		{ "path": "packages/platform" },
+		{ "path": "packages/properties" },
+		{ "path": "packages/core" },
+		{ "path": "packages/editor" },
+		{ "path": "packages/ui" },
+		{ "path": "packages/theme" },
+		{ "path": "packages/theme-mobile" },
+		{ "path": "packages/settings" },
+		{ "path": "packages/hotkeys" },
+		{ "path": "packages/search" },
+		{ "path": "packages/plugin-api" },
+		{ "path": "packages/plugin-host-core" },
+		{ "path": "packages/plugin-host-web" },
+		{ "path": "packages/renderer" },
+		{ "path": "packages/marketplace" },
+		{ "path": "apps/desktop" },
+		{ "path": "apps/Cortex" },
+		{ "path": "apps/web" },
+		{ "path": "plugins/github-emoji" },
+		{ "path": "apps/desktop/tsconfig.node.json" }
+	],
+	"files": []
+}

@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink" baseProfile="full" height="1080" version="1.1" viewBox="0 0 1920 1080" width="1920">
+  <title>Cortex CLI feature illustration</title>
+  <defs>
+    <style type="text/css"><![CDATA[
+        .strong { fill:none; stroke:#17140f; stroke-width:2.45; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.76; vector-effect:non-scaling-stroke; }
+        .main { fill:none; stroke:#17140f; stroke-width:2.05; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.58; vector-effect:non-scaling-stroke; }
+        .muted { fill:none; stroke:#6b6459; stroke-width:1.65; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.58; vector-effect:non-scaling-stroke; }
+        .faint { fill:none; stroke:#a69c8a; stroke-width:1.25; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.36; vector-effect:non-scaling-stroke; }
+        .hair { fill:none; stroke:#d7cfbf; stroke-width:1.05; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.58; vector-effect:non-scaling-stroke; }
+        .dash { fill:none; stroke:#6b6459; stroke-width:1.45; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.43; stroke-dasharray:5 11; vector-effect:non-scaling-stroke; }
+        .dash-accent { fill:none; stroke:#875000; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.42; stroke-dasharray:5 10; vector-effect:non-scaling-stroke; }
+        .accent { fill:none; stroke:#e3a12b; stroke-width:2.65; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.95; vector-effect:non-scaling-stroke; }
+        .accent-thin { fill:none; stroke:#e3a12b; stroke-width:1.65; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.82; vector-effect:non-scaling-stroke; }
+        .accent-border { fill:none; stroke:#875000; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.62; vector-effect:non-scaling-stroke; }
+        .paper { fill:#fbf9f4; fill-opacity:.20; stroke:#17140f; stroke-width:2.05; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.50; vector-effect:non-scaling-stroke; }
+        .paper-faint { fill:#f4f0e7; fill-opacity:.13; stroke:#a69c8a; stroke-width:1.35; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.44; vector-effect:non-scaling-stroke; }
+        .subtle-fill { fill:#f7e5bf; fill-opacity:.30; stroke:#875000; stroke-width:1.55; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.38; vector-effect:non-scaling-stroke; }
+        .accent-fill { fill:#e3a12b; fill-opacity:.20; stroke:#e3a12b; stroke-width:2.05; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.80; vector-effect:non-scaling-stroke; }
+        .dark-fill { fill:#17140f; fill-opacity:.10; stroke:#17140f; stroke-width:2.0; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.52; vector-effect:non-scaling-stroke; }
+        .dot { fill:#e3a12b; fill-opacity:.88; stroke:none; }
+        .dot-border { fill:#875000; fill-opacity:.65; stroke:none; }
+        .dot-muted { fill:#17140f; fill-opacity:.32; stroke:none; }
+        .dot-faint { fill:#a69c8a; fill-opacity:.36; stroke:none; }
+        .label { font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace; fill:#17140f; fill-opacity:.56; font-size:32px; letter-spacing:1px; }
+        .label-muted { font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace; fill:#6b6459; fill-opacity:.52; font-size:24px; letter-spacing:1px; }
+        .small-mono { font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace; fill:#875000; fill-opacity:.62; font-size:22px; letter-spacing:1.4px; }
+    ]]></style>
+  </defs>
+  <g id="cli-v2">
+    <ellipse class="hair" cx="970" cy="725" rx="520" ry="118"/>
+    <line class="hair" x1="500" x2="1415" y1="646" y2="700"/>
+    <line class="hair" x1="500" x2="1415" y1="670" y2="724"/>
+    <line class="hair" x1="500" x2="1415" y1="694" y2="748"/>
+    <line class="hair" x1="500" x2="1415" y1="718" y2="772"/>
+    <line class="hair" x1="500" x2="1415" y1="742" y2="796"/>
+    <line class="hair" x1="500" x2="1415" y1="766" y2="820"/>
+    <line class="hair" x1="500" x2="1415" y1="790" y2="844"/>
+    <line class="hair" x1="555" x2="740" y1="625" y2="820"/>
+    <line class="hair" x1="650" x2="835" y1="625" y2="820"/>
+    <line class="hair" x1="745" x2="930" y1="625" y2="820"/>
+    <line class="hair" x1="840" x2="1025" y1="625" y2="820"/>
+    <line class="hair" x1="935" x2="1120" y1="625" y2="820"/>
+    <line class="hair" x1="1030" x2="1215" y1="625" y2="820"/>
+    <line class="hair" x1="1125" x2="1310" y1="625" y2="820"/>
+    <line class="hair" x1="1220" x2="1405" y1="625" y2="820"/>
+    <line class="hair" x1="1315" x2="1500" y1="625" y2="820"/>
+    <polyline class="strong" points="490,404 610,520 490,636"/>
+    <line class="accent" x1="640" x2="830" y1="636" y2="636"/>
+    <rect class="accent-fill" height="58" rx="5" ry="5" width="24" x="858" y="606"/>
+    <polygon class="paper" points="670,388 1300,464 1168,704 536,622"/>
+    <polygon class="paper-faint" points="703.0008,424.5624 1232.4192,489.0576 1134.6208,666.3023999999999 603.9592,598.0776"/>
+    <polyline class="accent" points="711.4996604799999,463.39898144 726.4996604799999,473.39898144 711.4996604799999,483.39898144"/>
+    <line class="strong" x1="747.4996604799999" x2="837.4996604799999" y1="473.39898144" y2="475.3083783168"/>
+    <line class="accent-thin" x1="865.4996604799999" x2="1010.4996604799999" y1="473.39898144" y2="475.3083783168"/>
+    <line class="muted" x1="1038.4996604799999" x2="1133.4996604799999" y1="473.39898144" y2="475.3083783168"/>
+    <line class="muted" x1="1161.4996604799999" x2="1223.4996604799999" y1="473.39898144" y2="475.3083783168"/>
+    <polyline class="muted" points="693.6967878400001,494.70556351999994 708.6967878400001,504.70556351999994 693.6967878400001,514.7055635199999"/>
+    <line class="muted" x1="729.6967878400001" x2="799.6967878400001" y1="504.70556351999994" y2="506.63456317439994"/>
+    <line class="muted" x1="827.6967878400001" x2="942.6967878400001" y1="504.70556351999994" y2="506.63456317439994"/>
+    <line class="muted" x1="970.6967878400001" x2="1015.6967878400001" y1="504.70556351999994" y2="506.63456317439994"/>
+    <polyline class="muted" points="675.8939152,526.0121456 690.8939152,536.0121456 675.8939152,546.0121456"/>
+    <line class="muted" x1="711.8939152" x2="826.8939152" y1="536.0121456" y2="537.9607480320001"/>
+    <line class="accent-thin" x1="854.8939152" x2="924.8939152" y1="536.0121456" y2="537.9607480320001"/>
+    <line class="muted" x1="952.8939152" x2="1107.8939152" y1="536.0121456" y2="537.9607480320001"/>
+    <polyline class="muted" points="660.0691395199999,553.8402185599999 675.0691395199999,563.8402185599999 660.0691395199999,573.8402185599999"/>
+    <line class="muted" x1="696.0691395199999" x2="768.0691395199999" y1="563.8402185599999" y2="565.8062456831999"/>
+    <line class="muted" x1="796.0691395199999" x2="924.0691395199999" y1="563.8402185599999" y2="565.8062456831999"/>
+    <text class="small-mono" x="690" y="450">$ cortex</text>
+    <text class="label-muted" x="825" y="475">--sync --watch</text>
+    <path class="dash" d="M 1128 686 C 1200 720, 1284 645, 1324 675"/>
+    <circle class="subtle-fill" cx="1324" cy="675" r="17"/>
+    <circle class="dot" cx="1324" cy="675" r="4.5"/>
+    <path class="dash-accent" d="M 1128 686 C 1225 740, 1332 725, 1372 755"/>
+    <circle class="paper" cx="1372" cy="755" r="17"/>
+    <circle class="dot" cx="1372" cy="755" r="4.5"/>
+    <path class="dash" d="M 1128 686 C 1250 760, 1215 795, 1255 825"/>
+    <circle class="subtle-fill" cx="1255" cy="825" r="17"/>
+    <circle class="dot" cx="1255" cy="825" r="4.5"/>
+    <path class="dash" d="M 1128 686 C 1275 780, 1070 800, 1110 830"/>
+    <circle class="paper" cx="1110" cy="830" r="17"/>
+    <circle class="dot" cx="1110" cy="830" r="4.5"/>
+    <rect class="paper-faint" height="64" rx="14" ry="14" width="235" x="560" y="748"/>
+    <line class="faint" x1="584" x2="745" y1="772" y2="772"/>
+    <line class="hair" x1="584" x2="703" y1="790" y2="790"/>
+    <rect class="paper-faint" height="64" rx="14" ry="14" width="310" x="835" y="815"/>
+    <line class="faint" x1="859" x2="1095" y1="839" y2="839"/>
+    <line class="hair" x1="859" x2="1053" y1="857" y2="857"/>
+    <rect class="paper-faint" height="64" rx="14" ry="14" width="200" x="1170" y="566"/>
+    <line class="faint" x1="1194" x2="1320" y1="590" y2="590"/>
+    <line class="hair" x1="1194" x2="1278" y1="608" y2="608"/>
+    <rect class="paper-faint" height="38" rx="9" ry="9" width="52" x="468" y="713"/>
+    <line class="hair" x1="483" x2="505" y1="733" y2="733"/>
+    <rect class="paper-faint" height="38" rx="9" ry="9" width="52" x="528" y="748"/>
+    <line class="hair" x1="543" x2="565" y1="768" y2="768"/>
+    <rect class="paper-faint" height="38" rx="9" ry="9" width="52" x="586" y="783"/>
+    <line class="hair" x1="601" x2="623" y1="803" y2="803"/>
+  </g>
+</svg>

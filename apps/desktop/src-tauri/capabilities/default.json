@@ -1,0 +1,26 @@
+{
+	"$schema": "../gen/schemas/desktop-schema.json",
+	"identifier": "default",
+	"description": "Capability for the main window",
+	"windows": ["main", "vault-*"],
+	"permissions": [
+		"core:default",
+		"core:window:allow-start-dragging",
+		"core:window:allow-create",
+		"opener:allow-open-url",
+		"opener:allow-default-urls",
+		"opener:allow-open-path",
+		{
+			"identifier": "opener:allow-open-path",
+			"allow": [{ "path": "**" }]
+		},
+		"opener:allow-reveal-item-in-dir",
+		{
+			"identifier": "opener:allow-reveal-item-in-dir",
+			"allow": [{ "path": "**" }]
+		},
+		"dialog:default",
+		"deep-link:default",
+		"notification:default"
+	]
+}

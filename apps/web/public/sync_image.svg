@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink" baseProfile="full" height="1080" version="1.1" viewBox="0 0 1920 1080" width="1920">
+  <title>Cortex Sync feature illustration</title>
+  <defs>
+    <style type="text/css"><![CDATA[
+        .strong { fill:none; stroke:#303342; stroke-width:2.45; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.76; vector-effect:non-scaling-stroke; }
+        .main { fill:none; stroke:#303342; stroke-width:2.05; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.58; vector-effect:non-scaling-stroke; }
+        .muted { fill:none; stroke:#6a6d7c; stroke-width:1.65; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.58; vector-effect:non-scaling-stroke; }
+        .faint { fill:none; stroke:#b5b8c4; stroke-width:1.25; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.36; vector-effect:non-scaling-stroke; }
+        .hair { fill:none; stroke:#d2d4dc; stroke-width:1.05; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.58; vector-effect:non-scaling-stroke; }
+        .dash { fill:none; stroke:#6a6d7c; stroke-width:1.45; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.43; stroke-dasharray:5 11; vector-effect:non-scaling-stroke; }
+        .dash-accent { fill:none; stroke:#be123c; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.42; stroke-dasharray:5 10; vector-effect:non-scaling-stroke; }
+        .accent { fill:none; stroke:#fb7185; stroke-width:2.65; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.95; vector-effect:non-scaling-stroke; }
+        .accent-thin { fill:none; stroke:#fb7185; stroke-width:1.65; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.82; vector-effect:non-scaling-stroke; }
+        .accent-border { fill:none; stroke:#be123c; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.62; vector-effect:non-scaling-stroke; }
+        .paper { fill:#fbfbfc; fill-opacity:.20; stroke:#303342; stroke-width:2.05; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.50; vector-effect:non-scaling-stroke; }
+        .paper-faint { fill:#f5f5f7; fill-opacity:.13; stroke:#b5b8c4; stroke-width:1.35; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.44; vector-effect:non-scaling-stroke; }
+        .subtle-fill { fill:#fff1f2; fill-opacity:.34; stroke:#be123c; stroke-width:1.55; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.38; vector-effect:non-scaling-stroke; }
+        .accent-fill { fill:#fb7185; fill-opacity:.20; stroke:#fb7185; stroke-width:2.05; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.80; vector-effect:non-scaling-stroke; }
+        .dark-fill { fill:#303342; fill-opacity:.10; stroke:#303342; stroke-width:2.0; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.52; vector-effect:non-scaling-stroke; }
+        .dot { fill:#fb7185; fill-opacity:.88; stroke:none; }
+        .dot-border { fill:#be123c; fill-opacity:.65; stroke:none; }
+        .dot-muted { fill:#303342; fill-opacity:.32; stroke:none; }
+        .dot-faint { fill:#b5b8c4; fill-opacity:.36; stroke:none; }
+        .label { font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace; fill:#303342; fill-opacity:.56; font-size:32px; letter-spacing:1px; }
+        .label-muted { font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace; fill:#6a6d7c; fill-opacity:.52; font-size:24px; letter-spacing:1px; }
+        .small-mono { font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace; fill:#be123c; fill-opacity:.62; font-size:22px; letter-spacing:1.4px; }
+    ]]></style>
+  </defs>
+  <g id="sync-v2">
+    <ellipse class="hair" cx="960" cy="620" rx="500" ry="145"/>
+    <ellipse class="faint" cx="960" cy="620" rx="355" ry="98"/>
+    <ellipse class="dash-accent" cx="960" cy="620" rx="210" ry="58"/>
+    <polygon class="subtle-fill" points="960,430 1094,500 960,570 826,500"/>
+    <circle class="dot-border" cx="952.8214285714286" cy="443.75" r="1.7"/>
+    <circle class="dot-border" cx="971.9642857142857" cy="453.75" r="1.7"/>
+    <circle class="dot-border" cx="991.1071428571429" cy="463.75" r="1.7"/>
+    <circle class="dot-border" cx="1010.25" cy="473.75" r="1.7"/>
+    <circle class="dot-border" cx="1029.392857142857" cy="483.75" r="1.7"/>
+    <circle class="dot-border" cx="1048.5357142857142" cy="493.75" r="1.7"/>
+    <circle class="dot-border" cx="1067.6785714285713" cy="503.75" r="1.7"/>
+    <circle class="dot-border" cx="919.3214285714286" cy="461.25" r="1.7"/>
+    <circle class="dot-border" cx="938.4642857142857" cy="471.25" r="1.7"/>
+    <circle class="dot-border" cx="957.6071428571428" cy="481.25" r="1.7"/>
+    <circle class="dot-border" cx="976.75" cy="491.25" r="1.7"/>
+    <circle class="dot-border" cx="995.8928571428572" cy="501.25" r="1.7"/>
+    <circle class="dot-border" cx="1015.0357142857142" cy="511.25" r="1.7"/>
+    <circle class="dot-border" cx="1034.1785714285716" cy="521.25" r="1.7"/>
+    <circle class="dot-border" cx="885.8214285714287" cy="478.75" r="1.7"/>
+    <circle class="dot-border" cx="904.9642857142858" cy="488.75" r="1.7"/>
+    <circle class="dot-border" cx="924.1071428571429" cy="498.75" r="1.7"/>
+    <circle class="dot-border" cx="943.25" cy="508.75" r="1.7"/>
+    <circle class="dot-border" cx="962.3928571428571" cy="518.75" r="1.7"/>
+    <circle class="dot-border" cx="981.5357142857142" cy="528.75" r="1.7"/>
+    <circle class="dot-border" cx="1000.6785714285716" cy="538.75" r="1.7"/>
+    <circle class="dot-border" cx="852.3214285714286" cy="496.25" r="1.7"/>
+    <circle class="dot-border" cx="871.4642857142858" cy="506.25" r="1.7"/>
+    <circle class="dot-border" cx="890.6071428571429" cy="516.25" r="1.7"/>
+    <circle class="dot-border" cx="909.75" cy="526.25" r="1.7"/>
+    <circle class="dot-border" cx="928.8928571428571" cy="536.25" r="1.7"/>
+    <circle class="dot-border" cx="948.0357142857142" cy="546.25" r="1.7"/>
+    <circle class="dot-border" cx="967.1785714285714" cy="556.25" r="1.7"/>
+    <path class="accent" d="M 820 548 C 790 475, 850 394, 940 385"/>
+    <polyline class="accent" points="925.840905104895,396.1139566200077 940,385 923.9151419966428,376.9205604766273"/>
+    <path class="accent" d="M 1104 475 C 1132 548, 1078 632, 984 641"/>
+    <polyline class="accent" points="998.159094895105,629.8860433799923 984,641 1000.0848580033572,649.0794395233727"/>
+    <circle class="faint" cx="960" cy="508" r="34"/>
+    <circle class="hair" cx="960" cy="508" r="64"/>
+    <circle class="dot" cx="960" cy="508" r="8"/>
+    <polygon class="paper" points="507.416697508023,355.0 801.8653347947321,525.0 680.6217782649107,595.0 386.17314097820156,425.0"/>
+    <polygon class="paper-faint" points="516.4233617073812,377.0 763.7602170282169,519.8000000000001 678.8897274573419,568.8000000000001 431.55287213650615,426.0"/>
+    <polygon class="paper-faint" points="329.8814897322131,507.5 736.9134295108992,742.5 572.3686027918559,837.5 165.33666301316975,602.5"/>
+    <circle class="dot-muted" cx="343.2327147072232" cy="538.9583333333333" r="1.35"/>
+    <circle class="dot-muted" cx="411.07137133700417" cy="578.125" r="1.35"/>
+    <circle class="dot-muted" cx="478.91002796678526" cy="617.2916666666665" r="1.35"/>
+    <circle class="dot-muted" cx="546.7486845965662" cy="656.4583333333335" r="1.35"/>
+    <circle class="dot-muted" cx="614.5873412263472" cy="695.625" r="1.35"/>
+    <circle class="dot-muted" cx="682.4259978561283" cy="734.7916666666666" r="1.35"/>
+    <circle class="dot-muted" cx="302.09650802746233" cy="562.7083333333333" r="1.35"/>
+    <circle class="dot-muted" cx="369.9351646572434" cy="601.875" r="1.35"/>
+    <circle class="dot-muted" cx="437.77382128702436" cy="641.0416666666666" r="1.35"/>
+    <circle class="dot-muted" cx="505.61247791680546" cy="680.2083333333333" r="1.35"/>
+    <circle class="dot-muted" cx="573.4511345465864" cy="719.375" r="1.35"/>
+    <circle class="dot-muted" cx="641.2897911763674" cy="758.5416666666667" r="1.35"/>
+    <circle class="dot-muted" cx="260.9603013477015" cy="586.4583333333333" r="1.35"/>
+    <circle class="dot-muted" cx="328.79895797748253" cy="625.625" r="1.35"/>
+    <circle class="dot-muted" cx="396.6376146072636" cy="664.7916666666666" r="1.35"/>
+    <circle class="dot-muted" cx="464.4762712370446" cy="703.9583333333334" r="1.35"/>
+    <circle class="dot-muted" cx="532.3149278668255" cy="743.125" r="1.35"/>
+    <circle class="dot-muted" cx="600.1535844966065" cy="782.2916666666666" r="1.35"/>
+    <circle class="dot-muted" cx="219.82409466794067" cy="610.2083333333333" r="1.35"/>
+    <circle class="dot-muted" cx="287.6627512977217" cy="649.375" r="1.35"/>
+    <circle class="dot-muted" cx="355.5014079275028" cy="688.5416666666666" r="1.35"/>
+    <circle class="dot-muted" cx="423.34006455728377" cy="727.7083333333333" r="1.35"/>
+    <circle class="dot-muted" cx="491.1787211870648" cy="766.875" r="1.35"/>
+    <circle class="dot-muted" cx="559.0173778168457" cy="806.0416666666667" r="1.35"/>
+    <line class="muted" x1="362.01103221261576" x2="581.8082796931063" y1="573.5500000000001" y2="700.45"/>
+    <line class="faint" x1="352.7445603921223" x2="515.5573363035967" y1="602.4000000000001" y2="696.4"/>
+    <circle class="dot" cx="645.4265058551111" cy="502.44000000000005" r="11"/>
+    <g transform="translate(1270,528) rotate(-13)">
+      <rect class="paper" height="340" rx="30" ry="30" width="176" x="-88" y="-170"/>
+      <rect class="paper-faint" height="242" rx="18" ry="18" width="124" x="-62" y="-132"/>
+      <line class="faint" x1="-35" x2="35" y1="136" y2="136"/>
+      <line class="faint" x1="-35" x2="35" y1="-80" y2="-80"/>
+      <line class="muted" x1="-35" x2="35" y1="-25" y2="-25"/>
+      <line class="faint" x1="-35" x2="35" y1="30" y2="30"/>
+      <circle class="dot" cx="0" cy="-82" r="7"/>
+    </g>
+    <polygon class="paper" points="869.7372055837118,515.0 1224.8076211353316,720.0 1034.2820323027552,830.0 679.2116167511352,625.0"/>
+    <polyline class="faint" points="1160.89494633604,683.1 1224.8076211353316,720.0 1190.513015145468,739.8000000000001"/>
+    <line class="muted" x1="876.4922037332303" x2="1054.0274115090403" y1="584.8999999999999" y2="687.4"/>
+    <line class="faint" x1="847.913365408344" x2="1025.448573184154" y1="601.4000000000001" y2="703.9000000000001"/>
+    <line class="muted" x1="819.3345270834575" x2="996.8697348592674" y1="617.9000000000001" y2="720.4000000000001"/>
+    <line class="faint" x1="790.755688758571" x2="968.2908965343809" y1="634.4" y2="736.9"/>
+    <circle class="dot" cx="1028.5662646377777" cy="743.1" r="9"/>
+    <path class="dash" d="M 740 540 C 825 520, 760 455, 842 498"/>
+    <path class="dash" d="M 1135 500 C 1188 430, 1255 426, 1210 480"/>
+    <path class="dash" d="M 955 664 C 820 718, 759 652, 850 588"/>
+    <path class="dash" d="M 1038 620 C 1150 716, 1250 650, 1225 565"/>
+    <circle class="dot" cx="800" cy="513" r="6"/>
+    <circle class="faint" cx="800" cy="513" r="18"/>
+    <circle class="dot" cx="1190" cy="471" r="6"/>
+    <circle class="faint" cx="1190" cy="471" r="18"/>
+    <circle class="dot" cx="884" cy="619" r="6"/>
+    <circle class="faint" cx="884" cy="619" r="18"/>
+    <circle class="dot" cx="1174" cy="625" r="6"/>
+    <circle class="faint" cx="1174" cy="625" r="18"/>
+    <line class="accent-thin" x1="510" x2="560" y1="760" y2="790"/>
+    <line class="accent-thin" x1="510" x2="560" y1="790" y2="760"/>
+    <line class="accent-thin" x1="1354" x2="1390" y1="727" y2="690"/>
+  </g>
+</svg>

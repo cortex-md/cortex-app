@@ -1,0 +1,6 @@
+node_modules/
+.tanstack/
+.content-collections/
+.impeccable/
+.output/
+.agents/

@@ -1,0 +1,36 @@
+---
+title: Local Markdown
+description: Cortex keeps Markdown files on disk as the source of truth, so notes stay readable with or without the app.
+section: Workspace
+sectionOrder: 1
+order: 0
+---
+
+Cortex treats the folder on your computer as the durable workspace. The app adds navigation, search, preview, and extension surfaces around the files instead of replacing them.
+
+## Source of truth
+
+The file on disk is the canonical note. You can open it in another editor, back it up, version it with Git, or move it into another folder without asking Cortex for an export.
+
+```md
+# Research note
+
+Tags: #writing #local-first
+
+The note is still text. Cortex adds the workspace around it.
+```
+
+## Markdown compatibility
+
+The renderer supports common Markdown patterns used in technical notes: headings, lists, links, tables, code blocks, task lists, callouts, and wiki-style references where the app can resolve them.
+
+## Metadata stays inspectable
+
+Properties and tags should remain understandable from the file. Cortex can make metadata easier to scan, but the content should still make sense in plain text.
+
+## Related docs
+
+<DocGrid>
+  <DocCard href="/docs/workspace/organizing" title="Organizing" description="Combine folders, tags, bookmarks, and properties without choosing one permanent system." />
+  <DocCard href="/docs/plugins/overview" title="Plugin Development" description="Add editor behavior while leaving Markdown files portable." />
+</DocGrid>

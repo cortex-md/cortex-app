@@ -1,0 +1,116 @@
+---
+title: Views, Settings, and UI
+description: Build portable host-rendered plugin views, settings, sidebar items, status items, and menus.
+section: Plugin Development
+sectionOrder: 3
+order: 7
+---
+
+Plugins render UI through portable descriptors. Cortex owns the actual React/web rendering so plugin
+UI can remain portable across hosts.
+
+## Register a View
+
+```ts
+import type { ViewDescriptor, ViewDispatch, ViewState } from "@cortex.md/api"
+
+function renderCounter(state: ViewState, _dispatch: ViewDispatch): ViewDescriptor {
+	const count = Number(state.state.count ?? 0)
+	return {
+		type: "stack",
+		gap: "sm",
+		children: [
+			{ type: "heading", value: "Counter" },
+			{ type: "text", value: `Count: ${count}` },
+			{ type: "button", label: "Increment", action: "increment", variant: "primary" },
+		],
+	}
+}
+
+this.registerView({
+	id: "counter",
+	label: "Counter",
+	icon: "plus",
+	location: "sidebar-left",
+	initialState: { count: 0 },
+	reduce: (state, action) => {
+		if (action === "increment") return { ...state, count: Number(state.count ?? 0) + 1 }
+		return state
+	},
+	render: renderCounter,
+})
+```
+
+Declare `ui:views`.
+
+## View Locations
+
+Views can render in:
+
+- `tab`
+- `sidebar-left`
+- `sidebar-right`
+- `modal`
+
+Modal views also require `ui:modals`.
+
+## Sidebar, Status Bar, and Context Menus
+
+```ts
+this.registerSidebarItem({
+	id: "counter",
+	label: "Counter",
+	icon: "plus",
+	viewId: "counter",
+})
+
+this.registerStatusBarItem({
+	id: "counter-status",
+	position: "right",
+	icon: "plus",
+	text: "Counter",
+	tooltip: "Open counter",
+	onClick: () => this.api.workspace.openView("counter"),
+})
+
+this.registerContextMenuItem({
+	id: "copy-path",
+	label: "Copy Path",
+	location: "file",
+	action: async (context) => {
+		if (context.location === "file") await this.api.data.write("last-path.txt", context.filePath)
+	},
+})
+```
+
+Required capabilities are `ui:sidebar`, `ui:statusbar`, and `ui:contextmenu`.
+
+## Settings Tabs
+
+```ts
+this.registerSettingsTab({
+	id: "counter-settings",
+	label: "Counter",
+	icon: "settings",
+	settings: [
+		{
+			key: "enabled",
+			label: "Enabled",
+			type: "boolean",
+			default: true,
+		},
+	],
+})
+```
+
+Supported setting field types are `text`, `number`, `boolean`, `select`, `slider`, `color`, and
+`folder-path`.
+
+## Portable UI Nodes
+
+Use the descriptor nodes exposed by `@cortex.md/api`: stack, row, text, heading, button,
+icon-button, input, textarea, toggle, checkbox, select, slider, icon, separator, list, list-item,
+scroll-area, badge, progress, empty, markdown, setting-row, item, alert, tabs, and table.
+
+Do not expose React components, DOM nodes, inline styles, arbitrary event handlers, or free
+`className` values.

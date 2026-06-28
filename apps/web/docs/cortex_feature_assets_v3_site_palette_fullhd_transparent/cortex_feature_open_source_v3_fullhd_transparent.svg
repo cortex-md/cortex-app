@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink" baseProfile="full" height="1080" version="1.1" viewBox="0 0 1920 1080" width="1920">
+  <title>Cortex Open Source feature illustration</title>
+  <defs>
+    <style type="text/css"><![CDATA[
+        .strong { fill:none; stroke:#17140f; stroke-width:2.45; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.76; vector-effect:non-scaling-stroke; }
+        .main { fill:none; stroke:#17140f; stroke-width:2.05; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.58; vector-effect:non-scaling-stroke; }
+        .muted { fill:none; stroke:#6b6459; stroke-width:1.65; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.58; vector-effect:non-scaling-stroke; }
+        .faint { fill:none; stroke:#a69c8a; stroke-width:1.25; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.36; vector-effect:non-scaling-stroke; }
+        .hair { fill:none; stroke:#d7cfbf; stroke-width:1.05; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.58; vector-effect:non-scaling-stroke; }
+        .dash { fill:none; stroke:#6b6459; stroke-width:1.45; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.43; stroke-dasharray:5 11; vector-effect:non-scaling-stroke; }
+        .dash-accent { fill:none; stroke:#875000; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.42; stroke-dasharray:5 10; vector-effect:non-scaling-stroke; }
+        .accent { fill:none; stroke:#e3a12b; stroke-width:2.65; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.95; vector-effect:non-scaling-stroke; }
+        .accent-thin { fill:none; stroke:#e3a12b; stroke-width:1.65; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.82; vector-effect:non-scaling-stroke; }
+        .accent-border { fill:none; stroke:#875000; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.62; vector-effect:non-scaling-stroke; }
+        .paper { fill:#fbf9f4; fill-opacity:.20; stroke:#17140f; stroke-width:2.05; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.50; vector-effect:non-scaling-stroke; }
+        .paper-faint { fill:#f4f0e7; fill-opacity:.13; stroke:#a69c8a; stroke-width:1.35; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.44; vector-effect:non-scaling-stroke; }
+        .subtle-fill { fill:#f7e5bf; fill-opacity:.30; stroke:#875000; stroke-width:1.55; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.38; vector-effect:non-scaling-stroke; }
+        .accent-fill { fill:#e3a12b; fill-opacity:.20; stroke:#e3a12b; stroke-width:2.05; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.80; vector-effect:non-scaling-stroke; }
+        .dark-fill { fill:#17140f; fill-opacity:.10; stroke:#17140f; stroke-width:2.0; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.52; vector-effect:non-scaling-stroke; }
+        .dot { fill:#e3a12b; fill-opacity:.88; stroke:none; }
+        .dot-border { fill:#875000; fill-opacity:.65; stroke:none; }
+        .dot-muted { fill:#17140f; fill-opacity:.32; stroke:none; }
+        .dot-faint { fill:#a69c8a; fill-opacity:.36; stroke:none; }
+        .label { font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace; fill:#17140f; fill-opacity:.56; font-size:32px; letter-spacing:1px; }
+        .label-muted { font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace; fill:#6b6459; fill-opacity:.52; font-size:24px; letter-spacing:1px; }
+        .small-mono { font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace; fill:#875000; fill-opacity:.62; font-size:22px; letter-spacing:1.4px; }
+    ]]></style>
+  </defs>
+  <g id="open-source-v2">
+    <ellipse class="hair" cx="960" cy="704" rx="520" ry="120"/>
+    <polyline class="strong" points="790,415 650,560 790,705"/>
+    <polyline class="strong" points="1130,415 1270,560 1130,705"/>
+    <line class="muted" x1="1025" x2="895" y1="392" y2="728"/>
+    <circle class="subtle-fill" cx="960" cy="560" r="54"/>
+    <circle class="dot-border" cx="960" cy="560" r="13"/>
+    <path class="paper" d="M 570 418 L 570 575 L 730 575 L 730 468 L 632 468"/>
+    <path class="accent" d="M 620 465 C 620 390, 750 382, 742 468"/>
+    <circle class="dot" cx="650" cy="525" r="10"/>
+    <line class="accent-border" x1="650" x2="650" y1="535" y2="557"/>
+    <path class="dash" d="M 620 750 C 675.0 695, 675.0 745, 730 690"/>
+    <path class="dash-accent" d="M 730 690 C 826.0 635, 826.0 745, 922 690"/>
+    <path class="dash-accent" d="M 922 690 C 1023.0 635, 1023.0 725, 1124 670"/>
+    <path class="dash-accent" d="M 1124 670 C 1226.0 615, 1226.0 705, 1328 650"/>
+    <path class="dash" d="M 1328 650 C 1369.0 595, 1369.0 800, 1410 745"/>
+    <path class="dash" d="M 730 690 C 780.0 635, 780.0 800, 830 745"/>
+    <path class="dash" d="M 830 745 C 876.0 690, 876.0 745, 922 690"/>
+    <path class="dash" d="M 922 690 C 976.0 635, 976.0 800, 1030 745"/>
+    <path class="dash" d="M 1030 745 C 1077.0 690, 1077.0 725, 1124 670"/>
+    <path class="dash" d="M 1124 670 C 1182.0 615, 1182.0 775, 1240 720"/>
+    <path class="dash-accent" d="M 1240 720 C 1325.0 665, 1325.0 800, 1410 745"/>
+    <path class="dash" d="M 730 690 C 722.5 635, 722.5 890, 715 835"/>
+    <path class="dash" d="M 715 835 C 812.5 780, 812.5 890, 910 835"/>
+    <path class="dash" d="M 910 835 C 1000.0 780, 1000.0 895, 1090 840"/>
+    <path class="dash-accent" d="M 922 690 C 871.0 635, 871.0 560, 820 505"/>
+    <path class="dash" d="M 820 505 C 870.0 450, 870.0 510, 920 455"/>
+    <path class="dash" d="M 920 455 C 977.5 400, 977.5 525, 1035 470"/>
+    <path class="dash" d="M 1035 470 C 1076.5 415, 1076.5 455, 1118 400"/>
+    <path class="dash" d="M 1118 400 C 1171.5 345, 1171.5 500, 1225 445"/>
+    <circle class="paper-faint" cx="620" cy="750" r="18"/>
+    <circle class="dot-muted" cx="620" cy="750" r="5"/>
+    <circle class="paper-faint" cx="730" cy="690" r="18"/>
+    <circle class="dot-muted" cx="730" cy="690" r="5"/>
+    <circle class="paper-faint" cx="830" cy="745" r="18"/>
+    <circle class="dot-muted" cx="830" cy="745" r="5"/>
+    <circle class="accent-fill" cx="922" cy="690" r="23"/>
+    <circle class="dot" cx="922" cy="690" r="5"/>
+    <circle class="paper-faint" cx="1030" cy="745" r="18"/>
+    <circle class="dot-muted" cx="1030" cy="745" r="5"/>
+    <circle class="paper-faint" cx="1124" cy="670" r="18"/>
+    <circle class="dot-muted" cx="1124" cy="670" r="5"/>
+    <circle class="paper-faint" cx="1240" cy="720" r="18"/>
+    <circle class="dot-muted" cx="1240" cy="720" r="5"/>
+    <circle class="accent-fill" cx="1328" cy="650" r="23"/>
+    <circle class="dot" cx="1328" cy="650" r="5"/>
+    <circle class="paper-faint" cx="1410" cy="745" r="18"/>
+    <circle class="dot-muted" cx="1410" cy="745" r="5"/>
+    <circle class="paper-faint" cx="820" cy="505" r="18"/>
+    <circle class="dot-muted" cx="820" cy="505" r="5"/>
+    <circle class="paper-faint" cx="920" cy="455" r="18"/>
+    <circle class="dot-muted" cx="920" cy="455" r="5"/>
+    <circle class="paper-faint" cx="1035" cy="470" r="18"/>
+    <circle class="dot-muted" cx="1035" cy="470" r="5"/>
+    <circle class="accent-fill" cx="1118" cy="400" r="18"/>
+    <circle class="dot" cx="1118" cy="400" r="5"/>
+    <circle class="paper-faint" cx="1225" cy="445" r="18"/>
+    <circle class="dot-muted" cx="1225" cy="445" r="5"/>
+    <circle class="paper-faint" cx="715" cy="835" r="18"/>
+    <circle class="dot-muted" cx="715" cy="835" r="5"/>
+    <circle class="paper-faint" cx="910" cy="835" r="18"/>
+    <circle class="dot-muted" cx="910" cy="835" r="5"/>
+    <circle class="paper-faint" cx="1090" cy="840" r="18"/>
+    <circle class="dot-muted" cx="1090" cy="840" r="5"/>
+    <polygon class="accent-fill" points="1340.0,370.0 1348.2289935320946,392.6737620787507 1372.3359215540352,393.4934221912518 1353.3147912281322,408.3262379212493 1359.984698577944,431.5065778087482 1340.0,418.0 1320.015301422056,431.5065778087482 1326.6852087718678,408.3262379212493 1307.6640784459648,393.4934221912518 1331.7710064679054,392.6737620787507"/>
+    <polygon class="paper-faint" points="720.0,276.0 725.8778525229247,291.90983005625054 742.8253563910837,292.58359213500125 729.5105651629515,303.09016994374946 734.1068460550193,319.41640786499875 720.0,310.0 705.8931539449807,319.41640786499875 710.4894348370485,303.09016994374946 697.1746436089163,292.58359213500125 714.1221474770753,291.90983005625054"/>
+    <rect class="paper-faint" height="94" rx="18" ry="18" width="155" x="438" y="655"/>
+    <line class="muted" x1="460" x2="557" y1="685" y2="685"/>
+    <line class="hair" x1="460" x2="528" y1="710" y2="710"/>
+    <circle class="dot" cx="567" cy="725" r="5"/>
+    <rect class="paper-faint" height="98" rx="18" ry="18" width="205" x="1265" y="812"/>
+    <line class="muted" x1="1287" x2="1434" y1="842" y2="842"/>
+    <line class="hair" x1="1287" x2="1405" y1="867" y2="867"/>
+    <circle class="dot" cx="1444" cy="886" r="5"/>
+    <rect class="paper-faint" height="84" rx="18" ry="18" width="170" x="1116" y="295"/>
+    <line class="muted" x1="1138" x2="1250" y1="325" y2="325"/>
+    <line class="hair" x1="1138" x2="1221" y1="350" y2="350"/>
+    <circle class="dot" cx="1260" cy="355" r="5"/>
+    <line class="muted" x1="515" x2="515" y1="780" y2="838"/>
+    <line class="muted" x1="515" x2="560" y1="838" y2="870"/>
+    <line class="muted" x1="515" x2="470" y1="838" y2="870"/>
+    <circle class="dot-border" cx="515" cy="780" r="10"/>
+    <circle class="dot-border" cx="560" cy="870" r="10"/>
+    <circle class="dot-border" cx="470" cy="870" r="10"/>
+  </g>
+</svg>

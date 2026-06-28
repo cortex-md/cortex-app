@@ -1,0 +1,15 @@
+{
+	"name": "@cortex/settings",
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./defaults": "./src/defaults.ts",
+		"./types": "./src/types.ts"
+	},
+	"dependencies": {
+		"@cortex/platform": "workspace:*",
+		"zustand": "^5.0.11",
+		"zod": "^3.24.1"
+	}
+}

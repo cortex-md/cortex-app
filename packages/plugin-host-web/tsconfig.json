@@ -1,0 +1,27 @@
+{
+	"compilerOptions": {
+		"composite": true,
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"jsx": "react-jsx",
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"declaration": true,
+		"declarationMap": true,
+		"outDir": "dist",
+		"baseUrl": "."
+	},
+	"include": ["src"],
+	"references": [
+		{ "path": "../plugin-host-core" },
+		{ "path": "../plugin-api" },
+		{ "path": "../platform" },
+		{ "path": "../renderer" },
+		{ "path": "../ui" }
+	]
+}

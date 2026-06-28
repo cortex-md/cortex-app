@@ -1,0 +1,26 @@
+{
+	"name": "@cortex/plugin-host-core",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"scripts": {
+		"publish": "npm publish"
+	},
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@cortex/commands": "workspace:*",
+		"@cortex/properties": "workspace:*",
+		"@cortex/renderer": "workspace:*",
+		"@cortex.md/api": "workspace:*",
+		"@cortex/platform": "workspace:*",
+		"css-tree": "^3.2.1",
+		"zustand": "^5.0.0",
+		"immer": "^10.1.1"
+	},
+	"devDependencies": {
+		"@types/css-tree": "^2.3.11",
+		"typescript": "~5.8.3"
+	}
+}

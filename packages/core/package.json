@@ -1,0 +1,20 @@
+{
+	"name": "@cortex/core",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@cortex/platform": "workspace:*",
+		"@cortex/properties": "workspace:*",
+		"@cortex/settings": "workspace:*",
+		"@cortex/templates": "workspace:*",
+		"immer": "^10.1.1",
+		"zustand": "^5.0.0"
+	},
+	"devDependencies": {
+		"typescript": "~5.8.3"
+	}
+}

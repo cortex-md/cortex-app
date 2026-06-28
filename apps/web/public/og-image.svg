@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+	<rect width="1200" height="630" fill="#F4F0E7"/>
+	<circle cx="1080" cy="68" r="260" fill="#E3A12B" fill-opacity=".16"/>
+	<path d="M0 524H1200" stroke="#D7CFBF"/>
+	<path d="M82 0V630" stroke="#D7CFBF"/>
+	<rect x="82" y="72" width="48" height="48" rx="13" fill="#E3A12B"/>
+	<path d="M97 88H115V92H101V100H113V104H101V114H97V88Z" fill="#17140F"/>
+	<text x="148" y="106" fill="#17140F" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="28" font-weight="650" letter-spacing="-1">Cortex</text>
+	<text x="82" y="238" fill="#17140F" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="74" font-weight="600" letter-spacing="-4">Your knowledge should</text>
+	<text x="82" y="326" fill="#17140F" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="74" font-weight="400" letter-spacing="-4">outlive your tools.</text>
+	<rect x="82" y="352" width="526" height="8" rx="4" fill="#E3A12B"/>
+	<text x="82" y="424" fill="#6B6459" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="25" font-weight="400">A local-first, open-source Markdown workspace.</text>
+	<rect x="840" y="192" width="278" height="280" rx="20" fill="#FBF9F4" stroke="#A69C8A" stroke-width="2"/>
+	<rect x="840" y="192" width="82" height="280" rx="20" fill="#E2DACD"/>
+	<path d="M922 192V472" stroke="#A69C8A" stroke-width="2"/>
+	<rect x="946" y="230" width="118" height="12" rx="6" fill="#E3A12B"/>
+	<rect x="946" y="268" width="142" height="22" rx="6" fill="#28231D"/>
+	<rect x="946" y="310" width="130" height="8" rx="4" fill="#AAA092"/>
+	<rect x="946" y="334" width="152" height="8" rx="4" fill="#C1B8AA"/>
+	<rect x="946" y="376" width="152" height="62" rx="10" fill="#EFE9DE"/>
+	<text x="82" y="564" fill="#9E6308" font-family="ui-monospace, monospace" font-size="17" font-weight="700" letter-spacing="2">CORTEXAPP.COM</text>
+</svg>

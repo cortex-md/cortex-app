@@ -1,0 +1,58 @@
+# Light, Dark, and System Modes
+
+Community themes provide paired light and dark CSS files. Cortex chooses the active variant from
+appearance settings and system color-scheme when the user selects system mode.
+
+## Runtime Classes
+
+For manifest name `warm-notes`, Cortex applies:
+
+```html
+<body class="theme-warm-notes-light" data-theme-scheme="light">
+```
+
+or:
+
+```html
+<body class="theme-warm-notes-dark" data-theme-scheme="dark">
+```
+
+Write variant-specific variables inside the runtime class.
+
+## Scheme Selectors
+
+Use `data-theme-scheme` for rules that should follow the effective scheme:
+
+```css
+body[data-theme-scheme="dark"] .markdown-surface img {
+	filter: brightness(0.92);
+}
+```
+
+Do not write community theme behavior against built-in selectors such as `.theme-ink` or
+`.theme-paper`.
+
+## Color Scheme
+
+Set the browser color scheme in each file:
+
+```css
+body.theme-warm-notes-light {
+	color-scheme: light;
+}
+
+body.theme-warm-notes-dark {
+	color-scheme: dark;
+}
+```
+
+This helps native form controls, scrollbars, and browser defaults align with the theme.
+
+## Pairing Guidance
+
+- Keep variable names aligned between `light.css` and `dark.css`.
+- Test overlays, settings, editor selection, search matches, callouts, and code blocks in both
+  variants.
+- Keep dark backgrounds neutral enough that syntax colors and accent states stay readable.
+- Recompute foregrounds for contrast instead of reusing light-mode foregrounds in dark mode.
+
