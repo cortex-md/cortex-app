@@ -16,6 +16,12 @@
 
 - Use `@expo/ui` universal components for settings-style grouped controls, toggles, sliders,
   buttons, menus, and similar native controls.
+- The main workspace follows the Inkdown mobile shell as a visual/UX reference only: calm
+  onboarding before any shell, workspace switcher at the top of the drawer, icon action bar,
+  Lucide file tree rows, and long-press bottom sheets. Do not import Inkdown code or business
+  logic.
+- Do not use `@expo/ui` `TextInput` in mobile forms until the Android Expo Go view-config warnings
+  are resolved. Use the app-local React Native `MobileTextField` wrapper for onboarding and sheets.
 - Do not import `@cortex/ui`; desktop/web primitives are not mobile shell components.
 - Do not add Tauri, IPC, Node, browser DOM, or desktop-only platform imports to native React Native
   screens.
@@ -23,15 +29,28 @@
   content insets own safe areas; scroll screens should use
   `contentInsetAdjustmentBehavior="automatic"`.
 - Future large note lists should use virtualized React Native list surfaces, not `@expo/ui` `List`.
-- Phase 1 note lists use React Native virtualized lists. Use `@expo/ui` for sheets, grouped controls,
-  inputs, settings rows, and other native controls around those lists.
+- Note lists use React Native virtualized lists. Use `@expo/ui` for sheets, grouped controls,
+  settings rows, and other native controls around those lists.
 - Native note actions should live in stack header actions, gestures, context sheets, and swipe
   affordances. Keep large note collections on `FlatList`.
+
+## App Gate and Onboarding
+
+- `MobileAppGate` owns startup: platform runtime, app info, first-run marker, recents, and the
+  app-local `lastActiveVaultPath` file under the mobile app data directory.
+- If no vault opens during startup, render only `MobileOnboardingScreen`. Do not mount the sidebar,
+  stack shell, file list, or workspace chrome before onboarding completes.
+- Mobile onboarding should stay calm and focused: pick a vault folder, collect vault identity
+  (name, color, icon), save basic sync preferences through core, then open the pending welcome note.
+- The sidebar is workspace-only. Vault creation/opening belongs in onboarding and vault-switcher
+  flows, not in an empty notes list.
 
 ## Editor Boundary
 
 - The mobile Markdown editor is a DOM Component/WebView boundary. Keep `MobileCodeMirrorEditor`
   isolated behind a `"use dom"` file.
+- In Expo Go, pass `dom.useExpoDOMWebView = false` and keep `react-native-webview` as a direct
+  dependency so the editor does not require `ExpoDomWebViewModule`.
 - Native screens pass only serializable props/actions into the DOM editor. Top-level async functions
   are allowed; nested functions, class instances, CodeMirror extensions, plugin objects, and stores
   must not cross the bridge.
@@ -63,10 +82,16 @@
 - Mobile vaults use logical Cortex paths such as `/mobile-vaults/<uuid>`. The Expo adapter owns the
   persisted root map from logical path to native `file://` or Android `content://` directory URI.
   Shared stores and screens must not treat provider URIs as vault paths.
+- App-data `file://` paths are not mobile vault paths. Adapter path guards must classify app
+  storage before calling `normalizeMobileVaultPath`.
+- Android `content://` vault roots cannot be watched with Expo FileSystem in Expo Go. Return a
+  no-op watcher and rely on manual refresh until a platform-specific watcher exists.
 - `dialog.pickFolder` is implemented with `Directory.pickDirectoryAsync()`. Android should reopen
   through persistable URI grants. iOS scoped directory access may need reauthorization after restart;
   surface that as an explicit reauthorize/open-folder state instead of silently falling back.
-- Keep import/export, individual file pickers, sync, marketplace, and community plugin discovery out
-  of this foundation pass.
+- Keep import/export, individual file pickers, remote sync engine, marketplace, and community plugin
+  discovery out of this foundation pass.
 - Methods that are not real yet should reject clearly or return an explicit unsupported state. Never
-  silently fake sync, keychain, remote vault, or search success.
+  silently fake keychain, remote vault, search, or storage success. `sync.updateSyncPreferences` is
+  the narrow exception: it resolves as a no-op on mobile so core can persist local preferences while
+  the remote sync engine remains unsupported.

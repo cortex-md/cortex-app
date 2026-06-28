@@ -17,6 +17,7 @@ use crate::sync::http::{
 };
 use crate::sync::ignore::{should_ignore, SyncPreferences};
 use crate::sync::initial::InitialSync;
+use crate::sync::paths::to_vault_relative_path;
 use crate::sync::queue::{QueueItem, SyncOp, SyncQueue};
 use crate::sync::reconcile::Reconciler;
 use crate::sync::sse::SseClient;
@@ -1044,16 +1045,9 @@ impl SyncEngine {
 
     fn to_relative_path(&self, absolute_path: &str) -> String {
         if let Some(ref vault_path) = self.vault_path {
-            let prefix = if vault_path.ends_with('/') {
-                vault_path.clone()
-            } else {
-                format!("{}/", vault_path)
-            };
-            if absolute_path.starts_with(&prefix) {
-                return absolute_path[prefix.len()..].to_string();
-            }
+            return to_vault_relative_path(vault_path, absolute_path);
         }
-        absolute_path.to_string()
+        absolute_path.replace('\\', "/")
     }
 
     fn start_sse_listener(&mut self) -> bool {

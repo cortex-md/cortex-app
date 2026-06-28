@@ -15,6 +15,9 @@
 - Hot note reads should use `FileSystem.readFileSnapshot(...)` when callers need content, hash, and
   filesystem metadata together. Keep this contract platform-neutral so desktop and future mobile
   adapters can provide the same cache-friendly path.
+- Fresh note creation should use `FileSystem.writeFileSnapshot(...)` when the adapter provides it so
+  content, hash, and filesystem metadata come back from the same native write. Shared code must keep
+  a `writeFile` plus post-write fingerprint fallback for adapters that do not implement it yet.
 - Cortex Cloud subscription status belongs on the `Subscription` contract. The desktop app must not
   create payment checkouts; billing CTAs should open the configured web billing URL. Sync access
   denial events distinguish `kind: "subscription"` from `kind: "vault"` so shared stores can
@@ -27,6 +30,11 @@
 - `VaultMetadata.displayPath` and `VaultRegistryEntry.displayPath` are optional presentation fields.
   Adapters may use them to show a user-facing provider path while keeping `path` stable for shared
   core logic.
+- Desktop adapters expose stable logical paths with `/` separators, including on Windows. This
+  includes sync event paths, conflict paths, deleted-file paths, vault paths, file entries, dialogs,
+  and watcher events. Shared stores and React features should compare and compose `path` values
+  using that normalized form and use `displayPath` only when showing the native provider path to
+  users.
 - Expo mobile adapters should implement the full `Platform` object from the start, even when a
   capability is not ready. Unsupported Phase 0 methods should reject clearly or return typed
   unsupported states such as notification/app-update unsupported results; they must not silently

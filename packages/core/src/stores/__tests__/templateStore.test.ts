@@ -16,21 +16,44 @@ function mockPlatform(files = new Map<string, string>()) {
 	const writeFile = vi.fn(async (path: string, content: string) => {
 		files.set(path, content)
 	})
+	const writeFileSnapshot = vi.fn(async (path: string, content: string) => {
+		files.set(path, content)
+		return {
+			content,
+			hash: `hash:${path}`,
+			metadata: { createdAt: 1, modifiedAt: 2 },
+		}
+	})
 	const deleteFile = vi.fn(async (path: string) => {
 		files.delete(path)
 	})
 	const createDir = vi.fn(async () => undefined)
 	const hashFile = vi.fn(async (path: string) => `hash:${path}`)
+	const getFileMetadata = vi.fn(async (path: string) => {
+		if (!files.has(path)) throw new Error(`Missing ${path}`)
+		return { createdAt: 1, modifiedAt: 2 }
+	})
 	vi.mocked(getPlatform).mockReturnValue({
 		fs: {
 			readFile,
+			writeFileSnapshot,
 			writeFile,
 			deleteFile,
 			createDir,
 			hashFile,
+			getFileMetadata,
 		},
 	} as never)
-	return { files, readFile, writeFile, deleteFile, createDir, hashFile }
+	return {
+		files,
+		readFile,
+		writeFileSnapshot,
+		writeFile,
+		deleteFile,
+		createDir,
+		hashFile,
+		getFileMetadata,
+	}
 }
 
 beforeEach(() => {
@@ -94,6 +117,39 @@ describe("templateStore", () => {
 			dirty: false,
 			hash: `hash:${filePath}`,
 		})
+		expect(platform.writeFileSnapshot).toHaveBeenCalledWith(filePath, "# Weekly Review\n2026-06-18")
+		expect(platform.hashFile).not.toHaveBeenCalled()
+	})
+
+	it("keeps a template-created note when post-write fingerprint reads fail", async () => {
+		const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+		try {
+			const platform = mockPlatform()
+			platform.writeFileSnapshot.mockRejectedValue(new Error("snapshot write unavailable"))
+			platform.hashFile.mockRejectedValue(new Error("file is temporarily locked"))
+			await useTemplateStore.getState().createTemplate(vault, {
+				name: "Weekly Review",
+				body: "# {{ note.title }}",
+				targetFolderPattern: "Reviews",
+				fileNamePattern: "{{ note.title | slug }}",
+			})
+
+			const filePath = await useTemplateStore.getState().createNoteFromTemplate(vault, {
+				templateId: "template-1",
+				noteTitle: "Weekly Review",
+			})
+
+			expect(filePath).toBe("/vault/Reviews/weekly-review.md")
+			expect(platform.files.get(filePath)).toBe("# Weekly Review")
+			expect(noteCache.getEntry(filePath)).toMatchObject({
+				content: "# Weekly Review",
+				dirty: false,
+				localCreatedAt: expect.any(Number),
+			})
+			expect(noteCache.getEntry(filePath)?.hash).toContain("local-created:")
+		} finally {
+			consoleError.mockRestore()
+		}
 	})
 
 	it("falls back to the note title slug when a saved title pattern renders empty", async () => {

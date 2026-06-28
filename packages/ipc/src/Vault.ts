@@ -5,22 +5,27 @@ import type {
 	VaultRegistryEntry,
 } from "@cortex/platform"
 import { invoke } from "@tauri-apps/api/core"
+import { normalizeFileEntries, normalizeVaultMetadata, normalizeVaultRegistryEntry } from "./path"
 
 export class Vault implements IVault {
 	async openVault(path: string): Promise<VaultMetadata> {
-		return await invoke<VaultMetadata>("open_vault", { path })
+		const metadata = await invoke<VaultMetadata>("open_vault", { path })
+		return normalizeVaultMetadata(metadata)
 	}
 
 	async scanVault(path: string): Promise<FileEntry[]> {
-		return await invoke<FileEntry[]>("scan_vault", { path })
+		const entries = await invoke<FileEntry[]>("scan_vault", { path })
+		return normalizeFileEntries(entries)
 	}
 
 	async getVaultMetadata(path: string): Promise<VaultMetadata> {
-		return await invoke<VaultMetadata>("get_vault_metadata", { path })
+		const metadata = await invoke<VaultMetadata>("get_vault_metadata", { path })
+		return normalizeVaultMetadata(metadata)
 	}
 
 	async readVaultRegistry(): Promise<VaultRegistryEntry[]> {
-		return await invoke<VaultRegistryEntry[]>("read_vault_registry")
+		const entries = await invoke<VaultRegistryEntry[]>("read_vault_registry")
+		return entries.map(normalizeVaultRegistryEntry)
 	}
 
 	async updateVaultRegistry(

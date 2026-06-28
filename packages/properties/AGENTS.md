@@ -20,6 +20,9 @@
   implementation details from production modules.
 - Shared schema reading belongs in `schemaPersistence.ts` when both schema writes and discovery
   need it; avoid making discovery import the writer/listener module.
+- Treat platform "missing file" and "missing parent directory" errors as an empty vault schema.
+  Mobile adapters may report `Directory does not exist`, `File does not exist`, or `Path does not
+  exist` for a fresh `.cortex/schema` folder.
 - Keep CodeMirror integration isolated to the `@cortex/properties/codemirror` subpath. Production
   value imports there must be dynamic so the desktop shell does not load CodeMirror before an
   editable surface needs it.

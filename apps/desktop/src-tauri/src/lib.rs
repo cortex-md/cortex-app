@@ -173,6 +173,7 @@ pub fn run() {
             commands::app_update::app_update_fetch_changelog,
             commands::fs::read_file,
             commands::fs::read_file_snapshot,
+            commands::fs::write_file_snapshot,
             commands::fs::write_file,
             commands::fs::atomic_write_file,
             commands::fs::write_binary_file,

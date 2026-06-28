@@ -17,7 +17,8 @@ describe("native controls", () => {
 		render(<Button>Continue</Button>)
 
 		const button = screen.getByRole("button", { name: "Continue" })
-		expect(button).toHaveClass("bg-brand", "rounded-full")
+		expect(button).toHaveAttribute("data-variant", "default")
+		expect(button).toHaveClass("bg-brand", "rounded-[var(--control-pill-radius,999px)]")
 	})
 
 	it("renders the reference switch size and toggles its state", async () => {
@@ -81,11 +82,14 @@ describe("native controls", () => {
 		)
 
 		expect(screen.getByRole("textbox", { name: "Default input" })).toHaveClass(
-			"h-8",
+			"h-[var(--input-height-md,32px)]",
 			"px-3",
 			"bg-input-bg",
 		)
-		expect(screen.getByRole("textbox", { name: "Compact input" })).toHaveClass("h-6", "px-2")
+		expect(screen.getByRole("textbox", { name: "Compact input" })).toHaveClass(
+			"h-[var(--control-height-sm,24px)]",
+			"px-2",
+		)
 		expect(screen.getByRole("group", { name: "Compact search" })).toHaveClass("h-8")
 		expect(screen.getByRole("textbox", { name: "Default input" })).not.toHaveClass(
 			"backdrop-blur-xl",

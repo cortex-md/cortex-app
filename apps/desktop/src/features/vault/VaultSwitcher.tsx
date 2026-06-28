@@ -99,7 +99,9 @@ export function VaultSwitcher() {
 									)}
 									<span className="flex flex-col min-w-0">
 										<span className="truncate text-xs">{entry.name}</span>
-										<span className="truncate text-[10px] text-muted-foreground">{entry.path}</span>
+										<span className="truncate text-[10px] text-muted-foreground">
+											{entry.displayPath ?? entry.path}
+										</span>
 									</span>
 								</span>
 								{entry.uuid === vault.uuid && <Check size={14} className="shrink-0 text-accent" />}

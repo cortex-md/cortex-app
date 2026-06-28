@@ -8,7 +8,7 @@ import {
 	validateTemplateManifest,
 } from "@cortex/templates"
 import { create } from "zustand"
-import { noteCache } from "../noteCache"
+import { resolveUniquePath, writeCleanNote } from "../utils/createdNote"
 import { getPortableFileNameError } from "../utils/fileName"
 
 export type { TemplateDefinition, TemplateManifest, TemplateRenderContext }
@@ -142,32 +142,6 @@ function normalizeMarkdownFileName(value: string): string {
 	const error = getPortableFileNameError(fileName)
 	if (error) throw new Error(error)
 	return fileName
-}
-
-async function fileExists(path: string): Promise<boolean> {
-	try {
-		await getPlatform().fs.readFile(path)
-		return true
-	} catch {
-		return false
-	}
-}
-
-async function resolveUniqueNotePath(
-	vaultPath: string,
-	targetFolder: string,
-	fileName: string,
-): Promise<string> {
-	const folderPath = targetFolder ? `${vaultPath}/${targetFolder}` : vaultPath
-	const extension = fileName.toLocaleLowerCase().endsWith(".md") ? ".md" : ""
-	const baseName = extension ? fileName.slice(0, -extension.length) : fileName
-	let candidate = `${folderPath}/${fileName}`
-	let suffix = 2
-	while (await fileExists(candidate)) {
-		candidate = `${folderPath}/${baseName} ${suffix}${extension}`
-		suffix++
-	}
-	return candidate
 }
 
 async function readManifest(vaultPath: string): Promise<TemplateManifest> {
@@ -376,13 +350,12 @@ export const useTemplateStore = create<TemplateState>((set, get) => ({
 
 	createNoteFromTemplate: async (vault, input) => {
 		const preview = await get().previewNoteFromTemplate(vault, input)
+		const folderPath = preview.targetFolder ? `${vault.path}/${preview.targetFolder}` : vault.path
 		const [filePath, content] = await Promise.all([
-			resolveUniqueNotePath(vault.path, preview.targetFolder, preview.fileName),
+			resolveUniquePath(folderPath, preview.fileName),
 			createNoteWithPropertyDefaults(vault.path, preview.content),
 		])
-		await getPlatform().fs.writeFile(filePath, content)
-		const hash = await getPlatform().fs.hashFile(filePath)
-		noteCache.primeClean(filePath, content, hash, { localCreated: true })
+		await writeCleanNote(filePath, content)
 		invalidatePropertySuggestions(vault.path)
 		return filePath
 	},

@@ -31,6 +31,7 @@ export interface WatchOptions {
 export interface FileSystem {
 	readFile(path: string): Promise<string>
 	readFileSnapshot(path: string): Promise<FileSnapshot>
+	writeFileSnapshot?(path: string, content: string): Promise<FileSnapshot>
 	writeFile(path: string, content: string): Promise<void>
 	atomicWriteFile(path: string, content: string): Promise<void>
 	writeBinaryFile(path: string, data: number[]): Promise<void>

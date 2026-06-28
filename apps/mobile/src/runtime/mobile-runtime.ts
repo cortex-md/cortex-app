@@ -1,5 +1,5 @@
 import { noteCache, useAppStore, useVaultStore } from "@cortex/core"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 
 let noteCacheStarted = false
 
@@ -15,11 +15,11 @@ function stopNoteCache(): void {
 	noteCacheStarted = false
 }
 
-export function useMobileRuntime(): void {
+export function useMobileRuntime(): boolean {
 	const loadAppInfo = useAppStore((state) => state.loadAppInfo)
 	const loadFirstRunOnboarding = useAppStore((state) => state.loadFirstRunOnboarding)
 	const loadRecentVaults = useVaultStore((state) => state.loadRecentVaults)
-	const openVault = useVaultStore((state) => state.openVault)
+	const [ready, setReady] = useState(false)
 
 	useEffect(() => {
 		let canceled = false
@@ -27,17 +27,14 @@ export function useMobileRuntime(): void {
 
 		void (async () => {
 			await Promise.all([loadAppInfo(), loadFirstRunOnboarding(), loadRecentVaults()])
-			if (canceled || useVaultStore.getState().vault) return
-
-			const recentVault = useVaultStore.getState().recentVaults[0]
-			if (!recentVault) return
-
-			await openVault(recentVault.path, { name: recentVault.name })
+			if (!canceled) setReady(true)
 		})()
 
 		return () => {
 			canceled = true
 			stopNoteCache()
 		}
-	}, [loadAppInfo, loadFirstRunOnboarding, loadRecentVaults, openVault])
+	}, [loadAppInfo, loadFirstRunOnboarding, loadRecentVaults])
+
+	return ready
 }

@@ -273,6 +273,7 @@ export function NoteEditorScreen() {
 						dom={{
 							containerStyle: styles.domContainer,
 							scrollEnabled: false,
+							useExpoDOMWebView: false,
 						}}
 						editorConfig={MOBILE_EDITOR_DEFAULT_CONFIG}
 						executeCommand={executeUnsupportedNativeEditorCommand}

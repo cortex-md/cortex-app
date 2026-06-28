@@ -8,6 +8,7 @@ use crate::sync::db::{NoteSyncMetadata, SyncDb, SyncState};
 use crate::sync::downloader::{DownloadResult, Downloader};
 use crate::sync::http::SyncHttpClient;
 use crate::sync::ignore::{should_ignore, SyncPreferences};
+use crate::sync::paths::normalize_relative_path;
 use crate::sync::uploader::Uploader;
 
 const LONG_OFFLINE_THRESHOLD_SECS: i64 = 30 * 24 * 60 * 60;
@@ -494,6 +495,7 @@ impl<'a> Reconciler<'a> {
                 .map_err(|e| e.to_string())?
                 .to_string_lossy()
                 .to_string();
+            let relative = normalize_relative_path(&relative);
 
             if should_ignore(&relative, self.sync_preferences) {
                 continue;

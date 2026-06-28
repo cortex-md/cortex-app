@@ -50,6 +50,22 @@ pub fn read_file_snapshot(path: String) -> Result<FileSnapshot, String> {
 }
 
 #[tauri::command]
+pub fn write_file_snapshot(path: String, content: String) -> Result<FileSnapshot, String> {
+    let path = Path::new(&path);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    fs::write(path, content.as_bytes()).map_err(|e| e.to_string())?;
+    let hash = blake3::hash(content.as_bytes()).to_hex().to_string();
+    let metadata = read_file_metadata(path).unwrap_or_else(|_| fallback_file_metadata());
+    Ok(FileSnapshot {
+        content,
+        hash,
+        metadata,
+    })
+}
+
+#[tauri::command]
 pub fn write_file(path: String, content: String) -> Result<(), String> {
     if let Some(parent) = Path::new(&path).parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -148,6 +164,17 @@ pub fn hash_file(path: String) -> Result<String, String> {
 #[tauri::command]
 pub fn get_file_metadata(path: String) -> Result<FileMetadata, String> {
     read_file_metadata(Path::new(&path))
+}
+
+fn fallback_file_metadata() -> FileMetadata {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    FileMetadata {
+        created_at: now,
+        modified_at: now,
+    }
 }
 
 fn read_file_metadata(path: &Path) -> Result<FileMetadata, String> {
@@ -491,6 +518,26 @@ mod tests {
         let hash = hash_file(path.to_string_lossy().to_string()).unwrap();
 
         assert_eq!(snapshot.content, "snapshot content");
+        assert_eq!(snapshot.hash, hash);
+        assert!(snapshot.metadata.created_at > 0);
+        assert!(snapshot.metadata.modified_at >= snapshot.metadata.created_at);
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn write_file_snapshot_writes_content_hash_and_metadata() {
+        let directory = test_directory();
+        let path = directory.join("folder").join("note.md");
+
+        let snapshot = write_file_snapshot(
+            path.to_string_lossy().to_string(),
+            "created content".to_string(),
+        )
+        .unwrap();
+        let hash = hash_file(path.to_string_lossy().to_string()).unwrap();
+
+        assert_eq!(fs::read_to_string(&path).unwrap(), "created content");
+        assert_eq!(snapshot.content, "created content");
         assert_eq!(snapshot.hash, hash);
         assert!(snapshot.metadata.created_at > 0);
         assert!(snapshot.metadata.modified_at >= snapshot.metadata.created_at);

@@ -1437,13 +1437,70 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 	}
 }
 
-body[data-platform="windows"] .app-shell {
+body[data-platform="windows"] .app-shell,
+body[data-platform="linux"] .app-shell {
+	--app-collapsed-tabbar-start-padding: 48px;
+	position: relative;
 	background: var(--bg-primary);
 }
 
-body[data-platform="windows"] .app-sidebar {
+body[data-platform="windows"] .app-titlebar,
+body[data-platform="linux"] .app-titlebar {
+	position: absolute;
+	top: 0;
+	right: 0;
+	left: 0;
+	z-index: 70;
+	height: 40px;
+	background: transparent;
+	pointer-events: none;
+}
+
+body[data-platform="windows"] .app-sidebar-toggle,
+body[data-platform="linux"] .app-sidebar-toggle {
+	position: absolute;
+	top: 6px;
+	left: 10px;
+	z-index: 2;
+	width: 28px;
+	height: 28px;
+	border-radius: 6px;
+	color: var(--text-muted);
+	cursor: default;
+	pointer-events: auto;
+	transition:
+		background-color 120ms ease-out,
+		color 120ms ease-out,
+		opacity 160ms ease-out;
+}
+
+body[data-platform="windows"] .app-sidebar-toggle:hover,
+body[data-platform="linux"] .app-sidebar-toggle:hover {
+	background: var(--bg-hover);
+	color: var(--text-primary);
+}
+
+body[data-platform="windows"] .app-content,
+body[data-platform="linux"] .app-content {
+	min-height: 0;
+}
+
+body[data-platform="windows"] .app-sidebar,
+body[data-platform="linux"] .app-sidebar {
+	padding-top: 40px;
 	border-radius: 0;
 	background: var(--sidebar);
+	transition:
+		width 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+		min-width 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+		max-width 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+body[data-platform="windows"] .app-sidebar-resizer--hidden,
+body[data-platform="linux"] .app-sidebar-resizer--hidden {
+	width: 0;
+	opacity: 0;
+	pointer-events: none;
 }
 
 body[data-platform="windows"] .file-tree-item,
@@ -3519,6 +3576,21 @@ body[data-platform="macos"]
 }
 
 body[data-platform="macos"]
+	.app-main[data-left-sidebar-collapsed="true"]
+	.split-leaf[data-split-start-pane="true"]
+	> .pane-view
+	> [data-slot="tabs"]
+	> .tab-bar {
+	--tab-bar-padding-left: var(--app-collapsed-tabbar-start-padding);
+}
+
+body[data-platform="windows"]
+	.app-main[data-left-sidebar-collapsed="true"]
+	.split-leaf[data-split-start-pane="true"]
+	> .pane-view
+	> [data-slot="tabs"]
+	> .tab-bar,
+body[data-platform="linux"]
 	.app-main[data-left-sidebar-collapsed="true"]
 	.split-leaf[data-split-start-pane="true"]
 	> .pane-view

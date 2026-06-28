@@ -731,8 +731,10 @@ function TreeNodeRow({
 
 function InlineInput({ defaultValue, onConfirm, onCancel, selectBaseName }: InlineInputProps) {
 	const inputRef = useRef<HTMLInputElement>(null)
+	const finishedRef = useRef(false)
 
 	useEffect(() => {
+		finishedRef.current = false
 		const input = inputRef.current
 		if (!input) return
 		input.focus()
@@ -744,16 +746,22 @@ function InlineInput({ defaultValue, onConfirm, onCancel, selectBaseName }: Inli
 		}
 	}, [defaultValue, selectBaseName])
 
+	const finish = (value: string | null, forceConfirm = false) => {
+		if (finishedRef.current) return
+		finishedRef.current = true
+		if (value && (forceConfirm || value !== defaultValue)) onConfirm(value)
+		else onCancel()
+	}
+
 	const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
 		if (e.key === "Enter") {
 			e.preventDefault()
 			const value = inputRef.current?.value.trim()
-			if (value) onConfirm(value)
-			else onCancel()
+			finish(value ?? null, true)
 		}
 		if (e.key === "Escape") {
 			e.preventDefault()
-			onCancel()
+			finish(null)
 		}
 	}
 
@@ -766,8 +774,7 @@ function InlineInput({ defaultValue, onConfirm, onCancel, selectBaseName }: Inli
 			onKeyDown={handleKeyDown}
 			onBlur={() => {
 				const value = inputRef.current?.value.trim()
-				if (value && value !== defaultValue) onConfirm(value)
-				else onCancel()
+				finish(value ?? null)
 			}}
 			className="file-tree-inline-input"
 		/>

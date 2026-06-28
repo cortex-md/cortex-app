@@ -292,7 +292,9 @@ function VaultRow({ entry }: { entry: VaultRegistryEntry }) {
 				)}
 				<span className="flex flex-col min-w-0">
 					<span className="truncate text-sm font-medium text-foreground">{entry.name}</span>
-					<span className="truncate text-xs text-muted-foreground">{entry.path}</span>
+					<span className="truncate text-xs text-muted-foreground">
+						{entry.displayPath ?? entry.path}
+					</span>
 				</span>
 			</span>
 			<span className="text-xs text-muted-foreground whitespace-nowrap">

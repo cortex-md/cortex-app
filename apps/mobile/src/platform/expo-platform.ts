@@ -168,9 +168,12 @@ function assertInsideAppData(path: string, operation: string): string {
 }
 
 function assertSupportedPath(path: string, operation: string): string {
-	const normalizedPath = normalizeMobileVaultPath(normalizeUri(path))
-	if (isMobileVaultLogicalPath(normalizedPath) || isAppStoragePath(normalizedPath)) {
-		return normalizedPath
+	const normalizedUri = normalizeUri(path)
+	if (isAppStoragePath(normalizedUri)) return normalizedUri
+
+	const normalizedLogicalPath = normalizeMobileVaultPath(normalizedUri)
+	if (isMobileVaultLogicalPath(normalizedLogicalPath)) {
+		return normalizedLogicalPath
 	}
 
 	throw new Error(`${operation} is limited to Cortex Mobile app storage or registered vault roots`)
@@ -622,9 +625,9 @@ function getActualEntry(path: string): ResolvedEntry {
 }
 
 async function resolveEntry(path: string): Promise<ResolvedEntry> {
-	assertSupportedPath(path, "fs.resolve")
-	if (isMobileVaultLogicalPath(path)) return resolveLogicalEntry(path)
-	return getActualEntry(path)
+	const supportedPath = assertSupportedPath(path, "fs.resolve")
+	if (isMobileVaultLogicalPath(supportedPath)) return resolveLogicalEntry(supportedPath)
+	return getActualEntry(supportedPath)
 }
 
 async function readLogicalTextFile(path: string): Promise<string> {
@@ -640,25 +643,25 @@ async function writeLogicalTextFile(path: string, content: string): Promise<void
 }
 
 async function readTextFile(path: string): Promise<string> {
-	assertSupportedPath(path, "fs.readFile")
-	if (isMobileVaultLogicalPath(path)) return readLogicalTextFile(path)
-	return readActualTextFile(path)
+	const supportedPath = assertSupportedPath(path, "fs.readFile")
+	if (isMobileVaultLogicalPath(supportedPath)) return readLogicalTextFile(supportedPath)
+	return readActualTextFile(supportedPath)
 }
 
 async function writeTextFile(path: string, content: string): Promise<void> {
-	assertSupportedPath(path, "fs.writeFile")
-	if (isMobileVaultLogicalPath(path)) {
-		await writeLogicalTextFile(path, content)
+	const supportedPath = assertSupportedPath(path, "fs.writeFile")
+	if (isMobileVaultLogicalPath(supportedPath)) {
+		await writeLogicalTextFile(supportedPath, content)
 		return
 	}
 
-	await writeActualTextFile(path, content)
+	await writeActualTextFile(supportedPath, content)
 }
 
 async function hashFile(path: string): Promise<string> {
-	assertSupportedPath(path, "fs.hashFile")
-	if (!isMobileVaultLogicalPath(path)) return hashActualFile(path)
-	return hashText(await readLogicalTextFile(path))
+	const supportedPath = assertSupportedPath(path, "fs.hashFile")
+	if (!isMobileVaultLogicalPath(supportedPath)) return hashActualFile(supportedPath)
+	return hashText(await readLogicalTextFile(supportedPath))
 }
 
 async function readFileSnapshot(path: string) {
@@ -673,13 +676,13 @@ async function readFileSnapshot(path: string) {
 }
 
 async function atomicWriteFile(path: string, content: string): Promise<void> {
-	assertSupportedPath(path, "fs.atomicWriteFile")
-	if (isMobileVaultLogicalPath(path)) {
-		await writeLogicalTextFile(path, content)
+	const supportedPath = assertSupportedPath(path, "fs.atomicWriteFile")
+	if (isMobileVaultLogicalPath(supportedPath)) {
+		await writeLogicalTextFile(supportedPath, content)
 		return
 	}
 
-	await atomicWriteActualFile(path, content)
+	await atomicWriteActualFile(supportedPath, content)
 }
 
 async function deleteFile(path: string): Promise<void> {
@@ -698,30 +701,33 @@ function createDestinationEntry(parentDirectory: Directory, path: string, isDir:
 
 async function renameFile(oldPath: string, newPath: string): Promise<void> {
 	const source = await resolveEntry(oldPath)
-	if (isMobileVaultLogicalPath(oldPath) !== isMobileVaultLogicalPath(newPath)) {
+	const supportedOldPath = assertSupportedPath(oldPath, "fs.renameFile")
+	const supportedNewPath = assertSupportedPath(newPath, "fs.renameFile")
+	if (isMobileVaultLogicalPath(supportedOldPath) !== isMobileVaultLogicalPath(supportedNewPath)) {
 		throw new Error("Cannot move files between mobile vault roots and app storage")
 	}
 
-	if (isMobileVaultLogicalPath(newPath)) {
-		const destinationParent = await resolveLogicalDirectory(getParentPath(newPath), { create: true })
+	if (isMobileVaultLogicalPath(supportedNewPath)) {
+		const destinationParent = await resolveLogicalDirectory(getParentPath(supportedNewPath), { create: true })
 		const destinationEntry = findEntry(
 			destinationParent.directory,
-			getFileName(newPath),
-			await findMobileVaultRootByPath(newPath),
+			getFileName(supportedNewPath),
+			await findMobileVaultRootByPath(supportedNewPath),
 		)
-		if (destinationEntry && normalizeMobileVaultPath(oldPath) !== normalizeMobileVaultPath(newPath)) {
+		if (destinationEntry && supportedOldPath !== supportedNewPath) {
 			throw new Error("Destination already exists")
 		}
 
-		await source.entry.move(createDestinationEntry(destinationParent.directory, newPath, source.isDir), {
-			overwrite: false,
-		})
-		logicalPathToActualUri.delete(normalizeMobileVaultPath(oldPath))
+		await source.entry.move(
+			createDestinationEntry(destinationParent.directory, supportedNewPath, source.isDir),
+			{ overwrite: false },
+		)
+		logicalPathToActualUri.delete(supportedOldPath)
 		return
 	}
 
-	const safeOldPath = assertInsideAppData(oldPath, "fs.renameFile")
-	const safeNewPath = assertInsideAppData(newPath, "fs.renameFile")
+	const safeOldPath = assertInsideAppData(supportedOldPath, "fs.renameFile")
+	const safeNewPath = assertInsideAppData(supportedNewPath, "fs.renameFile")
 	const sourceInfo = getActualPathInfo(safeOldPath)
 	const destinationInfo = getActualPathInfo(safeNewPath)
 
@@ -742,21 +748,21 @@ async function renameFile(oldPath: string, newPath: string): Promise<void> {
 }
 
 async function createDir(path: string): Promise<void> {
-	assertSupportedPath(path, "fs.createDir")
-	if (isMobileVaultLogicalPath(path)) {
-		await resolveLogicalDirectory(path, { create: true })
+	const supportedPath = assertSupportedPath(path, "fs.createDir")
+	if (isMobileVaultLogicalPath(supportedPath)) {
+		await resolveLogicalDirectory(supportedPath, { create: true })
 		return
 	}
 
-	ensureDirectory(new Directory(assertInsideAppData(path, "fs.createDir")))
+	ensureDirectory(new Directory(assertInsideAppData(supportedPath, "fs.createDir")))
 }
 
 async function listDir(path: string): Promise<FileEntry[]> {
-	assertSupportedPath(path, "fs.listDir")
+	const supportedPath = assertSupportedPath(path, "fs.listDir")
 
-	if (isMobileVaultLogicalPath(path)) {
-		const root = await findMobileVaultRootByPath(path)
-		const directory = await resolveLogicalDirectory(path)
+	if (isMobileVaultLogicalPath(supportedPath)) {
+		const root = await findMobileVaultRootByPath(supportedPath)
+		const directory = await resolveLogicalDirectory(supportedPath)
 		const entries: FileEntry[] = []
 		for (const entry of listDirectoryEntries(directory.directory, root)) {
 			if (isHiddenEntry(entry)) continue
@@ -768,7 +774,7 @@ async function listDir(path: string): Promise<FileEntry[]> {
 		return sortFileEntries(entries)
 	}
 
-	const safePath = assertInsideAppData(path, "fs.listDir")
+	const safePath = assertInsideAppData(supportedPath, "fs.listDir")
 	const entries: FileEntry[] = []
 	for (const entry of new Directory(safePath).list()) {
 		if (!isHiddenEntry(entry)) entries.push(normalizeFileEntry(entry, normalizeUri(entry.uri)))
@@ -807,27 +813,27 @@ function scanActualDirectory(directory: Directory, files: FileEntry[]): void {
 }
 
 async function scanVault(path: string): Promise<FileEntry[]> {
-	assertSupportedPath(path, "vault.scanVault")
+	const supportedPath = assertSupportedPath(path, "vault.scanVault")
 
-	if (isMobileVaultLogicalPath(path)) {
-		const root = await findMobileVaultRootByPath(path)
+	if (isMobileVaultLogicalPath(supportedPath)) {
+		const root = await findMobileVaultRootByPath(supportedPath)
 		const directory = await resolveLogicalDirectory(root.logicalPath)
 		const files: FileEntry[] = []
 		scanDirectory(directory.directory, root.logicalPath, files, root)
 		return sortFileEntries(files)
 	}
 
-	const safePath = assertInsideAppData(path, "vault.scanVault")
+	const safePath = assertInsideAppData(supportedPath, "vault.scanVault")
 	const files: FileEntry[] = []
 	scanActualDirectory(new Directory(safePath), files)
 	return sortFileEntries(files)
 }
 
 async function getFileMetadata(path: string): Promise<FileMetadata> {
-	assertSupportedPath(path, "fs.getFileMetadata")
+	const supportedPath = assertSupportedPath(path, "fs.getFileMetadata")
 
-	if (isMobileVaultLogicalPath(path)) {
-		const entry = await resolveEntry(path)
+	if (isMobileVaultLogicalPath(supportedPath)) {
+		const entry = await resolveEntry(supportedPath)
 		const info = getEntryInfo(entry.entry)
 		const modifiedAt = info.modificationTime ?? Date.now()
 		return {
@@ -836,7 +842,7 @@ async function getFileMetadata(path: string): Promise<FileMetadata> {
 		}
 	}
 
-	return getActualEntryMetadata(path)
+	return getActualEntryMetadata(supportedPath)
 }
 
 function getVaultConfigPath(vaultPath: string): string {
@@ -942,10 +948,10 @@ async function pickFolder(): Promise<string | null> {
 }
 
 async function getVaultMetadata(path: string): Promise<VaultMetadata> {
-	assertSupportedPath(path, "vault.getVaultMetadata")
+	const supportedPath = assertSupportedPath(path, "vault.getVaultMetadata")
 
-	if (isMobileVaultLogicalPath(path)) {
-		const root = await findMobileVaultRootByPath(path)
+	if (isMobileVaultLogicalPath(supportedPath)) {
+		const root = await findMobileVaultRootByPath(supportedPath)
 		await ensureLogicalVaultConfig(root.logicalPath)
 		const [uuid, name, files] = await Promise.all([
 			readOrCreateVaultUuid(root.logicalPath),
@@ -962,7 +968,7 @@ async function getVaultMetadata(path: string): Promise<VaultMetadata> {
 		}
 	}
 
-	const safePath = assertInsideAppData(path, "vault.getVaultMetadata")
+	const safePath = assertInsideAppData(supportedPath, "vault.getVaultMetadata")
 	const info = getActualPathInfo(safePath)
 	if (!info.exists || !info.isDirectory) {
 		throw new Error(`Vault path does not exist or is not a directory: ${path}`)
@@ -1012,17 +1018,19 @@ async function updateVaultRegistry(
 	icon?: string | null,
 	color?: string | null,
 ): Promise<void> {
-	assertSupportedPath(path, "vault.updateVaultRegistry")
+	const supportedPath = assertSupportedPath(path, "vault.updateVaultRegistry")
 	const entries = await readVaultRegistry()
 	const roots = await readMobileVaultRoots()
-	const root = roots.find((record) => record.uuid === uuid || record.logicalPath === path)
+	const root = roots.find((record) => record.uuid === uuid || record.logicalPath === supportedPath)
 	const existing = entries.find((entry) => entry.uuid === uuid)
 	const lastOpened = Date.now()
-	const displayPath = root?.displayPath ?? (isAppStoragePath(path) ? path.replace(/^file:\/\//u, "") : null)
+	const displayPath =
+		root?.displayPath ??
+		(isAppStoragePath(supportedPath) ? supportedPath.replace(/^file:\/\//u, "") : null)
 
 	if (existing) {
 		existing.displayPath = displayPath
-		existing.path = root?.logicalPath ?? path
+		existing.path = root?.logicalPath ?? supportedPath
 		existing.name = name
 		existing.lastOpened = lastOpened
 		if (icon !== undefined) existing.icon = icon
@@ -1034,12 +1042,24 @@ async function updateVaultRegistry(
 			icon: icon ?? null,
 			lastOpened,
 			name,
-			path: root?.logicalPath ?? path,
+			path: root?.logicalPath ?? supportedPath,
 			uuid,
 		})
 	}
 
 	await writeJsonFile(getVaultRegistryPath(), entries)
+
+	const logicalPath =
+		root?.logicalPath ?? (isMobileVaultLogicalPath(supportedPath) ? supportedPath : null)
+	if (logicalPath) {
+		const metadataPath = getVaultMetadataPath(logicalPath)
+		const existingMetadata = await readJsonFile<MobileVaultMetadataFile>(metadataPath)
+		await writeJsonFile(metadataPath, {
+			createdAt: existingMetadata?.createdAt ?? new Date(lastOpened).toISOString(),
+			name,
+			version: existingMetadata?.version ?? 1,
+		})
+	}
 }
 
 async function removeFromVaultRegistry(uuid: string): Promise<void> {
@@ -1083,6 +1103,10 @@ async function startWatching(
 	options?: { includeHidden?: boolean },
 ): Promise<() => void> {
 	const entry = await resolveEntry(path)
+	if (normalizeUri(entry.entry.uri).startsWith("content://")) {
+		return noopUnsubscribe
+	}
+
 	let subscription: { remove: () => void }
 	try {
 		subscription = entry.entry.watch((event) => {
@@ -1301,7 +1325,7 @@ export const expoPlatform: CortexPlatform = {
 		start: () => unsupportedPhase1("sync.start"),
 		stop: () => unsupportedPhase1("sync.stop"),
 		unlockVaultKey: () => unsupportedPhase1("sync.unlockVaultKey"),
-		updateSyncPreferences: () => unsupportedPhase1("sync.updateSyncPreferences"),
+		updateSyncPreferences: async () => {},
 	},
 	vault: {
 		getVaultMetadata,

@@ -7,6 +7,7 @@ import type {
 } from "@cortex/platform"
 import { confirm, message, open, save } from "@tauri-apps/plugin-dialog"
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
+import { normalizeNativePath } from "./path"
 
 function resolveFolderOptions(options?: string | FolderDialogOptions) {
 	if (typeof options === "string") return { title: options, directory: true, multiple: false }
@@ -36,18 +37,19 @@ function resolveAlertOptions(
 export class Dialog implements IDialog {
 	async pickFolder(options?: string | FolderDialogOptions): Promise<string | null> {
 		const selected = await open(resolveFolderOptions(options))
-		if (Array.isArray(selected)) return selected[0] ?? null
-		return selected
+		if (Array.isArray(selected)) return selected[0] ? normalizeNativePath(selected[0]) : null
+		return selected ? normalizeNativePath(selected) : null
 	}
 
 	async pickFile(options: FileDialogOptions = {}): Promise<string | null> {
 		const selected = await open({ ...options, multiple: false })
-		if (Array.isArray(selected)) return selected[0] ?? null
-		return selected
+		if (Array.isArray(selected)) return selected[0] ? normalizeNativePath(selected[0]) : null
+		return selected ? normalizeNativePath(selected) : null
 	}
 
 	async saveFile(options: FileDialogOptions = {}): Promise<string | null> {
-		return await save(options)
+		const selected = await save(options)
+		return selected ? normalizeNativePath(selected) : null
 	}
 
 	async showConfirm(title: string, message: string): Promise<boolean>

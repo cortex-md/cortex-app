@@ -13,6 +13,7 @@ import { getSettingsManager, initSettingsManager } from "@cortex/settings"
 import { create } from "zustand"
 import { noteCache } from "../noteCache"
 import { ensureVaultOnboardingNote } from "../onboarding/vaultOnboarding"
+import { pathExists, resolveUniquePath, splitFileName, writeCleanNote } from "../utils/createdNote"
 import { getPortableFileNameError } from "../utils/fileName"
 import { createDefaultFrontmatter } from "../utils/frontmatter"
 import { useBookmarksStore } from "./bookmarksStore"
@@ -59,44 +60,6 @@ function getFileName(filePath: string): string {
 
 function isPathOrDescendant(path: string, parentPath: string): boolean {
 	return path === parentPath || path.startsWith(`${parentPath}/`)
-}
-
-function splitFileName(fileName: string): { baseName: string; extension: string } {
-	const extensionIndex = fileName.lastIndexOf(".")
-	if (extensionIndex <= 0) return { baseName: fileName, extension: "" }
-	return {
-		baseName: fileName.slice(0, extensionIndex),
-		extension: fileName.slice(extensionIndex),
-	}
-}
-
-async function fileExists(filePath: string): Promise<boolean> {
-	try {
-		await getPlatform().fs.readFile(filePath)
-		return true
-	} catch {
-		return false
-	}
-}
-
-async function resolveUniqueFilePath(parentPath: string, fileName: string): Promise<string> {
-	const { baseName, extension } = splitFileName(fileName)
-	let candidateName = fileName
-	let candidatePath = `${parentPath}/${candidateName}`
-	let suffix = 2
-	while (await fileExists(candidatePath)) {
-		candidateName = `${baseName} ${suffix}${extension}`
-		candidatePath = `${parentPath}/${candidateName}`
-		suffix++
-	}
-	return candidatePath
-}
-
-async function writeCleanNote(filePath: string, content: string): Promise<void> {
-	const platform = getPlatform()
-	await platform.fs.writeFile(filePath, content)
-	const hash = await platform.fs.hashFile(filePath)
-	noteCache.primeClean(filePath, content, hash, { localCreated: true })
 }
 
 async function writeCleanNoteAndRefreshFiles(
@@ -258,7 +221,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 				}
 			}
 			const [files] = await Promise.all([
-				platform.vault.scanVault(path),
+				platform.vault.scanVault(metadata.path),
 				platform.vault.updateVaultRegistry(
 					metadata.uuid,
 					metadata.path,
@@ -268,12 +231,12 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 				),
 			])
 
-			const stopWatcher = await platform.fs.startWatching(path, async (event) => {
+			const stopWatcher = await platform.fs.startWatching(metadata.path, async (event) => {
 				scheduleWatcherRefresh(get().refreshFiles)
 				if (isPropertySchemaPath(event.path)) {
-					notifyVaultSchemaChanged(path)
+					notifyVaultSchemaChanged(metadata.path)
 				} else if (isMarkdownPath(event.path)) {
-					invalidatePropertySuggestions(path)
+					invalidatePropertySuggestions(metadata.path)
 				}
 				if (event.kind !== "created" && event.kind !== "modified") return
 				if (!noteCache.getEntry(event.path)) return
@@ -287,9 +250,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
 			initSettingsManager()
 			await Promise.all([
-				getSettingsManager().loadFromVault(path),
-				useBookmarksStore.getState().loadBookmarks(path),
-				useSyncStore.getState().loadSyncPreferences(path),
+				getSettingsManager().loadFromVault(metadata.path),
+				useBookmarksStore.getState().loadBookmarks(metadata.path),
+				useSyncStore.getState().loadSyncPreferences(metadata.path),
 				useTemplateStore.getState().loadTemplates(metadata),
 			])
 
@@ -312,13 +275,13 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 		set({ loading: true, error: null })
 		try {
 			const metadata = await platform.vault.openVault(path)
-			const files = await platform.vault.scanVault(path)
+			const files = await platform.vault.scanVault(metadata.path)
 
 			initSettingsManager()
 			await Promise.all([
-				getSettingsManager().loadFromVault(path),
-				useBookmarksStore.getState().loadBookmarks(path),
-				useSyncStore.getState().loadSyncPreferences(path),
+				getSettingsManager().loadFromVault(metadata.path),
+				useBookmarksStore.getState().loadBookmarks(metadata.path),
+				useSyncStore.getState().loadSyncPreferences(metadata.path),
 				useTemplateStore.getState().loadTemplates(metadata),
 			])
 
@@ -394,9 +357,11 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
 	createFile: async (parentPath, name) => {
 		const fileName = name.endsWith(".md") ? name : `${name}.md`
+		const validationError = getPortableFileNameError(fileName)
+		if (validationError) throw new Error(validationError)
 		const vaultPath = get().vault?.path
 		const [filePath, content] = await Promise.all([
-			resolveUniqueFilePath(parentPath, fileName),
+			resolveUniquePath(parentPath, fileName),
 			createNoteWithPropertyDefaults(vaultPath ?? parentPath, createDefaultFrontmatter()),
 		])
 		await writeCleanNoteAndRefreshFiles(filePath, content, get().refreshFiles)
@@ -406,7 +371,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
 	createFolder: async (parentPath, name) => {
 		const platform = getPlatform()
-		const folderPath = `${parentPath}/${name}`
+		const validationError = getPortableFileNameError(name)
+		if (validationError) throw new Error(validationError)
+		const folderPath = await resolveUniquePath(parentPath, name)
 		await platform.fs.createDir(folderPath)
 		await get().refreshFiles()
 		return folderPath
@@ -496,7 +463,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 		const { baseName, extension } = splitFileName(getFileName(filePath))
 		const vaultPath = get().vault?.path
 		const [newPath, content] = await Promise.all([
-			resolveUniqueFilePath(parentPath, `${baseName} (copy)${extension}`),
+			resolveUniquePath(parentPath, `${baseName} (copy)${extension}`),
 			getPlatform().fs.readFile(filePath),
 		])
 		const duplicatedContent = vaultPath ? await prepareDuplicatedNote(vaultPath, content) : content
@@ -516,7 +483,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
 		const existingFile = files.find((f) => f.path === filePath)
 		if (existingFile) return filePath
-		if (await fileExists(filePath)) return filePath
+		if (await pathExists(filePath)) return filePath
 
 		const dailyDirExists = files.some((f) => f.isDir && f.path === dailyDir)
 		await writeDailyNoteAndRefreshFiles(

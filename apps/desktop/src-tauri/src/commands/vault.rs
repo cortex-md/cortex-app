@@ -64,19 +64,31 @@ pub fn open_vault(path: String) -> Result<VaultMetadata, String> {
 #[tauri::command]
 pub fn scan_vault(path: String) -> Result<Vec<FileEntry>, String> {
     let mut files = Vec::new();
-    scan_recursive(Path::new(&path), &path, &mut files)?;
+    scan_recursive(Path::new(&path), &mut files, true)?;
     Ok(files)
 }
 
-fn scan_recursive(dir: &Path, vault_root: &str, files: &mut Vec<FileEntry>) -> Result<(), String> {
-    let entries = fs::read_dir(dir).map_err(|e| e.to_string())?;
+fn scan_recursive(dir: &Path, files: &mut Vec<FileEntry>, is_root: bool) -> Result<(), String> {
+    let entries = match fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(error) => {
+            if is_root {
+                return Err(error.to_string());
+            }
+            return Ok(());
+        }
+    };
     for entry in entries {
-        let entry = entry.map_err(|e| e.to_string())?;
+        let Ok(entry) = entry else {
+            continue;
+        };
         let name = entry.file_name().to_string_lossy().to_string();
         if name.starts_with('.') {
             continue;
         }
-        let metadata = entry.metadata().map_err(|e| e.to_string())?;
+        let Ok(metadata) = entry.metadata() else {
+            continue;
+        };
         let mtime = metadata
             .modified()
             .ok()
@@ -93,7 +105,7 @@ fn scan_recursive(dir: &Path, vault_root: &str, files: &mut Vec<FileEntry>) -> R
             mtime,
         });
         if is_dir {
-            scan_recursive(&entry.path(), vault_root, files)?;
+            scan_recursive(&entry.path(), files, false)?;
         }
     }
     Ok(())
@@ -118,4 +130,41 @@ pub fn get_vault_metadata(path: String) -> Result<VaultMetadata, String> {
         name,
         file_count,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scan_vault_errors_when_root_is_missing() {
+        let missing_path =
+            std::env::temp_dir().join(format!("cortex-missing-vault-{}", Uuid::new_v4()));
+
+        let result = scan_vault(missing_path.to_string_lossy().to_string());
+
+        assert!(result.is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn scan_vault_keeps_valid_entries_when_child_directory_is_unreadable() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+        let note_path = root.join("note.md");
+        let locked_dir = root.join("locked");
+        fs::write(&note_path, "body").unwrap();
+        fs::create_dir(&locked_dir).unwrap();
+        fs::set_permissions(&locked_dir, fs::Permissions::from_mode(0o000)).unwrap();
+
+        let result = scan_vault(root.to_string_lossy().to_string());
+
+        fs::set_permissions(&locked_dir, fs::Permissions::from_mode(0o700)).unwrap();
+        let files = result.unwrap();
+        assert!(files
+            .iter()
+            .any(|entry| entry.path == note_path.to_string_lossy()));
+    }
 }

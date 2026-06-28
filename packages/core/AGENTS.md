@@ -232,6 +232,10 @@ without scanning or contacting the server.
 Use `getNotePathPresentation(filePath, vaultPath)` for note titles and breadcrumbs. It returns the
 vault-relative segments, omits the vault itself, and removes the Markdown extension from the note.
 Use `getNoteTitleError(title)` to validate editable note titles before appending `.md`.
+Creating a note or folder succeeds when the platform filesystem write/create call succeeds. Hashing,
+metadata reads, cache priming, file refreshes, and indexing are post-create work; retry transient
+metadata/hash reads briefly and log remaining failures instead of reporting that the file was not
+created after it already exists on disk.
 
 ### Workspace Tabs
 
@@ -313,11 +317,14 @@ updates every matching workspace tab, rewrites matching bookmarks, and refreshes
 Callers must not repeat those updates after invoking it.
 
 When stores create note files by writing directly through the platform, they must seed the written
-content into `noteCache` as a clean entry with the current file hash before the note is opened. When
-stores delete files or folders, they must forget the deleted NoteCache path and folder descendants so
-new notes cannot inherit stale frontmatter or properties from a previous file at the same path.
-Freshly-created local notes should mark their NoteCache entry as locally created so desktop
-properties do not apply stale remote metadata for a reused path before sync publishes new metadata.
+content into `noteCache` through the shared clean-note creation helper before the note is opened.
+That helper uses `FileSystem.writeFileSnapshot(...)` when the adapter provides it, then falls back to
+`writeFile` plus post-write hash/metadata retry and fallback cache priming. Stores must not report a
+creation failure after the file already exists on disk. When stores delete files or folders, they
+must forget the deleted NoteCache path and folder descendants so new notes cannot inherit stale
+frontmatter or properties from a previous file at the same path. Freshly-created local notes should
+mark their NoteCache entry as locally created so desktop properties do not apply stale remote
+metadata for a reused path before sync publishes new metadata.
 
 ### editorStore
 Tracks the currently active file and editor state:

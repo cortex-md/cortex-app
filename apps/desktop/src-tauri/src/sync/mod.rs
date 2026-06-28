@@ -8,6 +8,7 @@ pub mod http;
 pub mod ignore;
 pub mod initial;
 pub mod merge;
+pub mod paths;
 pub mod queue;
 pub mod reconcile;
 pub mod sse;

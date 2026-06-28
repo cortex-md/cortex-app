@@ -9,6 +9,7 @@ use crate::sync::crypto;
 use crate::sync::db::{NoteSyncMetadata, SyncDb, SyncState};
 use crate::sync::http::SyncHttpClient;
 use crate::sync::ignore::{should_ignore, SyncPreferences};
+use crate::sync::paths::normalize_relative_path;
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -224,6 +225,7 @@ impl<'a> InitialSync<'a> {
                 .map_err(|e| e.to_string())?
                 .to_string_lossy()
                 .to_string();
+            let relative = normalize_relative_path(&relative);
 
             if should_ignore(&relative, self.sync_preferences) {
                 continue;

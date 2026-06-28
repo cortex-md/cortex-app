@@ -384,4 +384,21 @@ describe("FileSidebar layout", () => {
 		expect(createContainer).toHaveAttribute("data-create-type", "file")
 		expect(createContainer?.querySelector("svg")).toBeNull()
 	})
+
+	it("commits inline creation once when Enter is followed by blur", async () => {
+		const createFile = vi
+			.spyOn(useVaultStore.getState(), "createFile")
+			.mockResolvedValue("/vault/Untitled.md")
+		renderFileSidebar()
+		fireEvent.click(screen.getByRole("button", { name: "New Note" }))
+		const createInput = screen.getByDisplayValue("Untitled")
+
+		fireEvent.keyDown(createInput, { key: "Enter" })
+		fireEvent.blur(createInput)
+
+		await waitFor(() => {
+			expect(createFile).toHaveBeenCalledTimes(1)
+		})
+		expect(createFile).toHaveBeenCalledWith("/vault", "Untitled")
+	})
 })

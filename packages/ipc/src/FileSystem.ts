@@ -8,6 +8,7 @@ import type {
 } from "@cortex/platform"
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
+import { normalizeFileEntries, normalizeWatchEvent } from "./path"
 
 export class FileSystem implements IFileSystem {
 	async readFile(path: string): Promise<string> {
@@ -16,6 +17,10 @@ export class FileSystem implements IFileSystem {
 
 	async readFileSnapshot(path: string): Promise<FileSnapshot> {
 		return await invoke<FileSnapshot>("read_file_snapshot", { path })
+	}
+
+	async writeFileSnapshot(path: string, content: string): Promise<FileSnapshot> {
+		return await invoke<FileSnapshot>("write_file_snapshot", { path, content })
 	}
 
 	async writeFile(path: string, content: string): Promise<void> {
@@ -43,7 +48,8 @@ export class FileSystem implements IFileSystem {
 	}
 
 	async listDir(path: string): Promise<FileEntry[]> {
-		return await invoke<FileEntry[]>("list_dir", { path })
+		const entries = await invoke<FileEntry[]>("list_dir", { path })
+		return normalizeFileEntries(entries)
 	}
 
 	async hashFile(path: string): Promise<string> {
@@ -66,7 +72,7 @@ export class FileSystem implements IFileSystem {
 		})
 		const unlisten = await listen<WatchEvent>("vault-file-changed", (e) => {
 			if (e.payload.watcherId !== watcherId) return
-			callback(e.payload)
+			callback(normalizeWatchEvent(e.payload))
 		})
 		return async () => {
 			unlisten()

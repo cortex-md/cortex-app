@@ -15,6 +15,12 @@ import type {
 } from "@cortex/platform"
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
+import {
+	normalizeConflictInfo,
+	normalizeDeletedFileInfo,
+	normalizeSyncConflictEvent,
+	normalizeSyncFileEvent,
+} from "./path"
 
 function toRustResolution(resolution: ConflictResolution): unknown {
 	switch (resolution.type) {
@@ -78,10 +84,11 @@ export class Sync implements ISync {
 	}
 
 	async getConflicts(vaultId: string, vaultPath: string): Promise<ConflictInfo[]> {
-		return await invoke<ConflictInfo[]>("sync_get_conflicts", {
+		const conflicts = await invoke<ConflictInfo[]>("sync_get_conflicts", {
 			vaultId,
 			vaultPath,
 		})
+		return conflicts.map(normalizeConflictInfo)
 	}
 
 	async getVersionHistory(
@@ -132,10 +139,11 @@ export class Sync implements ISync {
 	}
 
 	async listDeletedFiles(vaultId: string, vaultPath: string): Promise<DeletedFileInfo[]> {
-		return await invoke<DeletedFileInfo[]>("sync_list_deleted_files", {
+		const files = await invoke<DeletedFileInfo[]>("sync_list_deleted_files", {
 			vaultId,
 			vaultPath,
 		})
+		return files.map(normalizeDeletedFileInfo)
 	}
 
 	async restoreDeletedFile(vaultId: string, vaultPath: string, filePath: string): Promise<void> {
@@ -155,7 +163,7 @@ export class Sync implements ISync {
 
 	async onFileEvent(callback: (event: SyncFileEvent) => void): Promise<() => void> {
 		const unlisten = await listen<SyncFileEvent>("sync-file-event", (e) => {
-			callback(e.payload)
+			callback(normalizeSyncFileEvent(e.payload))
 		})
 		return unlisten
 	}
@@ -171,7 +179,7 @@ export class Sync implements ISync {
 
 	async onConflict(callback: (event: SyncConflictEvent) => void): Promise<() => void> {
 		const unlisten = await listen<SyncConflictEvent>("sync-conflict", (e) => {
-			callback(e.payload)
+			callback(normalizeSyncConflictEvent(e.payload))
 		})
 		return unlisten
 	}

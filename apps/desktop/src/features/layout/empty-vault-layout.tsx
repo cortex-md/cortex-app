@@ -146,7 +146,9 @@ export function EmptyVaultLayout() {
 									</span>
 									<span className="flex flex-col min-w-0 flex-1">
 										<span className="font-medium text-text-primary truncate">{vault.name}</span>
-										<span className="text-[11px] text-text-muted truncate">{vault.path}</span>
+										<span className="text-[11px] text-text-muted truncate">
+											{vault.displayPath ?? vault.path}
+										</span>
 									</span>
 								</button>
 							</li>

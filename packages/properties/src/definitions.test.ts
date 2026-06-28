@@ -218,6 +218,14 @@ describe("property schema store", () => {
 		})
 	})
 
+	it("treats missing mobile schema directories as an empty schema", async () => {
+		const testRuntime = createTestPropertiesRuntime()
+		testRuntime.runtime.files.readFile = async () => {
+			throw new Error("Directory does not exist: /vault/.cortex/schema")
+		}
+		expect(await getVaultSchema("/vault")).toEqual({ version: 1, properties: [] })
+	})
+
 	it("does not rewrite malformed or unsupported schemas", async () => {
 		const testRuntime = createTestPropertiesRuntime({
 			"/vault/.cortex/schema/properties.json": '{"version":2,"properties":[]}',

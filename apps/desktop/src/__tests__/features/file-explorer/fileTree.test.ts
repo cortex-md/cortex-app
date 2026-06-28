@@ -22,6 +22,30 @@ describe("file tree model", () => {
 		expect(tree.reduce((count, node) => count + node.children.length, 0)).toBe(10_000)
 	})
 
+	it("normalizes Windows separators before building the hierarchy", () => {
+		const tree = buildFileTree(
+			[
+				{ path: "C:\\Users\\Luiza\\Vault\\Folder", name: "Folder", isDir: true },
+				{
+					path: "C:\\Users\\Luiza\\Vault\\Folder\\Nested.md",
+					name: "Nested.md",
+					isDir: false,
+				},
+				{ path: "C:\\Users\\Luiza\\Vault\\Note.md", name: "Note.md", isDir: false },
+			],
+			"C:\\Users\\Luiza\\Vault",
+		)
+
+		expect(tree).toMatchObject([
+			{
+				name: "Folder",
+				path: "C:/Users/Luiza/Vault/Folder",
+				children: [{ path: "C:/Users/Luiza/Vault/Folder/Nested.md" }],
+			},
+			{ name: "Note.md", path: "C:/Users/Luiza/Vault/Note.md" },
+		])
+	})
+
 	it("flattens only expanded directories and inserts creation rows", () => {
 		const tree = buildFileTree(
 			[

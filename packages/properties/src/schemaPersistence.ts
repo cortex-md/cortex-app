@@ -4,7 +4,9 @@ import type { VaultSchema } from "./types"
 
 function isMissingFileError(error: unknown): boolean {
 	const message = error instanceof Error ? error.message : String(error)
-	return /not found|no such file|os error 2/i.test(message)
+	return /not found|no such file|os error 2|directory does not exist|file does not exist|path does not exist/i.test(
+		message,
+	)
 }
 
 export async function getVaultSchema(vaultPath: string): Promise<VaultSchema> {

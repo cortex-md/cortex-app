@@ -203,7 +203,7 @@ function AppTitlebar({
 	} as CSSProperties
 
 	return (
-		<div className="app-titlebar h-10 pl-24 flex-shrink-0" style={titlebarStyle}>
+		<div className="app-titlebar h-10 flex-shrink-0" style={titlebarStyle}>
 			<div data-tauri-drag-region className="app-titlebar-drag-region" aria-hidden="true" />
 			{vault && (
 				<Button

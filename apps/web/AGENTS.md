@@ -8,6 +8,8 @@
   live in `src/features/landing/components`.
 - Import shared UI primitives by subpath, such as `@cortex/ui/button`. Do not import the package barrel.
 - Keep TanStack DevTools development-only and preserve server-side rendering and prerendering.
+- Keep `apps/web/biome.json` as a nested Biome config with `root: false` so the repository root
+  `bun run check` can traverse the workspace without conflicting root configurations.
 
 ## Product Claims
 

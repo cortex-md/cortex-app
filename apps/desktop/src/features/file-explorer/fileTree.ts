@@ -39,6 +39,10 @@ function getParentPath(path: string): string {
 	return path.slice(0, path.lastIndexOf("/"))
 }
 
+function normalizeTreePath(path: string): string {
+	return path.replaceAll("\\", "/").replace(/\/+$/, "")
+}
+
 function sortNodes(nodes: FileTreeNode[]): void {
 	nodes.sort((left, right) => {
 		if (left.isDir !== right.isDir) return left.isDir ? -1 : 1
@@ -49,16 +53,18 @@ function sortNodes(nodes: FileTreeNode[]): void {
 export function buildFileTree(entries: readonly FileEntry[], rootPath: string): FileTreeNode[] {
 	const nodesByPath = new Map<string, FileTreeNode>()
 	const childrenByParent = new Map<string, FileTreeNode[]>()
+	const normalizedRootPath = normalizeTreePath(rootPath)
 
 	for (const entry of entries) {
+		const normalizedPath = normalizeTreePath(entry.path)
 		const node: FileTreeNode = {
 			name: entry.name,
-			path: entry.path,
+			path: normalizedPath,
 			isDir: entry.isDir,
 			children: [],
 		}
-		nodesByPath.set(entry.path, node)
-		const parentPath = getParentPath(entry.path)
+		nodesByPath.set(normalizedPath, node)
+		const parentPath = getParentPath(normalizedPath)
 		const siblings = childrenByParent.get(parentPath)
 		if (siblings) siblings.push(node)
 		else childrenByParent.set(parentPath, [node])
@@ -70,7 +76,7 @@ export function buildFileTree(entries: readonly FileEntry[], rootPath: string): 
 		sortNodes(node.children)
 	}
 
-	const roots = childrenByParent.get(rootPath) ?? []
+	const roots = childrenByParent.get(normalizedRootPath) ?? []
 	sortNodes(roots)
 	return roots
 }

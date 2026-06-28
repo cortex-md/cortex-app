@@ -23,6 +23,14 @@ function mockFilePlatform(files = new Map<string, string>()) {
 	const writeFile = vi.fn(async (path: string, content: string) => {
 		files.set(path, content)
 	})
+	const writeFileSnapshot = vi.fn(async (path: string, content: string) => {
+		files.set(path, content)
+		return {
+			content,
+			hash: `hash:${path}`,
+			metadata: { createdAt: 1, modifiedAt: 2 },
+		}
+	})
 	const deleteFile = vi.fn(async (path: string) => {
 		for (const filePath of Array.from(files.keys())) {
 			if (filePath === path || filePath.startsWith(`${path}/`)) files.delete(filePath)
@@ -44,7 +52,14 @@ function mockFilePlatform(files = new Map<string, string>()) {
 		for (const [filePath, content] of updates) files.set(filePath, content)
 	})
 	const hashFile = vi.fn(async (path: string) => `hash:${path}`)
-	const getFileMetadata = vi.fn(async () => ({ createdAt: 1, modifiedAt: 2 }))
+	const directories = new Set<string>()
+	const getFileMetadata = vi.fn(async (path: string) => {
+		if (!files.has(path) && !directories.has(path)) throw new Error(`Missing ${path}`)
+		return { createdAt: 1, modifiedAt: 2 }
+	})
+	const createDir = vi.fn(async (path: string) => {
+		directories.add(path)
+	})
 	const scanVault = vi.fn(async () =>
 		Array.from(files.keys()).map((path) => ({
 			path,
@@ -56,24 +71,28 @@ function mockFilePlatform(files = new Map<string, string>()) {
 		fs: {
 			readFile,
 			readFileSnapshot,
+			writeFileSnapshot,
 			writeFile,
 			deleteFile,
 			renameFile,
 			hashFile,
 			getFileMetadata,
-			createDir: vi.fn().mockResolvedValue(undefined),
+			createDir,
 		},
 		vault: { scanVault },
 	} as never)
 	return {
 		files,
+		directories,
 		readFile,
 		readFileSnapshot,
+		writeFileSnapshot,
 		writeFile,
 		deleteFile,
 		renameFile,
 		hashFile,
 		getFileMetadata,
+		createDir,
 		scanVault,
 	}
 }
@@ -109,6 +128,9 @@ describe("vaultStore file creation and cache ownership", () => {
 			dirty: false,
 			hash: `hash:${filePath}`,
 		})
+		expect(platform.writeFileSnapshot).toHaveBeenCalledWith(filePath, platform.files.get(filePath))
+		expect(platform.writeFile).not.toHaveBeenCalled()
+		expect(platform.hashFile).not.toHaveBeenCalled()
 	})
 
 	it("does not reuse stale cached frontmatter after deleting and recreating the same name", async () => {
@@ -124,6 +146,66 @@ describe("vaultStore file creation and cache ownership", () => {
 		expect(filePath).toBe("/vault/Untitled.md")
 		expect(noteCache.getEntry(filePath)?.content).toBe(platform.files.get(filePath))
 		expect(noteCache.getEntry(filePath)?.content).not.toContain("project: Old")
+	})
+
+	it("keeps a created note when post-write fingerprint reads fail", async () => {
+		const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+		try {
+			const platform = mockFilePlatform()
+			platform.writeFileSnapshot.mockRejectedValue(new Error("snapshot write unavailable"))
+			platform.hashFile.mockRejectedValue(new Error("file is temporarily locked"))
+
+			const filePath = await useVaultStore.getState().createFile("/vault", "Untitled")
+
+			expect(filePath).toBe("/vault/Untitled.md")
+			expect(platform.files.get(filePath)).toBeDefined()
+			expect(noteCache.getEntry(filePath)).toMatchObject({
+				content: platform.files.get(filePath),
+				dirty: false,
+				localCreatedAt: expect.any(Number),
+			})
+			expect(noteCache.getEntry(filePath)?.hash).toContain("local-created:")
+		} finally {
+			consoleError.mockRestore()
+		}
+	})
+
+	it("validates folder names before creating them", async () => {
+		const platform = mockFilePlatform()
+
+		await expect(useVaultStore.getState().createFolder("/vault", "bad/name")).rejects.toThrow(
+			"File name contains characters that are not supported on every platform",
+		)
+
+		expect(platform.createDir).not.toHaveBeenCalled()
+	})
+
+	it("creates a unique folder path instead of reusing an existing folder", async () => {
+		const platform = mockFilePlatform()
+		platform.directories.add("/vault/New Folder")
+
+		await expect(useVaultStore.getState().createFolder("/vault", "New Folder")).resolves.toBe(
+			"/vault/New Folder 2",
+		)
+
+		expect(platform.createDir).toHaveBeenCalledWith("/vault/New Folder 2")
+	})
+
+	it("keeps a created folder when the post-create refresh fails", async () => {
+		const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+		try {
+			const platform = mockFilePlatform()
+			platform.scanVault.mockRejectedValueOnce(new Error("scan is temporarily unavailable"))
+
+			await expect(useVaultStore.getState().createFolder("/vault", "New Folder")).resolves.toBe(
+				"/vault/New Folder",
+			)
+
+			expect(platform.createDir).toHaveBeenCalledWith("/vault/New Folder")
+			expect(useVaultStore.getState().error).toBe("Error: scan is temporarily unavailable")
+		} finally {
+			consoleError.mockRestore()
+		}
 	})
 
 	it("removes bookmarks for deleted notes", async () => {
