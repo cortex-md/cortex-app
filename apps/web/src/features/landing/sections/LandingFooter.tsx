@@ -1,12 +1,26 @@
-import { Badge } from "@cortex/ui/badge"
 import { siteConfig } from "../../../config/site"
 import { footerLinkGroups, footerSocialLinks } from "../../../content/landing"
 import { trackLandingEvent } from "../../../lib/analytics"
-import { FooterLinkGroup } from "../components/FooterLinkGroup"
+import { FooterLinkGroup, type FooterLinkGroupData } from "../components/FooterLinkGroup"
 
 interface LandingFooterProps {
 	homeHrefPrefix?: "" | "/"
 }
+
+type FooterSocialLink = (typeof footerSocialLinks)[number]
+type FooterLink = FooterLinkGroupData["links"][number]
+
+function isSoonFooterItem(item: FooterLink | FooterSocialLink) {
+	return "soon" in item && item.soon
+}
+
+const visibleFooterSocialLinks = footerSocialLinks.filter((link) => !isSoonFooterItem(link))
+const visibleFooterLinkGroups: FooterLinkGroupData[] = footerLinkGroups
+	.map((group) => ({
+		title: group.title,
+		links: group.links.filter((link) => !isSoonFooterItem(link)),
+	}))
+	.filter((group) => group.links.length > 0)
 
 export function LandingFooter({ homeHrefPrefix = "" }: LandingFooterProps) {
 	function resolveHref(href: string) {
@@ -30,21 +44,7 @@ export function LandingFooter({ homeHrefPrefix = "" }: LandingFooterProps) {
 					<div className="mt-10">
 						<p className="mb-4 text-sm font-semibold text-white/[0.48]">Follow us</p>
 						<ul className="grid max-w-[280px] grid-cols-2 gap-x-8 gap-y-2.5">
-							{footerSocialLinks.map((link) => {
-								if ("soon" in link && link.soon) {
-									return (
-										<li className="flex items-center gap-2" key={link.label}>
-											<span className="text-sm font-medium text-white/[0.4]">{link.label}</span>
-											<Badge
-												className="border-white/[0.1] bg-white/[0.06] text-white/[0.45]"
-												variant="outline"
-											>
-												Soon
-											</Badge>
-										</li>
-									)
-								}
-
+							{visibleFooterSocialLinks.map((link) => {
 								if (!("href" in link)) {
 									return null
 								}
@@ -77,7 +77,7 @@ export function LandingFooter({ homeHrefPrefix = "" }: LandingFooterProps) {
 				</div>
 
 				<div className="grid grid-cols-3 gap-x-16 gap-y-14 max-md:grid-cols-2 max-sm:grid-cols-1">
-					{footerLinkGroups.map((group) => (
+					{visibleFooterLinkGroups.map((group) => (
 						<FooterLinkGroup
 							key={group.title}
 							group={group}

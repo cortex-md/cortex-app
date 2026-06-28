@@ -381,15 +381,18 @@ describe("LandingPage", () => {
 		expect(screen.queryByRole("link", { name: "Download Cortex for Windows" })).toBeNull()
 	})
 
-	it("renders a dark footer with future resources marked as soon", () => {
+	it("renders a dark footer without future placeholder links", () => {
 		renderLanding()
 
 		expect(screen.getByRole("navigation", { name: "Get started links" })).toBeTruthy()
 		expect(screen.getByRole("navigation", { name: "Cortex links" })).toBeTruthy()
 		expect(screen.getByRole("navigation", { name: "Learn links" })).toBeTruthy()
-		expect(screen.getByRole("navigation", { name: "Resources links" })).toBeTruthy()
 		expect(screen.getByRole("navigation", { name: "Community links" })).toBeTruthy()
-		expect(screen.getAllByText("Soon").length).toBeGreaterThan(6)
+		expect(screen.queryByRole("navigation", { name: "Resources links" })).toBeNull()
+		expect(screen.queryByText("Soon")).toBeNull()
+		expect(screen.queryByText("Blog")).toBeNull()
+		expect(screen.queryByText("System status")).toBeNull()
+		expect(screen.queryByText("Discord")).toBeNull()
 		expect(screen.getByRole("link", { name: "Download" }).getAttribute("href")).toBe("#downloads")
 		expect(
 			screen

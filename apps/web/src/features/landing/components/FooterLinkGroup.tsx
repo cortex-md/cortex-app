@@ -1,7 +1,11 @@
-import { Badge } from "@cortex/ui/badge"
 import type { footerLinkGroups } from "../../../content/landing"
 
-type FooterLinkGroupData = (typeof footerLinkGroups)[number]
+type FooterLink = (typeof footerLinkGroups)[number]["links"][number]
+
+export interface FooterLinkGroupData {
+	title: string
+	links: readonly FooterLink[]
+}
 
 interface FooterLinkGroupProps {
 	group: FooterLinkGroupData
@@ -15,20 +19,6 @@ export function FooterLinkGroup({ group, resolveHref, onGitHubClick }: FooterLin
 			<h3 className="mb-4 text-sm font-semibold text-white/[0.48]">{group.title}</h3>
 			<ul className="grid gap-3">
 				{group.links.map((link) => {
-					if ("soon" in link && link.soon) {
-						return (
-							<li className="flex items-center gap-2" key={link.label}>
-								<span className="text-sm leading-5 font-medium text-white/[0.4]">{link.label}</span>
-								<Badge
-									className="border-white/[0.1] bg-white/[0.06] text-white/[0.45]"
-									variant="outline"
-								>
-									Soon
-								</Badge>
-							</li>
-						)
-					}
-
 					if (!("href" in link)) {
 						return null
 					}
