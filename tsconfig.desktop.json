@@ -1,0 +1,25 @@
+{
+	"files": [],
+	"references": [
+		{ "path": "packages/commands" },
+		{ "path": "packages/templates" },
+		{ "path": "packages/platform" },
+		{ "path": "packages/properties" },
+		{ "path": "packages/settings" },
+		{ "path": "packages/core" },
+		{ "path": "packages/renderer" },
+		{ "path": "packages/editor" },
+		{ "path": "packages/ui" },
+		{ "path": "packages/theme" },
+		{ "path": "packages/hotkeys" },
+		{ "path": "packages/search" },
+		{ "path": "packages/plugin-api" },
+		{ "path": "packages/plugin-host-core" },
+		{ "path": "packages/plugin-host-web" },
+		{ "path": "packages/marketplace" },
+		{ "path": "packages/ipc" },
+		{ "path": "plugins/github-emoji" },
+		{ "path": "apps/desktop/tsconfig.node.json" },
+		{ "path": "apps/desktop" }
+	]
+}

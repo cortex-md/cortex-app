@@ -88,6 +88,7 @@
 			"apps/**/*.{ts,tsx,js,json,css}",
 			"packages/**/*.{ts,tsx,js,json,css}",
 			"plugins/**/*.{ts,tsx,js,json,css}",
+			"scripts/**/*.{ts,tsx,js,mjs,json,css}",
 			"package.json",
 			"tsconfig.json",
 			"biome.json",

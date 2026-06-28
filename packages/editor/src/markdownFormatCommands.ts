@@ -200,9 +200,7 @@ export function createMarkdownFormatCommandEntries(
 	return markdownFormatCommandDefinitions.map((definition) => ({
 		aliases: definition.aliases ? [...definition.aliases] : undefined,
 		category: definition.category,
-		hotkey: definition.hotkey
-			? { defaultKeys: definition.hotkey, scope: "editor" }
-			: undefined,
+		hotkey: definition.hotkey ? { defaultKeys: definition.hotkey, scope: "editor" } : undefined,
 		id: definition.id,
 		label: definition.label,
 		execute: (context) => runCommand((view) => definition.run(view, context), context),
@@ -213,9 +211,7 @@ export function createMarkdownFormatBindings(
 	definitions: readonly MarkdownFormatCommandDefinition[] = markdownFormatCommandDefinitions,
 ): FormatBinding[] {
 	return definitions.flatMap((definition) =>
-		definition.hotkey
-			? [{ enabled: true, id: definition.id, keys: definition.hotkey }]
-			: [],
+		definition.hotkey ? [{ enabled: true, id: definition.id, keys: definition.hotkey }] : [],
 	)
 }
 

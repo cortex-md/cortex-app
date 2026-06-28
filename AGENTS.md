@@ -151,7 +151,9 @@ clear.
 - **Semicolons**: Not used (Biome removes them)
 - **Import organization**: Automatic via Biome (`organizeImports: "on"`)
 
-Run `bun run check` to lint, format, and organize imports all at once. Use `bun run check:fix` to auto-fix issues.
+Run `bun run check` for the current desktop quality gate: Biome lint, format, and import checks on
+desktop plus desktop-owned shared packages. Use `bun run check:fix` to auto-fix that same desktop
+scope. Use `bun run check:all` only when intentionally auditing mobile and web too.
 
 ### Type-First Approach
 Always define types/interfaces before implementation. Props interfaces extend HTML attributes for consistency:
@@ -170,18 +172,28 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 ```bash
 bun install                # Install dependencies
-bun run check             # Lint + format + organize imports (all at once)
-bun run check:fix         # Auto-fix all issues
+bun run check             # Desktop Biome lint + format + organize imports
+bun run check:fix         # Auto-fix the desktop Biome scope
+bun run check:all         # Biome check for desktop, mobile, web, packages, and plugins
 bun run check:boundaries  # Validate workspace dependencies, layers, and cycles
-bun run typecheck         # TypeScript compilation check across monorepo
+bun run typecheck         # TypeScript compilation check for desktop and desktop shared packages
+bun run typecheck:all     # TypeScript compilation check across the full monorepo
+bun run lint:desktop      # Biome lint for desktop and desktop shared packages
+bun run lint:web          # Biome lint for apps/web
 bun run lint:mobile       # Run Expo lint for apps/mobile
+bun run typecheck:web     # Run TypeScript for apps/web
 bun run typecheck:mobile  # Run TypeScript for apps/mobile
+bun run check:web         # Run apps/web Biome check
 bun run check:mobile      # Run mobile lint + typecheck
+bun run test:desktop      # Run desktop frontend suites and Rust tests
+bun run test:web          # Run apps/web tests
 bun run test:mobile       # Run the mobile deterministic gate
-bun run doctor:mobile     # Run React Doctor changed-scope scan for apps/mobile
-bun run test:frontend     # Run all deterministic frontend suites
+bun run doctor            # Run React Doctor changed-scope scan for apps/desktop
+bun run doctor:mobile     # Run React Doctor changed-scope scan for apps/mobile when needed
+bun run test:frontend     # Run deterministic desktop frontend suites
+bun run test:frontend:all # Run deterministic desktop frontend, theme-mobile, and web suites
 bun run test:rust         # Run the Rust workspace suite
-bun run test              # Run frontend and Rust suites
+bun run test              # Run the desktop gate
 bun run mobile:start      # Start Expo for apps/mobile
 bun run mobile:ios        # Start Expo and open iOS
 bun run mobile:android    # Start Expo and open Android
@@ -190,6 +202,12 @@ bun run benchmark:file-explorer # Run desktop file tree benchmarks from tools/be
 bun run benchmark:large-vault # Run desktop large-vault diagnostic workbench
 bun run tauri dev         # Start Tauri dev server (from apps/desktop/)
 ```
+
+GitHub Actions are desktop-scoped by default while mobile is in active development. Automatic CI
+should run desktop Biome, desktop TypeScript, desktop frontend tests, workspace boundaries, Rust
+tests, and desktop React Doctor only. Mobile and web checks stay available through explicit scripts
+but should not block default CI until those products are promoted back into the main gate. The
+plugin API publish workflow is manual-only while the default workflow set remains desktop-focused.
 
 ### Running the App
 ```bash

@@ -82,22 +82,22 @@ export {
 	toggleUnorderedList,
 } from "./markdownCommands"
 export {
+	createMarkdownFormatBindings,
+	createMarkdownFormatCommandEntries,
+	createMarkdownSlashCommandItems,
+	type MarkdownFormatCommandDefinition,
+	type MarkdownFormatCommandId,
+	type MarkdownFormatCommandRunner,
+	markdownFormatCommandDefinitions,
+	markdownFormatCommandIds,
+} from "./markdownFormatCommands"
+export {
 	defaultMarkdownKeymapExtension,
 	type FormatBinding,
 	getMarkdownKeymapCompartment,
 	type MarkdownCommandExecutor,
 	reconfigureMarkdownKeymap,
 } from "./markdownKeymap"
-export {
-	createMarkdownFormatBindings,
-	createMarkdownFormatCommandEntries,
-	createMarkdownSlashCommandItems,
-	type MarkdownFormatCommandDefinition,
-	markdownFormatCommandDefinitions,
-	type MarkdownFormatCommandId,
-	markdownFormatCommandIds,
-	type MarkdownFormatCommandRunner,
-} from "./markdownFormatCommands"
 export { ReadingView } from "./ReadingView"
 export { loadCodeMirrorCommunityPluginExternals, loadEditorRuntime } from "./runtime"
 export { SideBySideView } from "./SideBySideView"

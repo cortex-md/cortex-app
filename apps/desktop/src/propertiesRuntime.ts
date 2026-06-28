@@ -6,7 +6,7 @@ import {
 	useRemoteVaultStore,
 	useVaultStore,
 } from "@cortex/core"
-import { getPlatform, type DeviceInfo, type Platform } from "@cortex/platform"
+import { type DeviceInfo, getPlatform, type Platform } from "@cortex/platform"
 import { initializeProperties } from "@cortex/properties"
 
 let devicesLoaded = false
