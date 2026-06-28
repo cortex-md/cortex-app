@@ -20,12 +20,13 @@ SITE_URL=https://cortex-md.tech
 CORTEX_SYNC_URL=https://api.cortex-md.tech
 CORTEX_BILLING_RETURN_URL=https://cortex-md.tech/billing/cancelled
 CORTEX_BILLING_COMPLETION_URL=cortex://sync/checkout-complete
-CORTEX_DOWNLOAD_MACOS_URL=
-CORTEX_DOWNLOAD_WINDOWS_URL=
-CORTEX_DOWNLOAD_LINUX_URL=
 ```
 
-`SITE_URL` defaults to `https://cortex-md.tech`. Download cards stay marked as `Soon` until their matching `CORTEX_DOWNLOAD_*_URL` value is configured.
+`SITE_URL` defaults to `https://cortex-md.tech`.
+
+## Download Links
+
+Download links live in `src/content/landing.ts` under `downloadPlatforms[].options[].href`. Add or edit an option `href` to show another installer, portable build, or package-manager source.
 
 ## Vercel
 

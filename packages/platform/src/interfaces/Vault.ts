@@ -7,6 +7,7 @@ export interface VaultMetadata {
 	path: string
 	name: string
 	fileCount: number
+	displayPath?: string | null
 }
 
 export interface VaultRegistryEntry {
@@ -16,6 +17,7 @@ export interface VaultRegistryEntry {
 	lastOpened: number
 	icon: string | null
 	color: string | null
+	displayPath?: string | null
 }
 
 export interface Vault {

@@ -32,6 +32,17 @@ export const mobileColors = {
 	},
 } as const
 
+export const mobileIconColors = {
+	light: {
+		secondary: "#8e8e93",
+		tint: "#007aff",
+	},
+	dark: {
+		secondary: "#98989d",
+		tint: "#0a84ff",
+	},
+} as const
+
 export function getMobileColorScheme(colorScheme: ColorSchemeName): MobileColorScheme {
 	return colorScheme === "dark" ? "dark" : "light"
 }

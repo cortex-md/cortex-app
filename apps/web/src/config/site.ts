@@ -1,9 +1,6 @@
 const defaultSiteUrl = "https://cortex-md.tech"
 const configuredSiteUrl = import.meta.env.SITE_URL?.trim()
 const siteUrl = (configuredSiteUrl || defaultSiteUrl).replace(/\/$/, "")
-const configuredMacosDownloadUrl = import.meta.env.CORTEX_DOWNLOAD_MACOS_URL?.trim()
-const configuredWindowsDownloadUrl = import.meta.env.CORTEX_DOWNLOAD_WINDOWS_URL?.trim()
-const configuredLinuxDownloadUrl = import.meta.env.CORTEX_DOWNLOAD_LINUX_URL?.trim()
 
 export const siteConfig = {
 	name: "Cortex",
@@ -13,12 +10,6 @@ export const siteConfig = {
 		"A fast, open-source Markdown workspace for writing, organizing, syncing, and extending the knowledge you own.",
 	ogImage: `${siteUrl}/og-image.png`,
 	githubUrl: "https://github.com/cortex-md",
-} as const
-
-export const downloadLinks = {
-	macos: configuredMacosDownloadUrl || "",
-	windows: configuredWindowsDownloadUrl || "",
-	linux: configuredLinuxDownloadUrl || "",
 } as const
 
 export const landingNavigation = [

@@ -24,10 +24,15 @@
   through `Subscription.getStatus(...)`.
 - `NativePlatform` includes desktop and mobile values: `macos`, `windows`, `linux`, `ios`,
   `android`, and `web`. Shared stores must not assume only desktop platforms exist.
+- `VaultMetadata.displayPath` and `VaultRegistryEntry.displayPath` are optional presentation fields.
+  Adapters may use them to show a user-facing provider path while keeping `path` stable for shared
+  core logic.
 - Expo mobile adapters should implement the full `Platform` object from the start, even when a
   capability is not ready. Unsupported Phase 0 methods should reject clearly or return typed
   unsupported states such as notification/app-update unsupported results; they must not silently
   report successful vault, sync, keychain, or remote operations.
-- Mobile adapters may use Expo APIs for app storage, appearance, deep links, external URLs, and
-  device metadata. They must not import React UI code, `@cortex/ui`, Tauri IPC, Node filesystem
-  modules, or desktop-only assumptions into this package.
+- Mobile adapters may use Expo APIs for app storage, appearance, deep links, external URLs, device
+  metadata, and native directory picking. If a mobile adapter maps logical vault paths to provider
+  URIs, the mapping belongs in the app adapter, not in shared platform interfaces or core stores.
+  They must not import React UI code, `@cortex/ui`, Tauri IPC, Node filesystem modules, or
+  desktop-only assumptions into this package.

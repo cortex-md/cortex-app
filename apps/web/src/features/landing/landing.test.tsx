@@ -332,7 +332,7 @@ describe("LandingPage", () => {
 		expect(sectionIds.at(-1)).toBe("downloads")
 	})
 
-	it("renders download platform cards without dead links by default", () => {
+	it("renders download platform cards with direct latest links by default", () => {
 		const { container } = renderLanding()
 		const downloadsElement = container.querySelector("#downloads")
 		expect(downloadsElement).toBeTruthy()
@@ -347,38 +347,65 @@ describe("LandingPage", () => {
 		expect(downloads.getByRole("heading", { name: "Windows" })).toBeTruthy()
 		expect(downloads.getByRole("heading", { name: "Linux" })).toBeTruthy()
 		expect(downloads.getByText(".dmg")).toBeTruthy()
-		expect(downloads.getByText(".exe")).toBeTruthy()
+		expect(downloads.getByText(".msi")).toBeTruthy()
 		expect(downloads.getByText(".AppImage")).toBeTruthy()
+		expect(downloads.getByText("Apple Silicon DMG")).toBeTruthy()
+		expect(downloads.getByText("Windows MSI")).toBeTruthy()
+		expect(downloads.getByText("AppImage")).toBeTruthy()
+		expect(downloads.getByText("Debian package")).toBeTruthy()
 		expect(downloads.getByText("Apple Silicon")).toBeTruthy()
 		expect(downloads.getByText("Windows 10+")).toBeTruthy()
 		expect(downloads.getByText("Portable")).toBeTruthy()
+		expect(downloads.queryByText("Package manager")).toBeNull()
 		expect(downloadsElement?.querySelectorAll("svg[data-platform-mark]")).toHaveLength(3)
 		expect(downloadsElement?.querySelector('[data-platform-mark="macos"]')).toBeTruthy()
 		expect(downloadsElement?.querySelector('[data-platform-mark="windows"]')).toBeTruthy()
 		expect(downloadsElement?.querySelector('[data-platform-mark="linux"]')).toBeTruthy()
-		expect(downloadsElement?.querySelectorAll('[aria-disabled="true"]')).toHaveLength(3)
+		expect(downloadsElement?.querySelectorAll('[aria-disabled="true"]')).toHaveLength(0)
 		expect(downloads.queryAllByText("Soon")).toHaveLength(0)
-		expect(downloads.queryAllByRole("link")).toHaveLength(0)
+		expect(
+			downloads
+				.getByRole("link", { name: "Download Apple Silicon DMG for macOS" })
+				.getAttribute("href"),
+		).toBe(
+			"https://github.com/cortex-md/cortex-app/releases/latest/download/Cortex-macos-aarch64.dmg",
+		)
+		expect(
+			downloads
+				.getByRole("link", { name: "Download Windows MSI for Windows" })
+				.getAttribute("href"),
+		).toBe(
+			"https://github.com/cortex-md/cortex-app/releases/latest/download/Cortex-windows-x64.msi",
+		)
+		expect(downloads.queryAllByRole("link")).toHaveLength(4)
 	})
 
-	it("enables only configured download URLs", () => {
+	it("supports overriding direct download URLs", () => {
 		render(
 			<DownloadSection
 				links={{
-					macos: "https://downloads.example.com/cortex.dmg",
-					windows: "",
-					linux: "https://downloads.example.com/cortex.AppImage",
+					macosDmg: "https://downloads.example.com/cortex.dmg",
+					windowsMsi: "",
+					linuxAppImage: "https://downloads.example.com/cortex.AppImage",
+					linuxDeb: "https://downloads.example.com/cortex.deb",
 				}}
 			/>,
 		)
 
 		expect(
-			screen.getByRole("link", { name: "Download Cortex for macOS" }).getAttribute("href"),
+			screen
+				.getByRole("link", { name: "Download Apple Silicon DMG for macOS" })
+				.getAttribute("href"),
 		).toBe("https://downloads.example.com/cortex.dmg")
 		expect(
-			screen.getByRole("link", { name: "Download Cortex for Linux" }).getAttribute("href"),
+			screen.getByRole("link", { name: "Download AppImage for Linux" }).getAttribute("href"),
 		).toBe("https://downloads.example.com/cortex.AppImage")
-		expect(screen.queryByRole("link", { name: "Download Cortex for Windows" })).toBeNull()
+		expect(
+			screen.getByRole("link", { name: "Download Debian package for Linux" }).getAttribute("href"),
+		).toBe("https://downloads.example.com/cortex.deb")
+		expect(screen.getByText("Debian package")).toBeTruthy()
+		expect(screen.queryByRole("link", { name: "Download Windows MSI for Windows" })).toBeNull()
+		expect(document.querySelectorAll('[aria-disabled="true"]')).toHaveLength(1)
 	})
 
 	it("renders a dark footer without future placeholder links", () => {

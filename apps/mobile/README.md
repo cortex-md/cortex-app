@@ -5,18 +5,20 @@ Expo SDK 56 app for the Cortex native-first mobile shell.
 ## Commands
 
 ```bash
-bun run --cwd apps/Cortex ios
-bun run --cwd apps/Cortex android
-bun run --cwd apps/Cortex lint
-bun run --cwd apps/Cortex typecheck
+bun run --cwd apps/mobile ios
+bun run --cwd apps/mobile android
+bun run --cwd apps/mobile lint
+bun run --cwd apps/mobile typecheck
+bun run --cwd apps/mobile test:unit
 ```
 
-## Phase 0 Scope
+## Current Foundation
 
-- Expo Router `NativeTabs` with nested stacks for Notes, Settings, and Search.
+- Expo Router nested stacks with a sidebar-first shell for Files, Search, and Settings.
+- Real local vaults selected through the native folder picker.
+- Logical mobile vault paths under `/mobile-vaults/<uuid>` mapped app-locally to provider URIs.
 - `@expo/ui` settings controls for native SwiftUI / Jetpack Compose feel.
-- Expo `Platform` adapter skeleton wired into `@cortex/platform`.
-- DOM Component editor placeholder for the future CodeMirror WebView.
+- Expo `Platform` adapter wired into `@cortex/platform`.
+- DOM Component CodeMirror editor boundary.
 
-Real vault persistence, `@cortex/core`, `@cortex/editor`, search, sync, and CodeMirror plugin
-loading begin in later phases.
+Search, sync, marketplace, import/export, and community plugin discovery remain later phases.

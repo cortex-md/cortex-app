@@ -3,9 +3,11 @@
 ## Expo SDK 56
 
 - Read the exact versioned docs at https://docs.expo.dev/versions/v56.0.0/ before changing Expo APIs.
-- Keep this app native-first: Expo Router `NativeTabs`, nested `Stack` headers, gestures, platform
-  colors, iOS glass/material behavior, and Material/UIKit defaults should own the shell.
-- `@cortex/core` and `@cortex/properties` are wired for sandbox-only local vaults.
+- Keep this app native-first: Expo Router nested `Stack` headers, the mobile sidebar/drawer,
+  gestures, platform colors, iOS glass/material behavior, and Material/UIKit defaults should own the
+  shell.
+- `@cortex/core` and `@cortex/properties` are wired for local-first vaults selected through native
+  directory picking.
 - Phase 3 wires `@cortex/editor`, `@cortex/commands`, and `@cortex/plugin-host-core` only through
   the mobile editor DOM boundary. Do not import CodeMirror or editor runtime values from native
   React Native screens.
@@ -40,8 +42,9 @@
   CodeMirror.
 - CodeMirror extensions, editor views, plugin modules, command functions, stores, and class
   instances must stay inside the DOM context; never pass them across the bridge.
-- Native screen chrome, tabs, settings, search, global actions, and navigation stay native. Selection
-  toolbar, slash menu, and editor context menu belong inside the DOM editor once CodeMirror lands.
+- Native screen chrome, sidebar, settings, search, global actions, and navigation stay native.
+  Selection toolbar, slash menu, and editor context menu belong inside the DOM editor once
+  CodeMirror lands.
 - Markdown formatting command metadata lives in `@cortex/editor/markdown-format-commands`.
   `apps/mobile` may register those commands inside the DOM editor context, but must not keep a
   second mobile-only command catalog.
@@ -57,9 +60,13 @@
 ## Platform Adapter
 
 - `src/platform/expo-platform.ts` must implement the full `@cortex/platform` shape.
-- Phase 1 filesystem and vault methods are app-sandbox-only and should validate paths under
-  `Paths.document/Cortex`.
-- Do not add import/export, file pickers, directory pickers, document-provider access, or external
-  storage permission prompts in the local-vault phase.
+- Mobile vaults use logical Cortex paths such as `/mobile-vaults/<uuid>`. The Expo adapter owns the
+  persisted root map from logical path to native `file://` or Android `content://` directory URI.
+  Shared stores and screens must not treat provider URIs as vault paths.
+- `dialog.pickFolder` is implemented with `Directory.pickDirectoryAsync()`. Android should reopen
+  through persistable URI grants. iOS scoped directory access may need reauthorization after restart;
+  surface that as an explicit reauthorize/open-folder state instead of silently falling back.
+- Keep import/export, individual file pickers, sync, marketplace, and community plugin discovery out
+  of this foundation pass.
 - Methods that are not real yet should reject clearly or return an explicit unsupported state. Never
   silently fake sync, keychain, remote vault, or search success.

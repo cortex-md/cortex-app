@@ -189,28 +189,78 @@ export const downloadPlatforms = [
 	{
 		id: "macos",
 		name: "macOS",
-		artifact: ".dmg",
-		description:
-			"Open a local Markdown vault from the desktop build shaped for long writing sessions.",
-		chips: ["Apple Silicon", "Intel"],
+		chips: ["Desktop", "Apple Silicon"],
 		tone: "amber",
+		options: [
+			{
+				id: "macosDmg",
+				label: "Apple Silicon DMG",
+				artifact: ".dmg",
+				href: "https://github.com/cortex-md/cortex-app/releases/latest/download/Cortex-macos-aarch64.dmg",
+				showWhenMissing: true,
+			},
+			{
+				id: "macosIntelDmg",
+				label: "Intel DMG",
+				artifact: ".dmg",
+			},
+			{
+				id: "macosPackageManager",
+				label: "Package manager",
+				artifact: "brew",
+			},
+		],
 	},
 	{
 		id: "windows",
 		name: "Windows",
-		artifact: ".exe",
-		description: "Install Cortex on your main workspace machine and keep files readable on disk.",
 		chips: ["Windows 10+", "x64"],
 		tone: "sky",
+		options: [
+			{
+				id: "windowsMsi",
+				label: "Windows MSI",
+				artifact: ".msi",
+				href: "https://github.com/cortex-md/cortex-app/releases/latest/download/Cortex-windows-x64.msi",
+				showWhenMissing: true,
+			},
+			{
+				id: "windowsPortable",
+				label: "Portable build",
+				artifact: ".zip",
+			},
+			{
+				id: "windowsPackageManager",
+				label: "Package manager",
+				artifact: "winget",
+			},
+		],
 	},
 	{
 		id: "linux",
 		name: "Linux",
-		artifact: ".AppImage",
-		description:
-			"Run Cortex from a portable desktop package while your vault stays plain Markdown.",
 		chips: ["x64", "Portable"],
 		tone: "sage",
+		options: [
+			{
+				id: "linuxAppImage",
+				label: "AppImage",
+				artifact: ".AppImage",
+				href: "https://github.com/cortex-md/cortex-app/releases/latest/download/Cortex-linux-x64.AppImage",
+				showWhenMissing: true,
+			},
+			{
+				id: "linuxDeb",
+				label: "Debian package",
+				artifact: ".deb",
+				href: "https://github.com/cortex-md/cortex-app/releases/latest/download/Cortex-linux-amd64.deb",
+			},
+			{
+				id: "linuxPackageManager",
+				label: "Package manager",
+				artifact: "repo",
+			},
+		],
 	},
 ] as const
 

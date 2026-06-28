@@ -3,7 +3,7 @@ import { track } from "@vercel/analytics"
 type LandingEvent =
 	| { name: "hero_primary_cta_clicked"; location: "header" | "hero" | "footer" }
 	| { name: "hero_demo_clicked" }
-	| { name: "download_clicked"; platform: "macos" | "windows" | "linux" }
+	| { name: "download_clicked"; platform: "macos" | "windows" | "linux"; format?: string }
 	| { name: "github_clicked"; location: "developers" | "footer" | "header" }
 	| { name: "login_clicked"; location: "header" | "header_mobile" }
 	| { name: "account_clicked"; location: "header" | "header_mobile" }

@@ -1,12 +1,12 @@
 import { Button } from "@cortex/ui/button"
 import { CircleDashed, Download } from "lucide-react"
-import { downloadLinks } from "../../../config/site"
 import { downloadPlatforms, downloadSection } from "../../../content/landing"
 import { trackLandingEvent } from "../../../lib/analytics"
 
 type DownloadPlatform = (typeof downloadPlatforms)[number]
-type DownloadPlatformId = DownloadPlatform["id"]
-type DownloadSectionLinks = Record<DownloadPlatformId, string>
+type DownloadOption = DownloadPlatform["options"][number]
+type DownloadOptionId = DownloadOption["id"]
+type DownloadSectionLinks = Partial<Record<DownloadOptionId, string>>
 
 interface DownloadSectionProps {
 	links?: DownloadSectionLinks
@@ -88,11 +88,19 @@ function PlatformMark({ platform }: { platform: DownloadPlatform }) {
 	return <LinuxMark className="size-5" />
 }
 
-function DownloadAction({ href, platform }: { href: string; platform: DownloadPlatform }) {
+function DownloadOptionAction({
+	href,
+	option,
+	platform,
+}: {
+	href: string
+	option: DownloadOption
+	platform: DownloadPlatform
+}) {
 	if (!href) {
 		return (
 			<span
-				className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-bg-tertiary px-4 text-sm font-semibold text-text-muted shadow-[inset_0_0_0_1px_var(--border-subtle)]"
+				className="inline-flex size-8 items-center justify-center rounded-md bg-bg-tertiary text-text-muted shadow-[inset_0_0_0_1px_var(--border-subtle)]"
 				aria-disabled="true"
 			>
 				<CircleDashed className="size-4" aria-hidden="true" />
@@ -102,24 +110,86 @@ function DownloadAction({ href, platform }: { href: string; platform: DownloadPl
 
 	return (
 		<Button
-			className="min-h-11 w-full bg-[#303342] px-4 text-white shadow-[0_1px_2px_rgba(17,19,26,0.14)] tracking-normal transition-[background-color,scale] duration-150 ease-out hover:bg-[#1f222c] active:scale-[0.96] motion-reduce:transition-colors motion-reduce:active:scale-100"
+			className="size-8 rounded-md bg-[#303342] text-white shadow-[0_1px_2px_rgba(17,19,26,0.14)] tracking-normal transition-[background-color,scale] duration-150 ease-out hover:bg-[#1f222c] active:scale-[0.96] motion-reduce:transition-colors motion-reduce:active:scale-100"
+			size="icon-sm"
 			asChild
-			onClick={() => trackLandingEvent({ name: "download_clicked", platform: platform.id })}
 		>
-			<a href={href} aria-label={`Download Cortex for ${platform.name}`}>
-				Download
+			<a
+				href={href}
+				aria-label={`Download ${option.label} for ${platform.name}`}
+				onClick={() =>
+					trackLandingEvent({
+						name: "download_clicked",
+						platform: platform.id,
+						format: option.id,
+					})
+				}
+			>
 				<Download className="size-4" aria-hidden="true" />
 			</a>
 		</Button>
 	)
 }
 
-function DownloadCard({ href, platform }: { href: string; platform: DownloadPlatform }) {
+function shouldRenderOption(option: DownloadOption, href: string) {
+	return Boolean(href || ("showWhenMissing" in option && option.showWhenMissing))
+}
+
+function getOptionHref(option: DownloadOption, links?: DownloadSectionLinks) {
+	if (links && Object.hasOwn(links, option.id)) {
+		return links[option.id] ?? ""
+	}
+
+	return "href" in option ? option.href : ""
+}
+
+function DownloadOptionRow({
+	href,
+	option,
+	platform,
+}: {
+	href: string
+	option: DownloadOption
+	platform: DownloadPlatform
+}) {
+	return (
+		<li
+			className="grid min-h-[58px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-border-subtle border-t py-3"
+			data-download-option={option.id}
+		>
+			<div className="min-w-0">
+				<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+					<h4 className="m-0 text-[14px] leading-5 font-semibold text-text-primary">
+						{option.label}
+					</h4>
+					<span className="rounded-md bg-bg-secondary px-2 py-0.5 text-[12px] leading-5 font-semibold text-text-secondary shadow-[inset_0_0_0_1px_var(--border-subtle)]">
+						{option.artifact}
+					</span>
+				</div>
+			</div>
+			<DownloadOptionAction href={href} option={option} platform={platform} />
+		</li>
+	)
+}
+
+function DownloadCard({
+	links,
+	platform,
+}: {
+	links?: DownloadSectionLinks
+	platform: DownloadPlatform
+}) {
 	const tone = toneClassNames[platform.tone]
+	const visibleOptions = platform.options
+		.map((option) => ({
+			href: getOptionHref(option, links),
+			option,
+		}))
+		.filter(({ href, option }) => shouldRenderOption(option, href))
 
 	return (
 		<article
-			className="group flex min-h-[300px] flex-col rounded-xl bg-bg-elevated p-5 shadow-[0_0_0_1px_rgba(0,0,0,0.07),0_2px_8px_rgba(24,18,8,0.05)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_0_0_1px_rgba(0,0,0,0.075),0_4px_12px_rgba(24,18,8,0.08)] motion-reduce:transition-none motion-reduce:hover:translate-y-0 max-sm:min-h-0"
+			className="group flex min-h-[280px] flex-col rounded-xl bg-bg-elevated p-5 shadow-[0_0_0_1px_rgba(0,0,0,0.07),0_2px_8px_rgba(24,18,8,0.05)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_0_0_1px_rgba(0,0,0,0.075),0_4px_12px_rgba(24,18,8,0.08)] motion-reduce:transition-none motion-reduce:hover:translate-y-0 max-sm:min-h-0"
 			data-download-platform={platform.id}
 		>
 			<div className="flex items-start justify-between gap-4">
@@ -133,13 +203,7 @@ function DownloadCard({ href, platform }: { href: string; platform: DownloadPlat
 					<h3 className="m-0 text-[24px] leading-tight font-semibold tracking-[-0.01em] text-text-primary">
 						{platform.name}
 					</h3>
-					<span className="rounded-md bg-bg-secondary px-2.5 py-1 text-[13px] leading-5 font-semibold text-text-secondary shadow-[inset_0_0_0_1px_var(--border-subtle)]">
-						{platform.artifact}
-					</span>
 				</div>
-				<p className="mt-4 mb-0 text-pretty text-[14px] leading-6 text-text-secondary">
-					{platform.description}
-				</p>
 			</div>
 
 			<div className="mt-6 flex flex-wrap gap-2">
@@ -153,14 +217,21 @@ function DownloadCard({ href, platform }: { href: string; platform: DownloadPlat
 				))}
 			</div>
 
-			<div className="mt-auto pt-8">
-				<DownloadAction href={href} platform={platform} />
-			</div>
+			<ul className="mt-auto pt-8">
+				{visibleOptions.map(({ href, option }) => (
+					<DownloadOptionRow
+						href={href}
+						key={`${platform.id}-${option.id}`}
+						option={option}
+						platform={platform}
+					/>
+				))}
+			</ul>
 		</article>
 	)
 }
 
-export function DownloadSection({ links = downloadLinks }: DownloadSectionProps) {
+export function DownloadSection({ links }: DownloadSectionProps) {
 	return (
 		<section className="scroll-mt-24 py-24 max-md:py-[80px] max-sm:py-[68px]" id="downloads">
 			<div className="mx-auto w-[min(1180px,calc(100%_-_64px))] max-lg:w-[min(calc(100%_-_48px),940px)] max-md:w-[min(calc(100%_-_36px),720px)] max-sm:w-[min(calc(100%_-_28px),520px)]">
@@ -174,7 +245,7 @@ export function DownloadSection({ links = downloadLinks }: DownloadSectionProps)
 
 				<div className="mt-12 grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4 max-md:mt-10">
 					{downloadPlatforms.map((platform) => (
-						<DownloadCard href={links[platform.id]} key={platform.id} platform={platform} />
+						<DownloadCard links={links} key={platform.id} platform={platform} />
 					))}
 				</div>
 			</div>

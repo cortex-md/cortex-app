@@ -1,11 +1,17 @@
 import { Button } from "@cortex/ui/button"
 import { ArrowRight } from "lucide-react"
-import { downloadLinks } from "../../../config/site"
+import { downloadPlatforms } from "../../../content/landing"
 import { trackLandingEvent } from "../../../lib/analytics"
 import { ProductMedia } from "../components/ProductMedia"
 
+function hasDownloadHref() {
+	return downloadPlatforms.some((platform) =>
+		platform.options.some((option) => "href" in option && Boolean(option.href)),
+	)
+}
+
 export function HeroSection() {
-	const hasDownload = Object.values(downloadLinks).some(Boolean)
+	const hasDownload = hasDownloadHref()
 
 	return (
 		<section

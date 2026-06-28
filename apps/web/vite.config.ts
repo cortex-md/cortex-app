@@ -15,9 +15,6 @@ const runtimeEnvKeys = [
 	"CORTEX_SYNC_URL",
 	"CORTEX_BILLING_RETURN_URL",
 	"CORTEX_BILLING_COMPLETION_URL",
-	"CORTEX_DOWNLOAD_MACOS_URL",
-	"CORTEX_DOWNLOAD_WINDOWS_URL",
-	"CORTEX_DOWNLOAD_LINUX_URL",
 ] as const
 const dynamicPrerenderPaths = new Set(["/account", "/billing", "/changelog", "/login", "/signup"])
 
@@ -28,9 +25,6 @@ function getPrerenderPathname(routePath: string) {
 export default defineConfig(({ mode }) => {
 	const environment = loadEnv(mode, import.meta.dirname, "")
 	const siteUrl = (environment.SITE_URL || defaultSiteUrl).replace(/\/$/, "")
-	const macosDownloadUrl = environment.CORTEX_DOWNLOAD_MACOS_URL?.trim() ?? ""
-	const windowsDownloadUrl = environment.CORTEX_DOWNLOAD_WINDOWS_URL?.trim() ?? ""
-	const linuxDownloadUrl = environment.CORTEX_DOWNLOAD_LINUX_URL?.trim() ?? ""
 
 	for (const key of runtimeEnvKeys) {
 		if (environment[key] && !process.env[key]) {
@@ -41,9 +35,6 @@ export default defineConfig(({ mode }) => {
 	return {
 		define: {
 			"import.meta.env.SITE_URL": JSON.stringify(siteUrl),
-			"import.meta.env.CORTEX_DOWNLOAD_MACOS_URL": JSON.stringify(macosDownloadUrl),
-			"import.meta.env.CORTEX_DOWNLOAD_WINDOWS_URL": JSON.stringify(windowsDownloadUrl),
-			"import.meta.env.CORTEX_DOWNLOAD_LINUX_URL": JSON.stringify(linuxDownloadUrl),
 		},
 		resolve: {
 			tsconfigPaths: true,

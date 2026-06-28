@@ -1,11 +1,12 @@
 import {
 	getNotePathPresentation,
 	getPortableFileNameError,
+	useAppStore,
 	useEditorStore,
 	useVaultStore,
 	useWorkspaceStore,
 } from "@cortex/core"
-import type { FileEntry, VaultMetadata } from "@cortex/platform"
+import type { FileEntry, VaultMetadata, VaultRegistryEntry } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
 import {
 	BottomSheet,
@@ -18,6 +19,7 @@ import {
 } from "@expo/ui"
 import * as Haptics from "expo-haptics"
 import { Stack, useLocalSearchParams, useRouter } from "expo-router"
+import { FileText, Folder, FolderOpen, Plus } from "lucide-react-native"
 import { useEffect, useEffectEvent, useReducer, useRef, useState } from "react"
 import {
 	type ColorValue,
@@ -30,15 +32,19 @@ import {
 } from "react-native"
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable"
 
-import { createLocalVault } from "@/features/vault/local-vault"
-import { getMobileColorScheme, mobileColors } from "@/theme/colors"
+import { getMobileColorScheme, mobileColors, mobileIconColors } from "@/theme/colors"
 
 type SheetAction =
-	| { kind: "create-vault" }
+	| { defaultName: string; folderPath: string; kind: "create-vault" }
 	| { kind: "create-note"; parentPath: string }
 	| { kind: "create-folder"; parentPath: string }
 	| { kind: "rename"; entry: FileEntry }
 	| null
+
+interface VaultIdentitySelection {
+	color: string
+	icon: string
+}
 
 interface NotesUiState {
 	createActionsPresented: boolean
@@ -68,7 +74,7 @@ interface TextActionSheetProps {
 	error: string | null
 	initialValue: string
 	onDismiss: () => void
-	onSubmit: (value: string) => void
+	onSubmit: (value: string, vaultIdentity?: VaultIdentitySelection) => void
 	submitting: boolean
 }
 
@@ -117,6 +123,11 @@ interface NotesListProps {
 	onRenameEntry: (entry: FileEntry) => void
 	onShowEntryActions: (entry: FileEntry) => void
 	refreshing: boolean
+	recentVaults: VaultRegistryEntry[]
+	onCreateVault: () => void
+	onOpenRecentVault: (entry: VaultRegistryEntry) => void
+	onOpenVaultFolder: () => void
+	version: string | null
 	vault: VaultMetadata | null
 }
 
@@ -130,6 +141,19 @@ const initialNotesUiState: NotesUiState = {
 	sheetError: null,
 	submitting: false,
 }
+
+const defaultVaultIdentity: VaultIdentitySelection = {
+	color: "#0a84ff",
+	icon: "book",
+}
+
+const vaultColorOptions = ["#0a84ff", "#34c759", "#ff9f0a", "#ff375f"] as const
+
+const vaultIconOptions = [
+	{ icon: "book", label: "Book" },
+	{ icon: "folder", label: "Folder" },
+	{ icon: "spark", label: "Spark" },
+] as const
 
 function notesUiReducer(state: NotesUiState, action: NotesUiAction): NotesUiState {
 	switch (action.type) {
@@ -222,7 +246,7 @@ function getSheetTitle(action: SheetAction): string {
 function getSheetPlaceholder(action: SheetAction): string {
 	switch (action?.kind) {
 		case "create-vault":
-			return "Personal"
+			return action.defaultName
 		case "create-note":
 			return "Untitled"
 		case "create-folder":
@@ -237,7 +261,7 @@ function getSheetPlaceholder(action: SheetAction): string {
 function getSheetDescription(action: SheetAction): string {
 	switch (action?.kind) {
 		case "create-vault":
-			return "Stored inside the Cortex app sandbox."
+			return "Uses the folder you selected and creates Cortex onboarding files there."
 		case "create-note":
 			return "Creates a Markdown note in the current folder."
 		case "create-folder":
@@ -288,7 +312,11 @@ function TextActionSheet({
 	const draftRef = useRef(initialValue)
 	const isPresented = action !== null
 	const title = getSheetTitle(action)
+	const colors = mobileColors[getMobileColorScheme(useColorScheme())]
 	const [validationError, setValidationError] = useState<string | null>(null)
+	const [vaultIdentity, setVaultIdentity] =
+		useState<VaultIdentitySelection>(defaultVaultIdentity)
+	const isVaultIdentitySheet = action?.kind === "create-vault"
 
 	function handleSubmit() {
 		const nextValue = draftRef.current.trim()
@@ -298,7 +326,7 @@ function TextActionSheet({
 			return
 		}
 
-		onSubmit(nextValue)
+		onSubmit(nextValue, isVaultIdentitySheet ? vaultIdentity : undefined)
 	}
 
 	return (
@@ -325,6 +353,48 @@ function TextActionSheet({
 								placeholder={getSheetPlaceholder(action)}
 								returnKeyType="done"
 							/>
+							{isVaultIdentitySheet ? (
+								<View style={styles.identityPicker}>
+									<Text style={[styles.identityLabel, { color: colors.secondaryLabel }]}>Color</Text>
+									<View style={styles.identityOptions}>
+										{vaultColorOptions.map((color) => (
+											<Pressable
+												accessibilityLabel={`Vault color ${color}`}
+												key={color}
+												onPress={() => setVaultIdentity((current) => ({ ...current, color }))}
+												style={[
+													styles.colorSwatch,
+													{
+														backgroundColor: color,
+														borderColor:
+															vaultIdentity.color === color ? "#ffffff" : "transparent",
+													},
+												]}
+											/>
+										))}
+									</View>
+									<Text style={[styles.identityLabel, { color: colors.secondaryLabel }]}>Icon</Text>
+									<View style={styles.identityOptions}>
+										{vaultIconOptions.map((option) => (
+											<Pressable
+												key={option.icon}
+												onPress={() =>
+													setVaultIdentity((current) => ({ ...current, icon: option.icon }))
+												}
+												style={[
+													styles.iconChoice,
+													{ borderColor: colors.separator },
+													vaultIdentity.icon === option.icon ? styles.iconChoiceSelected : null,
+												]}
+											>
+												<Text style={[styles.iconChoiceText, { color: colors.label }]}>
+													{option.label}
+												</Text>
+											</Pressable>
+										))}
+									</View>
+								</View>
+							) : null}
 						</FieldGroup.Section>
 					</FieldGroup>
 					<ExpoButton
@@ -352,7 +422,7 @@ function CreateActionsSheet({
 				<Column spacing={10} style={styles.sheetContent}>
 					<FieldGroup>
 						<FieldGroup.Section title="Create">
-							<ListItem supportingText="Add content to this local sandbox vault.">
+							<ListItem supportingText="Add content to this vault or connect another folder.">
 								New item
 							</ListItem>
 						</FieldGroup.Section>
@@ -501,21 +571,29 @@ function NotesList({
 	entries,
 	error,
 	loading,
+	onCreateVault,
 	onDeleteEntry,
 	onDuplicateEntry,
 	onOpenFolder,
 	onOpenNote,
+	onOpenRecentVault,
 	onRefresh,
+	onOpenVaultFolder,
 	onRenameEntry,
 	onShowEntryActions,
+	recentVaults,
 	refreshing,
+	version,
 	vault,
 }: NotesListProps) {
+	const iconColors = mobileIconColors[getMobileColorScheme(useColorScheme())]
+
 	function renderEntry({ item }: { item: FileEntry }) {
 		return (
 			<NoteRow
 				colors={colors}
 				entry={item}
+				iconColors={iconColors}
 				onDeleteEntry={onDeleteEntry}
 				onDuplicateEntry={onDuplicateEntry}
 				onOpenFolder={onOpenFolder}
@@ -533,8 +611,19 @@ function NotesList({
 			contentContainerStyle={styles.content}
 			data={entries}
 			keyExtractor={(item) => item.path}
-			ListEmptyComponent={() => <NotesEmptyState colors={colors} vault={vault} />}
-			ListHeaderComponent={() => <NotesListHeader colors={colors} error={error} vault={vault} />}
+			ListEmptyComponent={() => (
+				<NotesEmptyState
+					colors={colors}
+					onCreateVault={onCreateVault}
+					onOpenRecentVault={onOpenRecentVault}
+					onOpenVaultFolder={onOpenVaultFolder}
+					recentVaults={recentVaults}
+					vault={vault}
+				/>
+			)}
+			ListHeaderComponent={() => (
+				<NotesListHeader colors={colors} error={error} vault={vault} version={version} />
+			)}
 			onRefresh={onRefresh}
 			refreshing={refreshing || loading}
 			renderItem={renderEntry}
@@ -546,15 +635,17 @@ function NotesListHeader({
 	colors,
 	error,
 	vault,
+	version,
 }: {
 	colors: (typeof mobileColors)[keyof typeof mobileColors]
 	error: string | null
 	vault: VaultMetadata | null
+	version: string | null
 }) {
 	return (
 		<View style={styles.header}>
 			<Text style={[styles.eyebrow, { color: colors.secondaryLabel }]}>
-				{vault ? "Local vault" : "Cortex Mobile"}
+				{vault ? (vault.displayPath ?? "Local vault") : `Cortex Mobile ${version ?? ""}`.trim()}
 			</Text>
 			{error ? (
 				<Text selectable style={[styles.errorText, { color: colors.destructive }]}>
@@ -567,20 +658,97 @@ function NotesListHeader({
 
 function NotesEmptyState({
 	colors,
+	onCreateVault,
+	onOpenRecentVault,
+	onOpenVaultFolder,
+	recentVaults,
 	vault,
 }: {
 	colors: (typeof mobileColors)[keyof typeof mobileColors]
+	onCreateVault: () => void
+	onOpenRecentVault: (entry: VaultRegistryEntry) => void
+	onOpenVaultFolder: () => void
+	recentVaults: VaultRegistryEntry[]
 	vault: VaultMetadata | null
 }) {
+	const iconColors = mobileIconColors[getMobileColorScheme(useColorScheme())]
+
+	if (!vault) {
+		return (
+			<View style={styles.onboardingState}>
+				<Text selectable style={[styles.onboardingTitle, { color: colors.label }]}>
+					Cortex Mobile
+				</Text>
+				<Text selectable style={[styles.emptyBody, { color: colors.secondaryLabel }]}>
+					Create a vault in a folder you choose, or reopen one of your recent vaults.
+				</Text>
+				<View style={styles.onboardingActions}>
+					<Pressable
+						onPress={onCreateVault}
+						style={({ pressed }) => [
+							styles.primaryAction,
+							{ backgroundColor: colors.tint, opacity: pressed ? 0.7 : 1 },
+						]}
+					>
+						<Plus color="#ffffff" size={18} strokeWidth={2.4} />
+						<Text style={styles.primaryActionText}>Create vault</Text>
+					</Pressable>
+					<Pressable
+						onPress={onOpenVaultFolder}
+						style={({ pressed }) => [
+							styles.secondaryAction,
+							{
+								borderColor: colors.separator,
+								opacity: pressed ? 0.62 : 1,
+							},
+						]}
+					>
+						<FolderOpen color={iconColors.tint} size={18} strokeWidth={2.3} />
+						<Text style={[styles.secondaryActionText, { color: colors.label }]}>Open folder</Text>
+					</Pressable>
+				</View>
+				{recentVaults.length ? (
+					<View style={styles.recentVaults}>
+						<Text style={[styles.recentVaultsTitle, { color: colors.secondaryLabel }]}>
+							Recent Vaults
+						</Text>
+						{recentVaults.slice(0, 5).map((entry) => (
+							<Pressable
+								key={entry.uuid}
+								onPress={() => onOpenRecentVault(entry)}
+								style={({ pressed }) => [
+									styles.recentVaultRow,
+									{
+										backgroundColor: colors.secondaryBackground,
+										borderColor: colors.separator,
+										opacity: pressed ? 0.64 : 1,
+									},
+								]}
+							>
+								<Text numberOfLines={1} style={[styles.recentVaultName, { color: colors.label }]}>
+									{entry.name}
+								</Text>
+								<Text
+									numberOfLines={1}
+									style={[styles.recentVaultPath, { color: colors.secondaryLabel }]}
+								>
+									{entry.displayPath ?? entry.path}
+								</Text>
+							</Pressable>
+						))}
+					</View>
+				) : null}
+			</View>
+		)
+	}
+
 	return (
 		<View style={styles.emptyState}>
 			<Text selectable style={[styles.emptyTitle, { color: colors.label }]}>
-				{vault ? "No notes here" : "No vault open"}
+				No notes here
 			</Text>
 			<Text selectable style={[styles.emptyBody, { color: colors.secondaryLabel }]}>
-				{vault
-					? "Create a note or folder in this local vault."
-					: "Create a sandboxed vault to start using Cortex Mobile."}
+				Create a note or folder in this vault.
 			</Text>
 		</View>
 	)
@@ -589,6 +757,7 @@ function NotesEmptyState({
 function NoteRow({
 	colors,
 	entry,
+	iconColors,
 	onDeleteEntry,
 	onDuplicateEntry,
 	onOpenFolder,
@@ -599,6 +768,7 @@ function NoteRow({
 }: {
 	colors: (typeof mobileColors)[keyof typeof mobileColors]
 	entry: FileEntry
+	iconColors: (typeof mobileIconColors)[keyof typeof mobileIconColors]
 	onDeleteEntry: (entry: FileEntry) => void
 	onDuplicateEntry: (entry: FileEntry) => void
 	onOpenFolder: (folderPath: string) => void
@@ -644,6 +814,13 @@ function NoteRow({
 					},
 				]}
 			>
+				<View style={[styles.rowIcon, { backgroundColor: colors.groupedBackground }]}>
+					{entry.isDir ? (
+						<Folder color={iconColors.tint} size={20} strokeWidth={2.25} />
+					) : (
+						<FileText color={iconColors.secondary} size={20} strokeWidth={2.15} />
+					)}
+				</View>
 				<View style={styles.rowText}>
 					<Text numberOfLines={1} style={[styles.rowTitle, { color: colors.label }]}>
 						{title}
@@ -721,12 +898,18 @@ function useNotesHomeController() {
 	const requestedFolderPath = getParamValue(params.folderPath)
 	const scheme = getMobileColorScheme(useColorScheme())
 	const colors = mobileColors[scheme]
+	const iconColors = mobileIconColors[scheme]
+	const version = useAppStore((state) => state.version)
+	const markFirstRunOnboardingSeen = useAppStore((state) => state.markFirstRunOnboardingSeen)
 	const vault = useVaultStore((state) => state.vault)
 	const files = useVaultStore((state) => state.files)
+	const recentVaults = useVaultStore((state) => state.recentVaults)
 	const loading = useVaultStore((state) => state.loading)
 	const error = useVaultStore((state) => state.error)
 	const pendingOnboardingNotePath = useVaultStore((state) => state.pendingOnboardingNotePath)
 	const openVault = useVaultStore((state) => state.openVault)
+	const closeVault = useVaultStore((state) => state.closeVault)
+	const loadRecentVaults = useVaultStore((state) => state.loadRecentVaults)
 	const createFile = useVaultStore((state) => state.createFile)
 	const createFolder = useVaultStore((state) => state.createFolder)
 	const deleteFile = useVaultStore((state) => state.deleteFile)
@@ -767,12 +950,12 @@ function useNotesHomeController() {
 	const currentFolderTitle =
 		vault && effectiveCurrentFolderPath && effectiveCurrentFolderPath !== vault.path
 			? getFileName(effectiveCurrentFolderPath)
-			: (vault?.name ?? "Notes")
+			: (vault?.name ?? "Files")
 	const sheetInitialValue =
 		uiState.sheetAction?.kind === "rename"
 			? getNoteInputName(uiState.sheetAction.entry)
 			: uiState.sheetAction?.kind === "create-vault"
-				? "Personal"
+				? uiState.sheetAction.defaultName
 				: ""
 
 	function openNote(filePath: string) {
@@ -804,7 +987,62 @@ function useNotesHomeController() {
 		})
 	}
 
-	function handleSubmitSheet(value: string) {
+	async function handleOpenVaultAfterSelection(
+		path: string,
+		options: {
+			color?: string | null
+			createOnboardingNote?: boolean
+			icon?: string | null
+			name?: string
+		},
+	) {
+		const openOptions = {
+			color: options.color ?? undefined,
+			createOnboardingNote: options.createOnboardingNote,
+			icon: options.icon ?? undefined,
+			name: options.name,
+		}
+		if (vault && vault.path !== path) {
+			await closeVault()
+		}
+		await openVault(path, openOptions)
+		const openedVault = useVaultStore.getState().vault
+		if (!openedVault) {
+			throw new Error(useVaultStore.getState().error ?? "Unable to open vault")
+		}
+		await Promise.all([markFirstRunOnboardingSeen(), loadRecentVaults()])
+		router.replace("/(notes)" as never)
+	}
+
+	async function handlePickVaultFolder() {
+		dispatch({ presented: false, type: "show-create-actions" })
+		const folderPath = await getPlatform().dialog.pickFolder()
+		if (!folderPath) return
+		const existingRecent = recentVaults.find((entry) => entry.path === folderPath)
+		if (existingRecent) {
+			await handleOpenVaultAfterSelection(folderPath, {
+				color: existingRecent.color,
+				icon: existingRecent.icon,
+				name: existingRecent.name,
+			})
+			return
+		}
+
+		let defaultName = "Personal"
+		try {
+			const metadata = await getPlatform().vault.getVaultMetadata(folderPath)
+			defaultName = metadata.name || "Personal"
+		} catch {
+			defaultName = "Personal"
+		}
+
+		dispatch({
+			action: { defaultName, folderPath, kind: "create-vault" },
+			type: "show-text-sheet",
+		})
+	}
+
+	function handleSubmitSheet(value: string, vaultIdentity?: VaultIdentitySelection) {
 		if (!uiState.sheetAction) return
 		dispatch({ submitting: true, type: "set-submitting" })
 		dispatch({ error: null, type: "set-sheet-error" })
@@ -812,12 +1050,12 @@ function useNotesHomeController() {
 		const actionPromise = (async () => {
 			switch (uiState.sheetAction?.kind) {
 				case "create-vault": {
-					const createdVault = await createLocalVault(value)
-					await openVault(createdVault.path, {
+					await handleOpenVaultAfterSelection(uiState.sheetAction.folderPath, {
+						color: vaultIdentity?.color ?? defaultVaultIdentity.color,
 						createOnboardingNote: true,
-						name: createdVault.name,
+						icon: vaultIdentity?.icon ?? defaultVaultIdentity.icon,
+						name: value,
 					})
-					router.replace("/")
 					break
 				}
 				case "create-note": {
@@ -868,8 +1106,8 @@ function useNotesHomeController() {
 			confirmLabel: "Delete",
 			destructive: true,
 			message: entry.isDir
-				? "This deletes the folder and every note inside it from the local sandbox."
-				: "This deletes the note from the local sandbox.",
+				? "This deletes the folder and every note inside it from the selected vault."
+				: "This deletes the note from the selected vault.",
 			title: entry.isDir ? "Delete folder?" : "Delete note?",
 		})
 
@@ -929,10 +1167,28 @@ function useNotesHomeController() {
 	function handleCreateFromHeader() {
 		triggerSelectionHaptic()
 		if (!vault || !effectiveCurrentFolderPath) {
-			dispatch({ action: { kind: "create-vault" }, type: "show-text-sheet" })
+			void handlePickVaultFolder().catch((pickError) => {
+				dispatch({
+					error: pickError instanceof Error ? pickError.message : String(pickError),
+					type: "set-sheet-error",
+				})
+			})
 			return
 		}
 		dispatch({ presented: true, type: "show-create-actions" })
+	}
+
+	function handleOpenRecentVault(entry: VaultRegistryEntry) {
+		void handleOpenVaultAfterSelection(entry.path, {
+			color: entry.color,
+			icon: entry.icon,
+			name: entry.name,
+		}).catch((recentError) => {
+			dispatch({
+				error: recentError instanceof Error ? recentError.message : String(recentError),
+				type: "set-sheet-error",
+			})
+		})
 	}
 
 	return {
@@ -946,13 +1202,18 @@ function useNotesHomeController() {
 		handleDuplicateEntry,
 		handleMoveEntry,
 		handleOpenFolder,
+		handleOpenRecentVault,
+		handlePickVaultFolder,
 		handleRefresh,
 		handleSubmitSheet,
 		loading,
 		moveDestinations,
 		openNote,
+		recentVaults,
 		sheetInitialValue,
+		iconColors,
 		uiState,
+		version,
 		vault,
 		visibleEntries,
 	}
@@ -975,7 +1236,7 @@ export default function NotesHomeScreen() {
 							onPress={controller.handleCreateFromHeader}
 							style={({ pressed }) => [{ opacity: pressed ? 0.52 : 1 }, styles.headerButton]}
 						>
-							<Text style={[styles.headerButtonText, { color: controller.colors.tint }]}>New</Text>
+							<Plus color={controller.iconColors.tint} size={22} strokeWidth={2.35} />
 						</Pressable>
 					),
 					title: controller.currentFolderTitle,
@@ -986,13 +1247,16 @@ export default function NotesHomeScreen() {
 				entries={controller.visibleEntries}
 				error={controller.error}
 				loading={controller.loading}
+				onCreateVault={controller.handlePickVaultFolder}
 				onDeleteEntry={(entry) => {
 					void controller.handleDeleteEntry(entry)
 				}}
 				onDuplicateEntry={controller.handleDuplicateEntry}
 				onOpenFolder={controller.handleOpenFolder}
 				onOpenNote={controller.openNote}
+				onOpenRecentVault={controller.handleOpenRecentVault}
 				onRefresh={controller.handleRefresh}
+				onOpenVaultFolder={controller.handlePickVaultFolder}
 				onRenameEntry={(entry) =>
 					controller.dispatch({ action: { entry, kind: "rename" }, type: "show-text-sheet" })
 				}
@@ -1000,7 +1264,9 @@ export default function NotesHomeScreen() {
 					triggerSelectionHaptic()
 					controller.dispatch({ entry, type: "show-entry-actions" })
 				}}
+				recentVaults={controller.recentVaults}
 				refreshing={controller.uiState.refreshing}
+				version={controller.version}
 				vault={controller.vault}
 			/>
 			<CreateActionsSheet
@@ -1022,7 +1288,12 @@ export default function NotesHomeScreen() {
 					}
 				}}
 				onCreateVault={() =>
-					controller.dispatch({ action: { kind: "create-vault" }, type: "show-text-sheet" })
+					void controller.handlePickVaultFolder().catch((pickError) => {
+						controller.dispatch({
+							error: pickError instanceof Error ? pickError.message : String(pickError),
+							type: "set-sheet-error",
+						})
+					})
 				}
 				onDismiss={() => controller.dispatch({ presented: false, type: "show-create-actions" })}
 			/>
@@ -1103,10 +1374,43 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		paddingHorizontal: 4,
 	},
-	headerButtonText: {
-		fontSize: 16,
+	iconChoice: {
+		borderRadius: 8,
+		borderWidth: StyleSheet.hairlineWidth,
+		minHeight: 34,
+		justifyContent: "center",
+		paddingHorizontal: 12,
+	},
+	iconChoiceSelected: {
+		borderWidth: 1,
+	},
+	iconChoiceText: {
+		fontSize: 14,
 		fontWeight: "600",
 		letterSpacing: 0,
+		lineHeight: 18,
+	},
+	identityLabel: {
+		fontSize: 12,
+		fontWeight: "700",
+		letterSpacing: 0,
+		lineHeight: 16,
+		textTransform: "uppercase",
+	},
+	identityOptions: {
+		flexDirection: "row",
+		flexWrap: "wrap",
+		gap: 8,
+	},
+	identityPicker: {
+		gap: 8,
+		paddingTop: 8,
+	},
+	colorSwatch: {
+		borderRadius: 15,
+		borderWidth: 2,
+		height: 30,
+		width: 30,
 	},
 	moveDestination: {
 		borderRadius: 8,
@@ -1121,6 +1425,70 @@ const styles = StyleSheet.create({
 	},
 	moveList: {
 		maxHeight: 280,
+	},
+	onboardingActions: {
+		gap: 10,
+		width: "100%",
+	},
+	onboardingState: {
+		alignItems: "center",
+		gap: 14,
+		paddingHorizontal: 20,
+		paddingVertical: 40,
+	},
+	onboardingTitle: {
+		fontSize: 28,
+		fontWeight: "800",
+		letterSpacing: 0,
+		lineHeight: 34,
+		textAlign: "center",
+	},
+	primaryAction: {
+		alignItems: "center",
+		borderRadius: 8,
+		flexDirection: "row",
+		gap: 8,
+		justifyContent: "center",
+		minHeight: 48,
+		paddingHorizontal: 14,
+	},
+	primaryActionText: {
+		color: "#ffffff",
+		fontSize: 16,
+		fontWeight: "700",
+		letterSpacing: 0,
+		lineHeight: 21,
+	},
+	recentVaultName: {
+		fontSize: 15,
+		fontWeight: "700",
+		letterSpacing: 0,
+		lineHeight: 20,
+	},
+	recentVaultPath: {
+		fontSize: 12,
+		letterSpacing: 0,
+		lineHeight: 16,
+	},
+	recentVaultRow: {
+		borderRadius: 8,
+		borderWidth: StyleSheet.hairlineWidth,
+		gap: 2,
+		justifyContent: "center",
+		minHeight: 54,
+		paddingHorizontal: 12,
+	},
+	recentVaults: {
+		gap: 8,
+		paddingTop: 4,
+		width: "100%",
+	},
+	recentVaultsTitle: {
+		fontSize: 12,
+		fontWeight: "700",
+		letterSpacing: 0,
+		lineHeight: 16,
+		textTransform: "uppercase",
 	},
 	root: {
 		flex: 1,
@@ -1146,6 +1514,13 @@ const styles = StyleSheet.create({
 		fontSize: 13,
 		lineHeight: 18,
 	},
+	rowIcon: {
+		alignItems: "center",
+		borderRadius: 8,
+		height: 36,
+		justifyContent: "center",
+		width: 36,
+	},
 	rowText: {
 		flex: 1,
 		gap: 2,
@@ -1159,6 +1534,22 @@ const styles = StyleSheet.create({
 	},
 	sheetContent: {
 		padding: 16,
+	},
+	secondaryAction: {
+		alignItems: "center",
+		borderRadius: 8,
+		borderWidth: StyleSheet.hairlineWidth,
+		flexDirection: "row",
+		gap: 8,
+		justifyContent: "center",
+		minHeight: 46,
+		paddingHorizontal: 14,
+	},
+	secondaryActionText: {
+		fontSize: 16,
+		fontWeight: "700",
+		letterSpacing: 0,
+		lineHeight: 21,
 	},
 	swipeAction: {
 		alignItems: "center",

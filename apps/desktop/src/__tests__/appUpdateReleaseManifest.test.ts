@@ -15,6 +15,11 @@ function writeReleaseFile(fileName: string, content = "asset"): void {
 	writeFileSync(join(releaseDirectory, fileName), content)
 }
 
+function readReleaseFile(fileName: string): string {
+	if (!releaseDirectory) throw new Error("Release directory not initialized")
+	return readFileSync(join(releaseDirectory, fileName), "utf8")
+}
+
 function generateManifestFile(outputPath: string): void {
 	if (!releaseDirectory) throw new Error("Release directory not initialized")
 	execFileSync(
@@ -90,11 +95,38 @@ describe("generateUpdaterManifest", () => {
 		expect(workflow).not.toContain("node <<")
 		expect(workflow).toContain("scripts/release/prepare-desktop-release-assets.mjs")
 		expect(workflow).toContain("scripts/release/generate-desktop-updater-manifest.mjs")
+		expect(workflow).toContain("scripts/release/generate-desktop-download-aliases.mjs")
 		expect(workflow).toContain("scripts/release/generate-desktop-release-checksums.mjs")
 		expect(rustCommand).toContain(
 			"https://github.com/cortex-md/cortex-app/releases/latest/download/latest.json",
 		)
 		expect(rustCommand).toContain("https://api.github.com/repos/cortex-md/cortex-app/releases/tags")
+	})
+
+	it("creates stable public download aliases for GitHub latest URLs", () => {
+		releaseDirectory = mkdtempSync(join(tmpdir(), "cortex-release-"))
+		writeReleaseFile("Cortex_0.1.0_aarch64.dmg", "macos")
+		writeReleaseFile("Cortex_0.1.0_x64_en-US.msi", "windows")
+		writeReleaseFile("Cortex_0.1.0_x64_en-US.msi.sig", "windows-signature")
+		writeReleaseFile("Cortex_0.1.0_amd64.AppImage", "appimage")
+		writeReleaseFile("Cortex_0.1.0_amd64.AppImage.sig", "appimage-signature")
+		writeReleaseFile("Cortex_0.1.0_amd64.deb", "deb")
+
+		execFileSync("node", ["scripts/release/generate-desktop-download-aliases.mjs"], {
+			cwd: repoRoot,
+			env: {
+				...process.env,
+				RELEASE_DIRECTORY: releaseDirectory,
+			},
+			stdio: "pipe",
+		})
+
+		expect(readReleaseFile("Cortex-macos-aarch64.dmg")).toBe("macos")
+		expect(readReleaseFile("Cortex-windows-x64.msi")).toBe("windows")
+		expect(readReleaseFile("Cortex-windows-x64.msi.sig")).toBe("windows-signature")
+		expect(readReleaseFile("Cortex-linux-x64.AppImage")).toBe("appimage")
+		expect(readReleaseFile("Cortex-linux-x64.AppImage.sig")).toBe("appimage-signature")
+		expect(readReleaseFile("Cortex-linux-amd64.deb")).toBe("deb")
 	})
 
 	it("injects release sync URLs through direct Vite replacements", () => {

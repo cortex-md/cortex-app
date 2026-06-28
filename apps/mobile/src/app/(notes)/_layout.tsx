@@ -1,13 +1,16 @@
 import { Stack } from "expo-router"
 
+import { SidebarToggleButton } from "@/components/mobile-sidebar"
+
 export default function NotesLayout() {
 	return (
 		<Stack>
 			<Stack.Screen
 				name="index"
 				options={{
+					headerLeft: () => <SidebarToggleButton />,
 					headerLargeTitle: true,
-					title: "Notes",
+					title: "Files",
 				}}
 			/>
 			<Stack.Screen
@@ -20,6 +23,7 @@ export default function NotesLayout() {
 			<Stack.Screen
 				name="folder"
 				options={{
+					headerLeft: () => <SidebarToggleButton />,
 					headerLargeTitle: true,
 					title: "Folder",
 				}}
