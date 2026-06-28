@@ -32,7 +32,7 @@
 		{ "path": "packages/renderer" },
 		{ "path": "packages/marketplace" },
 		{ "path": "apps/desktop" },
-		{ "path": "apps/Cortex" },
+		{ "path": "apps/mobile" },
 		{ "path": "apps/web" },
 		{ "path": "plugins/github-emoji" },
 		{ "path": "apps/desktop/tsconfig.node.json" }

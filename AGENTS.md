@@ -45,7 +45,7 @@ cortex/
 │   │   └── src/                    # Entrada React — composição dos packages
 │   │       ├── main.tsx            # initPlatform(tauriAdapter), monta React app
 │   │       └── App.tsx             # Composição de layout, providers, workspace
-│   └── mobile/                     # (futuro) React Native — consome packages/core e packages/platform
+│   └── mobile/                     # Expo/React Native app — consome packages/core e packages/platform
 ├── packages/
 │   ├── core/                       # Lógica pura: vault, metadata, eventos, Note Cache, índice; usa a abstração de plataforma.
 │   ├── commands/                   # Registry agnóstico de comandos, hotkeys associadas e nomes Vim
@@ -174,9 +174,17 @@ bun run check             # Lint + format + organize imports (all at once)
 bun run check:fix         # Auto-fix all issues
 bun run check:boundaries  # Validate workspace dependencies, layers, and cycles
 bun run typecheck         # TypeScript compilation check across monorepo
+bun run lint:mobile       # Run Expo lint for apps/mobile
+bun run typecheck:mobile  # Run TypeScript for apps/mobile
+bun run check:mobile      # Run mobile lint + typecheck
+bun run test:mobile       # Run the mobile deterministic gate
+bun run doctor:mobile     # Run React Doctor changed-scope scan for apps/mobile
 bun run test:frontend     # Run all deterministic frontend suites
 bun run test:rust         # Run the Rust workspace suite
 bun run test              # Run frontend and Rust suites
+bun run mobile:start      # Start Expo for apps/mobile
+bun run mobile:ios        # Start Expo and open iOS
+bun run mobile:android    # Start Expo and open Android
 bun run benchmark:editor  # Run editor performance benchmarks from tools/benchmarks
 bun run benchmark:file-explorer # Run desktop file tree benchmarks from tools/benchmarks
 bun run benchmark:large-vault # Run desktop large-vault diagnostic workbench

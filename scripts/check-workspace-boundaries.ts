@@ -144,7 +144,7 @@ const commandSurfaceRules: readonly CommandSurfaceRule[] = [
 			"packages/commands/src/index.ts",
 			"packages/plugin-host-core/src/apis/CommandsAPI.ts",
 			"apps/desktop/src/hooks/useAppCommands.ts",
-			"apps/Cortex/src/features/editor/mobile-editor-commands.ts",
+			"apps/mobile/src/features/editor/mobile-editor-commands.ts",
 		],
 	},
 	{

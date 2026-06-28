@@ -43,8 +43,16 @@
 - Native screen chrome, tabs, settings, search, global actions, and navigation stay native. Selection
   toolbar, slash menu, and editor context menu belong inside the DOM editor once CodeMirror lands.
 - Markdown formatting command metadata lives in `@cortex/editor/markdown-format-commands`.
-  `apps/Cortex` may register those commands inside the DOM editor context, but must not keep a
+  `apps/mobile` may register those commands inside the DOM editor context, but must not keep a
   second mobile-only command catalog.
+
+## Development Scripts
+
+- From the repository root, prefer `bun run mobile:start`, `bun run mobile:ios`, and
+  `bun run mobile:android` for Expo entry points.
+- Use `bun run check:mobile` for the deterministic mobile gate: Expo lint plus TypeScript.
+- Use `bun run doctor:mobile` after React-facing mobile changes. Use `bun run doctor:mobile:full`
+  only for intentional broader cleanup.
 
 ## Platform Adapter
 

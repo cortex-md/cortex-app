@@ -46,7 +46,11 @@
 		"ios": "expo start --ios",
 		"web": "expo start --web",
 		"lint": "expo lint",
-		"typecheck": "tsc --noEmit"
+		"typecheck": "tsc --noEmit",
+		"check": "bun run lint && bun run typecheck",
+		"test": "bun run check",
+		"doctor": "npx react-doctor@latest . --verbose --scope changed",
+		"doctor:full": "npx react-doctor@latest . --verbose"
 	},
 	"private": true
 }
