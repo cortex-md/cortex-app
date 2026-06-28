@@ -1,0 +1,19 @@
+{
+	"name": "@cortex/benchmarks",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"bench:bookmarks": "vitest bench bookmarks.bench.ts",
+		"bench:file-tree": "vitest bench fileTree.bench.ts",
+		"bench:live-preview": "vitest bench livePreview.bench.ts",
+		"bench:note-open": "vitest bench noteOpen.bench.ts"
+	},
+	"dependencies": {
+		"@codemirror/lang-markdown": "^6.3.3",
+		"@codemirror/state": "^6.5.2",
+		"@codemirror/view": "^6.38.0",
+		"@cortex/core": "workspace:*",
+		"@cortex/platform": "workspace:*",
+		"@cortex/properties": "workspace:*"
+	}
+}

@@ -1,0 +1,46 @@
+---
+title: Community Themes
+description: Build vault-scoped Cortex themes with paired light and dark CSS files.
+section: Theme Development
+sectionOrder: 4
+order: 0
+---
+
+Community themes are vault-scoped CSS themes. Cortex discovers theme folders in the active vault,
+parses each `manifest.json`, registers a light/dark theme family, and loads only the active CSS
+variant on demand.
+
+## Install location
+
+```text
+<vault>/.cortex/themes/<theme-id>/
+  manifest.json
+  light.css
+  dark.css
+```
+
+## Start here
+
+<DocGrid>
+  <DocCard href="/docs/themes/getting-started" title="Getting Started With Themes" description="Create a minimal theme with manifest, light.css, and dark.css." />
+  <DocCard href="/docs/themes/manifest" title="Theme Manifest" description="Define theme identity and safe stylesheet paths." />
+  <DocCard href="/docs/themes/css-variables" title="CSS Variables" description="Use Cortex tokens before reaching for selectors." />
+  <DocCard href="/docs/themes/stable-hooks-and-selectors" title="Stable Hooks and Selectors" description="Target documented hooks when variables are not enough." />
+</DocGrid>
+
+## Mental Model
+
+- The manifest describes identity and stylesheet paths.
+- The CSS files define variables and targeted rules.
+- Cortex injects community CSS directly and lets the browser own the cascade.
+- Theme CSS should be scoped to `body.theme-<theme-name>-light` and
+  `body.theme-<theme-name>-dark`.
+
+## Deeper references
+
+<DocGrid>
+  <DocCard href="/docs/themes/markdown-and-callouts" title="Markdown and Callouts" description="Style Markdown surfaces, code, headings, and callout colors safely." />
+  <DocCard href="/docs/themes/light-dark-and-system" title="Light, Dark, and System Modes" description="Pair theme variants with user appearance settings." />
+  <DocCard href="/docs/themes/publishing-and-review" title="Publishing and Review" description="Prepare theme assets for reviewed community listing." />
+  <DocCard href="/docs/themes/best-practices" title="Theme Best Practices" description="Keep contrast, performance, and user overrides healthy." />
+</DocGrid>

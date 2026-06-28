@@ -1,0 +1,39 @@
+{
+	"name": "@cortex.md/api",
+	"version": "0.1.0",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"scripts": {
+		"build": "tsc -b --force && cp src/globals.d.ts dist/globals.d.ts && printf '/// <reference path=\"./globals.d.ts\" />\\n' | cat - dist/index.d.ts > dist/index.d.ts.tmp && mv dist/index.d.ts.tmp dist/index.d.ts",
+		"prepublishOnly": "bun run build"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/cortex-md/cortex-app.git",
+		"directory": "packages/plugin-api"
+	},
+	"keywords": [
+		"cortex",
+		"plugin",
+		"api",
+		"markdown",
+		"editor"
+	],
+	"devDependencies": {
+		"typescript": "~5.8.3"
+	}
+}

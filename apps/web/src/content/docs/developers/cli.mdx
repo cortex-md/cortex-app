@@ -1,0 +1,46 @@
+---
+title: Cortex CLI
+description: Use the CLI for local plugin and theme development against a real Cortex vault.
+section: Developer Tools
+sectionOrder: 5
+order: 0
+---
+
+The CLI mirrors the extension loop: create a project, run against a local vault, build, validate, and prepare artifacts when the work is ready.
+
+## Create
+
+Start with a small plugin or theme project. Keep the project close to the vault you use for testing so the feedback loop stays short.
+
+```sh title="Create a plugin"
+npm install -g @cortex.md/cli
+cortex plugin create github-emoji
+cd github-emoji
+bun install
+```
+
+## Dev vault
+
+Use a real local folder while developing. The goal is to test the same Markdown files, commands, and views that a user will touch.
+
+```sh title="Run against a local vault"
+cortex plugin dev --vault ~/notes
+```
+
+## Build and validate
+
+Build production output and validate structure before publishing or sharing artifacts.
+
+```sh title="Prepare release output"
+cortex plugin build
+cortex plugin validate
+cortex plugin publish
+```
+
+## Related docs
+
+<DocGrid>
+  <DocCard href="/docs/plugins/overview" title="Plugin Development" description="Review the API surfaces the CLI helps you build against." />
+  <DocCard href="/docs/themes/overview" title="Theme Development" description="Build vault-scoped themes with paired light and dark CSS files." />
+  <DocCard href="/docs/get-started/welcome" title="Welcome" description="Return to the product model and documentation entry point." />
+</DocGrid>

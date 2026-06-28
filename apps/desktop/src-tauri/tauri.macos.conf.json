@@ -1,0 +1,18 @@
+{
+	"app": {
+		"windows": [
+			{
+				"title": "Cortex",
+				"width": 1200,
+				"height": 800,
+				"minWidth": 800,
+				"minHeight": 600,
+				"transparent": true,
+				"shadow": true,
+				"titleBarStyle": "Overlay",
+				"hiddenTitle": true,
+				"decorations": true
+			}
+		]
+	}
+}

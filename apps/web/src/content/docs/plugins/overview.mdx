@@ -1,0 +1,62 @@
+---
+title: Community Plugins
+description: Build reviewed, vault-scoped Cortex plugins with the public API while keeping notes portable.
+section: Plugin Development
+sectionOrder: 3
+order: 0
+---
+
+Community plugins extend Cortex through the public `@cortex.md/api` package. The host creates a
+plugin instance, injects `this.manifest` and `this.api`, calls `onload()`, and disposes tracked
+registrations when the plugin unloads.
+
+## Extension surfaces
+
+Plugins can add commands, editor behavior, Markdown rendering, property types, portable views,
+settings, sidebar entries, status bar items, context menus, vault-aware workflows, and plugin-owned
+data. Each surface is guarded by explicit capabilities so extension behavior can be reviewed before
+listing.
+
+## Install location
+
+During development, place or symlink a plugin directory here:
+
+```text
+<vault>/.cortex/plugins/<plugin-id>/
+  manifest.json
+  dist/index.js
+  styles.css        # optional, Markdown-surface styles only
+```
+
+Cortex watches the vault plugin directory and reloads enabled community plugins when plugin files
+change.
+
+## Start here
+
+<DocGrid>
+  <DocCard href="/docs/plugins/getting-started" title="Getting Started" description="Create a minimal command plugin and load it from a local vault." />
+  <DocCard href="/docs/plugins/manifest-and-capabilities" title="Manifest and Capabilities" description="Declare plugin identity, bundle location, and permissioned API surfaces." />
+  <DocCard href="/docs/plugins/lifecycle-and-bundling" title="Lifecycle and Bundling" description="Export the plugin class, bundle safely, and clean up work on unload." />
+  <DocCard href="/docs/plugins/github-emoji-example" title="GitHub Emoji Example" description="See a practical plugin shape with Markdown, commands, settings, and views." />
+  <DocCard href="/docs/developers/cli" title="Cortex CLI" description="Install the CLI and run plugin work against a local vault." />
+</DocGrid>
+
+## Rules of thumb
+
+- Import only from `@cortex.md/api` and your own bundled code.
+- Declare every required capability in `manifest.json`.
+- Use vault-relative paths with forward slashes.
+- Use declarative views instead of React or DOM APIs.
+- Keep view state serializable and update it through actions and reducers.
+- Dispose manual timers, external subscriptions, and caches in `onunload()`.
+
+## Deeper references
+
+<DocGrid>
+  <DocCard href="/docs/plugins/commands-and-hotkeys" title="Commands and Hotkeys" description="Register command palette actions and default shortcuts." />
+  <DocCard href="/docs/plugins/vault-editor-workspace" title="Vault, Editor, and Workspace APIs" description="Read files, edit active notes, and open workspace tabs." />
+  <DocCard href="/docs/plugins/markdown-and-properties" title="Markdown and Properties" description="Extend Markdown rendering, callouts, and note property types." />
+  <DocCard href="/docs/plugins/views-settings-and-ui" title="Views, Settings, and UI" description="Build portable host-rendered plugin interfaces." />
+  <DocCard href="/docs/plugins/storage-bookmarks-notifications" title="Storage, Bookmarks, and Notifications" description="Use plugin-owned data and user-visible host integrations." />
+  <DocCard href="/docs/plugins/publishing-and-review" title="Publishing and Review" description="Prepare release assets for reviewed community listing." />
+</DocGrid>

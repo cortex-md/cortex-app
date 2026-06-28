@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" fill="none">
+	<title>Cortex organization view with tags, bookmarks, folders, and properties</title>
+	<rect width="1600" height="1000" fill="#E9E2D4"/>
+	<rect x="72" y="72" width="1456" height="856" rx="18" fill="#FBF9F4" stroke="#A69C8A" stroke-width="2"/>
+	<rect x="72" y="72" width="360" height="856" rx="18" fill="#DFD7C8"/>
+	<path d="M432 72V928" stroke="#A69C8A" stroke-width="2"/>
+	<rect x="120" y="132" width="194" height="18" rx="9" fill="#332F27"/>
+	<rect x="120" y="202" width="232" height="48" rx="12" fill="#F7E5BF"/>
+	<rect x="148" y="220" width="104" height="12" rx="6" fill="#6F4200"/>
+	<rect x="120" y="288" width="112" height="12" rx="6" fill="#332F27"/>
+	<rect x="120" y="332" width="184" height="14" rx="7" fill="#6B6459"/>
+	<rect x="120" y="376" width="228" height="14" rx="7" fill="#6B6459"/>
+	<rect x="120" y="420" width="156" height="14" rx="7" fill="#6B6459"/>
+	<rect x="120" y="508" width="92" height="12" rx="6" fill="#332F27"/>
+	<rect x="120" y="552" width="226" height="46" rx="12" fill="#FBF9F4" stroke="#D7CFBF" stroke-width="2"/>
+	<rect x="148" y="570" width="124" height="10" rx="5" fill="#A69C8A"/>
+	<rect x="120" y="618" width="226" height="46" rx="12" fill="#FBF9F4" stroke="#D7CFBF" stroke-width="2"/>
+	<rect x="148" y="636" width="148" height="10" rx="5" fill="#A69C8A"/>
+	<rect x="488" y="132" width="360" height="52" rx="14" fill="#F4F0E7" stroke="#D7CFBF" stroke-width="2"/>
+	<rect x="520" y="151" width="188" height="14" rx="7" fill="#332F27"/>
+	<path d="M488 184H848" stroke="#E3A12B" stroke-width="4" stroke-linecap="round"/>
+	<rect x="488" y="236" width="480" height="576" rx="16" fill="#F4F0E7" stroke="#D7CFBF" stroke-width="2"/>
+	<rect x="528" y="286" width="142" height="16" rx="8" fill="#E3A12B"/>
+	<rect x="528" y="338" width="326" height="26" rx="8" fill="#17140F"/>
+	<rect x="528" y="406" width="356" height="14" rx="7" fill="#6B6459"/>
+	<rect x="528" y="444" width="292" height="14" rx="7" fill="#A69C8A"/>
+	<rect x="528" y="482" width="336" height="14" rx="7" fill="#A69C8A"/>
+	<rect x="528" y="568" width="114" height="34" rx="17" fill="#F7E5BF" stroke="#E3A12B" stroke-width="2"/>
+	<rect x="660" y="568" width="126" height="34" rx="17" fill="#F4F0E7" stroke="#D7CFBF" stroke-width="2"/>
+	<rect x="804" y="568" width="100" height="34" rx="17" fill="#F4F0E7" stroke="#D7CFBF" stroke-width="2"/>
+	<rect x="528" y="654" width="356" height="92" rx="14" fill="#FBF9F4" stroke="#D7CFBF" stroke-width="2"/>
+	<rect x="560" y="690" width="128" height="12" rx="6" fill="#6B6459"/>
+	<rect x="560" y="724" width="252" height="12" rx="6" fill="#A69C8A"/>
+	<rect x="1024" y="236" width="368" height="170" rx="16" fill="#FBF9F4" stroke="#D7CFBF" stroke-width="2"/>
+	<rect x="1064" y="286" width="126" height="14" rx="7" fill="#332F27"/>
+	<rect x="1064" y="332" width="248" height="12" rx="6" fill="#A69C8A"/>
+	<circle cx="1348" cy="320" r="18" fill="#E3A12B"/>
+	<rect x="1024" y="446" width="368" height="170" rx="16" fill="#FBF9F4" stroke="#D7CFBF" stroke-width="2"/>
+	<rect x="1064" y="496" width="160" height="14" rx="7" fill="#332F27"/>
+	<rect x="1064" y="542" width="222" height="12" rx="6" fill="#A69C8A"/>
+	<path d="M1328 496V574L1356 558L1384 574V496H1328Z" fill="#F7E5BF" stroke="#E3A12B" stroke-width="2"/>
+	<rect x="1024" y="656" width="368" height="156" rx="16" fill="#FBF9F4" stroke="#D7CFBF" stroke-width="2"/>
+	<rect x="1064" y="704" width="134" height="14" rx="7" fill="#332F27"/>
+	<rect x="1064" y="750" width="270" height="12" rx="6" fill="#A69C8A"/>
+	<circle cx="1224" cy="748" r="7" fill="#E3A12B"/>
+	<circle cx="1264" cy="748" r="7" fill="#E3A12B"/>
+	<circle cx="1304" cy="748" r="7" fill="#E3A12B"/>
+</svg>

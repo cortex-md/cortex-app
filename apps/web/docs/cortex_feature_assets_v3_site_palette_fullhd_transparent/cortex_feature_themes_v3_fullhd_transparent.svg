@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink" baseProfile="full" height="1080" version="1.1" viewBox="0 0 1920 1080" width="1920">
+  <title>Cortex Themes feature illustration</title>
+  <defs>
+    <style type="text/css"><![CDATA[
+        .strong { fill:none; stroke:#17140f; stroke-width:2.45; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.76; vector-effect:non-scaling-stroke; }
+        .main { fill:none; stroke:#17140f; stroke-width:2.05; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.58; vector-effect:non-scaling-stroke; }
+        .muted { fill:none; stroke:#6b6459; stroke-width:1.65; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.58; vector-effect:non-scaling-stroke; }
+        .faint { fill:none; stroke:#a69c8a; stroke-width:1.25; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.36; vector-effect:non-scaling-stroke; }
+        .hair { fill:none; stroke:#d7cfbf; stroke-width:1.05; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.58; vector-effect:non-scaling-stroke; }
+        .dash { fill:none; stroke:#6b6459; stroke-width:1.45; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.43; stroke-dasharray:5 11; vector-effect:non-scaling-stroke; }
+        .dash-accent { fill:none; stroke:#875000; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.42; stroke-dasharray:5 10; vector-effect:non-scaling-stroke; }
+        .accent { fill:none; stroke:#e3a12b; stroke-width:2.65; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.95; vector-effect:non-scaling-stroke; }
+        .accent-thin { fill:none; stroke:#e3a12b; stroke-width:1.65; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.82; vector-effect:non-scaling-stroke; }
+        .accent-border { fill:none; stroke:#875000; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.62; vector-effect:non-scaling-stroke; }
+        .paper { fill:#fbf9f4; fill-opacity:.20; stroke:#17140f; stroke-width:2.05; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.50; vector-effect:non-scaling-stroke; }
+        .paper-faint { fill:#f4f0e7; fill-opacity:.13; stroke:#a69c8a; stroke-width:1.35; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.44; vector-effect:non-scaling-stroke; }
+        .subtle-fill { fill:#f7e5bf; fill-opacity:.30; stroke:#875000; stroke-width:1.55; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.38; vector-effect:non-scaling-stroke; }
+        .accent-fill { fill:#e3a12b; fill-opacity:.20; stroke:#e3a12b; stroke-width:2.05; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.80; vector-effect:non-scaling-stroke; }
+        .dark-fill { fill:#17140f; fill-opacity:.10; stroke:#17140f; stroke-width:2.0; stroke-linecap:round; stroke-linejoin:round; stroke-opacity:.52; vector-effect:non-scaling-stroke; }
+        .dot { fill:#e3a12b; fill-opacity:.88; stroke:none; }
+        .dot-border { fill:#875000; fill-opacity:.65; stroke:none; }
+        .dot-muted { fill:#17140f; fill-opacity:.32; stroke:none; }
+        .dot-faint { fill:#a69c8a; fill-opacity:.36; stroke:none; }
+        .label { font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace; fill:#17140f; fill-opacity:.56; font-size:32px; letter-spacing:1px; }
+        .label-muted { font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace; fill:#6b6459; fill-opacity:.52; font-size:24px; letter-spacing:1px; }
+        .small-mono { font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace; fill:#875000; fill-opacity:.62; font-size:22px; letter-spacing:1.4px; }
+    ]]></style>
+  </defs>
+  <g id="themes-v2">
+    <ellipse class="hair" cx="960" cy="720" rx="520" ry="120"/>
+    <g transform="translate(880,570) rotate(-34)">
+      <rect fill="#17140f" fill-opacity="0.24" height="460" rx="34" ry="34" stroke="#17140f" stroke-opacity="0.38" stroke-width="2.05" width="280" x="-140" y="-230"/>
+      <rect fill="#17140f" fill-opacity="0.2" height="128" rx="22" ry="22" stroke="#a69c8a" stroke-opacity="0.42" stroke-width="1.4" width="204" x="-102" y="-170"/>
+      <line class="hair" x1="-92" x2="70" y1="8" y2="8"/>
+      <line class="hair" x1="-92" x2="70" y1="48" y2="48"/>
+      <line class="hair" x1="-92" x2="70" y1="88" y2="88"/>
+      <line class="hair" x1="-92" x2="70" y1="128" y2="128"/>
+      <circle class="dot-muted" cx="92" cy="174" r="11"/>
+    </g>
+    <g transform="translate(922,548) rotate(-18)">
+      <rect fill="#6b6459" fill-opacity="0.2" height="460" rx="34" ry="34" stroke="#17140f" stroke-opacity="0.38" stroke-width="2.05" width="280" x="-140" y="-230"/>
+      <rect fill="#6b6459" fill-opacity="0.46" height="128" rx="22" ry="22" stroke="#a69c8a" stroke-opacity="0.42" stroke-width="1.4" width="204" x="-102" y="-170"/>
+      <line class="muted" x1="-92" x2="70" y1="8" y2="8"/>
+      <line class="muted" x1="-92" x2="70" y1="48" y2="48"/>
+      <line class="muted" x1="-92" x2="70" y1="88" y2="88"/>
+      <line class="muted" x1="-92" x2="70" y1="128" y2="128"/>
+      <circle class="dot" cx="92" cy="174" r="11"/>
+    </g>
+    <g transform="translate(960,534) rotate(0)">
+      <rect fill="#f4f0e7" fill-opacity="0.2" height="460" rx="34" ry="34" stroke="#17140f" stroke-opacity="0.38" stroke-width="2.05" width="280" x="-140" y="-230"/>
+      <rect fill="#f4f0e7" fill-opacity="0.46" height="128" rx="22" ry="22" stroke="#a69c8a" stroke-opacity="0.42" stroke-width="1.4" width="204" x="-102" y="-170"/>
+      <line class="muted" x1="-92" x2="70" y1="8" y2="8"/>
+      <line class="muted" x1="-92" x2="70" y1="48" y2="48"/>
+      <line class="muted" x1="-92" x2="70" y1="88" y2="88"/>
+      <line class="muted" x1="-92" x2="70" y1="128" y2="128"/>
+      <circle class="dot" cx="92" cy="174" r="11"/>
+    </g>
+    <g transform="translate(998,550) rotate(18)">
+      <rect fill="#f7e5bf" fill-opacity="0.2" height="460" rx="34" ry="34" stroke="#17140f" stroke-opacity="0.38" stroke-width="2.05" width="280" x="-140" y="-230"/>
+      <rect fill="#f7e5bf" fill-opacity="0.46" height="128" rx="22" ry="22" stroke="#a69c8a" stroke-opacity="0.42" stroke-width="1.4" width="204" x="-102" y="-170"/>
+      <line class="muted" x1="-92" x2="70" y1="8" y2="8"/>
+      <line class="muted" x1="-92" x2="70" y1="48" y2="48"/>
+      <line class="muted" x1="-92" x2="70" y1="88" y2="88"/>
+      <line class="muted" x1="-92" x2="70" y1="128" y2="128"/>
+      <circle class="dot" cx="92" cy="174" r="11"/>
+    </g>
+    <g transform="translate(1042,572) rotate(34)">
+      <rect fill="#e3a12b" fill-opacity="0.24" height="460" rx="34" ry="34" stroke="#17140f" stroke-opacity="0.38" stroke-width="2.05" width="280" x="-140" y="-230"/>
+      <rect fill="#e3a12b" fill-opacity="0.46" height="128" rx="22" ry="22" stroke="#875000" stroke-opacity="0.42" stroke-width="1.4" width="204" x="-102" y="-170"/>
+      <line class="muted" x1="-92" x2="70" y1="8" y2="8"/>
+      <line class="muted" x1="-92" x2="70" y1="48" y2="48"/>
+      <line class="muted" x1="-92" x2="70" y1="88" y2="88"/>
+      <line class="muted" x1="-92" x2="70" y1="128" y2="128"/>
+      <circle class="dot" cx="92" cy="174" r="11"/>
+    </g>
+    <path class="dash-accent" d="M 625 570 C 720 250, 1195 250, 1300 570"/>
+    <rect class="paper" height="102" rx="51" ry="51" width="250" x="1230" y="330"/>
+    <circle class="accent-fill" cx="1296" cy="381" r="32"/>
+    <circle class="dark-fill" cx="1400" cy="381" r="32"/>
+    <path class="accent-border" d="M 1408 349 C 1378 371, 1380 406, 1412 419 C 1391 423, 1361 412, 1349 386 C 1338 359, 1355 333, 1408 349"/>
+    <polygon class="paper-faint" points="450,445 710,500 648,760 388,705"/>
+    <line class="accent-thin" x1="479.20000000000005" x2="640.4" y1="505.8" y2="539.9000000000001"/>
+    <circle class="dot-border" cx="450.40000000000003" cy="501.4000000000001" r="3.8"/>
+    <circle class="dot-border" cx="464.40000000000003" cy="501.4000000000001" r="3.8"/>
+    <line class="muted" x1="469.90000000000003" x2="631.1" y1="544.8" y2="578.9"/>
+    <circle class="dot-border" cx="441.1" cy="540.4" r="3.8"/>
+    <circle class="dot-border" cx="455.1" cy="540.4" r="3.8"/>
+    <line class="muted" x1="460.6" x2="621.8" y1="583.8" y2="617.9"/>
+    <circle class="dot-border" cx="431.8" cy="579.4000000000001" r="3.8"/>
+    <circle class="dot-border" cx="445.8" cy="579.4000000000001" r="3.8"/>
+    <line class="accent-thin" x1="451.3" x2="612.5" y1="622.8" y2="656.8999999999999"/>
+    <circle class="dot-border" cx="422.5" cy="618.4000000000001" r="3.8"/>
+    <circle class="dot-border" cx="436.5" cy="618.4000000000001" r="3.8"/>
+    <line class="muted" x1="442.0" x2="603.2" y1="661.8" y2="695.9000000000001"/>
+    <circle class="dot-border" cx="413.20000000000005" cy="657.4000000000001" r="3.8"/>
+    <circle class="dot-border" cx="427.20000000000005" cy="657.4000000000001" r="3.8"/>
+    <path class="dash" d="M 652 520 C 720 450, 760 516, 820 456"/>
+    <path class="dash" d="M 636 618 C 720 548, 760 636, 814 576"/>
+    <path class="dash" d="M 628 718 C 720 648, 760 750, 828 690"/>
+    <path class="strong" d="M 1260 730 L 1394 596"/>
+    <circle class="paper" cx="1405" cy="585" r="26"/>
+    <line class="accent" x1="1222" x2="1274" y1="770" y2="718"/>
+    <path class="accent-thin" d="M 1180 804 C 1220 776, 1260 790, 1306 746"/>
+    <circle class="dot" cx="1210" cy="813" r="8"/>
+    <circle class="dot-border" cx="1248" cy="795" r="5"/>
+    <circle class="dot" cx="1320" cy="724" r="6"/>
+  </g>
+</svg>

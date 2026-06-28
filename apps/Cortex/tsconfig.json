@@ -1,0 +1,39 @@
+{
+	"extends": "expo/tsconfig.base",
+	"compilerOptions": {
+		"composite": true,
+		"noEmit": true,
+		"strict": true,
+		"paths": {
+			"@/*": ["./src/*"],
+			"@/assets/*": ["./assets/*"]
+		}
+	},
+	"include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+	"references": [
+		{
+			"path": "../../packages/plugin-api"
+		},
+		{
+			"path": "../../packages/commands"
+		},
+		{
+			"path": "../../packages/core"
+		},
+		{
+			"path": "../../packages/editor"
+		},
+		{
+			"path": "../../packages/platform"
+		},
+		{
+			"path": "../../packages/plugin-host-core"
+		},
+		{
+			"path": "../../packages/properties"
+		},
+		{
+			"path": "../../packages/theme-mobile"
+		}
+	]
+}

@@ -1,0 +1,44 @@
+{
+	"compilerOptions": {
+		"composite": true,
+		"target": "ES2022",
+		"useDefineForClassFields": true,
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"module": "ESNext",
+		"skipLibCheck": true,
+		"moduleResolution": "bundler",
+		"allowImportingTsExtensions": true,
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"noEmit": true,
+		"jsx": "react-jsx",
+		"strict": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noFallthroughCasesInSwitch": true,
+		"baseUrl": ".",
+		"paths": {
+			"@/*": ["./src/*"]
+		}
+	},
+	"include": ["src"],
+	"references": [
+		{ "path": "./tsconfig.node.json" },
+		{ "path": "../../packages/commands" },
+		{ "path": "../../packages/theme" },
+		{ "path": "../../packages/core" },
+		{ "path": "../../packages/editor" },
+		{ "path": "../../packages/ipc" },
+		{ "path": "../../packages/plugin-api" },
+		{ "path": "../../packages/plugin-host-core" },
+		{ "path": "../../packages/plugin-host-web" },
+		{ "path": "../../packages/platform" },
+		{ "path": "../../packages/properties" },
+		{ "path": "../../packages/marketplace" },
+		{ "path": "../../packages/ui" },
+		{ "path": "../../packages/hotkeys" },
+		{ "path": "../../packages/search" },
+		{ "path": "../../packages/templates" },
+		{ "path": "../../plugins/github-emoji" }
+	]
+}

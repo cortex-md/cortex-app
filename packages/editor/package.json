@@ -1,0 +1,51 @@
+{
+	"name": "@cortex/editor",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./callouts": "./src/callouts.ts",
+		"./clipboard": "./src/clipboardImage.ts",
+		"./commands": "./src/markdownCommands.ts",
+		"./editor-view": "./src/EditorView.tsx",
+		"./extensions": "./src/extensions.ts",
+		"./folding": "./src/folding.ts",
+		"./folding-commands": "./src/foldingCommands.ts",
+		"./keymap": "./src/markdownKeymap.ts",
+		"./reading-view": "./src/ReadingView.tsx",
+		"./runtime": "./src/runtime.ts",
+		"./search-commands": "./src/searchCommands.ts",
+		"./side-by-side-view": "./src/SideBySideView.tsx",
+		"./slash-commands": "./src/slashCommands.ts",
+		"./types": "./src/types.ts",
+		"./vim-commands": "./src/vimCommands.ts"
+	},
+	"dependencies": {
+		"@codemirror/autocomplete": "^6.18.6",
+		"@codemirror/commands": "^6.8.0",
+		"@codemirror/lang-css": "^6.3.1",
+		"@codemirror/lang-html": "^6.4.9",
+		"@codemirror/lang-javascript": "^6.2.3",
+		"@codemirror/lang-json": "^6.0.1",
+		"@codemirror/lang-markdown": "^6.3.3",
+		"@codemirror/lang-python": "^6.1.7",
+		"@codemirror/lang-rust": "^6.0.1",
+		"@codemirror/lang-sql": "^6.8.0",
+		"@codemirror/lang-yaml": "^6.1.2",
+		"@codemirror/language": "^6.11.1",
+		"@codemirror/search": "^6.5.10",
+		"@codemirror/state": "^6.5.2",
+		"@codemirror/view": "^6.38.0",
+		"@cortex/properties": "workspace:*",
+		"@cortex/renderer": "workspace:*",
+		"@lezer/highlight": "^1.2.1",
+		"@lezer/markdown": "^1.4.2",
+		"@replit/codemirror-vim": "6.3.0"
+	},
+	"devDependencies": {
+		"@types/react": "^19.1.8",
+		"react": "^19.1.0",
+		"typescript": "~5.8.3"
+	}
+}

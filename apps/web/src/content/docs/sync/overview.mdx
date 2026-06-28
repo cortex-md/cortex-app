@@ -1,0 +1,43 @@
+---
+title: Sync Overview
+description: Cortex Sync is optional and built around client-side encryption with encrypted blob storage.
+section: Sync
+sectionOrder: 2
+order: 0
+---
+
+Cortex Sync is an optional layer for moving notes between devices while preserving the local folder model. The service should not become the source of truth for your notes.
+
+## Ownership model
+
+Markdown files stay on your devices. The sync service is responsible for encrypted blob storage, transfer, version history, and conflict recovery around those local files.
+
+## Client-side encryption
+
+Notes are encrypted on the client before upload. The server stores encrypted blobs and the metadata needed to coordinate sync, rather than readable note contents.
+
+```ts title="Conceptual flow"
+const localChange = await readMarkdownFile(path)
+const encryptedBlob = await encryptOnDevice(localChange, deviceKey)
+
+await syncClient.upload({
+  vaultId,
+  path,
+  blob: encryptedBlob,
+})
+```
+
+## History and conflicts
+
+History should make changes understandable across devices. When conflicts happen, Cortex should preserve enough context for recovery instead of silently overwriting local work.
+
+## Self-hosting path
+
+The sync architecture should support a hosted service and a self-hostable path. Documentation should avoid absolute security promises and describe the actual boundaries clearly.
+
+## Related docs
+
+<DocGrid>
+  <DocCard href="/docs/workspace/local-markdown" title="Local Markdown" description="See what remains local when sync is enabled." />
+  <DocCard href="/docs/get-started/quickstart" title="Quickstart" description="Open a folder and understand the local workflow first." />
+</DocGrid>

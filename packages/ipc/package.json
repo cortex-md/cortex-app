@@ -1,0 +1,20 @@
+{
+	"name": "@cortex/ipc",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@cortex/platform": "workspace:*",
+		"@tauri-apps/api": "^2.5.0",
+		"@tauri-apps/plugin-deep-link": "^2",
+		"@tauri-apps/plugin-dialog": "^2.6.0",
+		"@tauri-apps/plugin-notification": "^2",
+		"@tauri-apps/plugin-opener": "^2"
+	},
+	"devDependencies": {
+		"typescript": "^5.7.0"
+	}
+}

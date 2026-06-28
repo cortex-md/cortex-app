@@ -1,0 +1,55 @@
+# Publishing and Marketplace
+
+Marketplace installation is release-asset based with a source-archive fallback.
+
+## Required Release Assets
+
+Publish these assets in the latest release:
+
+```text
+manifest.json
+dist/index.js      # or the basename/path referenced by manifest.main
+styles.css         # optional, Markdown-surface styles only
+```
+
+Cortex downloads `manifest.json`, reads `main`, then downloads the matching main asset. It accepts
+either the exact relative path from `main` or the basename of that path.
+
+## Manifest Checks
+
+Marketplace installation verifies:
+
+- `manifest.json` is valid JSON.
+- `manifest.id` matches the Marketplace registry entry id.
+- `manifest.main` is present and safe.
+- The main bundle exists in release assets or in the source archive fallback.
+
+## Source Archive Fallback
+
+If release assets are incomplete, Cortex can fall back to the GitHub source archive. It searches for
+`manifest.json`, resolves the declared `main` file, and copies optional `styles.css` into staging.
+
+This fallback is useful during early development, but published plugins should still include
+release assets explicitly.
+
+## Install and Rollback Behavior
+
+Cortex installs into:
+
+```text
+<vault>/.cortex/plugins/<plugin-id>
+```
+
+Install and update use a staging directory. The previous plugin directory is preserved until the
+staged plugin is promoted, the plugin host reloads, and the new plugin registration is visible. If
+anything fails, Cortex removes staging and restores the previous plugin best effort.
+
+## Release Checklist
+
+1. Build a single plugin bundle.
+2. Include `manifest.json` at the release root.
+3. Include the file referenced by `manifest.main`.
+4. Include `styles.css` only when the plugin declares `markdown:extensions`.
+5. Keep all paths relative and free of `..`.
+6. Test install, reload, disable, and uninstall in a temporary vault.
+

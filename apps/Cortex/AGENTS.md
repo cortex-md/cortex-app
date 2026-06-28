@@ -1,0 +1,52 @@
+# Cortex Mobile
+
+## Expo SDK 56
+
+- Read the exact versioned docs at https://docs.expo.dev/versions/v56.0.0/ before changing Expo APIs.
+- Keep this app native-first: Expo Router `NativeTabs`, nested `Stack` headers, gestures, platform
+  colors, iOS glass/material behavior, and Material/UIKit defaults should own the shell.
+- `@cortex/core` and `@cortex/properties` are wired for sandbox-only local vaults.
+- Phase 2 wires `@cortex/editor`, `@cortex/commands`, and `@cortex/plugin-host-core` only through
+  the mobile editor DOM boundary. Do not import CodeMirror or editor runtime values from native
+  React Native screens.
+
+## UI Rules
+
+- Use `@expo/ui` universal components for settings-style grouped controls, toggles, sliders,
+  buttons, menus, and similar native controls.
+- Do not import `@cortex/ui`; desktop/web primitives are not mobile shell components.
+- Do not add Tauri, IPC, Node, browser DOM, or desktop-only platform imports to native React Native
+  screens.
+- Do not use `SafeAreaView` for route chrome. Let Expo Router native tabs/stacks and automatic
+  content insets own safe areas; scroll screens should use
+  `contentInsetAdjustmentBehavior="automatic"`.
+- Future large note lists should use virtualized React Native list surfaces, not `@expo/ui` `List`.
+- Phase 1 note lists use React Native virtualized lists. Use `@expo/ui` for sheets, grouped controls,
+  inputs, settings rows, and other native controls around those lists.
+
+## Editor Boundary
+
+- The mobile Markdown editor is a DOM Component/WebView boundary. Keep `MobileCodeMirrorEditor`
+  isolated behind a `"use dom"` file.
+- Native screens pass only serializable props/actions into the DOM editor. Top-level async functions
+  are allowed; nested functions, class instances, CodeMirror extensions, plugin objects, and stores
+  must not cross the bridge.
+- `MobileCodeMirrorEditor` owns CodeMirror, editor CSS, toolbar/slash UI that depends on selection,
+  and plugin `editor:extensions` fixture loading inside the DOM/WebView context.
+- Native `NoteEditorScreen` owns note loading, revision tracking, `projectRawNote`,
+  `replaceFrontmatterBody`, and debounced bridge commits. It must pass only Markdown body text into
+  CodeMirror.
+- CodeMirror extensions, editor views, plugin modules, command functions, stores, and class
+  instances must stay inside the DOM context; never pass them across the bridge.
+- Native screen chrome, tabs, settings, search, global actions, and navigation stay native. Selection
+  toolbar, slash menu, and editor context menu belong inside the DOM editor once CodeMirror lands.
+
+## Platform Adapter
+
+- `src/platform/expo-platform.ts` must implement the full `@cortex/platform` shape.
+- Phase 1 filesystem and vault methods are app-sandbox-only and should validate paths under
+  `Paths.document/Cortex`.
+- Do not add import/export, file pickers, directory pickers, document-provider access, or external
+  storage permission prompts in the local-vault phase.
+- Methods that are not real yet should reject clearly or return an explicit unsupported state. Never
+  silently fake sync, keychain, remote vault, or search success.

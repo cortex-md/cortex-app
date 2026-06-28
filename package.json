@@ -1,0 +1,56 @@
+{
+	"name": "cortex",
+	"private": true,
+	"packageManager": "bun@1.3.3",
+	"workspaces": [
+		"apps/*",
+		"packages/*",
+		"plugins/*",
+		"tools/*"
+	],
+	"scripts": {
+		"dev:desktop": "bun run --cwd apps/desktop tauri dev",
+		"dev:web": "bun run --cwd apps/web dev",
+		"build:web": "bun run --cwd apps/web build",
+		"lint": "biome lint .",
+		"lint:fix": "biome lint --fix .",
+		"format": "biome format .",
+		"format:fix": "biome format --fix .",
+		"check": "biome check .",
+		"check:fix": "biome check --fix .",
+		"check:boundaries": "bun run scripts/check-workspace-boundaries.ts",
+		"typecheck": "tsc -b",
+		"test": "bun run test:frontend && bun run test:rust",
+		"test:frontend": "bun run --cwd packages/commands vitest run && bun run --cwd packages/templates vitest run && bun run --cwd packages/properties vitest run && bun run --cwd packages/core vitest run && bun run --cwd packages/platform vitest run && bun run --cwd packages/ipc vitest run && bun run --cwd packages/settings vitest run && bun run --cwd packages/hotkeys vitest run && bun run --cwd packages/editor vitest run && bun run --cwd packages/renderer vitest run && bun run --cwd packages/plugin-host-core vitest run && bun run --cwd packages/plugin-host-web vitest run && bun run --cwd packages/marketplace vitest run && bun run --cwd packages/search vitest run && bun run --cwd packages/ui vitest run && bun run --cwd packages/theme-mobile vitest run && bun run --cwd apps/desktop vitest run && bun run --cwd apps/web vitest run",
+		"test:rust": "cargo test --workspace --manifest-path apps/desktop/src-tauri/Cargo.toml",
+		"test:watch": "vitest",
+		"benchmark:bookmarks": "bun run --cwd tools/benchmarks bench:bookmarks",
+		"benchmark:editor": "bun run --cwd tools/benchmarks bench:live-preview",
+		"benchmark:file-explorer": "bun run --cwd tools/benchmarks bench:file-tree",
+		"benchmark:note-open": "bun run --cwd tools/benchmarks bench:note-open",
+		"benchmark:large-vault": "bun run --cwd apps/desktop bench:large-vault",
+		"benchmark:large-vault:smoke": "bun run --cwd apps/desktop bench:large-vault:smoke",
+		"test:coverage": "bun run --cwd packages/core vitest run --coverage && bun run --cwd packages/settings vitest run --coverage && bun run --cwd packages/editor vitest run --coverage && bun run --cwd packages/renderer vitest run --coverage && bun run --cwd packages/plugin-host-core vitest run --coverage && bun run --cwd packages/plugin-host-web vitest run --coverage && bun run --cwd packages/marketplace vitest run --coverage && bun run --cwd apps/desktop vitest run --coverage",
+		"doctor": "npx react-doctor@latest"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.4.6",
+		"@testing-library/jest-dom": "^6.9.1",
+		"@testing-library/react": "^16.3.2",
+		"@testing-library/user-event": "^14.6.1",
+		"@types/react": "^19.1.8",
+		"@types/react-dom": "^19.1.6",
+		"@vitest/coverage-v8": "^4.1.9",
+		"jsdom": "^29.0.1",
+		"react": "^19.1.0",
+		"react-dom": "^19.1.0",
+		"typescript": "~5.8.3",
+		"vitest": "^4.1.9"
+	},
+	"dependencies": {
+		"@testing-library/dom": "^10.4.1"
+	},
+	"overrides": {
+		"undici": "7.28.0"
+	}
+}

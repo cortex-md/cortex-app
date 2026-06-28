@@ -1,0 +1,712 @@
+body[data-platform="macos"] {
+	--macos-ease: cubic-bezier(0.32, 0.72, 0, 1);
+	--macos-duration-fast: 80ms;
+	--macos-duration-base: 160ms;
+	--macos-duration-slow: 320ms;
+	--macos-radius-xs: 5px;
+	--macos-radius-sm: 6px;
+	--macos-radius-md: 8px;
+	--macos-radius-lg: 12px;
+	--macos-radius-xl: 16px;
+	--macos-hairline: color-mix(in srgb, black 9%, transparent);
+	--macos-hairline-strong: color-mix(in srgb, black 14%, transparent);
+	--macos-surface-bg: color-mix(in srgb, var(--popover) 96%, var(--bg-primary) 4%);
+	--macos-modal-bg: color-mix(in srgb, var(--modal-bg, var(--popover)) 96%, var(--bg-primary) 4%);
+	--macos-surface-border: color-mix(in srgb, black 11%, transparent);
+	--macos-row-bg-hover: color-mix(in srgb, black 5%, transparent);
+	--macos-row-bg-active: color-mix(in srgb, var(--accent) 7%, transparent);
+	--macos-shadow-tactile:
+		0 2px 8px -2px color-mix(in srgb, black 8%, transparent),
+		0 1px 3px -1px color-mix(in srgb, black 6%, transparent);
+	--macos-shadow-floating:
+		0 18px 48px -18px color-mix(in srgb, black 28%, transparent),
+		0 8px 24px -12px color-mix(in srgb, black 18%, transparent);
+	--macos-shadow-modal:
+		0 18px 36px -30px color-mix(in srgb, black 42%, transparent),
+		0 8px 18px -16px color-mix(in srgb, black 18%, transparent);
+	--dialog-radius: var(--macos-radius-xl);
+	--popup-radius: var(--macos-radius-lg);
+	--popup-item-radius: var(--macos-radius-md);
+}
+
+body[data-platform="macos"][data-theme-scheme="dark"] {
+	--macos-hairline: color-mix(in srgb, white 10%, transparent);
+	--macos-hairline-strong: color-mix(in srgb, white 16%, transparent);
+	--macos-surface-bg: color-mix(in srgb, var(--popover) 92%, black 8%);
+	--macos-modal-bg: color-mix(in srgb, var(--modal-bg, var(--popover)) 92%, black 8%);
+	--macos-surface-border: color-mix(in srgb, white 10%, transparent);
+	--macos-row-bg-hover: color-mix(in srgb, white 5.5%, transparent);
+	--macos-row-bg-active: color-mix(in srgb, var(--accent) 9%, transparent);
+	--macos-shadow-tactile:
+		0 2px 10px -2px color-mix(in srgb, black 32%, transparent),
+		0 1px 4px -1px color-mix(in srgb, black 26%, transparent);
+	--macos-shadow-floating:
+		0 22px 56px -18px color-mix(in srgb, black 58%, transparent),
+		0 8px 24px -10px color-mix(in srgb, black 42%, transparent);
+	--macos-shadow-modal:
+		0 20px 42px -34px color-mix(in srgb, black 72%, transparent),
+		0 10px 22px -18px color-mix(in srgb, black 42%, transparent);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) {
+	--font-ui:
+		-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Arial,
+		sans-serif;
+	--font-editor:
+		-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Arial,
+		sans-serif;
+	--ui-font-size: 13px;
+	--ui-font-weight: 400;
+	--ui-line-height: 17px;
+	--editor-line-height: calc(var(--editor-font-size, 16px) * 1.6);
+	--macos-ease: cubic-bezier(0.32, 0.72, 0, 1);
+	--macos-duration-fast: 80ms;
+	--macos-duration-base: 160ms;
+	--macos-duration-slow: 320ms;
+	--macos-radius-xs: 5px;
+	--macos-radius-sm: 6px;
+	--macos-radius-md: 8px;
+	--macos-radius-lg: 12px;
+	--macos-radius-xl: 16px;
+	--macos-text-normal: var(--text-primary);
+	--macos-text-muted: var(--text-muted);
+	--macos-text-faint: var(--text-disabled, var(--text-muted));
+	--macos-hairline: color-mix(in srgb, black 9%, transparent);
+	--macos-hairline-strong: color-mix(in srgb, black 14%, transparent);
+	--macos-surface-bg: color-mix(in srgb, var(--popover) 96%, var(--bg-primary) 4%);
+	--macos-modal-bg: color-mix(in srgb, var(--modal-bg, var(--popover)) 96%, var(--bg-primary) 4%);
+	--macos-surface-border: color-mix(in srgb, black 11%, transparent);
+	--macos-row-bg-hover: color-mix(in srgb, black 5%, transparent);
+	--macos-row-bg-active: color-mix(in srgb, var(--accent) 7%, transparent);
+	--macos-shadow-tactile:
+		0 2px 8px -2px color-mix(in srgb, black 8%, transparent),
+		0 1px 3px -1px color-mix(in srgb, black 6%, transparent);
+	--macos-shadow-floating:
+		0 18px 48px -18px color-mix(in srgb, black 28%, transparent),
+		0 8px 24px -12px color-mix(in srgb, black 18%, transparent),
+		0 0 0 1px color-mix(in srgb, white 24%, transparent);
+	--macos-shadow-modal:
+		0 18px 36px -30px color-mix(in srgb, black 42%, transparent),
+		0 8px 18px -16px color-mix(in srgb, black 18%, transparent);
+	font-family: var(--font-ui);
+	font-size: var(--ui-font-size);
+	font-weight: var(--ui-font-weight);
+	line-height: var(--ui-line-height);
+	color: var(--macos-text-normal);
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper)[data-theme-scheme="dark"] {
+	--macos-dark-bg-primary: color-mix(in srgb, var(--bg-primary) 91%, black);
+	--macos-dark-bg-secondary: color-mix(in srgb, var(--bg-secondary) 88%, black);
+	--macos-dark-bg-elevated: color-mix(in srgb, var(--bg-elevated) 86%, black);
+	--macos-dark-modal-bg: color-mix(in srgb, var(--modal-bg) 88%, black);
+	--macos-text-normal: color-mix(in srgb, var(--text-primary) 88%, var(--bg-primary));
+	--macos-text-muted: color-mix(in srgb, var(--text-muted) 86%, var(--bg-primary));
+	--macos-text-faint: color-mix(
+		in srgb,
+		var(--text-disabled, var(--text-muted)) 68%,
+		var(--bg-primary)
+	);
+	--macos-hairline: color-mix(in srgb, white 10%, transparent);
+	--macos-hairline-strong: color-mix(in srgb, white 16%, transparent);
+	--macos-surface-bg: color-mix(in srgb, var(--popover) 92%, black 8%);
+	--macos-modal-bg: var(--macos-dark-modal-bg);
+	--macos-surface-border: color-mix(in srgb, white 10%, transparent);
+	--macos-row-bg-hover: color-mix(in srgb, white 5.5%, transparent);
+	--macos-row-bg-active: color-mix(in srgb, var(--accent) 9%, transparent);
+	--macos-shadow-tactile:
+		0 2px 10px -2px color-mix(in srgb, black 32%, transparent),
+		0 1px 4px -1px color-mix(in srgb, black 26%, transparent);
+	--macos-shadow-floating:
+		0 22px 56px -18px color-mix(in srgb, black 58%, transparent),
+		0 8px 24px -10px color-mix(in srgb, black 42%, transparent),
+		0 0 0 1px color-mix(in srgb, white 10%, transparent);
+	--macos-shadow-modal:
+		0 20px 42px -34px color-mix(in srgb, black 72%, transparent),
+		0 10px 22px -18px color-mix(in srgb, black 42%, transparent);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) :where(.app-shell, .settings-window) {
+	font-family: var(--font-ui);
+	font-size: var(--ui-font-size);
+	font-weight: var(--ui-font-weight);
+	line-height: var(--ui-line-height);
+	color: var(--macos-text-normal);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper)
+	:where(
+		.file-sidebar-title,
+		.sidebar-tool-count,
+		.sidebar-tool-filters,
+		.sidebar-tool-hint,
+		.sidebar-tool-empty,
+		.command-item-meta,
+		.note-header-attribution,
+		.note-properties-header,
+		.note-property-name,
+		.note-property-empty,
+		.note-property-you,
+		.note-property-unavailable small,
+		.note-property-editor-message,
+		.note-property-options-header,
+		.note-property-tag-color-heading,
+		.app-statusbar
+	) {
+	color: var(--macos-text-muted);
+	font-weight: 400;
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper)
+	:where(
+		.command-item-title,
+		.sidebar-result-title,
+		.sidebar-tag-name,
+		.sidebar-tag-file-title,
+		.note-property-value,
+		.note-property-tag-color-heading strong,
+		.note-property-popover-header strong
+	) {
+	color: var(--macos-text-normal);
+	font-weight: 500;
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper)
+	:where(.sidebar-result-path, .sidebar-tag-file-path, .sidebar-search-snippet) {
+	color: var(--macos-text-muted);
+	font-weight: 400;
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper)
+	:where(.markdown-surface, .reading-view, .cm-editor) {
+	font-family: var(--font-editor);
+	color: var(--macos-text-normal);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper)
+	:where(.cm-content, .cm-line, .reading-view-content) {
+	font-weight: 400;
+	line-height: var(--editor-line-height);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .note-header-title {
+	font-family: var(--font-editor);
+	font-weight: 650;
+	line-height: 1.24;
+	letter-spacing: 0;
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper)
+	:where(
+		.sidebar-tag-name,
+		.sidebar-tag-file-title,
+		.sidebar-tag-count,
+		.note-property-tag-chip,
+		.note-property-option-value,
+		.note-property-tags-command [data-slot="command-item"] small
+	) {
+	letter-spacing: 0;
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper)
+	:where(.sidebar-tag-name, .sidebar-tag-file-title) {
+	font-size: 13px;
+	font-weight: 500;
+	line-height: 17px;
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .sidebar-tag-count {
+	color: var(--macos-text-muted);
+	font-size: 10px;
+	font-weight: 500;
+	line-height: 18px;
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .note-property-tag-chip {
+	font-size: 11px;
+	font-weight: 500;
+	line-height: 20px;
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .note-property-option-value {
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 22px;
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper)
+	:where(
+		.file-tree-item,
+		.sidebar-search-result,
+		.sidebar-tag-row,
+		.sidebar-tag-file,
+		.marketplace-catalog-row
+	) {
+	border-radius: var(--macos-radius-sm);
+	transition-duration: var(--macos-duration-base);
+	transition-timing-function: var(--macos-ease);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper)
+	:where(
+		.file-tree-item:hover,
+		.sidebar-search-result:hover,
+		.sidebar-tag-row:hover,
+		.sidebar-tag-file:hover
+	) {
+	background: var(--macos-row-bg-hover);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .file-tree-item.active {
+	background: var(--macos-row-bg-active);
+	box-shadow:
+		inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+		var(--macos-shadow-tactile);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .app-sidebar {
+	color: var(--macos-text-muted);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .app-sidebar-resizer:hover::after,
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .app-sidebar-resizer:active::after {
+	background: var(--macos-hairline-strong);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper)
+	.app-shell[data-native-window-effects="enabled"]
+	.app-main {
+	border-color: var(--macos-hairline);
+	border-radius: var(--macos-radius-lg) 0 0 var(--macos-radius-lg);
+	box-shadow: inset 1px 0 0 color-mix(in srgb, white 8%, transparent);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .app-main .tab-bar {
+	border-bottom-color: var(--macos-hairline);
+	background: color-mix(in srgb, var(--bg-primary) 84%, transparent);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper)[data-theme-scheme="dark"]
+	:where(.app-main, .settings-window .settings-main) {
+	background: var(--macos-dark-bg-primary);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper)[data-theme-scheme="dark"]
+	.app-shell[data-native-window-effects="disabled"]
+	.app-sidebar {
+	background: var(--macos-dark-bg-secondary);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper)[data-theme-scheme="dark"]
+	.app-shell[data-native-window-effects="disabled"]
+	:where(.pane-content, .note-document-scroll, .app-statusbar) {
+	background: var(--macos-dark-bg-primary);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper)[data-theme-scheme="dark"]
+	.app-shell[data-native-window-effects="enabled"]
+	.app-main {
+	background: color-mix(in srgb, var(--macos-dark-bg-primary) 96%, transparent);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper)[data-theme-scheme="dark"]
+	.app-main
+	.tab-bar {
+	background: color-mix(in srgb, var(--macos-dark-bg-primary) 88%, transparent);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .tab-trigger {
+	border-radius: var(--macos-radius-md) var(--macos-radius-md) 0 0;
+	color: var(--macos-text-muted);
+	font-size: 13px;
+	font-weight: 400;
+	transition-duration: var(--macos-duration-base);
+	transition-timing-function: var(--macos-ease);
+	animation-duration: var(--macos-duration-base);
+	animation-timing-function: var(--macos-ease);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .tab-bar [data-state="active"] {
+	border-color: var(--macos-hairline);
+	border-bottom-color: var(--tab-active-bg);
+	color: var(--macos-text-normal);
+	box-shadow:
+		inset 0 1px 0 color-mix(in srgb, white 24%, transparent),
+		var(--macos-shadow-tactile);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .tab-trigger:hover {
+	background: color-mix(in srgb, var(--tab-active-bg) 58%, transparent);
+	color: var(--macos-text-normal);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .tab-trigger--closing {
+	animation-duration: var(--macos-duration-base);
+	animation-timing-function: var(--macos-ease);
+}
+
+body[data-platform="macos"]
+	:where([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) {
+	border-color: transparent;
+	border-radius: var(--dialog-radius);
+	background: var(--macos-modal-bg);
+	box-shadow:
+		0 0 0 1px var(--macos-surface-border),
+		var(--macos-shadow-modal);
+	backdrop-filter: none;
+	-webkit-backdrop-filter: none;
+	animation-duration: var(--macos-duration-base);
+	animation-timing-function: var(--macos-ease);
+}
+
+body[data-platform="macos"]
+	:where([data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"]) {
+	background: color-mix(in srgb, black 18%, transparent);
+	backdrop-filter: none;
+	-webkit-backdrop-filter: none;
+	animation-duration: var(--macos-duration-base);
+	animation-timing-function: var(--macos-ease);
+}
+
+body[data-platform="macos"] [data-popup-surface],
+body[data-platform="macos"]
+	:where(.slash-command-menu, .sidebar-view-picker, .note-property-popover) {
+	border-color: transparent;
+	border-radius: var(--popup-radius);
+	background: var(--macos-surface-bg);
+	box-shadow:
+		0 0 0 1px var(--macos-surface-border),
+		var(--macos-shadow-floating);
+	backdrop-filter: none;
+	animation-duration: var(--macos-duration-base);
+	animation-timing-function: var(--macos-ease);
+}
+
+body[data-platform="macos"]
+	:where(
+		[data-slot="dropdown-menu-content"],
+		[data-slot="dropdown-menu-sub-content"],
+		[data-slot="context-menu-content"],
+		[data-slot="context-menu-sub-content"],
+		[data-slot="select-content"],
+		.markdown-toolbar-menu
+	) {
+	padding: 5px;
+}
+
+body[data-platform="macos"] [data-command-surface] {
+	--command-selected-bg: var(--macos-row-bg-active);
+	--command-selected-border: color-mix(in srgb, var(--accent) 10%, transparent);
+	border-color: transparent;
+	border-radius: var(--dialog-radius);
+	background: var(--macos-modal-bg);
+	box-shadow:
+		0 0 0 1px var(--macos-surface-border),
+		var(--macos-shadow-modal);
+	backdrop-filter: none;
+	-webkit-backdrop-filter: none;
+	font-family: var(--font-ui);
+	animation-duration: var(--macos-duration-base);
+	animation-timing-function: var(--macos-ease);
+}
+
+body[data-platform="macos"] [data-command-surface] [data-slot="command-input-wrapper"] {
+	border-color: var(--macos-hairline);
+	min-height: 52px;
+}
+
+body[data-platform="macos"] [data-command-surface] [data-slot="command-input"] {
+	font-size: 15px;
+	line-height: 20px;
+}
+
+body[data-platform="macos"]
+	:where(
+		[data-command-surface] [data-slot="command-item"],
+		.slash-command-menu [data-slot="command-item"],
+		.note-property-popover [data-slot="command-item"]
+	) {
+	border-radius: var(--macos-radius-md);
+	font-family: var(--font-ui);
+	transition-property: background-color, border-color, color;
+	transition-duration: var(--macos-duration-base);
+	transition-timing-function: var(--macos-ease);
+}
+
+body[data-platform="macos"]
+	[data-popup-surface]
+	:where(
+		[data-slot="dropdown-menu-item"],
+		[data-slot="dropdown-menu-checkbox-item"],
+		[data-slot="dropdown-menu-radio-item"],
+		[data-slot="dropdown-menu-sub-trigger"],
+		[data-slot="context-menu-item"],
+		[data-slot="context-menu-checkbox-item"],
+		[data-slot="context-menu-radio-item"],
+		[data-slot="context-menu-sub-trigger"],
+		[data-slot="select-item"]
+	) {
+	min-height: 28px;
+	border-radius: var(--popup-item-radius);
+	color: var(--text-secondary, var(--text-primary));
+	font-family: var(--font-ui);
+	font-size: 13px;
+	font-weight: 400;
+	line-height: 17px;
+	transition-property: background-color, color;
+	transition-duration: var(--macos-duration-base);
+	transition-timing-function: var(--macos-ease);
+}
+
+body[data-platform="macos"]
+	[data-popup-surface]
+	:where(
+		[data-slot="dropdown-menu-item"],
+		[data-slot="dropdown-menu-sub-trigger"],
+		[data-slot="context-menu-item"],
+		[data-slot="context-menu-sub-trigger"],
+		[data-slot="select-item"]
+	) {
+	padding: 5px 9px;
+}
+
+body[data-platform="macos"]
+	[data-popup-surface]
+	:where(
+		[data-slot="dropdown-menu-checkbox-item"],
+		[data-slot="dropdown-menu-radio-item"],
+		[data-slot="context-menu-checkbox-item"],
+		[data-slot="context-menu-radio-item"]
+	) {
+	padding: 5px 9px 5px 28px;
+}
+
+body[data-platform="macos"]
+	[data-popup-surface]
+	:where(
+		[data-slot="dropdown-menu-label"],
+		[data-slot="context-menu-label"],
+		[data-slot="select-label"]
+	) {
+	padding: 5px 9px 4px;
+	color: var(--text-muted);
+	font-size: 11px;
+	font-weight: 500;
+	line-height: 14px;
+}
+
+body[data-platform="macos"]
+	[data-popup-surface]
+	:where(
+		[data-slot="dropdown-menu-separator"],
+		[data-slot="context-menu-separator"],
+		[data-slot="select-separator"]
+	) {
+	margin: 5px 6px;
+	background: var(--macos-hairline);
+}
+
+body[data-platform="macos"]
+	[data-popup-surface]
+	:where(
+		[data-slot="dropdown-menu-item"],
+		[data-slot="dropdown-menu-checkbox-item"],
+		[data-slot="dropdown-menu-radio-item"],
+		[data-slot="dropdown-menu-sub-trigger"],
+		[data-slot="context-menu-item"],
+		[data-slot="context-menu-checkbox-item"],
+		[data-slot="context-menu-radio-item"],
+		[data-slot="context-menu-sub-trigger"],
+		[data-slot="select-item"]
+	):is(:focus, [data-highlighted], [data-state="open"]) {
+	background: var(--macos-row-bg-hover);
+	color: var(--text-primary);
+}
+
+body[data-platform="macos"]
+	[data-popup-surface]
+	:where([data-slot="dropdown-menu-shortcut"], [data-slot="context-menu-shortcut"]) {
+	color: var(--text-muted);
+	font-size: 11px;
+	letter-spacing: 0;
+}
+
+body[data-platform="macos"]
+	:where([data-command-surface] [data-slot="command-footer"], .command-inline-panel) {
+	border-top-color: var(--macos-hairline);
+}
+
+body[data-platform="macos"] .slash-command-icon {
+	transition-duration: var(--macos-duration-base);
+	transition-timing-function: var(--macos-ease);
+}
+
+body[data-platform="macos"]
+	:where(
+		.settings-modal-dialog-content,
+		.template-editor-dialog-content,
+		.create-from-template-dialog-content
+	) {
+	overflow: hidden;
+	border-color: transparent;
+	border-radius: var(--dialog-radius);
+	background: var(--macos-modal-bg);
+	box-shadow:
+		0 0 0 1px var(--macos-surface-border),
+		var(--macos-shadow-modal);
+	backdrop-filter: none;
+	-webkit-backdrop-filter: none;
+}
+
+body[data-platform="macos"] .settings-modal-dialog-content .settings-sidebar {
+	background: color-mix(in srgb, var(--sidebar) 94%, var(--macos-modal-bg) 6%);
+	filter: none;
+	backdrop-filter: none;
+	-webkit-backdrop-filter: none;
+}
+
+body[data-platform="macos"] :where(.dialog-chrome-header, .dialog-chrome-toolbar) {
+	border-bottom-color: var(--macos-hairline);
+	background: color-mix(in srgb, var(--macos-modal-bg) 92%, transparent);
+}
+
+body[data-platform="macos"] .dialog-chrome-header {
+	padding: 15px 48px 13px 20px;
+}
+
+body[data-platform="macos"] .dialog-chrome-body {
+	padding: 18px 20px;
+}
+
+body[data-platform="macos"] .dialog-chrome-footer {
+	border-top-color: var(--macos-hairline);
+	padding: 12px 20px;
+	background: color-mix(in srgb, var(--macos-modal-bg) 92%, transparent);
+}
+
+body[data-platform="macos"] :where([data-slot="dialog-title"], [data-slot="alert-dialog-title"]) {
+	font-size: 15px;
+	font-weight: 600;
+	line-height: 20px;
+	letter-spacing: 0;
+	text-wrap: balance;
+}
+
+body[data-platform="macos"]
+	:where([data-slot="dialog-description"], [data-slot="alert-dialog-description"]) {
+	color: var(--text-muted);
+	font-size: 13px;
+	line-height: 18px;
+	text-wrap: pretty;
+}
+
+body[data-platform="macos"] [data-slot="dialog-close"] {
+	border-radius: 999px;
+	transition-property: background-color, color, opacity, box-shadow;
+	transition-duration: var(--macos-duration-base);
+	transition-timing-function: var(--macos-ease);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .note-properties-card {
+	border-color: var(--macos-hairline);
+	border-radius: var(--macos-radius-lg);
+	background: color-mix(in srgb, var(--settings-group-bg) 78%, transparent);
+	box-shadow: inset 0 1px 0 color-mix(in srgb, white 12%, transparent);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper)[data-theme-scheme="dark"]
+	.note-properties-card {
+	background: color-mix(in srgb, var(--macos-dark-bg-secondary) 82%, transparent);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .note-property-row {
+	transition-duration: var(--macos-duration-base);
+	transition-timing-function: var(--macos-ease);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .note-property-row:hover {
+	background: var(--macos-row-bg-hover);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .markdown-toolbar-group {
+	border-radius: var(--macos-radius-lg);
+	box-shadow:
+		inset 0 0 0 1px var(--macos-hairline),
+		var(--macos-shadow-tactile);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .split-resizer {
+	background: color-mix(in srgb, var(--macos-hairline) 66%, transparent);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .split-resizer::after {
+	background: var(--macos-hairline-strong);
+	opacity: 0.54;
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .split-resizer:hover,
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .split-resizer:active {
+	background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .sidebar-view-tab,
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .sidebar-view-picker-trigger {
+	transition-duration: var(--macos-duration-base);
+	transition-timing-function: var(--macos-ease);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .sidebar-view-tab[data-active="true"] {
+	border-color: var(--macos-hairline);
+	background: color-mix(in srgb, var(--bg-elevated) 76%, transparent);
+	box-shadow:
+		inset 0 1px 0 color-mix(in srgb, white 20%, transparent),
+		var(--macos-shadow-tactile);
+	color: var(--macos-text-normal);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .sidebar-view-tab-label {
+	animation-duration: var(--macos-duration-base);
+	animation-timing-function: var(--macos-ease);
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .sidebar-view-tab-label > span {
+	font-size: 13px;
+	font-weight: 500;
+}
+
+body[data-platform="macos"]:where(.theme-ink, .theme-paper)
+	.sidebar-view-panel--current.sidebar-view-panel--animated,
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .sidebar-view-panel--previous {
+	animation-duration: 220ms;
+	animation-timing-function: var(--macos-ease);
+}
+
+body[data-platform="macos"][data-reduced-motion="true"]
+	:where(
+		[data-slot="dialog-content"],
+		[data-slot="alert-dialog-content"],
+		[data-slot="dialog-overlay"],
+		[data-slot="alert-dialog-overlay"],
+		[data-popup-surface],
+		[data-popup-surface] [data-slot],
+		[data-command-surface],
+		.tab-trigger,
+		.sidebar-view-tab,
+		.sidebar-view-picker-trigger,
+		.sidebar-view-tab-label,
+		.sidebar-view-panel--current,
+		.sidebar-view-panel--previous,
+		.file-tree-item,
+		.sidebar-search-result,
+		.sidebar-tag-row,
+		.sidebar-tag-file,
+		[data-command-surface] [data-slot="command-item"],
+		.slash-command-menu [data-slot="command-item"],
+		.note-property-popover,
+		.note-property-row
+	) {
+	animation-duration: 1ms;
+	transition-duration: 1ms;
+}
