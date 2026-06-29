@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Contribution guide
+    url: https://github.com/cortex-md/cortex-app/blob/main/CONTRIBUTING.md
+    about: Read the local setup, validation, and pull request workflow.
+  - name: Development documentation
+    url: https://github.com/cortex-md/cortex-app/blob/main/docs/development/README.md
+    about: Read desktop development and architecture practices.

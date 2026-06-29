@@ -7,6 +7,8 @@ plugins, and community themes.
 
 - [Modules](modules/README.md): a compact map of the packages and runtime boundaries that matter
   to plugin and theme authors.
+- [Development](development/README.md): contributor-facing setup, desktop development, quality
+  gates, and architecture practices.
 - [Community](community/README.md): authoring guides for plugins and themes.
 - [Community plugins](community/plugins/README.md): how to build plugins with `@cortex.md/api`.
 - [Community themes](community/themes/README.md): how to build vault-scoped CSS themes.
