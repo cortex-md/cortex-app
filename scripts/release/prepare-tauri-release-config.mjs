@@ -45,6 +45,6 @@ if (envPath) {
 	const delimiter = "CORTEX_UPDATER_PUBLIC_KEY_EOF"
 	appendFileSync(
 		envPath,
-		`CORTEX_UPDATER_PUBLIC_KEY<<${delimiter}\n${publicKey}\n${delimiter}\n`,
+		`CORTEX_UPDATER_PUBLIC_KEY<<${delimiter}\n${configPublicKey}\n${delimiter}\n`,
 	)
 }

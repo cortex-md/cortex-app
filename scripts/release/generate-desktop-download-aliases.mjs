@@ -1,4 +1,4 @@
-import { copyFileSync, readdirSync, statSync } from "node:fs"
+import { existsSync, readdirSync, renameSync, rmSync, statSync } from "node:fs"
 import { join } from "node:path"
 
 const releaseDirectory = process.env.RELEASE_DIRECTORY ?? "dist/release"
@@ -39,11 +39,14 @@ const missingAliases = []
 for (const rule of aliasRules) {
 	const source = files.find((fileName) => fileName !== rule.alias && rule.pattern.test(fileName))
 	if (!source) {
+		if (files.includes(rule.alias)) continue
 		missingAliases.push(rule.alias)
 		continue
 	}
 
-	copyFileSync(join(releaseDirectory, source), join(releaseDirectory, rule.alias))
+	const aliasPath = join(releaseDirectory, rule.alias)
+	if (existsSync(aliasPath)) rmSync(aliasPath, { force: true })
+	renameSync(join(releaseDirectory, source), aliasPath)
 	console.log(`${rule.alias} -> ${source}`)
 }
 

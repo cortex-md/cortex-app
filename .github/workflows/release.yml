@@ -246,6 +246,10 @@ jobs:
         run: |
           node scripts/release/prepare-desktop-release-assets.mjs
 
+      - name: Generate stable download aliases
+        run: |
+          node scripts/release/generate-desktop-download-aliases.mjs
+
       - name: Generate release body
         env:
           RELEASE_TAG: ${{ needs.release-metadata.outputs.tag_name }}
@@ -259,10 +263,6 @@ jobs:
           RELEASE_VERSION: ${{ needs.release-metadata.outputs.version }}
         run: |
           node scripts/release/generate-desktop-updater-manifest.mjs
-
-      - name: Generate stable download aliases
-        run: |
-          node scripts/release/generate-desktop-download-aliases.mjs
 
       - name: Generate checksums
         run: |

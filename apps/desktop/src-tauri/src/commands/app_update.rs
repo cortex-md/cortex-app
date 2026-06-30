@@ -372,19 +372,30 @@ fn updater_public_key() -> Option<String> {
 
 fn normalize_updater_public_key(key: &str) -> String {
     let trimmed = key.trim();
-    if is_minisign_public_key(trimmed) {
+    if decode_base64_public_key(trimmed)
+        .as_deref()
+        .is_some_and(is_minisign_public_key)
+    {
         return trimmed.to_string();
     }
 
     use base64::{engine::general_purpose::STANDARD, Engine};
 
+    if is_minisign_public_key(trimmed) {
+        return STANDARD.encode(trimmed);
+    }
+
+    trimmed.to_string()
+}
+
+fn decode_base64_public_key(key: &str) -> Option<String> {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+
     STANDARD
-        .decode(trimmed)
+        .decode(key)
         .ok()
         .and_then(|bytes| String::from_utf8(bytes).ok())
         .map(|decoded| decoded.trim().to_string())
-        .filter(|decoded| is_minisign_public_key(decoded))
-        .unwrap_or_else(|| trimmed.to_string())
 }
 
 fn is_minisign_public_key(key: &str) -> bool {
@@ -458,20 +469,22 @@ mod tests {
     }
 
     #[test]
-    fn updater_public_key_preserves_minisign_public_key() {
+    fn updater_public_key_encodes_minisign_public_key() {
         let public_key = "untrusted comment: minisign public key: 7B5A90ED1173558\nRWRYNRfRDqm1B5qDK9z6cgHG6GazX3etRZjQv4A8vYR2Q3IXepp9GfVd";
+        let encoded = normalize_updater_public_key(public_key);
 
-        assert_eq!(normalize_updater_public_key(public_key), public_key);
+        assert_ne!(encoded, public_key);
+        assert_eq!(
+            super::decode_base64_public_key(&encoded).as_deref(),
+            Some(public_key)
+        );
     }
 
     #[test]
-    fn updater_public_key_decodes_tauri_generated_public_key_file() {
+    fn updater_public_key_preserves_tauri_generated_public_key_file() {
         let encoded = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDdCNUE5MEVEMTE3MzU1OApSV1JZTlJmUkRxbTFCNXFESzl6NmNnSEc2R2F6WDNldFJaalF2NEE4dllSMlEzSVhlcHA5R2ZWZAo=";
 
-        assert_eq!(
-            normalize_updater_public_key(encoded),
-            "untrusted comment: minisign public key: 7B5A90ED1173558\nRWRYNRfRDqm1B5qDK9z6cgHG6GazX3etRZjQv4A8vYR2Q3IXepp9GfVd"
-        );
+        assert_eq!(normalize_updater_public_key(encoded), encoded);
     }
 
     #[tokio::test]

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process"
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -9,6 +9,7 @@ let releaseDirectory: string | null = null
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..")
 const manifestScriptPath = join(repoRoot, "scripts/generate-tauri-updater-manifest.ts")
+const releaseConfigScriptPath = join(repoRoot, "scripts/release/prepare-tauri-release-config.mjs")
 
 function writeReleaseFile(fileName: string, content = "asset"): void {
 	if (!releaseDirectory) throw new Error("Release directory not initialized")
@@ -97,20 +98,32 @@ describe("generateUpdaterManifest", () => {
 		expect(workflow).toContain("scripts/release/generate-desktop-updater-manifest.mjs")
 		expect(workflow).toContain("scripts/release/generate-desktop-download-aliases.mjs")
 		expect(workflow).toContain("scripts/release/generate-desktop-release-checksums.mjs")
+		expect(workflow.indexOf("scripts/release/generate-desktop-release-body.mjs")).toBeGreaterThan(
+			workflow.indexOf("scripts/release/generate-desktop-download-aliases.mjs"),
+		)
+		expect(
+			workflow.indexOf("scripts/release/generate-desktop-updater-manifest.mjs"),
+		).toBeGreaterThan(workflow.indexOf("scripts/release/generate-desktop-release-body.mjs"))
+		expect(
+			workflow.indexOf("scripts/release/generate-desktop-release-checksums.mjs"),
+		).toBeGreaterThan(workflow.indexOf("scripts/release/generate-desktop-updater-manifest.mjs"))
 		expect(rustCommand).toContain(
 			"https://github.com/cortex-md/cortex-app/releases/latest/download/latest.json",
 		)
 		expect(rustCommand).toContain("https://api.github.com/repos/cortex-md/cortex-app/releases/tags")
 	})
 
-	it("creates stable public download aliases for GitHub latest URLs", () => {
+	it("promotes stable public download aliases for GitHub latest URLs", () => {
 		releaseDirectory = mkdtempSync(join(tmpdir(), "cortex-release-"))
 		writeReleaseFile("Cortex_0.1.0_aarch64.dmg", "macos")
+		writeReleaseFile("Cortex.app.tar.gz", "mac-updater")
+		writeReleaseFile("Cortex.app.tar.gz.sig", "mac-updater-signature")
 		writeReleaseFile("Cortex_0.1.0_x64_en-US.msi", "windows")
 		writeReleaseFile("Cortex_0.1.0_x64_en-US.msi.sig", "windows-signature")
 		writeReleaseFile("Cortex_0.1.0_amd64.AppImage", "appimage")
 		writeReleaseFile("Cortex_0.1.0_amd64.AppImage.sig", "appimage-signature")
 		writeReleaseFile("Cortex_0.1.0_amd64.deb", "deb")
+		writeReleaseFile("release-body.md", "# Cortex 0.1.0\n\nInitial stable release.")
 
 		execFileSync("node", ["scripts/release/generate-desktop-download-aliases.mjs"], {
 			cwd: repoRoot,
@@ -127,6 +140,51 @@ describe("generateUpdaterManifest", () => {
 		expect(readReleaseFile("Cortex-linux-x64.AppImage")).toBe("appimage")
 		expect(readReleaseFile("Cortex-linux-x64.AppImage.sig")).toBe("appimage-signature")
 		expect(readReleaseFile("Cortex-linux-amd64.deb")).toBe("deb")
+		expect(existsSync(join(releaseDirectory, "Cortex_0.1.0_aarch64.dmg"))).toBe(false)
+		expect(existsSync(join(releaseDirectory, "Cortex_0.1.0_x64_en-US.msi"))).toBe(false)
+		expect(existsSync(join(releaseDirectory, "Cortex_0.1.0_x64_en-US.msi.sig"))).toBe(false)
+		expect(existsSync(join(releaseDirectory, "Cortex_0.1.0_amd64.AppImage"))).toBe(false)
+		expect(existsSync(join(releaseDirectory, "Cortex_0.1.0_amd64.AppImage.sig"))).toBe(false)
+		expect(existsSync(join(releaseDirectory, "Cortex_0.1.0_amd64.deb"))).toBe(false)
+
+		const manifestPath = join(releaseDirectory, "latest.json")
+		generateManifestFile(manifestPath)
+		const manifest = JSON.parse(readFileSync(manifestPath, "utf8"))
+
+		expect(manifest.platforms["windows-x86_64"].url).toBe(
+			"https://github.com/cortex-md/cortex-app/releases/download/v0.1.0/Cortex-windows-x64.msi",
+		)
+		expect(manifest.platforms["linux-x86_64"].url).toBe(
+			"https://github.com/cortex-md/cortex-app/releases/download/v0.1.0/Cortex-linux-x64.AppImage",
+		)
+	})
+
+	it("exports the updater public key in the base64 format expected by Tauri", () => {
+		releaseDirectory = mkdtempSync(join(tmpdir(), "cortex-release-"))
+		const configPath = join(releaseDirectory, "tauri.release.conf.json")
+		const githubEnvPath = join(releaseDirectory, "github-env")
+		const publicKey =
+			"untrusted comment: minisign public key: 7B5A90ED1173558\nRWRYNRfRDqm1B5qDK9z6cgHG6GazX3etRZjQv4A8vYR2Q3IXepp9GfVd"
+		const encodedPublicKey = Buffer.from(publicKey, "utf8").toString("base64")
+
+		execFileSync("node", [releaseConfigScriptPath], {
+			cwd: repoRoot,
+			env: {
+				...process.env,
+				CORTEX_UPDATER_PUBLIC_KEY: publicKey,
+				GITHUB_ENV: githubEnvPath,
+				TAURI_RELEASE_CONFIG_PATH: configPath,
+			},
+			stdio: "pipe",
+		})
+
+		const config = JSON.parse(readFileSync(configPath, "utf8"))
+		const githubEnv = readFileSync(githubEnvPath, "utf8")
+
+		expect(config.plugins.updater.pubkey).toBe(encodedPublicKey)
+		expect(githubEnv).toContain(
+			`CORTEX_UPDATER_PUBLIC_KEY<<CORTEX_UPDATER_PUBLIC_KEY_EOF\n${encodedPublicKey}\nCORTEX_UPDATER_PUBLIC_KEY_EOF`,
+		)
 	})
 
 	it("injects release sync URLs through direct Vite replacements", () => {
