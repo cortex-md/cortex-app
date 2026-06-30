@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react"
+import type { CodeBlockEmbedDefinition } from "./codeBlockEmbeds"
 import { EditorView } from "./EditorView"
 import type { MarkdownCommandExecutor } from "./markdownKeymap"
 import { ReadingView } from "./ReadingView"
@@ -14,6 +15,7 @@ interface Props {
 	filePath: string
 	editorConfig?: EditorConfig
 	extraExtensions?: EditorExtensionFactory[]
+	codeBlockEmbeds?: readonly CodeBlockEmbedDefinition[]
 	resolveImageUrl?: (src: string, filePath: string) => string
 	scrollMode?: "internal" | "parent"
 	vimCommandProvider?: VimCommandProvider | null
@@ -29,6 +31,7 @@ export function SideBySideView({
 	filePath,
 	editorConfig,
 	extraExtensions,
+	codeBlockEmbeds,
 	resolveImageUrl,
 	scrollMode = "internal",
 	vimCommandProvider,
@@ -89,6 +92,7 @@ export function SideBySideView({
 					editorConfig={editorConfig}
 					extraExtensions={extraExtensions}
 					livePreview={true}
+					codeBlockEmbeds={codeBlockEmbeds}
 					resolveImageUrl={resolveImageUrl}
 					scrollMode={scrollMode}
 					vimCommandProvider={vimCommandProvider}
@@ -102,6 +106,7 @@ export function SideBySideView({
 					content={content}
 					renderDelay={80}
 					scrollMode={scrollMode}
+					codeBlockEmbeds={codeBlockEmbeds}
 					onWikiLinkClick={onWikiLinkClick}
 					onExternalLinkClick={onExternalLinkClick}
 				/>

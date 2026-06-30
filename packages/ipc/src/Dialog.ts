@@ -47,6 +47,13 @@ export class Dialog implements IDialog {
 		return selected ? normalizeNativePath(selected) : null
 	}
 
+	async pickFiles(options: FileDialogOptions = {}): Promise<string[]> {
+		const selected = await open({ ...options, multiple: true })
+		if (!selected) return []
+		const paths = Array.isArray(selected) ? selected : [selected]
+		return paths.map(normalizeNativePath)
+	}
+
 	async saveFile(options: FileDialogOptions = {}): Promise<string | null> {
 		const selected = await save(options)
 		return selected ? normalizeNativePath(selected) : null

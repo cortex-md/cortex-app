@@ -2,6 +2,7 @@ import { markdown } from "@codemirror/lang-markdown"
 import { EditorState } from "@codemirror/state"
 import { EditorView } from "@codemirror/view"
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
+import type { CodeBlockEmbedDefinition } from "../codeBlockEmbeds"
 import { livePreviewExtension } from "../livePreview"
 import { loadEditorRuntime } from "../runtime"
 
@@ -18,15 +19,17 @@ afterEach(() => {
 	vi.restoreAllMocks()
 })
 
-function createCodeBlockEditor(): EditorView {
-	const content = "```ts\nconst first = 1\n```\n\n```ts\nconst second = 2\n```\n\ntail"
+function createCodeBlockEditor(
+	content = "```ts\nconst first = 1\n```\n\n```ts\nconst second = 2\n```\n\ntail",
+	codeBlockEmbeds?: readonly CodeBlockEmbedDefinition[],
+): EditorView {
 	const parent = document.createElement("div")
 	document.body.appendChild(parent)
 	const view = new EditorView({
 		state: EditorState.create({
 			doc: content,
 			selection: { anchor: content.length },
-			extensions: [markdown(), livePreviewExtension(editorRuntime)],
+			extensions: [markdown(), livePreviewExtension(editorRuntime, undefined, "", codeBlockEmbeds)],
 		}),
 		parent,
 	})
@@ -113,5 +116,122 @@ describe("code block live preview", () => {
 
 		const selectedCodeBlock = document.querySelector(".cm-codeblock-wrapper.is-selection-overlap")
 		expect(selectedCodeBlock).not.toBeNull()
+	})
+
+	it("renders embed code blocks in place with an open action in the code chrome", () => {
+		const openLivePreview = vi.fn()
+		const content = [
+			"```cortex-draw",
+			'{"schema":"cortex.drawing","title":"System Sketch"}',
+			"```",
+			"",
+			"tail",
+		].join("\n")
+		const view = createCodeBlockEditor(content, [
+			{
+				languages: ["cortex-draw"],
+				render: () => null,
+				renderLivePreview: ({ content: blockContent }) => ({
+					title: JSON.parse(blockContent).title,
+					description: "Excalidraw board",
+					meta: "Updated today",
+				}),
+				openLivePreview,
+				livePreviewOpenLabel: "Open",
+			},
+		])
+
+		expect(document.querySelector(".cm-codeblock-embed-preview")?.textContent).toContain(
+			"System Sketch",
+		)
+		expect(document.querySelector(".cm-content")?.textContent).not.toContain("cortex.drawing")
+
+		const blockLine = document.querySelector<HTMLElement>(".cm-codeblock-line")
+		blockLine?.dispatchEvent(new Event("pointerover", { bubbles: true }))
+		const button = document.querySelector<HTMLButtonElement>(".cm-codeblock-action")
+
+		expect(button?.textContent).toBe("Open")
+		button?.dispatchEvent(new Event("pointerdown", { bubbles: true, cancelable: true }))
+		button?.click()
+
+		expect(openLivePreview).toHaveBeenCalledTimes(1)
+		expect(openLivePreview.mock.calls[0][0]).toMatchObject({
+			content: expect.stringContaining("System Sketch"),
+			sourceFrom: 0,
+		})
+
+		view.dispatch({ selection: { anchor: content.indexOf("cortex.drawing") } })
+		expect(document.querySelector(".cm-codeblock-embed-preview")).toBeNull()
+		expect(document.querySelector(".cm-content")?.textContent).toContain("cortex.drawing")
+	})
+
+	it("mounts host-owned embed previews and cleans them up when source is revealed", async () => {
+		const cleanup = vi.fn()
+		const content = "```cortex-draw\n{}\n```\n\ntail"
+		const view = createCodeBlockEditor(content, [
+			{
+				languages: ["cortex-draw"],
+				render: () => null,
+				renderLivePreview: () => ({
+					title: "Inline board",
+					className: "is-test-board",
+					mount: (container) => {
+						container.textContent = "Mounted board"
+						return cleanup
+					},
+				}),
+			},
+		])
+
+		await new Promise((resolve) => setTimeout(resolve, 0))
+
+		expect(document.querySelector(".cm-codeblock-embed-preview.is-test-board")).not.toBeNull()
+		expect(document.querySelector(".cm-codeblock-embed-mount")?.textContent).toBe("Mounted board")
+
+		view.dispatch({ selection: { anchor: content.indexOf("{}") } })
+
+		expect(cleanup).toHaveBeenCalledTimes(1)
+	})
+
+	it("remounts host-owned embed previews when their signature changes", async () => {
+		const cleanup = vi.fn()
+		const content = "```cortex-draw\n{}\n```\n\ntail"
+		const view = createCodeBlockEditor(content, [
+			{
+				languages: ["cortex-draw"],
+				render: () => null,
+				renderLivePreview: ({ content: blockContent }) => {
+					const signature = blockContent.trim()
+					return {
+						title: "Inline board",
+						className: "is-test-board",
+						signature,
+						mount: (container) => {
+							container.textContent = `Mounted ${signature}`
+							return cleanup
+						},
+					}
+				},
+			},
+		])
+
+		await new Promise((resolve) => setTimeout(resolve, 0))
+
+		expect(document.querySelector(".cm-codeblock-embed-mount")?.textContent).toBe("Mounted {}")
+
+		const sourceFrom = content.indexOf("{}")
+		view.dispatch({
+			changes: {
+				from: sourceFrom,
+				to: sourceFrom + 2,
+				insert: '{"next":true}',
+			},
+		})
+		await new Promise((resolve) => setTimeout(resolve, 0))
+
+		expect(cleanup).toHaveBeenCalledTimes(1)
+		expect(document.querySelector(".cm-codeblock-embed-mount")?.textContent).toBe(
+			'Mounted {"next":true}',
+		)
 	})
 })

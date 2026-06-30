@@ -112,6 +112,30 @@ tail`
 		expect(selectedCallout).not.toBeNull()
 	})
 
+	it("renders block math without reducing source line count", () => {
+		const content = "$$\ny=x+1\n$$\n\ntail"
+		const view = createBlockWidgetEditor(content)
+
+		expect(document.querySelector(".cm-mathblock-wrapper")).not.toBeNull()
+		expect(document.querySelector(".cm-math-block-widget")?.textContent).toBe("y=x+1")
+		expect(document.querySelectorAll(".cm-mathblock-hidden-line")).toHaveLength(2)
+		expect(document.querySelectorAll(".cm-line")).toHaveLength(view.state.doc.lines)
+		expect(document.querySelector(".cm-content")?.textContent).not.toContain("$$")
+	})
+
+	it("reveals block math source while the selection overlaps it", () => {
+		const content = "$$\ny=x+1\n$$\n\ntail"
+		const view = createBlockWidgetEditor(content)
+
+		expect(document.querySelector(".cm-math-block-widget")).not.toBeNull()
+
+		view.dispatch({ selection: { anchor: content.indexOf("y=x+1") } })
+
+		expect(document.querySelector(".cm-math-block-widget")).toBeNull()
+		expect(document.querySelector(".cm-mathblock-wrapper.is-selection-overlap")).not.toBeNull()
+		expect(document.querySelector(".cm-content")?.textContent).toContain("$$")
+	})
+
 	it("keeps one CodeMirror line for every source line across projected blocks", () => {
 		const content = `---
 title: Navigation

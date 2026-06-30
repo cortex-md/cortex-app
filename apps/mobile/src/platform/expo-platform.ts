@@ -1196,11 +1196,15 @@ export const expoPlatform: CortexPlatform = {
 	},
 	dialog: {
 		pickFile: () => unsupportedPhase1("dialog.pickFile"),
+		pickFiles: () => unsupportedPhase1("dialog.pickFiles"),
 		pickFolder,
 		revealFolder: () => unsupportedPhase1("dialog.revealFolder"),
 		saveFile: () => unsupportedPhase1("dialog.saveFile"),
 		showAlert,
 		showConfirm,
+	},
+	documentImport: {
+		extractPdfText: () => unsupportedPhase1("documentImport.extractPdfText"),
 	},
 	font: {
 		listSystemFonts: async () => [],
@@ -1339,7 +1343,6 @@ export const expoPlatform: CortexPlatform = {
 	window: {
 		closeCurrent: () => unsupportedPhase1("window.closeCurrent"),
 		focusMain: () => unsupportedPhase1("window.focusMain"),
-		openSettings: () => unsupportedPhase1("window.openSettings"),
 		restartApp: () => unsupportedPhase1("window.restartApp"),
 	},
 }

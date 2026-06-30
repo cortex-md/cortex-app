@@ -37,6 +37,7 @@ import { NativeMenuActions } from "@/utils/context-menu"
 import { reportAppError } from "@/utils/reportAppError"
 import { buildNoteMenuItems } from "../file-explorer/NativeMenuActions"
 import { NoteDropdownMenuItems } from "../file-explorer/NoteMenuItems"
+import { exportNoteFromDialog } from "../import-export/importExportActions"
 import { createPluginContextMenuItems } from "../plugins/pluginContextMenu"
 
 interface Props {
@@ -420,6 +421,7 @@ export function NoteHeader({ filePath, paneId, onViewHistory }: Props) {
 						workspace.openInSplit(path, paneId ?? workspace.activePaneId, "horizontal")
 					},
 					duplicate: (path) => void handleDuplicate(path),
+					exportNote: (path, format) => void exportNoteFromDialog(path, format, "context-menu"),
 					copyRelativePath: (path) => {
 						const value = vault?.path ? path.replace(`${vault.path}/`, "") : path
 						void navigator.clipboard.writeText(value)

@@ -6,6 +6,8 @@ import type { Capabilities } from "./interfaces/Capabilities"
 import type { Device } from "./interfaces/Device"
 import type { Devices } from "./interfaces/Devices"
 import type { Dialog } from "./interfaces/Dialog"
+import type { DocumentExport } from "./interfaces/DocumentExport"
+import type { DocumentImport } from "./interfaces/DocumentImport"
 import type { FileSystem } from "./interfaces/FileSystem"
 import type { Font } from "./interfaces/Font"
 import type { Http } from "./interfaces/Http"
@@ -49,6 +51,13 @@ export type {
 	FileDialogOptions,
 	FolderDialogOptions,
 } from "./interfaces/Dialog"
+export type { DocumentExport, ExportHtmlToPdfOptions } from "./interfaces/DocumentExport"
+export type {
+	DocumentImport,
+	PdfTextExtraction,
+	PdfTextExtractionOptions,
+	PdfTextPage,
+} from "./interfaces/DocumentImport"
 export type {
 	FileEntry,
 	FileMetadata,
@@ -61,7 +70,7 @@ export type { Font, FontInfo } from "./interfaces/Font"
 export type { Http } from "./interfaces/Http"
 export type { Keychain } from "./interfaces/Keychain"
 export type { AcceptInviteResult, Members, VaultInvite, VaultMember } from "./interfaces/Members"
-export type { NativeWindow, OpenSettingsWindowOptions } from "./interfaces/NativeWindow"
+export type { NativeWindow } from "./interfaces/NativeWindow"
 export type {
 	NativeNotificationCapabilities,
 	NativeNotificationFailureReason,
@@ -107,6 +116,8 @@ export interface Platform {
 	window: NativeWindow
 	fs: FileSystem
 	dialog: Dialog
+	documentImport?: DocumentImport
+	documentExport?: DocumentExport
 	storage: Storage
 	vault: Vault
 	app: App

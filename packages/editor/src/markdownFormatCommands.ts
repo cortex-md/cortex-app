@@ -3,7 +3,9 @@ import {
 	insertCallout,
 	insertCodeBlock,
 	insertImage,
+	insertInlineMath,
 	insertLink,
+	insertMathBlock,
 	insertTable,
 	removeParagraphFormatting,
 	toggleBlockquote,
@@ -25,6 +27,7 @@ export type MarkdownFormatCommandId =
 	| "format.italic"
 	| "format.strikethrough"
 	| "format.inline-code"
+	| "format.inline-math"
 	| "format.link"
 	| "format.image"
 	| "format.heading-1"
@@ -32,6 +35,7 @@ export type MarkdownFormatCommandId =
 	| "format.heading-3"
 	| "format.blockquote"
 	| "format.code-block"
+	| "format.math-block"
 	| "format.callout"
 	| "format.task-list"
 	| "format.unordered-list"
@@ -85,6 +89,13 @@ export const markdownFormatCommandDefinitions: readonly MarkdownFormatCommandDef
 		aliases: ["inline-code"],
 		hotkey: "mod+`",
 		run: toggleInlineCode,
+	},
+	{
+		id: "format.inline-math",
+		label: "Inline Formula",
+		category: "Format",
+		aliases: ["math", "formula", "equation", "latex", "inline-math"],
+		run: insertInlineMath,
 	},
 	{
 		id: "format.link",
@@ -141,6 +152,13 @@ export const markdownFormatCommandDefinitions: readonly MarkdownFormatCommandDef
 		aliases: ["code-block"],
 		hotkey: "mod+shift+`",
 		run: insertCodeBlock,
+	},
+	{
+		id: "format.math-block",
+		label: "Formula Block",
+		category: "Format",
+		aliases: ["math block", "block math", "display math", "latex block"],
+		run: insertMathBlock,
 	},
 	{
 		id: "format.callout",

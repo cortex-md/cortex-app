@@ -6,12 +6,14 @@ export interface NoteMenuContext {
 	syncIgnored: boolean
 	showVersionHistory: boolean
 	canToggleSync: boolean
+	supportsNoteActions?: boolean
 }
 
 export interface NoteMenuActions {
 	openInNewTab: (path: string) => void
 	openInRightSplit: (path: string) => void
 	duplicate: (path: string) => void
+	exportNote: (path: string, format: "html" | "pdf" | "csv") => void
 	copyRelativePath: (path: string) => void
 	copyAbsolutePath: (path: string) => void
 	reveal: (path: string) => void
@@ -24,9 +26,51 @@ export interface NoteMenuActions {
 
 export function buildNoteMenuItems(context: NoteMenuContext, actions: NoteMenuActions): MenuItem[] {
 	const { path } = context
+	const supportsNoteActions = context.supportsNoteActions ?? true
 	const syncItems: MenuItem[] = []
+	const markdownItems: MenuItem[] = supportsNoteActions
+		? [
+				{
+					id: "make-copy",
+					text: "Make a Copy",
+					action: () => actions.duplicate(path),
+				},
+				{
+					id: "export-note",
+					type: "submenu",
+					text: "Export",
+					items: [
+						{
+							id: "export-html",
+							text: "HTML",
+							action: () => actions.exportNote(path, "html"),
+						},
+						{
+							id: "export-pdf",
+							text: "PDF",
+							action: () => actions.exportNote(path, "pdf"),
+						},
+						{
+							id: "export-csv",
+							text: "CSV",
+							action: () => actions.exportNote(path, "csv"),
+						},
+					],
+				},
+			]
+		: []
+	const bookmarkItems: MenuItem[] = supportsNoteActions
+		? [
+				{
+					id: context.bookmarked ? "remove-bookmark" : "add-bookmark",
+					text: context.bookmarked ? "Remove Bookmark" : "Add Bookmark",
+					accelerator: "CmdOrCtrl+Shift+B",
+					action: () => actions.toggleBookmark(path),
+				},
+			]
+		: []
 
-	if (context.showVersionHistory) {
+	if (supportsNoteActions && context.showVersionHistory) {
 		syncItems.push({
 			id: "version-history",
 			text: "Version History",
@@ -54,11 +98,7 @@ export function buildNoteMenuItems(context: NoteMenuContext, actions: NoteMenuAc
 			action: () => actions.openInRightSplit(path),
 		},
 		{ type: "separator" },
-		{
-			id: "make-copy",
-			text: "Make a Copy",
-			action: () => actions.duplicate(path),
-		},
+		...markdownItems,
 		{
 			id: "copy-path",
 			type: "submenu",
@@ -81,12 +121,7 @@ export function buildNoteMenuItems(context: NoteMenuContext, actions: NoteMenuAc
 			text: "Reveal in Finder",
 			action: () => actions.reveal(path),
 		},
-		{
-			id: context.bookmarked ? "remove-bookmark" : "add-bookmark",
-			text: context.bookmarked ? "Remove Bookmark" : "Add Bookmark",
-			accelerator: "CmdOrCtrl+Shift+B",
-			action: () => actions.toggleBookmark(path),
-		},
+		...bookmarkItems,
 		...(syncItems.length > 0 ? [{ type: "separator" } as MenuItem, ...syncItems] : []),
 		{ type: "separator" },
 		{

@@ -48,6 +48,7 @@ const allowedDependencies: Record<string, readonly string[]> = {
 	"@cortex/ui": [],
 	"@cortex/search": ["@cortex/platform", "@cortex/properties"],
 	"@cortex/hotkeys": ["@cortex/platform"],
+	"@cortex/import-export": ["@cortex/platform", "@cortex/renderer"],
 	"@cortex/marketplace": ["@cortex/platform", "@cortex/plugin-host-core", "@cortex/theme"],
 	"@cortex/plugin-github-emoji": ["@cortex.md/api"],
 	"@cortex/web": ["@cortex/ui"],
@@ -126,6 +127,10 @@ const sourceBoundaryRules: Record<string, SourceBoundaryRule> = {
 		forbiddenIdentifiers: portableForbiddenIdentifiers,
 	},
 	"@cortex/plugin-host-core": {
+		forbiddenImports: portableForbiddenImports,
+		forbiddenIdentifiers: portableForbiddenIdentifiers,
+	},
+	"@cortex/import-export": {
 		forbiddenImports: portableForbiddenImports,
 		forbiddenIdentifiers: portableForbiddenIdentifiers,
 	},

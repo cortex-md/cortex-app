@@ -63,6 +63,7 @@ function setupQuickFinder({
 					{
 						id: "tab-1",
 						tabType: "file",
+						fileKind: "markdown",
 						filePath: "/vault/Journal/Daily.md",
 						title: "Daily",
 						lastAccessed: 20,
@@ -70,6 +71,7 @@ function setupQuickFinder({
 					{
 						id: "tab-2",
 						tabType: "file",
+						fileKind: "markdown",
 						filePath: "/vault/Projects/Roadmap.md",
 						title: "Roadmap",
 						lastAccessed: 10,

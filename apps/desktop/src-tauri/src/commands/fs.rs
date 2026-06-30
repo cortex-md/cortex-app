@@ -50,6 +50,11 @@ pub fn read_file_snapshot(path: String) -> Result<FileSnapshot, String> {
 }
 
 #[tauri::command]
+pub fn read_binary_file(path: String) -> Result<Vec<u8>, String> {
+    fs::read(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn write_file_snapshot(path: String, content: String) -> Result<FileSnapshot, String> {
     let path = Path::new(&path);
     if let Some(parent) = path.parent() {

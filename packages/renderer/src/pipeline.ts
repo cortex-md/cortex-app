@@ -13,6 +13,7 @@ import {
 	detectRendererFeatureFlags,
 	getRendererFeatureFlags,
 } from "./features"
+import { normalizeMathDelimiters } from "./mathSyntax"
 import { rehypeCallouts } from "./plugins/callouts"
 import { remarkStripFrontmatter } from "./plugins/frontmatter"
 import { createRehypeSemanticRegistrations } from "./plugins/semanticRegistrations"
@@ -42,6 +43,12 @@ interface ProcessorHealth {
 	disabled: boolean
 }
 
+interface MathPipelinePlugins {
+	remarkMath: (options?: { singleDollarTextMath?: boolean } | null) => undefined
+	remarkCortexInlineMath: Plugin
+	rehypeCortexMath: Plugin
+}
+
 const processorHealth = new WeakMap<MarkdownProcessorRegistration, ProcessorHealth>()
 const preprocessorHealth = new WeakMap<MarkdownPreprocessorRegistration, ProcessorHealth>()
 const slowProcessorThresholdMs = 100
@@ -49,7 +56,39 @@ const disableThreshold = 3
 
 const markdownSanitizeSchema = {
 	...defaultSchema,
-	tagNames: [...(defaultSchema.tagNames ?? []), "aside", "svg", "path"],
+	tagNames: [
+		...(defaultSchema.tagNames ?? []),
+		"annotation",
+		"aside",
+		"math",
+		"menclose",
+		"mfrac",
+		"mglyph",
+		"mi",
+		"mn",
+		"mo",
+		"mover",
+		"mpadded",
+		"mphantom",
+		"mroot",
+		"mrow",
+		"ms",
+		"mspace",
+		"msqrt",
+		"mstyle",
+		"msub",
+		"msubsup",
+		"msup",
+		"mtable",
+		"mtd",
+		"mtext",
+		"mtr",
+		"munder",
+		"munderover",
+		"path",
+		"semantics",
+		"svg",
+	],
 	attributes: {
 		...defaultSchema.attributes,
 		"*": [...(defaultSchema.attributes?.["*"] ?? []), "className"],
@@ -62,8 +101,31 @@ const markdownSanitizeSchema = {
 			"data-callout-fold",
 			"style",
 		],
-		div: [...(defaultSchema.attributes?.div ?? []), "className"],
+		div: [...(defaultSchema.attributes?.div ?? []), "className", "title"],
 		li: [...(defaultSchema.attributes?.li ?? []), "className", "data-offset", "data-task-item"],
+		math: ["className", "display", "xmlns"],
+		annotation: ["encoding"],
+		menclose: ["notation"],
+		mfrac: ["linethickness"],
+		mo: [
+			"accent",
+			"fence",
+			"largeop",
+			"lspace",
+			"movablelimits",
+			"rspace",
+			"separator",
+			"stretchy",
+		],
+		mover: ["accent"],
+		mpadded: ["depth", "height", "lspace", "voffset", "width"],
+		mspace: ["depth", "height", "width"],
+		mstyle: ["displaystyle", "scriptlevel"],
+		mtable: ["columnalign", "columnlines", "columnspacing", "frame", "rowlines", "rowspacing"],
+		mtd: ["columnalign", "rowalign"],
+		mtr: ["columnalign", "rowalign"],
+		munder: ["accentunder"],
+		munderover: ["accent", "accentunder"],
 		path: ["className", "d", "pathLength"],
 		span: [
 			...(defaultSchema.attributes?.span ?? []),
@@ -72,6 +134,8 @@ const markdownSanitizeSchema = {
 			"data-state",
 			"data-task-checkbox",
 			"role",
+			"style",
+			"title",
 		],
 		summary: [...(defaultSchema.attributes?.summary ?? []), "className", "data-callout-toggle"],
 		svg: ["aria-hidden", "className", "focusable", "viewBox"],
@@ -166,6 +230,33 @@ type RehypeHighlightPlugin = (
 	options: { detect: boolean },
 ) => RehypeHighlightTransformer | undefined
 
+interface RehypeElementNode {
+	type: string
+	tagName?: string
+	properties?: Record<string, unknown>
+	children?: RehypeElementNode[]
+}
+
+function hasClassName(node: RehypeElementNode, className: string): boolean {
+	const classNames = node.properties?.className
+	if (Array.isArray(classNames)) return classNames.includes(className)
+	if (typeof classNames === "string") return classNames.split(/\s+/).includes(className)
+	return false
+}
+
+function removeNonKatexSpanStyles(node: RehypeElementNode, insideKatex = false): void {
+	const nextInsideKatex = insideKatex || hasClassName(node, "katex")
+	if (
+		node.type === "element" &&
+		node.tagName === "span" &&
+		!nextInsideKatex &&
+		node.properties?.style
+	) {
+		delete node.properties.style
+	}
+	for (const child of node.children ?? []) removeNonKatexSpanStyles(child, nextInsideKatex)
+}
+
 function createConditionalHighlight(): Plugin {
 	const plugin = function conditionalHighlight(this: unknown) {
 		const transformer = (rehypeHighlight as unknown as RehypeHighlightPlugin).call(this, {
@@ -178,6 +269,16 @@ function createConditionalHighlight(): Plugin {
 		}
 	}
 	return plugin as Plugin
+}
+
+function rehypeLimitMathStyles(): Plugin {
+	const plugin: Plugin = function limitMathStyles() {
+		return function transformMathStyles(tree) {
+			removeNonKatexSpanStyles(tree as RehypeElementNode)
+			return tree
+		}
+	}
+	return plugin
 }
 
 async function applyPreprocessors(
@@ -275,16 +376,22 @@ function createRenderPipeline(
 	remarkProcessors: RegisteredMarkdownProcessor[],
 	rehypeProcessors: RegisteredMarkdownProcessor[],
 	useGfm: boolean,
+	mathPlugins?: MathPipelinePlugins,
 ) {
 	const pipeline = unified().use(remarkParse).use(remarkFrontmatterSyntax)
+	if (mathPlugins) {
+		pipeline.use(mathPlugins.remarkMath, { singleDollarTextMath: false })
+	}
 	if (useGfm) pipeline.use(remarkGfm)
 	else pipeline.use(remarkFastTables)
 
 	applyProcessors(pipeline, remarkProcessors)
+	if (mathPlugins) pipeline.use(mathPlugins.remarkCortexInlineMath)
 
 	pipeline.use(remarkStripFrontmatter).use(remarkRehype, { allowDangerousHtml: false })
 
 	applyProcessors(pipeline, rehypeProcessors)
+	if (mathPlugins) pipeline.use(mathPlugins.rehypeCortexMath)
 
 	pipeline
 		.use(createRehypeSemanticRegistrations(surface))
@@ -293,9 +400,22 @@ function createRenderPipeline(
 		.use(rehypeTaskList)
 		.use(createConditionalHighlight())
 		.use(rehypeMarkdownUrlPolicy)
+		.use(rehypeLimitMathStyles())
 		.use(rehypeSanitize, markdownSanitizeSchema)
 		.use(rehypeStringify)
 	return pipeline
+}
+
+async function loadMathPipelinePlugins(): Promise<MathPipelinePlugins> {
+	const [remarkMathModule, mathModule] = await Promise.all([
+		import("remark-math"),
+		import("./plugins/math"),
+	])
+	return {
+		remarkMath: remarkMathModule.default as MathPipelinePlugins["remarkMath"],
+		remarkCortexInlineMath: mathModule.remarkCortexInlineMath as Plugin,
+		rehypeCortexMath: mathModule.rehypeCortexMath as Plugin,
+	}
 }
 
 export function createRenderer(options: RendererOptions = {}): Renderer {
@@ -313,6 +433,28 @@ export function createRenderer(options: RendererOptions = {}): Renderer {
 		getMarkdownProcessorEntries(surface, "rehype")
 	const standardPipeline = createRenderPipeline(surface, remarkProcessors, rehypeProcessors, false)
 	const gfmPipeline = createRenderPipeline(surface, remarkProcessors, rehypeProcessors, true)
+	let standardMathPipeline: ReturnType<typeof createRenderPipeline> | undefined
+	let gfmMathPipeline: ReturnType<typeof createRenderPipeline> | undefined
+	let mathPluginsPromise: Promise<MathPipelinePlugins> | undefined
+
+	async function getMathPipeline(
+		useGfm: boolean,
+	): Promise<ReturnType<typeof createRenderPipeline>> {
+		const existing = useGfm ? gfmMathPipeline : standardMathPipeline
+		if (existing) return existing
+		mathPluginsPromise ??= loadMathPipelinePlugins()
+		const plugins = await mathPluginsPromise
+		const created = createRenderPipeline(
+			surface,
+			remarkProcessors,
+			rehypeProcessors,
+			useGfm,
+			plugins,
+		)
+		if (useGfm) gfmMathPipeline = created
+		else standardMathPipeline = created
+		return created
+	}
 
 	return {
 		render: async (markdown: string) => {
@@ -325,9 +467,15 @@ export function createRenderer(options: RendererOptions = {}): Renderer {
 				forceAll: remarkProcessors.length > 0 || rehypeProcessors.length > 0,
 				hasTextTransforms: hasMarkdownTextRegistrations(),
 			})
-			const pipeline = features.hasGfmSyntax ? gfmPipeline : standardPipeline
+			const pipeline = features.hasMath
+				? await getMathPipeline(features.hasGfmSyntax)
+				: features.hasGfmSyntax
+					? gfmPipeline
+					: standardPipeline
 			const result = await pipeline.process({
-				value: preprocessedMarkdown,
+				value: features.hasMath
+					? normalizeMathDelimiters(preprocessedMarkdown)
+					: preprocessedMarkdown,
 				data: createRendererFeatureData(features),
 			})
 			return String(result) as SanitizedMarkdownHtml

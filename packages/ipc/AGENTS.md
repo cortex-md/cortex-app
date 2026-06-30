@@ -5,9 +5,8 @@
 - Keep Tauri window commands inside this package and expose them through `@cortex/platform`.
 - Native window visibility operations may group independent show/unminimize calls, but focus should
   happen after the window is visible.
-- Preserve route/event emission before focusing a reused settings window.
-- Keep settings-window route parameters focused on settings sections and vault context; Marketplace
-  opens as a workspace view from desktop code.
+- Settings is opened as an in-app desktop modal, not a separate Tauri webview window. Keep settings
+  routing out of this package unless a future native window requirement is explicitly reintroduced.
 - App lifecycle operations such as restart belong on the native window bridge; React code should call
   the platform interface instead of invoking Tauri commands directly.
 - App update operations belong on the `AppUpdates` bridge. Wrap Cortex-owned Tauri commands from
@@ -27,6 +26,13 @@
 - Implement `FileSystem.writeFileSnapshot(...)` as one native command when a caller needs to write
   content and immediately seed NoteCache with hash and metadata. The command must not fail after a
   successful filesystem write just because post-write metadata fallback was needed.
+- Batch import uses `Dialog.pickFiles(...)` and optional `FileSystem.readBinaryFile(...)` so desktop
+  can ingest text and PDF attachments without bypassing the platform bridge.
+- PDF import uses the optional `DocumentImport.extractPdfText(...)` bridge backed by a Cortex-owned
+  Tauri command. Keep PDF parsing native-side so shared import workflows do not ship a browser PDF
+  parser.
+- PDF export uses the optional `DocumentExport.exportHtmlToPdf(...)` bridge backed by a Cortex-owned
+  Tauri command. Keep React callers on `@cortex/platform` and do not import Tauri APIs in features.
 - Subscription status bridges through the Cortex-owned Tauri command in `commands/subscription.rs`.
   React and core code should call `getPlatform().subscription`, billing CTAs should open the web
   billing URL, and sync `402` responses should surface as subscription denials instead of generic

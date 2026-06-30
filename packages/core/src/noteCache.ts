@@ -57,6 +57,14 @@ function replacePathPrefix(path: string, oldPath: string, newPath: string): stri
 	return `${newPath}${path.slice(oldPath.length)}`
 }
 
+function isMarkdownNotePath(filePath: string): boolean {
+	return filePath.toLocaleLowerCase().endsWith(".md")
+}
+
+function createUnsupportedNoteCachePathError(filePath: string): Error {
+	return new Error(`NoteCache only supports Markdown files: ${filePath}`)
+}
+
 class NoteCache {
 	private entries = new Map<string, NoteCacheEntry>()
 	private saveTimers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -89,10 +97,14 @@ class NoteCache {
 	}
 
 	async readEntry(filePath: string): Promise<NoteCacheEntry> {
+		if (!isMarkdownNotePath(filePath)) throw createUnsupportedNoteCachePathError(filePath)
 		return this.loadEntry(filePath)
 	}
 
 	private loadEntry(filePath: string): Promise<NoteCacheEntry> {
+		if (!isMarkdownNotePath(filePath)) {
+			return Promise.reject(createUnsupportedNoteCachePathError(filePath))
+		}
 		const entry = this.entries.get(filePath)
 		if (entry) {
 			entry.lastAccessed = Date.now()
@@ -148,6 +160,7 @@ class NoteCache {
 	}
 
 	write(filePath: string, content: string) {
+		if (!isMarkdownNotePath(filePath)) return
 		const entry = this.entries.get(filePath)
 		if (!entry) return
 
@@ -161,6 +174,7 @@ class NoteCache {
 	}
 
 	writeExternal(filePath: string, content: string) {
+		if (!isMarkdownNotePath(filePath)) return
 		const entry = this.entries.get(filePath)
 		if (!entry) return
 
@@ -181,6 +195,7 @@ class NoteCache {
 		hash: string,
 		options: { localCreated?: boolean; metadata?: FileMetadata } = {},
 	) {
+		if (!isMarkdownNotePath(filePath)) return
 		const existing = this.entries.get(filePath)
 		const now = Date.now()
 		const openTabCount = existing?.openTabCount ?? this.pendingOpenTabCounts.get(filePath) ?? 0
@@ -258,6 +273,7 @@ class NoteCache {
 	}
 
 	private scheduleSave(filePath: string) {
+		if (!isMarkdownNotePath(filePath)) return
 		const existing = this.saveTimers.get(filePath)
 		if (existing) clearTimeout(existing)
 
@@ -270,6 +286,7 @@ class NoteCache {
 	}
 
 	async flush(filePath: string): Promise<void> {
+		if (!isMarkdownNotePath(filePath)) return
 		const entry = this.entries.get(filePath)
 		if (!entry || !entry.dirty) return
 
@@ -358,6 +375,7 @@ class NoteCache {
 	}
 
 	openTab(filePath: string) {
+		if (!isMarkdownNotePath(filePath)) return
 		const entry = this.entries.get(filePath)
 		if (entry) {
 			entry.openTabCount++
@@ -369,6 +387,7 @@ class NoteCache {
 	}
 
 	async closeTab(filePath: string) {
+		if (!isMarkdownNotePath(filePath)) return
 		const entry = this.entries.get(filePath)
 		if (!entry) {
 			const pendingCount = this.pendingOpenTabCounts.get(filePath)
@@ -406,6 +425,7 @@ class NoteCache {
 	}
 
 	takeSnapshot(filePath: string, trigger: SnapshotTrigger): Snapshot | null {
+		if (!isMarkdownNotePath(filePath)) return null
 		const entry = this.entries.get(filePath)
 		if (!entry) return null
 
@@ -434,6 +454,7 @@ class NoteCache {
 	}
 
 	handleExternalChange(filePath: string, newHash: string): Promise<void> {
+		if (!isMarkdownNotePath(filePath)) return Promise.resolve()
 		const existing = this.externalChangeLoads.get(filePath)
 		if (existing) {
 			existing.latestHash = newHash

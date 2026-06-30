@@ -63,12 +63,18 @@ import {
 	TagIcon,
 	TerminalIcon,
 	TrashIcon,
+	UploadIcon,
 } from "lucide-react"
 import { useEffect } from "react"
+import { insertDrawingBlock } from "../features/drawings/drawingCommands"
 import {
 	dispatchFileExplorerCommand,
 	FILE_EXPLORER_COMMAND_IDS,
 } from "../features/file-explorer/fileExplorerCommands"
+import {
+	exportNoteFromDialog,
+	importFilesFromDialog,
+} from "../features/import-export/importExportActions"
 import { openMarketplaceView } from "../features/marketplace/openMarketplaceView"
 import { reportAppError } from "../utils/reportAppError"
 
@@ -153,6 +159,12 @@ async function toggleBookmark(context: CommandExecutionContext): Promise<void> {
 	}
 }
 
+async function exportActiveNote(context: CommandExecutionContext, format: "html" | "pdf" | "csv") {
+	const filePath = getPayloadString(context, "filePath") ?? useEditorStore.getState().activeFilePath
+	if (!filePath) return
+	await exportNoteFromDialog(filePath, format, "command-palette")
+}
+
 function closeActiveTab(): void {
 	const workspace = useWorkspaceStore.getState()
 	const activeTabId = workspace.panes[workspace.activePaneId]?.activeTabId
@@ -227,6 +239,16 @@ const markdownFormatCommands: CommandEntry[] = [
 		execute: () => runEditorCommand(unfoldAllRanges),
 	},
 	...createMarkdownFormatCommandEntries((command) => runEditorCommand(command)),
+	{
+		id: "format.drawing",
+		label: "Insert Drawing",
+		category: "Format",
+		aliases: ["insert-drawing", "drawing", "draw", "excalidraw", "whiteboard"],
+		execute: () =>
+			runEditorCommand((view) =>
+				insertDrawingBlock(view, useEditorStore.getState().activeFilePath),
+			),
+	},
 	{
 		id: "editor.copy-line",
 		label: "Copy Line",
@@ -461,6 +483,35 @@ const appCommands: CommandEntry[] = [
 		aliases: ["reopen-closed-tab"],
 		hotkey: { defaultKeys: "mod+shift+t", scope: "global" },
 		execute: () => useWorkspaceStore.getState().reopenLastClosed(),
+	},
+	{
+		id: "import.files",
+		label: "Import Files",
+		category: "Import / Export",
+		aliases: ["import", "import-files", "batch-import"],
+		icon: UploadIcon,
+		execute: () => void importFilesFromDialog("command-palette"),
+	},
+	{
+		id: "export.active-html",
+		label: "Export Active Note as HTML",
+		category: "Import / Export",
+		aliases: ["export-html", "export-note-html"],
+		execute: (context) => void exportActiveNote(context, "html"),
+	},
+	{
+		id: "export.active-pdf",
+		label: "Export Active Note as PDF",
+		category: "Import / Export",
+		aliases: ["export-pdf", "export-note-pdf"],
+		execute: (context) => void exportActiveNote(context, "pdf"),
+	},
+	{
+		id: "export.active-csv",
+		label: "Export Active Note as CSV",
+		category: "Import / Export",
+		aliases: ["export-csv", "export-note-csv"],
+		execute: (context) => void exportActiveNote(context, "csv"),
 	},
 	{
 		id: "navigate.quick-finder",

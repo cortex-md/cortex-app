@@ -102,6 +102,7 @@ export {
 	type VaultState,
 } from "./stores/vaultStore"
 export {
+	type FileTabKind,
 	type LeafNode,
 	type OpenTabOptions,
 	type Pane,

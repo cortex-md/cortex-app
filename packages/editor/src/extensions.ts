@@ -1,3 +1,4 @@
+import type { CodeBlockEmbedDefinition } from "./codeBlockEmbeds"
 import {
 	type EditorFoldProvider,
 	editorFilePathExtension,
@@ -445,10 +446,11 @@ function livePreviewModeExtension(
 	livePreview: boolean,
 	resolveImageUrl?: (src: string, filePath: string) => string,
 	filePath?: string,
+	codeBlockEmbeds?: readonly CodeBlockEmbedDefinition[],
 ): EditorRuntimeExtension {
 	return livePreview
 		? [
-				livePreviewExtension(runtime, resolveImageUrl, filePath),
+				livePreviewExtension(runtime, resolveImageUrl, filePath, codeBlockEmbeds),
 				tableSelectionExtension(runtime),
 				tableAffordancesExtension(runtime),
 				tableResizeExtension(runtime),
@@ -460,6 +462,7 @@ export interface BaseExtensionsOptions {
 	livePreview?: boolean
 	resolveImageUrl?: (src: string, filePath: string) => string
 	filePath?: string
+	codeBlockEmbeds?: readonly CodeBlockEmbedDefinition[]
 	scrollMode?: EditorScrollMode
 	vimCommands?: VimCommandProvider | null
 	commandExecutor?: MarkdownCommandExecutor | null
@@ -477,6 +480,7 @@ export function baseExtensions(
 		livePreview = true,
 		resolveImageUrl,
 		filePath,
+		codeBlockEmbeds,
 		scrollMode = "internal",
 		vimCommands,
 		commandExecutor,
@@ -504,7 +508,7 @@ export function baseExtensions(
 		]),
 		buildHighlightStyle(runtime),
 		compartments.livePreview.of(
-			livePreviewModeExtension(runtime, livePreview, resolveImageUrl, filePath),
+			livePreviewModeExtension(runtime, livePreview, resolveImageUrl, filePath, codeBlockEmbeds),
 		),
 		runtime.langMarkdown.markdown({
 			base: runtime.langMarkdown.markdownLanguage,
@@ -545,6 +549,7 @@ export function reconfigureEditor(
 		livePreview = true,
 		resolveImageUrl,
 		filePath,
+		codeBlockEmbeds,
 		scrollMode = "internal",
 		vimCommands: normalizedVimCommands,
 	} = normalizeReconfigureOptions(scrollModeOrOptions, vimCommands)
@@ -555,7 +560,7 @@ export function reconfigureEditor(
 				vimModeExtension(runtime, config.vimMode ?? false, normalizedVimCommands),
 			),
 			compartments.livePreview.reconfigure(
-				livePreviewModeExtension(runtime, livePreview, resolveImageUrl, filePath),
+				livePreviewModeExtension(runtime, livePreview, resolveImageUrl, filePath, codeBlockEmbeds),
 			),
 			compartments.filePath.reconfigure(editorFilePathExtension(runtime, filePath)),
 			compartments.typography.reconfigure(

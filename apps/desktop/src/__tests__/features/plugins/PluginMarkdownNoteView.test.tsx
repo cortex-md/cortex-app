@@ -13,6 +13,7 @@ describe("PluginMarkdownNoteView", () => {
 			<PluginMarkdownNoteView
 				viewState={{ content: "# Welcome\n\nPlugin intro." }}
 				onStateChange={vi.fn()}
+				isActive
 			/>,
 		)
 

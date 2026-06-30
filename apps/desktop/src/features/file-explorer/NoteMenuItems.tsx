@@ -20,10 +20,13 @@ import {
 	CloudOff,
 	Columns2,
 	Copy,
+	Download,
 	ExternalLink,
+	FileText,
 	Folder,
 	History,
 	Pencil,
+	Table,
 	Trash2,
 } from "lucide-react"
 import type { ReactNode } from "react"
@@ -41,6 +44,14 @@ function getMenuIcon(id: string): ReactNode {
 			return <Columns2 />
 		case "make-copy":
 			return <Copy />
+		case "export-note":
+			return <Download />
+		case "export-html":
+			return <FileText />
+		case "export-pdf":
+			return <Download />
+		case "export-csv":
+			return <Table />
 		case "copy-path":
 			return <ClipboardCopy />
 		case "reveal":

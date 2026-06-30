@@ -19,6 +19,10 @@ export class FileSystem implements IFileSystem {
 		return await invoke<FileSnapshot>("read_file_snapshot", { path })
 	}
 
+	async readBinaryFile(path: string): Promise<number[]> {
+		return await invoke<number[]>("read_binary_file", { path })
+	}
+
 	async writeFileSnapshot(path: string, content: string): Promise<FileSnapshot> {
 		return await invoke<FileSnapshot>("write_file_snapshot", { path, content })
 	}

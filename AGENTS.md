@@ -532,9 +532,8 @@ region. Do not add CSS backdrop blur over the native sidebar material.
 Keep `apps/desktop/src-tauri/tauri.conf.json` platform-neutral. macOS-only chrome belongs in
 `tauri.macos.conf.json`; Windows-only chrome belongs in `tauri.windows.conf.json`. Window-level
 materials should come from Tauri/window effects, not CSS blur layered over opaque web surfaces.
-Settings opens through `getPlatform().window.openSettings(...)` as a dedicated Tauri webview
-window when a vault is active; `SettingsModal` is only a fallback. Shared settings layout lives
-in `SettingsContent`.
+Settings opens as the in-app `SettingsModal`; do not route it through a separate Tauri webview
+window. Shared settings layout lives in `SettingsContent`.
 
 ### Native Notifications
 All app and plugin notifications must go through `getPlatform().notifications`, never DOM toasts

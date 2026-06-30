@@ -7,6 +7,7 @@ export const visibleMarkdownToolbarCommandIds = [
 	"format.heading-3",
 	"format.bold",
 	"format.italic",
+	"format.inline-math",
 	"format.link",
 	"format.unordered-list",
 	"format.ordered-list",
@@ -18,9 +19,11 @@ export const overflowMarkdownToolbarCommandIds = [
 	"format.strikethrough",
 	"format.inline-code",
 	"format.code-block",
+	"format.math-block",
 	"format.callout",
 	"format.image",
 	"format.table",
+	"format.drawing",
 ] as const
 
 const markdownFormatCommandIds = [

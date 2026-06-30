@@ -5,8 +5,8 @@
 - Keep interfaces free of React, DOM, Tauri, and adapter imports.
 - Window lifecycle capabilities belong in `NativeWindow` and should be implemented by adapters such
   as `@cortex/ipc`; desktop React code should depend on this package instead of calling IPC directly.
-- Settings window options carry settings route and vault context only. Marketplace opening is a
-  desktop workspace concern and should not be added to `OpenSettingsWindowOptions`.
+- Settings is an in-app modal owned by desktop React state. Do not add settings routing/window
+  options to `NativeWindow`; Marketplace opening remains a desktop workspace concern.
 - Desktop update checks and installation belong in the `AppUpdates` contract. Keep it
   platform-neutral: expose status, metadata, progress events, install, and changelog reads without
   importing Tauri updater APIs or React types.
@@ -25,6 +25,9 @@
 - Runtime desktop deep-link callbacks belong on `App.onDeepLinkOpen(...)`. Keep this contract
   platform-neutral and use it only as an app-open signal; subscription state must still be validated
   through `Subscription.getStatus(...)`.
+- Document import/export helpers should depend on platform contracts for batch file picking,
+  optional binary reads, optional native PDF text extraction, and optional native PDF export bridges
+  instead of importing desktop APIs.
 - `NativePlatform` includes desktop and mobile values: `macos`, `windows`, `linux`, `ios`,
   `android`, and `web`. Shared stores must not assume only desktop platforms exist.
 - `VaultMetadata.displayPath` and `VaultRegistryEntry.displayPath` are optional presentation fields.

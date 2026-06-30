@@ -2,6 +2,7 @@ import { executeCommand } from "@cortex/commands"
 import type { Tab } from "@cortex/core"
 import { noteCache, useEditorStore, useVaultStore, useWorkspaceStore } from "@cortex/core"
 import { clipboardImageExtension } from "@cortex/editor/clipboard"
+import type { CodeBlockEmbedDefinition } from "@cortex/editor/code-block-embeds"
 import { EditorView } from "@cortex/editor/editor-view"
 import { reconfigureMarkdownKeymap } from "@cortex/editor/keymap"
 import { ReadingView } from "@cortex/editor/reading-view"
@@ -28,6 +29,11 @@ import {
 } from "@cortex/properties/codemirror"
 import { useSettingsStore } from "@cortex/settings"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { DrawingEmbedCard } from "../drawings/DrawingEmbedCard"
+import { mountDrawingLivePreview } from "../drawings/DrawingLivePreview"
+import { DRAWING_FENCE_LANGUAGE, parseDrawingDocument } from "../drawings/drawingDocument"
+import { openDrawingModal } from "../drawings/drawingModalStore"
+import { createMermaidCodeBlockEmbed } from "../mermaid/mermaidCodeBlockEmbed"
 import { NotePropertiesPanel } from "../properties/NotePropertiesPanel"
 import { EditorContextMenu } from "./EditorContextMenu"
 import { MarkdownToolbar } from "./MarkdownToolbar"
@@ -48,6 +54,43 @@ export interface TabEditorProps {
 interface ProjectedContentDraft {
 	filePath: string
 	projection: RawNoteProjection
+}
+
+function createNoteCodeBlockEmbeds(filePath: string): CodeBlockEmbedDefinition[] {
+	return [
+		{
+			languages: [DRAWING_FENCE_LANGUAGE],
+			render: ({ block }) => <DrawingEmbedCard filePath={filePath} block={block} />,
+			renderLivePreview: ({ content }) => {
+				const document = parseDrawingDocument(content)
+				if (!document) {
+					return {
+						title: "Drawing unavailable",
+						description: "The embedded drawing data could not be read.",
+						icon: "!",
+						tone: "error",
+					}
+				}
+				return {
+					title: document.title,
+					className: "is-drawing-board",
+					mount: (container) =>
+						mountDrawingLivePreview(container, {
+							filePath,
+							drawingId: document.id,
+						}),
+				}
+			},
+			canOpenLivePreview: ({ content }) => parseDrawingDocument(content) !== null,
+			openLivePreview: ({ content }) => {
+				const document = parseDrawingDocument(content)
+				if (!document) return
+				openDrawingModal({ filePath, drawingId: document.id })
+			},
+			livePreviewOpenLabel: "Open",
+		},
+		createMermaidCodeBlockEmbed(filePath),
+	]
 }
 
 export function ActiveTabEditor({
@@ -82,6 +125,7 @@ export function ActiveTabEditor({
 		projectedContentDraft?.filePath === tab.filePath
 			? projectedContentDraft.projection
 			: (getCachedProjectedContent(tab.filePath)?.projection ?? null)
+	const codeBlockEmbeds = useMemo(() => createNoteCodeBlockEmbeds(tab.filePath), [tab.filePath])
 
 	const formatBindingsSnapshot = useHotkeysStore((s) =>
 		s.bindings
@@ -187,6 +231,11 @@ export function ActiveTabEditor({
 			noteCache
 				.readEntry(tab.filePath)
 				.then((entry) => applyProjectedContent(projectRawNote(entry.content)))
+				.catch(() => {
+					if (!active) return
+					rawContentRef.current = null
+					setProjectedContentDraft(null)
+				})
 		}
 		return () => {
 			active = false
@@ -279,6 +328,7 @@ export function ActiveTabEditor({
 									<ReadingView
 										content={projectedContent.body}
 										scrollMode="parent"
+										codeBlockEmbeds={codeBlockEmbeds}
 										onExternalLinkClick={handleExternalLinkClick}
 									/>
 								) : mode === "side-by-side" ? (
@@ -287,6 +337,7 @@ export function ActiveTabEditor({
 										filePath={tab.filePath}
 										editorConfig={editorConfig}
 										extraExtensions={editorExtensions}
+										codeBlockEmbeds={codeBlockEmbeds}
 										resolveImageUrl={resolveImageUrl}
 										vimCommandProvider={vimCommandProvider}
 										commandExecutor={executeEditorHotkeyCommand}
@@ -301,6 +352,7 @@ export function ActiveTabEditor({
 										filePath={tab.filePath}
 										editorConfig={editorConfig}
 										livePreview={mode === "live-preview"}
+										codeBlockEmbeds={codeBlockEmbeds}
 										resolveImageUrl={resolveImageUrl}
 										extraExtensions={editorExtensions}
 										vimCommandProvider={vimCommandProvider}

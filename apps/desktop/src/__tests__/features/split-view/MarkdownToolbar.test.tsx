@@ -59,6 +59,33 @@ describe("MarkdownToolbar", () => {
 		expect(execute).toHaveBeenCalledWith({ source: "api" })
 	})
 
+	it("exposes formula commands in the toolbar surfaces", async () => {
+		const inlineExecute = vi.fn()
+		const blockExecute = vi.fn()
+		const editorView = createEditorView()
+		registerCommand({
+			id: "format.inline-math",
+			label: "Inline Formula",
+			category: "Format",
+			execute: inlineExecute,
+		})
+		registerCommand({
+			id: "format.math-block",
+			label: "Formula Block",
+			category: "Format",
+			execute: blockExecute,
+		})
+
+		render(<MarkdownToolbar getEditorView={() => editorView} />)
+
+		await userEvent.click(screen.getByRole("button", { name: "Inline Formula" }))
+		await userEvent.click(screen.getByRole("button", { name: "More Markdown actions" }))
+		await userEvent.click(screen.getByRole("menuitem", { name: "Formula Block" }))
+
+		expect(inlineExecute).toHaveBeenCalledWith({ source: "api" })
+		expect(blockExecute).toHaveBeenCalledWith({ source: "api" })
+	})
+
 	it("skips missing commands while keeping available actions usable", () => {
 		registerCommand({
 			id: "format.bold",

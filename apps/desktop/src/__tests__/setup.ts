@@ -20,6 +20,7 @@ vi.mock("@cortex/platform", () => ({
 				hash: "abc123",
 				metadata: { createdAt: 0, modifiedAt: 0 },
 			}),
+			readBinaryFile: vi.fn().mockResolvedValue([37, 80, 68, 70]),
 			writeFile: vi.fn().mockResolvedValue(undefined),
 			hashFile: vi.fn().mockResolvedValue("abc123"),
 			getFileMetadata: vi.fn().mockResolvedValue({ createdAt: 0, modifiedAt: 0 }),

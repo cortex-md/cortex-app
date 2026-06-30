@@ -7,6 +7,7 @@
 		".": "./src/index.ts",
 		"./callouts": "./src/callouts.ts",
 		"./clipboard": "./src/clipboardImage.ts",
+		"./code-block-embeds": "./src/codeBlockEmbeds.tsx",
 		"./commands": "./src/markdownCommands.ts",
 		"./editor-view": "./src/EditorView.tsx",
 		"./extensions": "./src/extensions.ts",
@@ -43,7 +44,8 @@
 		"@cortex/renderer": "workspace:*",
 		"@lezer/highlight": "^1.2.1",
 		"@lezer/markdown": "^1.4.2",
-		"@replit/codemirror-vim": "6.3.0"
+		"@replit/codemirror-vim": "6.3.0",
+		"katex": "^0.17.0"
 	},
 	"devDependencies": {
 		"@types/react": "^19.1.8",

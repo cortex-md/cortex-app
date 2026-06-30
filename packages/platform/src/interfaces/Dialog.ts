@@ -15,7 +15,7 @@ export interface FileDialogOptions {
 	title?: string
 	defaultPath?: string
 	filters?: DialogFilter[]
-	multiple?: false
+	multiple?: boolean
 }
 
 export interface ConfirmDialogOptions {
@@ -37,6 +37,7 @@ export interface AlertDialogOptions {
 export interface Dialog {
 	pickFolder(options?: string | FolderDialogOptions): Promise<string | null>
 	pickFile(options?: FileDialogOptions): Promise<string | null>
+	pickFiles(options?: FileDialogOptions): Promise<string[]>
 	saveFile(options?: FileDialogOptions): Promise<string | null>
 	showConfirm(title: string, message: string): Promise<boolean>
 	showConfirm(options: ConfirmDialogOptions): Promise<boolean>

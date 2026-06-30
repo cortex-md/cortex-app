@@ -1,10 +1,10 @@
-import type { Tab } from "@cortex/core"
+import type { FileTabKind, Tab } from "@cortex/core"
 import { useDragStore, useEditorStore, useRemoteVaultStore, useWorkspaceStore } from "@cortex/core"
 import type { CursorInfo, EditorConfig } from "@cortex/editor/types"
 import { PluginViewRenderer, usePluginStore } from "@cortex/plugin-host-web"
 import { useSettingsStore } from "@cortex/settings"
-import { Button, Kbd } from "@cortex/ui"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { Button, Kbd, Spinner } from "@cortex/ui"
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { ConflictBanner } from "../sync/ConflictBanner"
 import { NoteHistoryPanel } from "../sync/NoteHistoryPanel"
 import { TabBar } from "../tabs/TabBar"
@@ -15,6 +15,18 @@ import { PaneFallbackMenu } from "./PaneFallbackMenu"
 import { usePaneTabMenu } from "./usePaneTabMenu"
 
 const emptyTabs: Tab[] = []
+const LazyPdfTabView = lazy(() =>
+	import("./PdfTabView").then((module) => ({ default: module.PdfTabView })),
+)
+
+function inferFileTabKind(filePath: string): FileTabKind {
+	return filePath.toLocaleLowerCase().endsWith(".pdf") ? "pdf" : "markdown"
+}
+
+function getFileTabKind(tab: Tab | null): FileTabKind | null {
+	if (!tab || tab.tabType !== "file") return null
+	return tab.fileKind ?? inferFileTabKind(tab.filePath)
+}
 
 function useEditorConfig(): EditorConfig {
 	const editorFontSize = useSettingsStore((s) => s.settings.appearance.editorFontSize)
@@ -64,6 +76,24 @@ function SuspendedTabContent({ tab, paneId, isActive }: TabEditorProps) {
 
 function TabEditor(props: TabEditorProps) {
 	if (props.tab.isSuspended) return <SuspendedTabContent {...props} />
+	if (getFileTabKind(props.tab) === "pdf") {
+		return (
+			<Suspense
+				fallback={
+					<div
+						className="absolute inset-0 flex items-center justify-center gap-2 bg-bg-primary text-xs text-text-muted"
+						style={{ display: props.isActive ? "flex" : "none" }}
+						aria-hidden={!props.isActive}
+					>
+						<Spinner className="size-4" />
+						Loading PDF viewer...
+					</div>
+				}
+			>
+				<LazyPdfTabView tab={props.tab} paneId={props.paneId} isActive={props.isActive} />
+			</Suspense>
+		)
+	}
 	return <ActiveTabEditor {...props} />
 }
 
@@ -92,6 +122,7 @@ function ViewTabContent({ tab, paneId, isActive }: ViewTabContentProps) {
 				<CoreComponent
 					viewState={viewState}
 					onStateChange={(nextState) => updateViewTabState(tab.id, paneId, nextState)}
+					isActive={isActive}
 				/>
 			) : pluginRegistration ? (
 				<div className="p-4">
@@ -192,11 +223,11 @@ function useActivePaneFile(
 	paneId: string,
 	activePaneId: string,
 	activeFileTab: Tab | null,
-	setActiveFile: (filePath: string) => void,
+	setActiveFile: (filePath: string | null) => void,
 ) {
 	// oxlint-disable react-doctor/no-event-handler -- active editor file follows the active pane/tab bridge
 	useEffect(() => {
-		if (paneId === activePaneId && activeFileTab) setActiveFile(activeFileTab.filePath)
+		if (paneId === activePaneId) setActiveFile(activeFileTab?.filePath ?? null)
 	}, [paneId, activePaneId, activeFileTab, setActiveFile])
 	// oxlint-enable react-doctor/no-event-handler
 }
@@ -219,6 +250,8 @@ export function PaneView({ paneId }: Props) {
 	const activeTabId = pane?.activeTabId ?? null
 	const activeTab = activeTabId ? paneTabs.find((tab) => tab.id === activeTabId) : null
 	const activeFileTab = activeTab?.tabType === "file" ? activeTab : null
+	const activeMarkdownFileTab =
+		getFileTabKind(activeFileTab ?? null) === "markdown" ? activeFileTab : null
 
 	const linkedVaultId = useRemoteVaultStore((s) => s.linkedVaultId)
 	const [historyFilePath, setHistoryFilePath] = useState<string | null>(null)
@@ -273,7 +306,7 @@ export function PaneView({ paneId }: Props) {
 		if (!open) setHistoryFilePath(null)
 	}, [])
 
-	useActivePaneFile(paneId, activePaneId, activeFileTab, setActiveFile)
+	useActivePaneFile(paneId, activePaneId, activeMarkdownFileTab, setActiveFile)
 
 	if (!pane) return null
 
@@ -289,7 +322,7 @@ export function PaneView({ paneId }: Props) {
 				onContextMenu={handleTabContextMenu}
 			/>
 
-			{activeFileTab && <ConflictBanner filePath={activeFileTab.filePath} />}
+			{activeMarkdownFileTab && <ConflictBanner filePath={activeMarkdownFileTab.filePath} />}
 
 			<PaneFallbackMenu
 				menu={fallbackMenu}

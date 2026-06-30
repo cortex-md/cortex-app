@@ -1,3 +1,5 @@
+import { containsMarkdownMath } from "./mathSyntax"
+
 export interface RendererFeatureFlags {
 	hasCallouts: boolean
 	hasWikiLinks: boolean
@@ -6,6 +8,7 @@ export interface RendererFeatureFlags {
 	hasTextTransforms: boolean
 	hasTables: boolean
 	hasGfmSyntax: boolean
+	hasMath: boolean
 }
 
 interface RendererFeatureOptions {
@@ -23,6 +26,7 @@ const allRendererFeatures: RendererFeatureFlags = {
 	hasTextTransforms: true,
 	hasTables: true,
 	hasGfmSyntax: true,
+	hasMath: true,
 }
 
 const taskListPattern = /(?:^|\n)\s{0,3}(?:[-+*]|\d+[.)])\s+\[[ xX]\](?:\s|$)/
@@ -31,6 +35,7 @@ const calloutPattern = /(?:^|\n)>\s*\[!/
 const tablePattern = /(?:^|\n)\s*\|?.+\|.+\n\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?(?=\n|$)/
 const autolinkLiteralPattern = /(?:^|[\s(])(?:https?:\/\/|www\.)[^\s<]+/g
 const footnotePattern = /(?:^|\n)\[\^[^\]\n]+]:|(?:^|[^[])\[\^[^\]\n]+]/
+const mathCandidatePattern = /(?:^|\n)\s{0,3}(?:\$\$|\\\[)(?:\s|$)|(?:^|[^\\])(?:\$|\\\()/
 
 function hasAutolinkLiteral(markdown: string): boolean {
 	autolinkLiteralPattern.lastIndex = 0
@@ -52,7 +57,8 @@ function isRendererFeatureFlags(value: unknown): value is RendererFeatureFlags {
 		typeof flags.hasCodeBlocks === "boolean" &&
 		typeof flags.hasTextTransforms === "boolean" &&
 		typeof flags.hasTables === "boolean" &&
-		typeof flags.hasGfmSyntax === "boolean"
+		typeof flags.hasGfmSyntax === "boolean" &&
+		typeof flags.hasMath === "boolean"
 	)
 }
 
@@ -60,7 +66,12 @@ export function detectRendererFeatureFlags(
 	markdown: string,
 	options: RendererFeatureOptions,
 ): RendererFeatureFlags {
-	if (options.forceAll) return allRendererFeatures
+	if (options.forceAll) {
+		return {
+			...allRendererFeatures,
+			hasMath: mathCandidatePattern.test(markdown) && containsMarkdownMath(markdown),
+		}
+	}
 	return {
 		hasCallouts: calloutPattern.test(markdown),
 		hasWikiLinks: markdown.includes("[["),
@@ -70,6 +81,7 @@ export function detectRendererFeatureFlags(
 		hasTables: tablePattern.test(markdown),
 		hasGfmSyntax:
 			markdown.includes("~~") || hasAutolinkLiteral(markdown) || footnotePattern.test(markdown),
+		hasMath: mathCandidatePattern.test(markdown) && containsMarkdownMath(markdown),
 	}
 }
 

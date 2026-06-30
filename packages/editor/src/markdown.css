@@ -457,6 +457,36 @@
 	border-radius: 4px;
 }
 
+.markdown-surface .markdown-math-inline {
+	display: inline-flex;
+	align-items: baseline;
+	max-inline-size: 100%;
+	color: var(--text-primary);
+	vertical-align: baseline;
+}
+
+.markdown-surface .markdown-math-block {
+	display: block;
+	max-inline-size: 100%;
+	margin: 1em 0;
+	overflow-x: auto;
+	overflow-y: hidden;
+	color: var(--text-primary);
+	text-align: center;
+}
+
+.markdown-surface .markdown-math-error,
+.markdown-surface .katex-error {
+	color: var(--danger, #b42318);
+	font-family: var(--markdown-code-font-family, var(--font-editor));
+	font-size: 0.92em;
+}
+
+.markdown-surface .katex {
+	color: inherit;
+	font-size: 1em;
+}
+
 .markdown-surface :is(.frontmatter-card, .cm-frontmatter-card) {
 	background: var(--bg-secondary);
 	border: 1px solid var(--border-subtle);

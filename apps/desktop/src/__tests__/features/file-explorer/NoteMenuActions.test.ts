@@ -9,6 +9,7 @@ function createActions(): NoteMenuActions {
 		openInNewTab: vi.fn(),
 		openInRightSplit: vi.fn(),
 		duplicate: vi.fn(),
+		exportNote: vi.fn(),
 		copyRelativePath: vi.fn(),
 		copyAbsolutePath: vi.fn(),
 		reveal: vi.fn(),
@@ -38,6 +39,7 @@ describe("note menu actions", () => {
 			"open-right-split",
 			"separator",
 			"make-copy",
+			"export-note",
 			"copy-path",
 			"reveal",
 			"add-bookmark",
@@ -92,5 +94,41 @@ describe("note menu actions", () => {
 		expect(
 			items.find((item) => item.type !== "separator" && item.id === "remove-bookmark"),
 		).toEqual(expect.objectContaining({ text: "Remove Bookmark" }))
+	})
+
+	it("omits Markdown-only actions for PDF files", () => {
+		const items = buildNoteMenuItems(
+			{
+				path: "/vault/source.pdf",
+				bookmarked: false,
+				syncIgnored: false,
+				showVersionHistory: true,
+				canToggleSync: true,
+				supportsNoteActions: false,
+			},
+			createActions(),
+		)
+
+		expect(items.map((item) => (item.type === "separator" ? "separator" : item.id))).toEqual([
+			"open-new-tab",
+			"open-right-split",
+			"separator",
+			"copy-path",
+			"reveal",
+			"separator",
+			"exclude-from-sync",
+			"separator",
+			"rename",
+			"separator",
+			"delete",
+		])
+		expect(items.some((item) => item.type !== "separator" && item.id === "make-copy")).toBe(false)
+		expect(items.some((item) => item.type !== "separator" && item.id === "export-note")).toBe(false)
+		expect(items.some((item) => item.type !== "separator" && item.id === "add-bookmark")).toBe(
+			false,
+		)
+		expect(items.some((item) => item.type !== "separator" && item.id === "version-history")).toBe(
+			false,
+		)
 	})
 })

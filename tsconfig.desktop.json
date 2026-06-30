@@ -8,6 +8,7 @@
 		{ "path": "packages/settings" },
 		{ "path": "packages/core" },
 		{ "path": "packages/renderer" },
+		{ "path": "packages/import-export" },
 		{ "path": "packages/editor" },
 		{ "path": "packages/ui" },
 		{ "path": "packages/theme" },

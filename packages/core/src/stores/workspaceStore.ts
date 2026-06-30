@@ -7,11 +7,13 @@ import { type LeftSidebarLayout, useUIStore } from "./uiStore"
 
 export type SplitDirection = "horizontal" | "vertical"
 export type TabType = "file" | "view"
+export type FileTabKind = "markdown" | "pdf"
 export type ViewTabState = Record<string, unknown>
 
 export interface Tab {
 	id: string
 	tabType: TabType
+	fileKind: FileTabKind | null
 	filePath: string
 	viewId: string | null
 	viewState: ViewTabState | null
@@ -89,6 +91,7 @@ export interface WorkspaceState {
 		paneId: string,
 		updates: { title?: string; viewState?: ViewTabState },
 	) => void
+	updateTabViewState: (tabId: string, paneId: string, viewState: ViewTabState) => void
 	updateViewTabState: (tabId: string, paneId: string, viewState: ViewTabState) => void
 	splitPane: (paneId: string, direction: SplitDirection, position?: "before" | "after") => void
 	closePane: (paneId: string) => void
@@ -117,6 +120,19 @@ const SUSPENSION_IDLE_MS = 30 * 60 * 1000
 function titleFromPath(filePath: string): string {
 	const name = filePath.split("/").pop() ?? filePath
 	return name.endsWith(".md") ? name.slice(0, -3) : name
+}
+
+function inferFileTabKind(filePath: string): FileTabKind {
+	return filePath.toLocaleLowerCase().endsWith(".pdf") ? "pdf" : "markdown"
+}
+
+function getFileTabKind(tab: Pick<Tab, "tabType" | "fileKind" | "filePath">): FileTabKind | null {
+	if (tab.tabType !== "file") return null
+	return tab.fileKind ?? inferFileTabKind(tab.filePath)
+}
+
+function isMarkdownFileTab(tab: Tab): boolean {
+	return getFileTabKind(tab) === "markdown" && tab.filePath.length > 0
 }
 
 function isPathOrDescendant(path: string, parentPath: string): boolean {
@@ -209,7 +225,12 @@ function insertTabAt(pane: Pane, tab: Tab, insertIndex?: number): void {
 }
 
 function createPersistedPane(pane: Pane): Pane {
-	const tabs = pane.tabs.filter((tab) => !tab.isEphemeral)
+	const tabs = pane.tabs
+		.filter((tab) => !tab.isEphemeral)
+		.map((tab) => ({
+			...tab,
+			fileKind: getFileTabKind(tab),
+		}))
 	const activeTabId = tabs.some((tab) => tab.id === pane.activeTabId)
 		? pane.activeTabId
 		: (tabs.at(-1)?.id ?? null)
@@ -224,9 +245,15 @@ function normalizeLoadedPane(pane: Pane): Pane {
 	const tabs: Tab[] = []
 	for (const tab of pane.tabs) {
 		if (tab.isEphemeral) continue
+		const tabType = tab.tabType ?? "file"
 		tabs.push({
 			...tab,
+			tabType,
+			fileKind: getFileTabKind({ ...tab, tabType }),
+			viewId: tab.viewId ?? null,
+			viewState: tab.viewState ?? null,
 			isEphemeral: false,
+			isSuspended: tab.isSuspended ?? false,
 		})
 	}
 	const activeTabId = tabs.some((tab) => tab.id === pane.activeTabId)
@@ -245,7 +272,7 @@ function normalizeLoadedPane(pane: Pane): Pane {
 function openActiveFileTabs(panes: Record<string, Pane>): void {
 	for (const pane of Object.values(panes)) {
 		const activeTab = pane.tabs.find((tab) => tab.id === pane.activeTabId)
-		if (activeTab?.tabType === "file" && activeTab.filePath && !activeTab.isSuspended) {
+		if (activeTab && isMarkdownFileTab(activeTab) && !activeTab.isSuspended) {
 			noteCache.openTab(activeTab.filePath)
 		}
 	}
@@ -258,6 +285,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
 			openTab: (filePath, opts) => {
 				const { panes, activePaneId } = get()
+				const fileKind = inferFileTabKind(filePath)
 
 				const shouldForceNewTab = opts?.forceNew ?? opts?.newTab ?? false
 				const existing = shouldForceNewTab ? null : findTabInPanes(panes, filePath)
@@ -279,13 +307,15 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 						: null
 				if (reusableTab) {
 					const previousFilePath = reusableTab.filePath
-					noteCache.openTab(filePath)
-					void noteCache.closeTab(previousFilePath)
+					const previousFileKind = getFileTabKind(reusableTab)
+					if (fileKind === "markdown") noteCache.openTab(filePath)
+					if (previousFileKind === "markdown") void noteCache.closeTab(previousFilePath)
 
 					set((s) => {
 						const pane = s.panes[targetPaneId]
 						const tab = pane?.tabs.find((candidate) => candidate.id === reusableTab.id)
 						if (!pane || !tab || tab.tabType !== "file" || tab.isPinned) return
+						tab.fileKind = fileKind
 						tab.filePath = filePath
 						tab.viewId = null
 						tab.viewState = null
@@ -305,6 +335,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 				const tab: Tab = {
 					id: tabId,
 					tabType: "file",
+					fileKind,
 					filePath,
 					viewId: null,
 					viewState: null,
@@ -316,7 +347,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 					isSuspended: false,
 				}
 
-				noteCache.openTab(filePath)
+				if (fileKind === "markdown") noteCache.openTab(filePath)
 
 				set((s) => {
 					const pane = s.panes[targetPaneId]
@@ -349,6 +380,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 				const tab: Tab = {
 					id: tabId,
 					tabType: "view",
+					fileKind: null,
 					filePath: "",
 					viewId,
 					viewState: opts?.viewState ?? null,
@@ -373,11 +405,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 			openInSplit: (filePath, paneId, direction) => {
 				get().splitPane(paneId, direction)
 				const newPaneId = get().activePaneId
+				const fileKind = inferFileTabKind(filePath)
 
 				const tabId = crypto.randomUUID()
 				const tab: Tab = {
 					id: tabId,
 					tabType: "file",
+					fileKind,
 					filePath,
 					viewId: null,
 					viewState: null,
@@ -389,7 +423,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 					isSuspended: false,
 				}
 
-				noteCache.openTab(filePath)
+				if (fileKind === "markdown") noteCache.openTab(filePath)
 
 				set((s) => {
 					const pane = s.panes[newPaneId]
@@ -421,7 +455,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 						null
 				}
 
-				if (tab.tabType === "file" && tab.filePath && !tab.isSuspended) {
+				if (isMarkdownFileTab(tab) && !tab.isSuspended) {
 					void noteCache.closeTab(tab.filePath)
 				}
 
@@ -461,6 +495,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 							const nextPath = replacePathPrefix(tab.filePath, oldPath, newPath)
 							if (!nextPath) continue
 							tab.filePath = nextPath
+							tab.fileKind = tab.tabType === "file" ? inferFileTabKind(nextPath) : null
 							tab.title = titleFromPath(nextPath)
 						}
 					}
@@ -469,11 +504,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
 			activateTab: (tabId, paneId) => {
 				const tabToActivate = get().panes[paneId]?.tabs.find((tab) => tab.id === tabId)
-				if (
-					tabToActivate?.tabType === "file" &&
-					tabToActivate.filePath &&
-					tabToActivate.isSuspended
-				) {
+				if (tabToActivate && isMarkdownFileTab(tabToActivate) && tabToActivate.isSuspended) {
 					noteCache.openTab(tabToActivate.filePath)
 				}
 
@@ -483,6 +514,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 					const tab = pane.tabs.find((t) => t.id === tabId)
 					if (!tab) return
 					pane.activeTabId = tabId
+					tab.fileKind = getFileTabKind(tab)
 					tab.lastAccessed = Date.now()
 					tab.isSuspended = false
 					s.activePaneId = paneId
@@ -517,6 +549,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 					if (tab?.tabType !== "view") return
 					if (updates.title !== undefined) tab.title = updates.title
 					if (updates.viewState !== undefined) tab.viewState = updates.viewState
+				})
+			},
+
+			updateTabViewState: (tabId, paneId, viewState) => {
+				set((s) => {
+					const tab = s.panes[paneId]?.tabs.find((t) => t.id === tabId)
+					if (tab) tab.viewState = viewState
 				})
 			},
 
@@ -565,7 +604,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 				const otherPaneId = Object.keys(panes).find((id) => id !== paneId)
 
 				for (const tab of pane.tabs) {
-					if (tab.tabType !== "file" || !tab.filePath) continue
+					if (!isMarkdownFileTab(tab)) continue
 					if (!tab.isSuspended) void noteCache.closeTab(tab.filePath)
 				}
 
@@ -605,7 +644,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 				const tab = fromPane.tabs[sourceIndex]
 				if (!tab) return
 
-				const tabCopy = { ...tab, lastAccessed: Date.now() }
+				const tabCopy = { ...tab, fileKind: getFileTabKind(tab), lastAccessed: Date.now() }
 				const targetIndex =
 					fromPaneId === toPaneId && insertIndex !== undefined && sourceIndex < insertIndex
 						? insertIndex - 1
@@ -641,7 +680,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
 				const newPaneId = crypto.randomUUID()
 				const splitNodeId = crypto.randomUUID()
-				const tabCopy = { ...tab, lastAccessed: Date.now() }
+				const tabCopy = { ...tab, fileKind: getFileTabKind(tab), lastAccessed: Date.now() }
 
 				set((s) => {
 					const from = s.panes[fromPaneId]
@@ -724,7 +763,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 						for (const tab of pane.tabs) {
 							if (tab.tabType === "file" && tab.id !== pane.activeTabId && !tab.isSuspended) {
 								if (now - tab.lastAccessed > SUSPENSION_IDLE_MS) {
-									filePathsToRelease.push(tab.filePath)
+									if (isMarkdownFileTab(tab)) filePathsToRelease.push(tab.filePath)
 									tab.isSuspended = true
 								}
 							}
@@ -772,6 +811,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 						for (const pane of Object.values(data.panes)) {
 							for (const tab of pane.tabs) {
 								if (!tab.tabType) tab.tabType = "file"
+								if (tab.fileKind === undefined) {
+									tab.fileKind = tab.tabType === "file" ? inferFileTabKind(tab.filePath) : null
+								}
 								if (tab.viewId === undefined) tab.viewId = null
 								if (tab.viewState === undefined) tab.viewState = null
 								if (tab.isEphemeral === undefined) tab.isEphemeral = false

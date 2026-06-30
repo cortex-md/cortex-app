@@ -22,11 +22,13 @@ describe("SideBySideView", () => {
 	it("pairs Live Preview editing with Reading View rendering", () => {
 		const onChange = vi.fn()
 		const resolveImageUrl = vi.fn((src: string) => `cortex://asset/${src}`)
+		const codeBlockEmbeds = [{ languages: ["cortex-draw"], render: () => null }]
 
 		render(
 			<SideBySideView
 				content="# Plan"
 				filePath="/vault/Projects/Plan.md"
+				codeBlockEmbeds={codeBlockEmbeds}
 				resolveImageUrl={resolveImageUrl}
 				onChange={onChange}
 			/>,
@@ -38,11 +40,13 @@ describe("SideBySideView", () => {
 			content: "# Plan",
 			filePath: "/vault/Projects/Plan.md",
 			livePreview: true,
+			codeBlockEmbeds,
 			resolveImageUrl,
 			onChange,
 		})
 		expect(vi.mocked(ReadingView).mock.calls[0][0]).toMatchObject({
 			content: "# Plan",
+			codeBlockEmbeds,
 			renderDelay: 80,
 		})
 	})

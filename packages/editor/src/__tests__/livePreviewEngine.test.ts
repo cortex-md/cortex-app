@@ -101,6 +101,50 @@ describe("unified live preview engine", () => {
 		expect(document.querySelector(".plugin-mark")).toBeNull()
 	})
 
+	it("projects inline math without touching code or money text", () => {
+		const parent = document.createElement("div")
+		document.body.appendChild(parent)
+		const content = "Formula $x^2$ and `$raw$`, price $20 and $30"
+		const view = new EditorView({
+			state: EditorState.create({
+				doc: content,
+				selection: { anchor: content.length },
+				extensions: [markdown(), livePreviewExtension(editorRuntime)],
+			}),
+			parent,
+		})
+		editorViews.push(view)
+
+		const math = document.querySelector<HTMLElement>(".cm-math-inline")
+		expect(math?.textContent).toBe("x^2")
+		expect(document.querySelectorAll(".cm-math-inline")).toHaveLength(1)
+		expect(document.querySelector(".cm-content")?.textContent).toContain("$raw$")
+		expect(document.querySelector(".cm-content")?.textContent).toContain("$20 and $30")
+	})
+
+	it("reveals inline math source while the selection overlaps it", () => {
+		const parent = document.createElement("div")
+		document.body.appendChild(parent)
+		const content = "Formula $x^2$ tail"
+		const view = new EditorView({
+			state: EditorState.create({
+				doc: content,
+				selection: { anchor: content.length },
+				extensions: [markdown(), livePreviewExtension(editorRuntime)],
+			}),
+			parent,
+		})
+		editorViews.push(view)
+
+		expect(document.querySelector(".cm-math-inline")).not.toBeNull()
+
+		const mathStart = content.indexOf("$x^2$")
+		view.dispatch({ selection: { anchor: mathStart, head: mathStart + 5 } })
+
+		expect(document.querySelector(".cm-math-inline")).toBeNull()
+		expect(document.querySelector(".cm-content")?.textContent).toContain("$x^2$")
+	})
+
 	it("does not override CodeMirror arrow navigation", () => {
 		const parent = document.createElement("div")
 		document.body.appendChild(parent)

@@ -1,4 +1,4 @@
-import type { Tab } from "@cortex/core"
+import type { FileTabKind, Tab } from "@cortex/core"
 import { usePluginStore } from "@cortex/plugin-host-web"
 import {
 	DropdownMenu,
@@ -34,6 +34,14 @@ interface PaneFallbackMenuProps {
 	onCopyPath: (tabId: string) => void
 	onReveal: (tabId: string) => Promise<void>
 	onViewHistory: (tabId: string) => void
+}
+
+function inferFileTabKind(filePath: string): FileTabKind {
+	return filePath.toLocaleLowerCase().endsWith(".pdf") ? "pdf" : "markdown"
+}
+
+function isMarkdownTab(tab: Tab): boolean {
+	return tab.tabType === "file" && (tab.fileKind ?? inferFileTabKind(tab.filePath)) === "markdown"
 }
 
 export function PaneFallbackMenu({
@@ -105,7 +113,7 @@ export function PaneFallbackMenu({
 							<FolderIcon />
 							Reveal in Finder
 						</DropdownMenuItem>
-						{showVersionHistory && (
+						{showVersionHistory && isMarkdownTab(tab) && (
 							<>
 								<DropdownMenuSeparator />
 								<DropdownMenuItem onSelect={() => onViewHistory(tab.id)}>

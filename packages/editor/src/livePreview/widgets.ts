@@ -1,11 +1,48 @@
 import { type MarkdownPortableNode, sanitizeMarkdownUrl } from "@cortex/renderer"
+import type { CodeBlockEmbedLivePreview } from "../codeBlockEmbeds"
 import type { EditorRuntimeModules, EditorRuntimeView } from "../types"
 import type { LivePreviewEffects } from "./effects"
 import type { ImageBlock, TableCellModel } from "./model"
 
+export interface CodeBlockChromeAction {
+	label: string
+	title: string
+	onClick: (event: MouseEvent) => void
+}
+
+type MathDisplayMode = "inline" | "block"
+
 function revealSource(view: EditorRuntimeView, from: number): void {
 	view.dispatch({ selection: { anchor: from } })
 	view.focus()
+}
+
+async function renderMathIntoElement(
+	element: HTMLElement,
+	source: string,
+	displayMode: MathDisplayMode,
+	isDisposed: () => boolean,
+): Promise<void> {
+	try {
+		const [math, stylesheet] = await Promise.all([
+			import("@cortex/renderer/math"),
+			import("../mathStylesheet"),
+		])
+		await stylesheet.ensureMathStylesheet().catch(() => undefined)
+		const result = await math.renderMathExpression({ source, displayMode })
+		if (isDisposed()) return
+		element.classList.remove("is-loading")
+		element.classList.toggle("is-error", result.status === "error")
+		if (result.message) element.title = result.message
+		element.innerHTML = result.html
+	} catch (error) {
+		if (isDisposed()) return
+		const message = error instanceof Error ? error.message : String(error)
+		element.classList.remove("is-loading")
+		element.classList.add("is-error")
+		element.title = message
+		element.textContent = source
+	}
 }
 
 export function createLivePreviewWidgets(
@@ -89,6 +126,68 @@ export function createLivePreviewWidgets(
 
 		eq(other: PortableNodeWidget) {
 			return JSON.stringify(other.nodes) === JSON.stringify(this.nodes)
+		}
+
+		ignoreEvent() {
+			return false
+		}
+	}
+
+	class MathInlineWidget extends WidgetType {
+		disposed = false
+
+		constructor(readonly source: string) {
+			super()
+		}
+
+		toDOM() {
+			this.disposed = false
+			const span = document.createElement("span")
+			span.className = "cm-math-widget cm-math-inline is-loading"
+			span.textContent = this.source
+			void renderMathIntoElement(span, this.source, "inline", () => this.disposed)
+			return span
+		}
+
+		eq(other: MathInlineWidget) {
+			return other.source === this.source
+		}
+
+		destroy() {
+			this.disposed = true
+		}
+
+		ignoreEvent() {
+			return false
+		}
+	}
+
+	class MathBlockWidget extends WidgetType {
+		disposed = false
+
+		constructor(
+			readonly source: string,
+			readonly blockId: string,
+		) {
+			super()
+		}
+
+		toDOM() {
+			this.disposed = false
+			const container = document.createElement("span")
+			container.className = "cm-math-widget cm-math-block-widget is-loading"
+			container.dataset.mathblockId = this.blockId
+			container.textContent = this.source
+			void renderMathIntoElement(container, this.source, "block", () => this.disposed)
+			return container
+		}
+
+		eq(other: MathBlockWidget) {
+			return other.source === this.source && other.blockId === this.blockId
+		}
+
+		destroy() {
+			this.disposed = true
 		}
 
 		ignoreEvent() {
@@ -265,6 +364,7 @@ export function createLivePreviewWidgets(
 			readonly blockId: string,
 			readonly language: string,
 			readonly hovered: boolean,
+			readonly action: CodeBlockChromeAction | null = null,
 		) {
 			super()
 		}
@@ -285,21 +385,25 @@ export function createLivePreviewWidgets(
 				return chrome
 			}
 
-			const button = document.createElement("button")
-			button.type = "button"
-			button.className = "cm-codeblock-copy"
-			button.textContent = "Copy"
-			button.title = "Copy code"
-			button.dataset.codeblockId = this.blockId
-			button.dataset.controlsVisible = "true"
 			const preserveSelection = (event: Event) => {
 				event.preventDefault()
 				event.stopPropagation()
 			}
+			const button = document.createElement("button")
+			button.type = "button"
+			button.className = this.action ? "cm-codeblock-action" : "cm-codeblock-copy"
+			button.textContent = this.action?.label ?? "Copy"
+			button.title = this.action?.title ?? "Copy code"
+			button.dataset.codeblockId = this.blockId
+			button.dataset.controlsVisible = "true"
 			button.addEventListener("pointerdown", preserveSelection)
 			button.addEventListener("mousedown", preserveSelection)
 			button.addEventListener("click", async (event) => {
 				preserveSelection(event)
+				if (this.action) {
+					this.action.onClick(event)
+					return
+				}
 				try {
 					await navigator.clipboard.writeText(this.code)
 					button.textContent = "Copied!"
@@ -321,8 +425,91 @@ export function createLivePreviewWidgets(
 				other.code === this.code &&
 				other.blockId === this.blockId &&
 				other.language === this.language &&
-				other.hovered === this.hovered
+				other.hovered === this.hovered &&
+				other.action?.label === this.action?.label &&
+				other.action?.title === this.action?.title
 			)
+		}
+
+		ignoreEvent() {
+			return true
+		}
+	}
+
+	class CodeBlockEmbedPreviewWidget extends WidgetType {
+		cleanup: (() => void) | null = null
+		mountTimer: ReturnType<typeof setTimeout> | null = null
+
+		constructor(readonly preview: CodeBlockEmbedLivePreview) {
+			super()
+		}
+
+		toDOM() {
+			const container = document.createElement("span")
+			container.className = `cm-codeblock-embed-preview${
+				this.preview.mount ? " has-mount" : ""
+			}${this.preview.className ? ` ${this.preview.className}` : ""}${
+				this.preview.tone === "error" ? " is-error" : ""
+			}`
+
+			if (this.preview.mount) {
+				const mountTarget = document.createElement("span")
+				mountTarget.className = "cm-codeblock-embed-mount"
+				mountTarget.setAttribute("aria-label", this.preview.title)
+				container.appendChild(mountTarget)
+				this.mountTimer = setTimeout(() => {
+					this.mountTimer = null
+					this.cleanup = this.preview.mount?.(mountTarget) ?? null
+				}, 0)
+				return container
+			}
+
+			const icon = document.createElement("span")
+			icon.className = "cm-codeblock-embed-icon"
+			icon.setAttribute("aria-hidden", "true")
+			icon.textContent = this.preview.icon ?? "Draw"
+			container.appendChild(icon)
+
+			const copy = document.createElement("span")
+			copy.className = "cm-codeblock-embed-copy"
+
+			const title = document.createElement("span")
+			title.className = "cm-codeblock-embed-title"
+			title.textContent = this.preview.title
+			copy.appendChild(title)
+
+			const details = [this.preview.description, this.preview.meta].filter(Boolean).join(" - ")
+			if (details) {
+				const meta = document.createElement("span")
+				meta.className = "cm-codeblock-embed-meta"
+				meta.textContent = details
+				copy.appendChild(meta)
+			}
+
+			container.appendChild(copy)
+			return container
+		}
+
+		eq(other: CodeBlockEmbedPreviewWidget) {
+			return (
+				other.preview.title === this.preview.title &&
+				other.preview.description === this.preview.description &&
+				other.preview.meta === this.preview.meta &&
+				other.preview.icon === this.preview.icon &&
+				other.preview.tone === this.preview.tone &&
+				other.preview.className === this.preview.className &&
+				other.preview.signature === this.preview.signature &&
+				Boolean(other.preview.mount) === Boolean(this.preview.mount)
+			)
+		}
+
+		destroy() {
+			if (this.mountTimer) {
+				clearTimeout(this.mountTimer)
+				this.mountTimer = null
+			}
+			this.cleanup?.()
+			this.cleanup = null
 		}
 
 		ignoreEvent() {
@@ -334,7 +521,10 @@ export function createLivePreviewWidgets(
 		CalloutFoldWidget,
 		CheckboxWidget,
 		CodeBlockChromeWidget,
+		CodeBlockEmbedPreviewWidget,
 		ImageWidget,
+		MathBlockWidget,
+		MathInlineWidget,
 		PortableNodeWidget,
 		TableCellPlaceholderWidget,
 		TextWidget,

@@ -31,6 +31,18 @@ function createMenuState(selectedIndex = 0): SlashCommandMenuState {
 				aliases: ["heading-2"],
 				shortcut: "Alt+2",
 			},
+			{
+				id: "format.inline-math",
+				label: "Inline Formula",
+				category: "Format",
+				aliases: ["math", "formula"],
+			},
+			{
+				id: "format.math-block",
+				label: "Formula Block",
+				category: "Format",
+				aliases: ["math block"],
+			},
 		],
 		select,
 		execute,
@@ -49,8 +61,12 @@ describe("SlashCommandMenu", () => {
 
 		expect(screen.getByText("Bold")).toBeInTheDocument()
 		expect(screen.getByText("Heading 2")).toBeInTheDocument()
+		expect(screen.getByText("Inline Formula")).toBeInTheDocument()
+		expect(screen.getByText("Formula Block")).toBeInTheDocument()
 		expect(document.querySelector('[data-slash-command-icon="format.bold"]')).not.toBeNull()
 		expect(document.querySelector('[data-slash-command-icon="format.heading-2"]')).not.toBeNull()
+		expect(document.querySelector('[data-slash-command-icon="format.inline-math"]')).not.toBeNull()
+		expect(document.querySelector('[data-slash-command-icon="format.math-block"]')).not.toBeNull()
 		expect(screen.queryByText("Ctrl+B")).not.toBeInTheDocument()
 		expect(screen.queryByText("Alt+2")).not.toBeInTheDocument()
 	})

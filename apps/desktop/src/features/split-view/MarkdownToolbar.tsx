@@ -28,7 +28,10 @@ import {
 	type LucideIcon,
 	MessageSquareQuoteIcon,
 	MoreHorizontalIcon,
+	PenLineIcon,
 	QuoteIcon,
+	SigmaIcon,
+	SquareSigmaIcon,
 	StrikethroughIcon,
 	Table2Icon,
 } from "lucide-react"
@@ -58,6 +61,7 @@ const markdownToolbarIcons: Record<MarkdownFormatCommandId, LucideIcon> = {
 	"format.heading-3": Heading3Icon,
 	"format.bold": BoldIcon,
 	"format.italic": ItalicIcon,
+	"format.inline-math": SigmaIcon,
 	"format.link": LinkIcon,
 	"format.unordered-list": ListIcon,
 	"format.ordered-list": ListOrderedIcon,
@@ -66,9 +70,11 @@ const markdownToolbarIcons: Record<MarkdownFormatCommandId, LucideIcon> = {
 	"format.strikethrough": StrikethroughIcon,
 	"format.inline-code": CodeIcon,
 	"format.code-block": Code2Icon,
+	"format.math-block": SquareSigmaIcon,
 	"format.callout": MessageSquareQuoteIcon,
 	"format.image": ImageIcon,
 	"format.table": Table2Icon,
+	"format.drawing": PenLineIcon,
 }
 
 function getToolbarCommands(commandIds: readonly MarkdownFormatCommandId[]): CommandEntry[] {

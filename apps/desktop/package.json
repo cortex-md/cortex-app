@@ -1,7 +1,7 @@
 {
 	"name": "@cortex/desktop",
 	"private": true,
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
@@ -12,12 +12,14 @@
 		"bench:large-vault:smoke": "bun benchmarks/large-vault-workbench.ts --scale smoke"
 	},
 	"dependencies": {
+		"@cortex.md/api": "workspace:*",
 		"@cortex/commands": "workspace:*",
 		"@cortex/core": "workspace:*",
 		"@cortex/editor": "workspace:*",
-		"@cortex/marketplace": "workspace:*",
 		"@cortex/hotkeys": "workspace:*",
+		"@cortex/import-export": "workspace:*",
 		"@cortex/ipc": "workspace:*",
+		"@cortex/marketplace": "workspace:*",
 		"@cortex/platform": "workspace:*",
 		"@cortex/plugin-github-emoji": "workspace:*",
 		"@cortex/plugin-host-core": "workspace:*",
@@ -28,11 +30,14 @@
 		"@cortex/templates": "workspace:*",
 		"@cortex/theme": "workspace:*",
 		"@cortex/ui": "workspace:*",
-		"@cortex.md/api": "workspace:*",
+		"@excalidraw/excalidraw": "0.18.1",
 		"@pierre/diffs": "^1.1.3",
-		"@tauri-apps/api": "^2",
 		"@tanstack/react-virtual": "^3.13.21",
+		"@tauri-apps/api": "^2",
+		"dompurify": "^3.4.11",
 		"lucide-react": "^0.525.0",
+		"mermaid": "^11.16.0",
+		"pdfjs-dist": "^6.1.200",
 		"react": "^19.1.0",
 		"react-dom": "^19.1.0",
 		"tw-animate-css": "^1.2.5"

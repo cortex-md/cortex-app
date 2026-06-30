@@ -109,6 +109,37 @@ export function toggleInlineCode(view: EditorRuntimeView): boolean {
 	return wrapOrInsert(view, "`")
 }
 
+export function insertInlineMath(view: EditorRuntimeView): boolean {
+	const { state } = view
+	const { from, to } = state.selection.main
+	const selected = state.sliceDoc(from, to)
+
+	if (selected.includes("\n")) return insertMathBlock(view)
+
+	return wrapOrInsert(view, "$")
+}
+
+export function insertMathBlock(view: EditorRuntimeView): boolean {
+	const { state } = view
+	const { from, to } = state.selection.main
+	const selected = state.sliceDoc(from, to)
+
+	if (from === to) {
+		view.dispatch({
+			changes: { from, insert: "$$\n\n$$" },
+			selection: { anchor: from + 3 },
+		})
+		return true
+	}
+
+	const insertion = `$$\n${selected}\n$$`
+	view.dispatch({
+		changes: { from, to, insert: insertion },
+		selection: { anchor: from + 3, head: from + 3 + selected.length },
+	})
+	return true
+}
+
 export function insertLink(view: EditorRuntimeView): boolean {
 	const { state } = view
 	const { from, to } = state.selection.main

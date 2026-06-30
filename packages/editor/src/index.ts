@@ -7,6 +7,17 @@ export {
 	subscribeCalloutTypes,
 } from "@cortex/renderer"
 export { type ClipboardImageHandler, clipboardImageExtension } from "./clipboardImage"
+export {
+	type CodeBlockEmbedDefinition,
+	type CodeBlockEmbedLivePreview,
+	type CodeBlockEmbedLivePreviewOpenContext,
+	type CodeBlockEmbedRenderContext,
+	findCodeBlockEmbedDefinition,
+	getCodeBlockEmbedLanguages,
+	getCodeBlockEmbedSignature,
+	type ParsedCodeBlockEmbed,
+	parseFencedCodeBlocks,
+} from "./codeBlockEmbeds"
 export { EditorView } from "./EditorView"
 export {
 	type BaseExtensionsOptions,
@@ -63,7 +74,9 @@ export {
 	insertCallout,
 	insertCodeBlock,
 	insertImage,
+	insertInlineMath,
 	insertLink,
+	insertMathBlock,
 	insertTable,
 	isSelectionInsideTable,
 	moveTableColumnLeft,

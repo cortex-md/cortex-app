@@ -89,8 +89,10 @@
 - `dialog.pickFolder` is implemented with `Directory.pickDirectoryAsync()`. Android should reopen
   through persistable URI grants. iOS scoped directory access may need reauthorization after restart;
   surface that as an explicit reauthorize/open-folder state instead of silently falling back.
-- Keep import/export, individual file pickers, remote sync engine, marketplace, and community plugin
-  discovery out of this foundation pass.
+- Keep remote sync engine, marketplace, and community plugin discovery out of this foundation pass.
+  Import/export contracts may be present on the platform shape, but unsupported mobile methods,
+  including native PDF text extraction, should reject clearly until native document picker/share
+  flows are implemented.
 - Methods that are not real yet should reject clearly or return an explicit unsupported state. Never
   silently fake keychain, remote vault, search, or storage success. `sync.updateSyncPreferences` is
   the narrow exception: it resolves as a no-op on mobile so core can persist local preferences while

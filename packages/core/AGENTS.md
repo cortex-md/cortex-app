@@ -215,6 +215,9 @@ Workspace restore must keep inactive file tabs suspended and call `noteCache.ope
 active file tab in each pane. This keeps large restored workspaces from loading every hidden note
 into memory at startup. Opening or activating a suspended file tab should remain the point where its
 NoteCache entry is created.
+File tabs may represent non-Markdown files. Non-Markdown tabs, including PDFs, must not call
+`NoteCache`, must not become editor active-file state, and should persist view state through the
+workspace tab state instead.
 
 ### Note Sync Attribution
 

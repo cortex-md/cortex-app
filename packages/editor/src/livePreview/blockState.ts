@@ -1,4 +1,5 @@
 import { getCalloutStyleVariables, resolveCalloutType } from "@cortex/renderer"
+import { type CodeBlockEmbedDefinition, findCodeBlockEmbedDefinition } from "../codeBlockEmbeds"
 import type {
 	EditorRuntimeBlockWrapper,
 	EditorRuntimeBlockWrapperRange,
@@ -12,6 +13,7 @@ import type {
 	EditorRuntimeTransaction,
 	EditorSelectionState,
 } from "../types"
+import { renderCodeBlockEmbedPreview } from "./codeBlockEmbeds"
 import type { LivePreviewEffects } from "./effects"
 import { recordBlockPass } from "./metrics"
 import {
@@ -21,6 +23,7 @@ import {
 	createMarkdownBlockIndex,
 	type MarkdownBlock,
 	type MarkdownBlockIndex,
+	type MathBlock,
 	selectionOverlapsBlock,
 	type TableRowModel,
 } from "./model"
@@ -159,13 +162,15 @@ function createBlockWrapper(
 	block: MarkdownBlock,
 	collapsedCallouts: ReadonlyMap<string, boolean>,
 	selection: EditorSelectionState,
+	codeBlockEmbeds: readonly CodeBlockEmbedDefinition[] | undefined,
 ): EditorRuntimeBlockWrapper | null {
 	const selectionOverlaps = selectionOverlapsBlock(selection, block)
 	if (block.kind === "code") {
+		const isEmbed = findCodeBlockEmbedDefinition(codeBlockEmbeds, block.language) !== null
 		return runtime.view.BlockWrapper.create({
 			tagName: "div",
 			attributes: {
-				class: `cm-markdown-block cm-codeblock-wrapper${selectionOverlaps ? " is-selection-overlap" : ""}`,
+				class: `cm-markdown-block cm-codeblock-wrapper${isEmbed ? " is-codeblock-embed" : ""}${selectionOverlaps ? " is-selection-overlap" : ""}`,
 				"data-codeblock-id": block.id,
 			},
 		})
@@ -206,6 +211,15 @@ function createBlockWrapper(
 			attributes: { class: "cm-markdown-block cm-frontmatter-wrapper" },
 		})
 	}
+	if (block.kind === "math") {
+		return runtime.view.BlockWrapper.create({
+			tagName: "div",
+			attributes: {
+				class: `cm-markdown-block cm-mathblock-wrapper${selectionOverlaps ? " is-selection-overlap" : ""}`,
+				"data-mathblock-id": block.id,
+			},
+		})
+	}
 	return null
 }
 
@@ -214,13 +228,110 @@ function buildWrappers(
 	blocks: MarkdownBlock[],
 	collapsedCallouts: ReadonlyMap<string, boolean>,
 	selection: EditorSelectionState,
+	codeBlockEmbeds: readonly CodeBlockEmbedDefinition[] | undefined,
 ): EditorRuntimeBlockWrapperSet {
 	const ranges: EditorRuntimeBlockWrapperRange[] = []
 	for (const block of blocks) {
-		const wrapper = createBlockWrapper(runtime, block, collapsedCallouts, selection)
+		const wrapper = createBlockWrapper(
+			runtime,
+			block,
+			collapsedCallouts,
+			selection,
+			codeBlockEmbeds,
+		)
 		if (wrapper) ranges.push(wrapper.range(block.from, block.to))
 	}
 	return runtime.view.BlockWrapper.set(ranges, true)
+}
+
+function addCodeBlockEmbedDecorations(
+	runtime: EditorRuntimeModules,
+	widgets: LivePreviewWidgets,
+	state: EditorRuntimeState,
+	ranges: EditorRuntimeDecorationRange[],
+	block: Extract<MarkdownBlock, { kind: "code" }>,
+	codeBlockEmbeds: readonly CodeBlockEmbedDefinition[] | undefined,
+	filePath: string,
+): boolean {
+	const preview = renderCodeBlockEmbedPreview(state, block, codeBlockEmbeds, filePath)
+	if (!preview) return false
+
+	addLineDecoration(
+		state,
+		ranges,
+		block,
+		runtime.view.Decoration.line({
+			class: "cm-codeblock-line",
+			attributes: { "data-codeblock-id": block.id },
+		}),
+	)
+	const firstLine = state.doc.line(block.firstLine)
+	ranges.push(
+		runtime.view.Decoration.line({ class: "cm-codeblock-embed-line" }).range(firstLine.from),
+	)
+	ranges.push(
+		runtime.view.Decoration.replace({
+			widget: new widgets.CodeBlockEmbedPreviewWidget(preview),
+		}).range(block.openFenceFrom, block.openFenceTo),
+	)
+	for (let lineNumber = block.firstLine + 1; lineNumber <= block.lastLine; lineNumber++) {
+		const line = state.doc.line(lineNumber)
+		ranges.push(
+			runtime.view.Decoration.line({ class: "cm-codeblock-embed-hidden-line" }).range(line.from),
+		)
+		if (line.from < line.to) {
+			ranges.push(runtime.view.Decoration.replace({}).range(line.from, line.to))
+		}
+	}
+	return true
+}
+
+function addMathBlockDecorations(
+	runtime: EditorRuntimeModules,
+	widgets: LivePreviewWidgets,
+	state: EditorRuntimeState,
+	ranges: EditorRuntimeDecorationRange[],
+	block: MathBlock,
+	selected: boolean,
+): void {
+	addLineDecoration(
+		state,
+		ranges,
+		block,
+		runtime.view.Decoration.line({
+			class: "cm-mathblock-line",
+			attributes: { "data-mathblock-id": block.id },
+		}),
+	)
+	if (selected) return
+
+	const firstLine = state.doc.line(block.firstLine)
+	ranges.push(
+		runtime.view.Decoration.line({ class: "cm-mathblock-render-line" }).range(firstLine.from),
+	)
+	if (block.firstLine === block.lastLine) {
+		ranges.push(
+			runtime.view.Decoration.replace({
+				widget: new widgets.MathBlockWidget(block.content, block.id),
+			}).range(block.openingFrom, block.closingTo),
+		)
+		return
+	}
+
+	ranges.push(
+		runtime.view.Decoration.replace({
+			widget: new widgets.MathBlockWidget(block.content, block.id),
+		}).range(block.openingFrom, block.openingTo),
+	)
+	for (let lineNumber = block.firstLine + 1; lineNumber <= block.lastLine; lineNumber++) {
+		const line = state.doc.line(lineNumber)
+		ranges.push(
+			runtime.view.Decoration.line({ class: "cm-mathblock-hidden-line" }).range(line.from),
+		)
+		if (line.from < line.to) {
+			ranges.push(runtime.view.Decoration.replace({}).range(line.from, line.to))
+		}
+	}
 }
 
 function buildDecorationSets(
@@ -229,6 +340,8 @@ function buildDecorationSets(
 	state: EditorRuntimeState,
 	blocks: MarkdownBlock[],
 	collapsedCallouts: ReadonlyMap<string, boolean>,
+	codeBlockEmbeds: readonly CodeBlockEmbedDefinition[] | undefined,
+	filePath: string,
 ): LivePreviewDecorationSets {
 	const ranges: EditorRuntimeDecorationRange[] = []
 	const outerRanges: EditorRuntimeDecorationRange[] = []
@@ -260,6 +373,20 @@ function buildDecorationSets(
 			continue
 		}
 		if (block.kind === "code") {
+			if (
+				!selected &&
+				addCodeBlockEmbedDecorations(
+					runtime,
+					widgets,
+					state,
+					ranges,
+					block,
+					codeBlockEmbeds,
+					filePath,
+				)
+			) {
+				continue
+			}
 			addLineDecoration(
 				state,
 				ranges,
@@ -315,6 +442,10 @@ function buildDecorationSets(
 			)
 			continue
 		}
+		if (block.kind === "math") {
+			addMathBlockDecorations(runtime, widgets, state, ranges, block, selected)
+			continue
+		}
 		if (block.kind === "image" && replaced) {
 			ranges.push(
 				runtime.view.Decoration.replace({ widget: new widgets.ImageWidget(block) }).range(
@@ -360,6 +491,7 @@ function createBlockState(
 	state: EditorRuntimeState,
 	resolveImageUrl: (src: string, filePath: string) => string,
 	filePath: string,
+	codeBlockEmbeds: readonly CodeBlockEmbedDefinition[] | undefined,
 	collapsedCallouts: ReadonlyMap<string, boolean> = new Map(),
 ): LivePreviewBlockState {
 	recordBlockPass()
@@ -369,7 +501,15 @@ function createBlockState(
 		blockUsesReplacement(block, collapsedCallouts, state.selection),
 	)
 	const replacementIds = getReplacementIds(blocks, collapsedCallouts, state.selection)
-	const decorationSets = buildDecorationSets(runtime, widgets, state, blocks, collapsedCallouts)
+	const decorationSets = buildDecorationSets(
+		runtime,
+		widgets,
+		state,
+		blocks,
+		collapsedCallouts,
+		codeBlockEmbeds,
+		filePath,
+	)
 	return {
 		blocks,
 		index,
@@ -378,7 +518,7 @@ function createBlockState(
 		replacementIds,
 		decorations: decorationSets.decorations,
 		outerDecorations: decorationSets.outerDecorations,
-		wrappers: buildWrappers(runtime, blocks, collapsedCallouts, state.selection),
+		wrappers: buildWrappers(runtime, blocks, collapsedCallouts, state.selection, codeBlockEmbeds),
 	}
 }
 
@@ -402,10 +542,11 @@ export function createLivePreviewBlockField(
 	widgets: LivePreviewWidgets,
 	resolveImageUrl: (src: string, filePath: string) => string,
 	filePath: string,
+	codeBlockEmbeds: readonly CodeBlockEmbedDefinition[] | undefined,
 ): EditorRuntimeStateField<LivePreviewBlockState> {
 	return runtime.state.StateField.define({
 		create(state: EditorRuntimeState) {
-			return createBlockState(runtime, widgets, state, resolveImageUrl, filePath)
+			return createBlockState(runtime, widgets, state, resolveImageUrl, filePath, codeBlockEmbeds)
 		},
 		update(value: LivePreviewBlockState, transaction: EditorRuntimeTransaction) {
 			if (transaction.docChanged) {
@@ -415,6 +556,7 @@ export function createLivePreviewBlockField(
 					transaction.state,
 					resolveImageUrl,
 					filePath,
+					codeBlockEmbeds,
 					mapCollapsedCallouts(value, transaction),
 				)
 			}
@@ -453,6 +595,8 @@ export function createLivePreviewBlockField(
 				transaction.state,
 				value.blocks,
 				collapsedCallouts,
+				codeBlockEmbeds,
+				filePath,
 			)
 			return {
 				...value,
@@ -468,6 +612,7 @@ export function createLivePreviewBlockField(
 					value.blocks,
 					collapsedCallouts,
 					transaction.state.selection,
+					codeBlockEmbeds,
 				),
 			}
 		},

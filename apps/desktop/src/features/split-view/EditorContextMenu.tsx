@@ -378,10 +378,25 @@ function buildNativeMenuItems(
 			action: () => runCommand(view, "format.image"),
 		},
 		{
+			id: "insert-inline-math",
+			text: "Inline Formula",
+			action: () => runCommand(view, "format.inline-math"),
+		},
+		{
+			id: "insert-math-block",
+			text: "Formula Block",
+			action: () => runCommand(view, "format.math-block"),
+		},
+		{
 			id: "insert-table",
 			text: "Insert Table",
 			accelerator: "CmdOrCtrl+Shift+Y",
 			action: () => runCommand(view, "format.table"),
+		},
+		{
+			id: "insert-drawing",
+			text: "Insert Drawing",
+			action: () => runCommand(view, "format.drawing"),
 		},
 		{
 			id: "insert-callout",
@@ -688,9 +703,16 @@ function InsertContextMenuItems({ view }: EditorContextMenuSectionProps) {
 			<ContextMenuItem onSelect={() => runCommand(view, "format.image")}>
 				Image<ContextMenuShortcut>⌘⇧K</ContextMenuShortcut>
 			</ContextMenuItem>
+			<ContextMenuItem onSelect={() => runCommand(view, "format.inline-math")}>
+				Inline Formula
+			</ContextMenuItem>
+			<ContextMenuItem onSelect={() => runCommand(view, "format.math-block")}>
+				Formula Block
+			</ContextMenuItem>
 			<ContextMenuItem onSelect={() => runCommand(view, "format.table")}>
 				Table<ContextMenuShortcut>⌘⇧Y</ContextMenuShortcut>
 			</ContextMenuItem>
+			<ContextMenuItem onSelect={() => runCommand(view, "format.drawing")}>Drawing</ContextMenuItem>
 			<ContextMenuSub>
 				<ContextMenuSubTrigger>Callout</ContextMenuSubTrigger>
 				<ContextMenuSubContent>

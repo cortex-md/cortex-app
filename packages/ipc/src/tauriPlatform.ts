@@ -7,6 +7,8 @@ import { Auth } from "./Auth"
 import { Device } from "./Device"
 import { Devices } from "./Devices"
 import { Dialog } from "./Dialog"
+import { DocumentExport } from "./DocumentExport"
+import { DocumentImport } from "./DocumentImport"
 import { FileSystem } from "./FileSystem"
 import { Font } from "./Font"
 import { Http } from "./Http"
@@ -29,6 +31,8 @@ export const tauriPlatform: Platform = {
 	window: new NativeWindow(),
 	fs: new FileSystem(),
 	dialog: new Dialog(),
+	documentImport: new DocumentImport(),
+	documentExport: new DocumentExport(),
 	vault: new Vault(),
 	storage,
 	app: new App(),

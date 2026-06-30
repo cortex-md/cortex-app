@@ -26,6 +26,7 @@ import {
 	Blocks,
 	Keyboard,
 	LayoutTemplate,
+	PackageOpen,
 	Palette,
 	RefreshCw,
 	Server,
@@ -45,6 +46,7 @@ import { AppearanceSection } from "./AppearanceSettings"
 import { EditorSection } from "./EditorSettings"
 import { GeneralSection } from "./GeneralSettings"
 import { HotkeysSection } from "./HotkeysSettings"
+import { ImportExportSection } from "./ImportExportSettings"
 import { PluginsSection } from "./PluginsSettings"
 import { SettingsPage, SettingsPageHeader, SettingsSection } from "./SettingsPrimitives"
 import { SyncSection } from "./SyncSettings"
@@ -97,6 +99,13 @@ const appSections: SettingsSectionItem[] = [
 		title: "Templates",
 		description: "Create reusable note structures for this vault.",
 		icon: LayoutTemplate,
+	},
+	{
+		id: "import-export",
+		navigationLabel: "Import & Export",
+		title: "Import & Export",
+		description: "Move notes between Cortex and external document formats.",
+		icon: PackageOpen,
 	},
 ]
 
@@ -344,6 +353,7 @@ export function SettingsContent({
 						)}
 						{activeSectionId === "hotkeys" && <HotkeysSection />}
 						{activeSectionId === "templates" && <TemplatesSection />}
+						{activeSectionId === "import-export" && <ImportExportSection />}
 						{activeSectionId === "sync" && <SyncSection view="overview" />}
 						{activeSectionId === "sync-preferences" && <SyncSection view="preferences" />}
 						{activeSectionId === "sync-members" && <SyncSection view="members" />}

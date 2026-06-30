@@ -1,5 +1,6 @@
 import "./markdown.css"
 import { useEffect, useRef } from "react"
+import type { CodeBlockEmbedDefinition } from "./codeBlockEmbeds"
 import {
 	type BaseExtensionsOptions,
 	baseExtensions,
@@ -25,6 +26,7 @@ interface Props {
 	filePath: string
 	editorConfig?: EditorConfig
 	livePreview?: boolean
+	codeBlockEmbeds?: readonly CodeBlockEmbedDefinition[]
 	resolveImageUrl?: (src: string, filePath: string) => string
 	extraExtensions?: EditorExtensionFactory[]
 	scrollMode?: EditorScrollMode
@@ -45,6 +47,7 @@ async function resolveExtensionFactories(
 
 function createBaseExtensionOptions({
 	livePreview,
+	codeBlockEmbeds,
 	resolveImageUrl,
 	filePath,
 	scrollMode,
@@ -52,6 +55,7 @@ function createBaseExtensionOptions({
 	commandExecutor,
 }: {
 	livePreview: boolean
+	codeBlockEmbeds?: readonly CodeBlockEmbedDefinition[]
 	resolveImageUrl?: (src: string, filePath: string) => string
 	filePath: string
 	scrollMode: EditorScrollMode
@@ -60,6 +64,7 @@ function createBaseExtensionOptions({
 }): BaseExtensionsOptions {
 	return {
 		livePreview,
+		codeBlockEmbeds,
 		resolveImageUrl,
 		filePath,
 		scrollMode,
@@ -73,6 +78,7 @@ export function EditorView({
 	filePath,
 	editorConfig = DEFAULT_EDITOR_CONFIG,
 	livePreview = true,
+	codeBlockEmbeds,
 	resolveImageUrl,
 	extraExtensions,
 	scrollMode = "internal",
@@ -88,6 +94,7 @@ export function EditorView({
 	const filePathRef = useRef(filePath)
 	const contentRef = useRef(content)
 	const livePreviewRef = useRef(livePreview)
+	const codeBlockEmbedsRef = useRef(codeBlockEmbeds)
 	const resolveImageUrlRef = useRef(resolveImageUrl)
 	const extraExtensionsRef = useRef(extraExtensions)
 	const scrollModeRef = useRef(scrollMode)
@@ -100,6 +107,7 @@ export function EditorView({
 
 	contentRef.current = content
 	livePreviewRef.current = livePreview
+	codeBlockEmbedsRef.current = codeBlockEmbeds
 	resolveImageUrlRef.current = resolveImageUrl
 	extraExtensionsRef.current = extraExtensions
 	scrollModeRef.current = scrollMode
@@ -120,6 +128,7 @@ export function EditorView({
 			runtimeRef.current = runtime
 			const baseOptions = createBaseExtensionOptions({
 				livePreview: livePreviewRef.current,
+				codeBlockEmbeds: codeBlockEmbedsRef.current,
 				resolveImageUrl: resolveImageUrlRef.current,
 				filePath: filePathRef.current,
 				scrollMode: scrollModeRef.current,
@@ -175,6 +184,7 @@ export function EditorView({
 		if (!view || !runtime) return
 		reconfigureEditor(runtime, view, editorConfig, {
 			livePreview,
+			codeBlockEmbeds,
 			resolveImageUrl,
 			filePath,
 			scrollMode,
@@ -185,6 +195,7 @@ export function EditorView({
 		editorConfig,
 		filePath,
 		livePreview,
+		codeBlockEmbeds,
 		resolveImageUrl,
 		scrollMode,
 		vimCommandProvider,

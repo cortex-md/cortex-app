@@ -22,7 +22,7 @@ src-tauri/              # Rust source (Tauri commands, sync engine)
 
 ## Native Shell and Settings
 
-The main app and Settings use separate Tauri webview windows. `main.tsx` renders `App` by default and `SettingsWindow` when `?window=settings` is present. Components should continue calling `useUIStore().openSettings(section)` for settings routes; Marketplace opens through the desktop-owned workspace helper `openMarketplaceView(tab)`.
+The main app owns Settings as the in-app `SettingsModal`. Components should continue calling `useUIStore().openSettings(section)` for settings routes; Marketplace opens through the desktop-owned workspace helper `openMarketplaceView(tab)`.
 
 `SettingsModal` remains as a fallback for cases where there is no active vault or native window creation fails. Shared settings layout belongs in `SettingsContent`, not in window-specific wrappers.
 

@@ -113,6 +113,33 @@ describe("openTab()", () => {
 		expect(noteCache.openTab).toHaveBeenCalledWith("/vault/note.md")
 	})
 
+	it("opens PDF tabs without creating note cache entries", () => {
+		useWorkspaceStore.getState().openTab("/vault/source.pdf")
+		const pane = useWorkspaceStore.getState().panes[ROOT_PANE_ID]
+
+		expect(pane.tabs[0]).toMatchObject({
+			filePath: "/vault/source.pdf",
+			fileKind: "pdf",
+			title: "source.pdf",
+		})
+		expect(noteCache.openTab).not.toHaveBeenCalled()
+	})
+
+	it("replaces markdown cache ownership when reusing a tab for a PDF", () => {
+		useWorkspaceStore.getState().openTab("/vault/note.md")
+		vi.mocked(noteCache.openTab).mockClear()
+
+		useWorkspaceStore.getState().openTab("/vault/source.pdf", { reuseActive: true })
+
+		const pane = useWorkspaceStore.getState().panes[ROOT_PANE_ID]
+		expect(pane.tabs[0]).toMatchObject({
+			filePath: "/vault/source.pdf",
+			fileKind: "pdf",
+		})
+		expect(noteCache.openTab).not.toHaveBeenCalled()
+		expect(noteCache.closeTab).toHaveBeenCalledWith("/vault/note.md")
+	})
+
 	it("derives tab title from file name without extension", () => {
 		useWorkspaceStore.getState().openTab("/vault/my-note.md")
 		const pane = useWorkspaceStore.getState().panes[ROOT_PANE_ID]
@@ -185,6 +212,15 @@ describe("closeTab()", () => {
 			s.panes[ROOT_PANE_ID].tabs[0].isSuspended = true
 		})
 		vi.mocked(noteCache.closeTab).mockClear()
+
+		useWorkspaceStore.getState().closeTab(tab.id, ROOT_PANE_ID)
+
+		expect(noteCache.closeTab).not.toHaveBeenCalled()
+	})
+
+	it("does not release note cache when closing a PDF tab", () => {
+		useWorkspaceStore.getState().openTab("/vault/source.pdf")
+		const tab = useWorkspaceStore.getState().panes[ROOT_PANE_ID].tabs[0]
 
 		useWorkspaceStore.getState().closeTab(tab.id, ROOT_PANE_ID)
 
@@ -270,6 +306,20 @@ describe("activateTab()", () => {
 		expect(useWorkspaceStore.getState().panes[ROOT_PANE_ID].tabs[0].isSuspended).toBe(false)
 		expect(noteCache.openTab).toHaveBeenCalledWith("/vault/note.md")
 	})
+
+	it("unsuspends a PDF tab without opening note cache", () => {
+		useWorkspaceStore.getState().openTab("/vault/source.pdf")
+		const tab = useWorkspaceStore.getState().panes[ROOT_PANE_ID].tabs[0]
+		useWorkspaceStore.setState((s) => {
+			s.panes[ROOT_PANE_ID].tabs[0].isSuspended = true
+		})
+		vi.mocked(noteCache.openTab).mockClear()
+
+		useWorkspaceStore.getState().activateTab(tab.id, ROOT_PANE_ID)
+
+		expect(useWorkspaceStore.getState().panes[ROOT_PANE_ID].tabs[0].isSuspended).toBe(false)
+		expect(noteCache.openTab).not.toHaveBeenCalled()
+	})
 })
 
 describe("suspendInactiveTabs()", () => {
@@ -310,6 +360,21 @@ describe("suspendInactiveTabs()", () => {
 
 		expect(noteCache.openTab).toHaveBeenCalledTimes(1)
 		expect(noteCache.openTab).toHaveBeenCalledWith("/vault/note.md")
+	})
+
+	it("suspends stale PDF tabs without releasing note cache ownership", () => {
+		useWorkspaceStore.getState().openTab("/vault/old.pdf")
+		useWorkspaceStore.getState().openTab("/vault/active.md")
+		useWorkspaceStore.setState((s) => {
+			s.panes[ROOT_PANE_ID].tabs[0].lastAccessed = 0
+		})
+		vi.mocked(noteCache.closeTab).mockClear()
+
+		useWorkspaceStore.getState().suspendInactiveTabs()
+
+		const oldTab = useWorkspaceStore.getState().panes[ROOT_PANE_ID].tabs[0]
+		expect(oldTab.isSuspended).toBe(true)
+		expect(noteCache.closeTab).not.toHaveBeenCalled()
 	})
 })
 
@@ -380,6 +445,20 @@ describe("openViewTab()", () => {
 		})
 	})
 
+	it("updates tab view state for file tabs", () => {
+		useWorkspaceStore.getState().openTab("/vault/source.pdf")
+		const tab = useWorkspaceStore.getState().panes[ROOT_PANE_ID].tabs[0]
+
+		useWorkspaceStore
+			.getState()
+			.updateTabViewState(tab.id, ROOT_PANE_ID, { pageNumber: 3, zoom: 1.25 })
+
+		expect(useWorkspaceStore.getState().panes[ROOT_PANE_ID].tabs[0].viewState).toEqual({
+			pageNumber: 3,
+			zoom: 1.25,
+		})
+	})
+
 	it("updates view tab title and state together", () => {
 		useWorkspaceStore.getState().openViewTab("plugin-markdown-note", "Welcome", {
 			viewState: { content: "# Welcome" },
@@ -430,6 +509,18 @@ describe("updateTabPath()", () => {
 		const pane = useWorkspaceStore.getState().panes[ROOT_PANE_ID]
 		expect(pane.tabs[0].filePath).toBe("/vault/new.md")
 		expect(pane.tabs[0].title).toBe("new")
+	})
+
+	it("updates file kind when a tab path changes extension", () => {
+		useWorkspaceStore.getState().openTab("/vault/old.md")
+
+		useWorkspaceStore.getState().updateTabPath("/vault/old.md", "/vault/source.pdf")
+
+		const pane = useWorkspaceStore.getState().panes[ROOT_PANE_ID]
+		expect(pane.tabs[0]).toMatchObject({
+			filePath: "/vault/source.pdf",
+			fileKind: "pdf",
+		})
 	})
 
 	it("updates descendant tabs when a folder path changes", () => {
@@ -599,6 +690,48 @@ describe("workspace persistence", () => {
 		expect(tabs.find((tab) => tab.id === "active")?.isSuspended).toBe(false)
 		expect(noteCache.openTab).toHaveBeenCalledTimes(1)
 		expect(noteCache.openTab).toHaveBeenCalledWith("/vault/active.md")
+	})
+
+	it("restores PDF tabs without opening note cache", async () => {
+		const readFile = vi.fn().mockResolvedValue(
+			JSON.stringify({
+				...buildInitial(),
+				panes: {
+					[ROOT_PANE_ID]: {
+						id: ROOT_PANE_ID,
+						activeTabId: "active",
+						tabs: [
+							{
+								id: "active",
+								tabType: "file",
+								filePath: "/vault/source.pdf",
+								viewId: null,
+								viewState: { pageNumber: 2, zoom: 1.25 },
+								title: "source.pdf",
+								isPinned: false,
+								isDirty: false,
+								isEphemeral: false,
+								lastAccessed: 1,
+								isSuspended: false,
+							},
+						],
+					},
+				},
+			}),
+		)
+		vi.mocked(getPlatform).mockReturnValue({
+			fs: { readFile },
+		} as never)
+
+		await useWorkspaceStore.getState().loadWorkspace("/vault")
+
+		const tab = useWorkspaceStore.getState().panes[ROOT_PANE_ID].tabs[0]
+		expect(tab).toMatchObject({
+			fileKind: "pdf",
+			isSuspended: false,
+			viewState: { pageNumber: 2, zoom: 1.25 },
+		})
+		expect(noteCache.openTab).not.toHaveBeenCalled()
 	})
 
 	it("restores left sidebar layout from workspace state", async () => {

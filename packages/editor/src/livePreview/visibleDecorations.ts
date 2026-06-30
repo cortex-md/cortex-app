@@ -5,6 +5,8 @@ import {
 	subscribeCalloutTypes,
 	subscribeMarkdownRegistry,
 } from "@cortex/renderer"
+import { scanInlineMath } from "@cortex/renderer/math"
+import type { CodeBlockEmbedDefinition } from "../codeBlockEmbeds"
 import { resolveTableCellFromPointer, type TablePointerCellTarget } from "../tablePointer"
 import type {
 	EditorRuntimeDecorationRange,
@@ -15,6 +17,7 @@ import type {
 	EditorRuntimeViewUpdate,
 } from "../types"
 import type { LivePreviewBlockState } from "./blockState"
+import { getCodeBlockEmbedMatch } from "./codeBlockEmbeds"
 import type { LivePreviewEffects } from "./effects"
 import {
 	recordCandidateBlocks,
@@ -31,7 +34,7 @@ import {
 	type MarkdownBlock,
 	selectionOverlapsBlock,
 } from "./model"
-import type { createLivePreviewWidgets } from "./widgets"
+import type { CodeBlockChromeAction, createLivePreviewWidgets } from "./widgets"
 
 type LivePreviewWidgets = ReturnType<typeof createLivePreviewWidgets>
 
@@ -262,6 +265,55 @@ function isCodeNode(node: SyntaxNodeLike | null): boolean {
 	return false
 }
 
+function isInlineMathExcludedNode(node: SyntaxNodeLike | null): boolean {
+	for (let current = node; current; current = current.parent) {
+		if (
+			current.name === "InlineCode" ||
+			current.name === "FencedCode" ||
+			current.name === "Link" ||
+			current.name === "URL" ||
+			current.name === "Autolink"
+		) {
+			return true
+		}
+	}
+	return false
+}
+
+function addInlineMath(
+	runtime: EditorRuntimeModules,
+	widgets: LivePreviewWidgets,
+	view: EditorRuntimeView,
+	ranges: EditorRuntimeDecorationRange[],
+	hiddenBlocks: readonly MarkdownBlock[],
+	visibleRange: { from: number; to: number },
+): void {
+	const tree = runtime.language.syntaxTree(view.state)
+	let position = visibleRange.from
+	while (position <= visibleRange.to) {
+		const line = view.state.doc.lineAt(position)
+		const segmentFrom = Math.max(line.from, visibleRange.from)
+		const segmentTo = Math.min(line.to, visibleRange.to)
+		const text = view.state.sliceDoc(segmentFrom, segmentTo)
+		for (const token of scanInlineMath(text, segmentFrom)) {
+			if (
+				hiddenBlockContaining(hiddenBlocks, token.from, token.to) ||
+				selectionOverlapsRange(view, token.from, token.to) ||
+				isInlineMathExcludedNode(tree.resolveInner(token.from, 1) as SyntaxNodeLike)
+			) {
+				continue
+			}
+			ranges.push(
+				runtime.view.Decoration.replace({
+					widget: new widgets.MathInlineWidget(token.content),
+				}).range(token.from, token.to),
+			)
+		}
+		if (line.to >= visibleRange.to) break
+		position = line.to + 1
+	}
+}
+
 function addSemanticTransforms(
 	runtime: EditorRuntimeModules,
 	widgets: LivePreviewWidgets,
@@ -323,17 +375,46 @@ function addCodeControls(
 	ranges: EditorRuntimeDecorationRange[],
 	blocks: readonly CodeBlock[],
 	hoveredCodeBlockId: string | null,
+	codeBlockEmbeds: readonly CodeBlockEmbedDefinition[] | undefined,
+	filePath: string,
 ): void {
 	for (const block of blocks) {
 		if (selectionOverlapsBlock(view.state.selection, block)) continue
 		const hovered = hoveredCodeBlockId === block.id
 		if (!hovered && !block.language) continue
+		const embedAction = hovered
+			? getCodeBlockChromeAction(view, block, codeBlockEmbeds, filePath)
+			: null
 		ranges.push(
 			runtime.view.Decoration.widget({
-				widget: new widgets.CodeBlockChromeWidget(block.code, block.id, block.language, hovered),
+				widget: new widgets.CodeBlockChromeWidget(
+					block.code,
+					block.id,
+					block.language,
+					hovered,
+					embedAction,
+				),
 				side: 1,
 			}).range(block.openFenceTo),
 		)
+	}
+}
+
+function getCodeBlockChromeAction(
+	view: EditorRuntimeView,
+	block: CodeBlock,
+	codeBlockEmbeds: readonly CodeBlockEmbedDefinition[] | undefined,
+	filePath: string,
+): CodeBlockChromeAction | null {
+	const match = getCodeBlockEmbedMatch(view.state, block, codeBlockEmbeds, filePath)
+	if (!match?.definition.openLivePreview) return null
+	if (match.definition.canOpenLivePreview?.(match.context) === false) return null
+	return {
+		label: match.definition.livePreviewOpenLabel ?? "Open",
+		title: `Open ${block.language}`,
+		onClick: (event) => {
+			match.definition.openLivePreview?.({ ...match.context, event })
+		},
 	}
 }
 
@@ -344,6 +425,8 @@ function buildVisibleDecorations(
 	view: EditorRuntimeView,
 	blockField: EditorRuntimeStateField<LivePreviewBlockState>,
 	hoveredCodeBlockId: string | null,
+	codeBlockEmbeds: readonly CodeBlockEmbedDefinition[] | undefined,
+	filePath: string,
 ): EditorRuntimeDecorationSet {
 	recordViewportPass()
 	const blockState = view.state.field(blockField) as LivePreviewBlockState
@@ -419,6 +502,7 @@ function buildVisibleDecorations(
 				}
 			},
 		})
+		addInlineMath(runtime, widgets, view, ranges, projectionBlockedBlocks, visibleRange)
 		addSemanticTransforms(runtime, widgets, view, ranges, projectionBlockedBlocks, visibleRange)
 	}
 
@@ -434,6 +518,8 @@ function buildVisibleDecorations(
 		ranges,
 		[...visibleCodeBlocks.values()],
 		hoveredCodeBlockId,
+		codeBlockEmbeds,
+		filePath,
 	)
 	recordDecorationsProduced(ranges.length)
 	return runtime.view.Decoration.set(ranges, true)
@@ -518,6 +604,8 @@ export function createVisibleDecorationsPlugin(
 	effects: LivePreviewEffects,
 	widgets: LivePreviewWidgets,
 	blockField: EditorRuntimeStateField<LivePreviewBlockState>,
+	codeBlockEmbeds: readonly CodeBlockEmbedDefinition[] | undefined,
+	filePath: string,
 ) {
 	return runtime.view.ViewPlugin.fromClass(
 		class {
@@ -535,6 +623,8 @@ export function createVisibleDecorationsPlugin(
 					view,
 					blockField,
 					this.hoveredCodeBlockId,
+					codeBlockEmbeds,
+					filePath,
 				)
 				this.unsubscribeMarkdown = subscribeMarkdownRegistry(() => {
 					this.view.dispatch({ effects: effects.livePreviewRegistryChanged.of() })
@@ -575,6 +665,8 @@ export function createVisibleDecorationsPlugin(
 						update.view,
 						blockField,
 						this.hoveredCodeBlockId,
+						codeBlockEmbeds,
+						filePath,
 					)
 				}
 			}

@@ -1,5 +1,5 @@
 import { EditorState } from "@codemirror/state"
-import { commandRegistry } from "@cortex/commands"
+import { commandRegistry, registerCommand } from "@cortex/commands"
 import type { EditorRuntimeView } from "@cortex/editor/types"
 import { pluginStore } from "@cortex/plugin-host-core"
 import { cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react"
@@ -137,6 +137,48 @@ describe("table command surfaces", () => {
 		expect(screen.queryByText("Align Column")).not.toBeInTheDocument()
 		expect(screen.queryByText("Duplicate Row")).not.toBeInTheDocument()
 		expect(screen.queryByText("Move Column Right")).not.toBeInTheDocument()
+	})
+
+	it("runs formula commands from the fallback editor context menu", async () => {
+		const inlineFormula = vi.fn()
+		const formulaBlock = vi.fn()
+		const plainView = createEditorView("plain text", 0)
+		registerCommand({
+			id: "format.inline-math",
+			label: "Inline Formula",
+			category: "Format",
+			execute: inlineFormula,
+		})
+		registerCommand({
+			id: "format.math-block",
+			label: "Formula Block",
+			category: "Format",
+			execute: formulaBlock,
+		})
+
+		render(
+			<EditorContextMenu getEditorView={() => plainView}>
+				<div data-testid="editor-surface">Editor</div>
+			</EditorContextMenu>,
+		)
+
+		fireEvent.contextMenu(screen.getByTestId("editor-surface"), { clientX: 10, clientY: 10 })
+
+		await waitFor(() => {
+			expect(screen.getByText("Inline Formula")).toBeInTheDocument()
+		})
+		fireEvent.click(screen.getByText("Inline Formula"))
+
+		fireEvent.contextMenu(screen.getByTestId("editor-surface"), { clientX: 10, clientY: 10 })
+
+		await waitFor(() => {
+			expect(screen.getByText("Formula Block")).toBeInTheDocument()
+		})
+		fireEvent.click(screen.getByText("Formula Block"))
+
+		expect(inlineFormula).toHaveBeenCalledWith({ source: "menu", payload: undefined })
+		expect(formulaBlock).toHaveBeenCalledWith({ source: "menu", payload: undefined })
+		expect(plainView.focus).toHaveBeenCalledTimes(2)
 	})
 
 	it("shows editor plugin actions as flat menu items", async () => {

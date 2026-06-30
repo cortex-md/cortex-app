@@ -1,4 +1,5 @@
 import { commandRegistry, registerCommand } from "@cortex/commands"
+import type { Tab } from "@cortex/core"
 import { noteCache, useEditorStore, useWorkspaceStore } from "@cortex/core"
 import { EditorView } from "@cortex/editor/editor-view"
 import { ReadingView } from "@cortex/editor/reading-view"
@@ -29,27 +30,49 @@ vi.mock("../../../features/properties/NotePropertiesPanel", () => ({
 	NotePropertiesPanel: vi.fn(() => <div data-testid="note-properties" />),
 }))
 
-function setPaneTab(isSuspended = false) {
+vi.mock("../../../features/mermaid/mermaidCodeBlockEmbed", () => ({
+	createMermaidCodeBlockEmbed: vi.fn(() => ({
+		languages: ["mermaid"],
+		render: vi.fn(() => null),
+	})),
+}))
+
+vi.mock("../../../features/split-view/coreViewRegistry", () => ({
+	getCoreViewComponent: vi.fn(() => null),
+}))
+
+vi.mock("../../../features/split-view/PdfTabView", () => ({
+	PdfTabView: vi.fn(({ tab }) => <div data-testid="pdf-tab-view">{tab.filePath}</div>),
+}))
+
+function setPaneTab(
+	isSuspended = false,
+	filePath = "/vault/note.md",
+	fileKind: "markdown" | "pdf" | "missing" = "markdown",
+) {
+	const tab = {
+		id: "tab-1",
+		tabType: "file" as const,
+		fileKind: fileKind === "missing" ? undefined : fileKind,
+		filePath,
+		viewId: null,
+		viewState: null,
+		title: filePath.split("/").pop()?.replace(/\.md$/, "") ?? filePath,
+		isPinned: false,
+		isDirty: false,
+		isEphemeral: false,
+		lastAccessed: 1,
+		isSuspended,
+	}
+	if (fileKind === "missing") {
+		delete (tab as { fileKind?: "markdown" | "pdf" }).fileKind
+	}
 	useWorkspaceStore.setState({
 		panes: {
 			root: {
 				id: "root",
 				activeTabId: "tab-1",
-				tabs: [
-					{
-						id: "tab-1",
-						tabType: "file",
-						filePath: "/vault/note.md",
-						viewId: null,
-						viewState: null,
-						title: "note",
-						isPinned: false,
-						isDirty: false,
-						isEphemeral: false,
-						lastAccessed: 1,
-						isSuspended,
-					},
-				],
+				tabs: [tab as Tab],
 			},
 		},
 		splitTree: { type: "leaf", id: "root" },
@@ -173,5 +196,27 @@ describe("PaneView", () => {
 		render(<PaneView paneId="root" />)
 
 		expect(screen.queryByRole("toolbar", { name: "Markdown formatting" })).not.toBeInTheDocument()
+	})
+
+	it("renders PDF tabs with the lazy PDF view instead of Markdown surfaces", async () => {
+		setPaneTab(false, "/vault/source.pdf", "pdf")
+
+		render(<PaneView paneId="root" />)
+
+		expect(await screen.findByTestId("pdf-tab-view")).toHaveTextContent("/vault/source.pdf")
+		expect(EditorView).not.toHaveBeenCalled()
+		expect(NotePropertiesPanel).not.toHaveBeenCalled()
+		expect(useEditorStore.getState().activeFilePath).toBeNull()
+	})
+
+	it("infers legacy PDF tabs without fileKind before mounting Markdown surfaces", async () => {
+		setPaneTab(false, "/vault/legacy.pdf", "missing")
+
+		render(<PaneView paneId="root" />)
+
+		expect(await screen.findByTestId("pdf-tab-view")).toHaveTextContent("/vault/legacy.pdf")
+		expect(EditorView).not.toHaveBeenCalled()
+		expect(NotePropertiesPanel).not.toHaveBeenCalled()
+		expect(useEditorStore.getState().activeFilePath).toBeNull()
 	})
 })

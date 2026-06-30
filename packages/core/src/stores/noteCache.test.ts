@@ -150,6 +150,13 @@ describe("readEntry()", () => {
 		})
 		expect(mockReadFileSnapshot).toHaveBeenCalledTimes(1)
 	})
+
+	it("rejects non-Markdown files before reading from disk", async () => {
+		await expect(noteCache.readEntry("/vault/source.pdf")).rejects.toThrow(
+			"NoteCache only supports Markdown files",
+		)
+		expect(mockReadFileSnapshot).not.toHaveBeenCalled()
+	})
 })
 
 describe("write()", () => {
@@ -218,6 +225,11 @@ describe("flush()", () => {
 
 	it("is a no-op when entry does not exist", async () => {
 		await noteCache.flush("/nonexistent.md")
+		expect(mockWriteFile).not.toHaveBeenCalled()
+	})
+
+	it("is a no-op for non-Markdown files", async () => {
+		await noteCache.flush("/vault/source.pdf")
 		expect(mockWriteFile).not.toHaveBeenCalled()
 	})
 })
@@ -348,6 +360,13 @@ describe("openTab() / closeTab()", () => {
 
 		expect(mockReadFileSnapshot).toHaveBeenCalledTimes(1)
 		expect(noteCache.getEntry(FILE_PATH)?.openTabCount).toBe(1)
+	})
+
+	it("does not preload non-Markdown tabs", () => {
+		noteCache.openTab("/vault/source.pdf")
+
+		expect(mockReadFileSnapshot).not.toHaveBeenCalled()
+		expect(noteCache.getEntry("/vault/source.pdf")).toBeUndefined()
 	})
 
 	it("shares the openTab preload with read", async () => {

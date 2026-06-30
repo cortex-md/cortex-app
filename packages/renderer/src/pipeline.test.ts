@@ -154,6 +154,7 @@ describe("processor isolation and sanitization", () => {
 			hasTextTransforms: false,
 			hasTables: false,
 			hasGfmSyntax: false,
+			hasMath: false,
 		})
 		expect(
 			detectRendererFeatureFlags(
@@ -170,6 +171,7 @@ describe("processor isolation and sanitization", () => {
 			hasTextTransforms: true,
 			hasTables: true,
 			hasGfmSyntax: false,
+			hasMath: false,
 		})
 	})
 
@@ -363,5 +365,67 @@ describe("processor isolation and sanitization", () => {
 		expect(html).toContain('data-task-item="checked"')
 		expect(html).toMatch(/data-offset="\d+"/)
 		expect(html).toContain('data-task-checkbox="true"')
+	})
+})
+
+describe("math rendering", () => {
+	it("renders guarded inline and block math delimiters", async () => {
+		const html = await createRenderer().render("Inline $x^2$.\n\n$$\ny=x+1\n$$")
+
+		expect(html).toContain('class="markdown-math-inline"')
+		expect(html).toContain('class="markdown-math-block"')
+		expect(html).toContain('<annotation encoding="application/x-tex">x^2</annotation>')
+		expect(html).toContain('<annotation encoding="application/x-tex">y=x+1</annotation>')
+	})
+
+	it("renders backslash inline and block math delimiters", async () => {
+		const html = await createRenderer().render("Inline \\(x^2\\).\n\n\\[\ny=x\n\\]")
+
+		expect(html).toContain('class="markdown-math-inline"')
+		expect(html).toContain('class="markdown-math-block"')
+		expect(html).toContain('<annotation encoding="application/x-tex">x^2</annotation>')
+		expect(html).toContain('<annotation encoding="application/x-tex">y=x</annotation>')
+	})
+
+	it("does not treat money as inline math", async () => {
+		const html = await createRenderer().render("Price is $20 and $30 today.")
+
+		expect(html).toBe("<p>Price is $20 and $30 today.</p>")
+		expect(
+			detectRendererFeatureFlags("Price is $20 and $30 today.", { hasTextTransforms: false })
+				.hasMath,
+		).toBe(false)
+	})
+
+	it("keeps formula errors local", async () => {
+		const html = await createRenderer().render("Broken $\\frac{1$ after.")
+
+		expect(html).toContain("katex-error")
+		expect(html).toContain("after")
+	})
+
+	it("sanitizes dangerous math output and non-math span styles", async () => {
+		const dispose = registerMarkdownProcessor({
+			id: "unsafe-span-style",
+			phase: "rehype",
+			surfaces: ["reading-view"],
+			processor: () => (tree: unknown) => {
+				const root = tree as { children: unknown[] }
+				root.children.unshift({
+					type: "element",
+					tagName: "span",
+					properties: { style: "position:fixed;inset:0", onclick: "alert(1)" },
+					children: [{ type: "text", value: "unsafe" }],
+				})
+			},
+		})
+
+		const html = await createRenderer().render("$x^2$")
+
+		expect(html).toContain("unsafe")
+		expect(html).not.toContain("position:fixed")
+		expect(html).not.toContain("onclick")
+		expect(html).toContain('style="height:')
+		dispose()
 	})
 })

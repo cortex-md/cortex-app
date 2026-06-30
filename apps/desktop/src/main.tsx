@@ -3,7 +3,6 @@ import { initPlatform, type NativeAppearanceSnapshot } from "@cortex/platform"
 import { generateCSSString, generateCSSVariables, initThemeManager } from "@cortex/theme"
 import ReactDOM from "react-dom/client"
 import App from "./App"
-import { SettingsWindow } from "./features/settings/SettingsWindow"
 import { WebThemeAdapter } from "./features/themes/webThemeAdapter"
 import { initializeDesktopProperties } from "./propertiesRuntime"
 import "./styles.css"
@@ -59,7 +58,4 @@ const unsubscribeNativeAppearance = tauriPlatform.appearance.subscribe(applyNati
 window.addEventListener("beforeunload", unsubscribeNativeAppearance, { once: true })
 prewarmTextRendering()
 
-const params = new URLSearchParams(window.location.search)
-const Root = params.get("window") === "settings" ? SettingsWindow : App
-
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(<Root />)
+ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(<App />)

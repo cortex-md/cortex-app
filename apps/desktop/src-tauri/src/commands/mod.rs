@@ -3,6 +3,8 @@ pub mod auth;
 pub mod device;
 pub mod devices;
 pub mod dialog;
+pub mod document_export;
+pub mod document_import;
 pub mod font;
 pub mod fs;
 pub mod keychain;

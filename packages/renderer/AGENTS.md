@@ -10,6 +10,8 @@
   of the renderer package API.
 - Renderer feature detection is per render and travels through VFile data. Do not use shared mutable
   feature state on the cached renderer because concurrent renders may overlap.
+- Math rendering stays lazy: detect math per render, load `remark-math` and KaTeX only for notes
+  with accepted math delimiters, and keep DOM/CSS loading out of `@cortex/renderer`.
 - Built-in transform skips are allowed only when no custom Markdown processors are active. Custom
   processors can add HAST that still needs callout, wiki-link, task-list, highlight, URL policy, and
   sanitizer handling.
@@ -28,6 +30,8 @@
   creates HAST must run before the final sanitizer.
 - Preprocessor output is untrusted Markdown input. It must still pass through the normal parser,
   URL policy, sanitizer, and HTML stringification pipeline.
+- KaTeX HAST must be produced before the final sanitizer. Allow inline `span` styles only for
+  descendants of `.katex`; strip plugin or arbitrary span styles outside that scope.
 - Task-list rendering should preserve source offsets on task items when parser positions are
   available so Reading View can map checkbox toggles back to Markdown.
 - React sinks should unwrap renderer output with `sanitizeRenderedMarkdownHtml(...)` instead of

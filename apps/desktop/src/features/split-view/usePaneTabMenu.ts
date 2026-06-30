@@ -1,4 +1,4 @@
-import type { Tab } from "@cortex/core"
+import type { FileTabKind, Tab } from "@cortex/core"
 import { useWorkspaceStore } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
 import { usePluginStore } from "@cortex/plugin-host-web"
@@ -27,6 +27,14 @@ interface PaneTabMenuOptions {
 const nativeMenu = new NativeMenuActions()
 
 export const hasNativeTabMenu = () => getPlatform().capabilities.includes("menu")
+
+function inferFileTabKind(filePath: string): FileTabKind {
+	return filePath.toLocaleLowerCase().endsWith(".pdf") ? "pdf" : "markdown"
+}
+
+function isMarkdownTab(tab: Tab): boolean {
+	return tab.tabType === "file" && (tab.fileKind ?? inferFileTabKind(tab.filePath)) === "markdown"
+}
 
 export function getTabPluginContext(tab: Tab) {
 	return {
@@ -175,7 +183,7 @@ export function usePaneTabMenu({
 					},
 				)
 
-				if (linkedVaultId) {
+				if (linkedVaultId && isMarkdownTab(tab)) {
 					items.push(
 						{ type: "separator" },
 						{

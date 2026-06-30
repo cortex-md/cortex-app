@@ -17,7 +17,7 @@ import {
 } from "@cortex/core"
 import { loadEditorRuntime } from "@cortex/editor/runtime"
 import { useHotkeyListener, useHotkeysStore } from "@cortex/hotkeys"
-import { type FileEntry, getPlatform } from "@cortex/platform"
+import type { FileEntry } from "@cortex/platform"
 import { PluginModalHost, PluginViewRenderer, usePluginStore } from "@cortex/plugin-host-web"
 import { useSearchStore } from "@cortex/search"
 import { useSettingsStore } from "@cortex/settings"
@@ -40,12 +40,12 @@ import {
 	useEffect,
 	useMemo,
 	useRef,
-	useState,
 } from "react"
 import { initializePluginBridges } from "./bootstrap/pluginBridges"
 import { AuthModal } from "./features/auth/AuthModal"
 import { BookmarksSidebar } from "./features/bookmarks/BookmarksSidebar"
 import { CommandPalette } from "./features/command-palette/CommandPalette"
+import { DrawingModalHost } from "./features/drawings/DrawingModalHost"
 import { FileSidebar } from "./features/file-explorer/FileSidebar"
 import { SidebarViewCarousel } from "./features/file-explorer/SidebarViewCarousel"
 import { SidebarViewStage } from "./features/file-explorer/SidebarViewStage"
@@ -60,6 +60,7 @@ import {
 	type MarketplaceOpenRequest,
 	openMarketplaceView,
 } from "./features/marketplace/openMarketplaceView"
+import { MermaidModalHost } from "./features/mermaid/MermaidModalHost"
 import { openPendingOnboardingNote } from "./features/onboarding/openPendingOnboardingNote"
 import { QuickFinder } from "./features/quick-finder/QuickFinder"
 import { SearchSidebar } from "./features/search/SearchSidebar"
@@ -162,10 +163,8 @@ interface VaultWorkspaceLifecycleOptions {
 	loadTagColors: VaultPathTask
 }
 
-interface SettingsWindowBridgeOptions {
+interface SettingsModalStateOptions {
 	settingsOpen: boolean
-	settingsInitialSection: string | null
-	vault: VaultMetadata | null
 	closeSettings: () => void
 }
 
@@ -360,6 +359,8 @@ function AppOverlays({ settingsModalOpen, onSettingsModalOpenChange }: AppOverla
 			<CommandPalette />
 			<TagPicker />
 			<CreateFromTemplateDialog />
+			<DrawingModalHost />
+			<MermaidModalHost />
 			<PluginModalHost />
 			<DragPreview />
 		</>
@@ -586,43 +587,12 @@ function useVaultIndexing(vault: VaultMetadata | null, files: FileEntry[]) {
 	}, [vault, files, indexVault, cancelSearchIndexing, buildTagIndexFromFiles, cancelTagIndexing])
 }
 
-function useSettingsWindowBridge({
-	settingsOpen,
-	settingsInitialSection,
-	vault,
-	closeSettings,
-}: SettingsWindowBridgeOptions) {
-	const [settingsModalOpen, setSettingsModalOpen] = useState(false)
-
-	useEffect(() => {
-		if (!settingsOpen || !vault) {
-			setSettingsModalOpen(settingsOpen && !vault)
-			return
-		}
-
-		let cancelled = false
-		getPlatform()
-			.window.openSettings({
-				section: settingsInitialSection,
-				vaultPath: vault.path,
-				vaultName: vault.name,
-			})
-			.then(() => {
-				if (!cancelled) closeSettings()
-			})
-			.catch(() => {
-				if (!cancelled) setSettingsModalOpen(true)
-			})
-		return () => {
-			cancelled = true
-		}
-	}, [settingsOpen, settingsInitialSection, vault, closeSettings])
-
+function useSettingsModalState({ settingsOpen, closeSettings }: SettingsModalStateOptions) {
 	const handleSettingsModalOpenChange = (open: boolean) => {
 		if (!open) closeSettings()
 	}
 
-	return { settingsModalOpen, handleSettingsModalOpenChange }
+	return { settingsModalOpen: settingsOpen, handleSettingsModalOpenChange }
 }
 
 function useInactiveTabSuspension(suspendInactiveTabs: () => void) {
@@ -690,7 +660,6 @@ export default function App() {
 	const setLeftSidebarWidth = useUIStore((s) => s.setLeftSidebarWidth)
 	const toggleLeftSidebar = useUIStore((s) => s.toggleLeftSidebar)
 	const settingsOpen = useUIStore((s) => s.settingsOpen)
-	const settingsInitialSection = useUIStore((s) => s.settingsInitialSection)
 	const openSettings = useUIStore((s) => s.openSettings)
 	const closeSettings = useUIStore((s) => s.closeSettings)
 	const appearanceSettings = useSettingsStore((s) => s.settings.appearance)
@@ -710,10 +679,8 @@ export default function App() {
 	const handleOpenMarketplace = useCallback(() => {
 		openMarketplaceView("plugins")
 	}, [])
-	const { settingsModalOpen, handleSettingsModalOpenChange } = useSettingsWindowBridge({
+	const { settingsModalOpen, handleSettingsModalOpenChange } = useSettingsModalState({
 		settingsOpen,
-		settingsInitialSection,
-		vault,
 		closeSettings,
 	})
 	const { sidebarElementRef, handleSidebarResizeStart } = useSidebarResize(

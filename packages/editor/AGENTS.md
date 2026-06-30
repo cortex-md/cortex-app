@@ -7,6 +7,8 @@
   is still pending.
 - Live Preview consumes portable inline/semantic Markdown registrations only. Do not run Unified
   preprocessors or processors in Live Preview; those are renderer/export surfaces.
+- Live Preview math uses the shared renderer math scanner for visible inline ranges and block
+  indexing, but renders KaTeX through lazy widgets only when the projected widget mounts.
 - `SideBySideView` pairs an editable Live Preview editor with a rendered Reading View. Do not
   regress it to raw Markdown plus Reading View, and keep local asset resolution wired through the
   editable side.
@@ -19,6 +21,17 @@
   desktop callers use narrow subpath exports and cannot rely on the root editor barrel for styles.
 - Delegated DOM listeners in `ReadingView` should subscribe once and call host callbacks through
   `useEffectEvent` so callback prop changes do not rebuild listeners.
+- Reading View code-block embeds are host-rendered React slots over fenced code blocks. Keep the
+  parser and slot contracts generic in `@cortex/editor`, and keep heavy renderers such as drawing,
+  diagram, or canvas libraries in desktop-owned lazy chunks instead of importing them here.
+- Reading View loads the KaTeX stylesheet through `mathStylesheet.ts` only after rendered HTML
+  contains `.katex`; keep KaTeX CSS/DOM loading out of `@cortex/renderer`.
+- Live Preview code-block embeds are lightweight DOM previews that replace only same-line source
+  ranges and use the existing code-block chrome for actions. Keep callbacks host-owned and keep
+  heavyweight renderers out of `@cortex/editor`.
+- Host-owned Live Preview embeds that mount external UI should set `CodeBlockEmbedLivePreview.signature`
+  from the source/content they render so CodeMirror can remount stale widgets when the fenced block
+  changes without changing the visible title or chrome metadata.
 
 ## Performance
 
@@ -60,6 +73,9 @@
   are exported as `@cortex/editor/markdown-format-commands`. Desktop and mobile hosts may register
   those entries in their own command registry context, but must not duplicate the `format.*`
   catalog.
+- Math insertion stays in the same `format.*` command catalog. Toolbar, slash menu, context menu,
+  and palette surfaces should execute `format.inline-math` and `format.math-block` rather than
+  calling math insertion helpers directly.
 - Folding belongs in `folding.ts` as a runtime-backed CodeMirror extension. Built-in folds should
   cover Markdown structures without replacing source text, while plugin fold providers remain
   portable line-based contracts passed through `pluginFoldingExtension`.

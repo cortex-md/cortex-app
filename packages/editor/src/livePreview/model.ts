@@ -1,5 +1,6 @@
 import { locateFrontmatter } from "@cortex/properties"
 import { type ParsedCallout, parseCallout, parseCalloutMarker } from "@cortex/renderer"
+import { findBlockMath, type MarkdownMathToken } from "@cortex/renderer/math"
 import type { EditorRuntimeModules, EditorRuntimeState, EditorSelectionState } from "../types"
 
 interface SyntaxNodeLike {
@@ -97,6 +98,16 @@ export interface HorizontalRuleBlock extends BaseBlock {
 	kind: "horizontalRule"
 }
 
+export interface MathBlock extends BaseBlock {
+	kind: "math"
+	source: string
+	content: string
+	openingFrom: number
+	openingTo: number
+	closingFrom: number
+	closingTo: number
+}
+
 export type MarkdownBlock =
 	| TableBlock
 	| FrontmatterBlock
@@ -106,12 +117,14 @@ export type MarkdownBlock =
 	| HeadingBlock
 	| BlockquoteBlock
 	| HorizontalRuleBlock
+	| MathBlock
 
 export interface MarkdownBlockIndex {
 	all: MarkdownBlock[]
 	callouts: CalloutBlock[]
 	blockquotes: BlockquoteBlock[]
 	code: CodeBlock[]
+	math: MathBlock[]
 	tables: TableBlock[]
 }
 
@@ -352,6 +365,20 @@ function createImageBlock(
 	}
 }
 
+function createMathBlock(state: EditorRuntimeState, token: MarkdownMathToken): MathBlock {
+	const base = createBaseBlock(state, "math", token.from, token.to)
+	return {
+		...base,
+		kind: "math",
+		source: token.source,
+		content: token.content,
+		openingFrom: token.openingFrom,
+		openingTo: token.openingTo,
+		closingFrom: token.closingFrom,
+		closingTo: token.closingTo,
+	}
+}
+
 export function collectMarkdownBlocks(
 	runtime: EditorRuntimeModules,
 	state: EditorRuntimeState,
@@ -407,6 +434,14 @@ export function collectMarkdownBlocks(
 		},
 	})
 
+	const sourceBlocks = blocks
+		.filter((block) => block.kind === "code" || block.kind === "frontmatter")
+		.sort((left, right) => left.from - right.from || left.to - right.to)
+	for (const token of findBlockMath(state.doc.toString())) {
+		if (findBlockContainingRange(sourceBlocks, token.from, token.to)) continue
+		blocks.push(createMathBlock(state, token))
+	}
+
 	return blocks.sort((left, right) => left.from - right.from || left.to - right.to)
 }
 
@@ -416,6 +451,7 @@ export function createMarkdownBlockIndex(blocks: MarkdownBlock[]): MarkdownBlock
 		callouts: blocks.filter((block): block is CalloutBlock => block.kind === "callout"),
 		blockquotes: blocks.filter((block): block is BlockquoteBlock => block.kind === "blockquote"),
 		code: blocks.filter((block): block is CodeBlock => block.kind === "code"),
+		math: blocks.filter((block): block is MathBlock => block.kind === "math"),
 		tables: blocks.filter((block): block is TableBlock => block.kind === "table"),
 	}
 }
@@ -475,5 +511,5 @@ export function blockUsesReplacement(
 	selection: EditorSelectionState,
 ): boolean {
 	if (selectionOverlapsBlock(selection, block)) return false
-	return block.kind === "image" || block.kind === "horizontalRule"
+	return block.kind === "image" || block.kind === "horizontalRule" || block.kind === "math"
 }

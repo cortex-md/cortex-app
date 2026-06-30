@@ -37,6 +37,7 @@ import {
 } from "lucide-react"
 import { type MouseEvent, memo, type RefObject, useEffect, useMemo, useRef } from "react"
 import { NativeMenuActions } from "@/utils/context-menu"
+import { exportNoteFromDialog } from "../import-export/importExportActions"
 import { createPluginContextMenuItems } from "../plugins/pluginContextMenu"
 import { useInternalDragSource } from "../split-view/useInternalDragSource"
 import { type FileExplorerHotkeyBinding, useFileExplorerKeyboard } from "./fileExplorerKeyboard"
@@ -47,6 +48,10 @@ import { buildFileContextMenuItems, buildNoteMenuItems } from "./NativeMenuActio
 import { NoteContextMenuItems } from "./NoteMenuItems"
 
 const fileTreeAutoExpandDelayMs = 480
+
+function isMarkdownPath(path: string): boolean {
+	return path.toLocaleLowerCase().endsWith(".md")
+}
 
 export type FileOpenMode = "reuse-active" | "new-tab"
 
@@ -494,6 +499,7 @@ function TreeNodeView({
 	}
 	const relativePath = vaultPath ? node.path.replace(`${vaultPath}/`, "") : node.path
 	const syncIgnored = shouldIgnoreSyncPath(relativePath, syncPreferences)
+	const supportsNoteActions = !node.isDir && isMarkdownPath(node.path)
 	const canToggleSync = !(
 		syncPreferences.ignoreImages &&
 		!node.isDir &&
@@ -506,8 +512,9 @@ function TreeNodeView({
 					path: node.path,
 					bookmarked,
 					syncIgnored,
-					showVersionHistory: syncEnabled && remoteVaultId !== null,
+					showVersionHistory: supportsNoteActions && syncEnabled && remoteVaultId !== null,
 					canToggleSync: Boolean(vaultPath) && canToggleSync,
+					supportsNoteActions,
 				},
 				{
 					openInNewTab: (path) => useWorkspaceStore.getState().openTab(path),
@@ -518,6 +525,7 @@ function TreeNodeView({
 						}
 					},
 					duplicate: onDuplicate,
+					exportNote: (path, format) => void exportNoteFromDialog(path, format, "context-menu"),
 					copyRelativePath: (path) => onCopyPath(path, "relative"),
 					copyAbsolutePath: (path) => onCopyPath(path, "absolute"),
 					reveal: onReveal,
@@ -550,6 +558,7 @@ function TreeNodeView({
 			onStartRename,
 			onViewHistory,
 			remoteVaultId,
+			supportsNoteActions,
 			syncEnabled,
 			syncIgnored,
 			pluginFileMenuItems,
@@ -821,6 +830,7 @@ function showNativeFileContextMenu(
 		!node.isDir &&
 		isSyncImagePath(relative)
 	)
+	const supportsNoteActions = !node.isDir && isMarkdownPath(node.path)
 	const items = buildFileContextMenuItems(
 		{
 			path: node.path,
@@ -840,22 +850,24 @@ function showNativeFileContextMenu(
 				}
 			},
 			rename: (path) => actions.onStartRename(path),
-			toggleBookmark: (path) => {
-				executeCommand("bookmarks.toggle", {
-					source: "menu",
-					payload: { filePath: path },
-				})
-			},
+			toggleBookmark: supportsNoteActions
+				? (path) => {
+						executeCommand("bookmarks.toggle", {
+							source: "menu",
+							payload: { filePath: path },
+						})
+					}
+				: undefined,
 			isBookmarked:
-				vaultPath && !node.isDir
+				vaultPath && supportsNoteActions
 					? (path) => useBookmarksStore.getState().isBookmarked(vaultPath, path)
 					: undefined,
 			delete: (path, isDir) => actions.onDelete(path, isDir),
-			copyFile: (path) => actions.onDuplicate(path),
+			copyFile: supportsNoteActions ? (path) => actions.onDuplicate(path) : undefined,
 			copyPath: (path) => actions.onCopyPath(path, "absolute"),
 			copyRelativePath: (path) => actions.onCopyPath(path, "relative"),
 			showInExplorer: (path) => actions.onReveal(path),
-			showVersionHistory: (path) => actions.onViewHistory(path),
+			showVersionHistory: supportsNoteActions ? (path) => actions.onViewHistory(path) : undefined,
 			toggleSyncIgnore:
 				vaultPath && syncIgnoreToggleAvailable
 					? (path, ignored) => {

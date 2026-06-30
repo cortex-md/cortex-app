@@ -155,14 +155,27 @@ describe("IPC path normalization", () => {
 		})
 	})
 
+	it("reads binary files through one native filesystem command", async () => {
+		coreMock.invoke.mockResolvedValueOnce([1, 2, 3])
+		const fs = new FileSystem()
+
+		await expect(fs.readBinaryFile("C:/Vault/Doc.pdf")).resolves.toEqual([1, 2, 3])
+
+		expect(coreMock.invoke).toHaveBeenCalledWith("read_binary_file", {
+			path: "C:/Vault/Doc.pdf",
+		})
+	})
+
 	it("normalizes paths returned by native dialogs", async () => {
 		dialogMock.open.mockResolvedValueOnce("C:\\Vault")
 		dialogMock.open.mockResolvedValueOnce(["C:\\Vault\\Note.md"])
+		dialogMock.open.mockResolvedValueOnce(["C:\\Vault\\One.csv", "C:\\Vault\\Two.html"])
 		dialogMock.save.mockResolvedValueOnce("C:\\Vault\\Export.md")
 		const dialog = new Dialog()
 
 		await expect(dialog.pickFolder()).resolves.toBe("C:/Vault")
 		await expect(dialog.pickFile()).resolves.toBe("C:/Vault/Note.md")
+		await expect(dialog.pickFiles()).resolves.toEqual(["C:/Vault/One.csv", "C:/Vault/Two.html"])
 		await expect(dialog.saveFile()).resolves.toBe("C:/Vault/Export.md")
 	})
 
