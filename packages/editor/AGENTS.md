@@ -24,11 +24,17 @@
 - Reading View code-block embeds are host-rendered React slots over fenced code blocks. Keep the
   parser and slot contracts generic in `@cortex/editor`, and keep heavy renderers such as drawing,
   diagram, or canvas libraries in desktop-owned lazy chunks instead of importing them here.
+- Reading View and Live Preview line embeds are generic host-rendered slots over one-line Markdown
+  markers. Keep marker-specific domains such as databases out of `@cortex/editor`; desktop should
+  pass `LineEmbedDefinition` objects into editor surfaces.
 - Reading View loads the KaTeX stylesheet through `mathStylesheet.ts` only after rendered HTML
   contains `.katex`; keep KaTeX CSS/DOM loading out of `@cortex/renderer`.
 - Live Preview code-block embeds are lightweight DOM previews that replace only same-line source
   ranges and use the existing code-block chrome for actions. Keep callbacks host-owned and keep
   heavyweight renderers out of `@cortex/editor`.
+- Live Preview line embeds should replace only the marker line while idle. If the selection overlaps
+  the marker, CodeMirror must reveal the raw source line so cursor and text selection behavior stay
+  native.
 - Host-owned Live Preview embeds that mount external UI should set `CodeBlockEmbedLivePreview.signature`
   from the source/content they render so CodeMirror can remount stale widgets when the fenced block
   changes without changing the visible title or chrome metadata.

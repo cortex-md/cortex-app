@@ -7,6 +7,7 @@ This file provides guidance to Codex when working with state management in the C
 `@cortex/core` exports:
 - **Zustand stores** — React hooks for global state (vaultStore, editorStore, workspaceStore, uiStore)
 - **NoteCache** — In-memory file cache with auto-save and snapshots
+- **Database store** — Zustand bridge over the portable `@cortex/databases` engine
 - Supporting utilities and types
 
 All stores follow consistent patterns using **Zustand + Immer** for immutable-style updates.
@@ -208,6 +209,22 @@ Independent platform reads inside one step, such as reading file contents and ha
 may run through `Promise.all` when neither result affects whether the other call should happen.
 For remote sync/member mutations, run independent entitlement and auth-refresh checks together, then
 perform the mutation only after both have completed.
+
+### 7. Database Store
+
+`useDatabaseStore` owns application state for database catalogs, local indexes, and row mutations,
+while `@cortex/databases` owns the framework-free catalog/index/query primitives. Database catalog
+definitions are syncable in `.cortex/schema/databases.json`; `.cortex/database-index.json` is a
+rebuildable local cache and must stay out of sync.
+
+Rows are Markdown notes and cell values are frontmatter values. Mutating a database cell must go
+through `@cortex/properties` helpers so schema semantics, YAML projection, and NoteCache stay aligned.
+Title and path changes remain vault/editor responsibilities and should flow through the existing
+vault rename/open-tab paths.
+Linking or unlinking notes from databases must mutate the reserved `cortex-databases` membership
+property through the properties runtime and then update the database index incrementally. Creating a
+database page should use `vaultStore.createFile`, apply membership/default property values, and leave
+the catalog in `@cortex/databases` as the source of view definitions.
 
 ### Workspace Tab Restore
 

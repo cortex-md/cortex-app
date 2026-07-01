@@ -104,9 +104,11 @@ describe("syncStore preferences", () => {
 		expect(shouldIgnoreSyncPath("attachments/photo.md", preferences)).toBe(false)
 	})
 
-	it("syncs the property schema while keeping property UI state local", () => {
+	it("syncs shared schemas while keeping derived state local", () => {
 		const preferences = createDefaultSyncPreferences()
 		expect(shouldIgnoreSyncPath(".cortex/schema/properties.json", preferences)).toBe(false)
+		expect(shouldIgnoreSyncPath(".cortex/schema/databases.json", preferences)).toBe(false)
+		expect(shouldIgnoreSyncPath(".cortex/database-index.json", preferences)).toBe(true)
 		expect(shouldIgnoreSyncPath(".cortex/ui-state.json", preferences)).toBe(true)
 	})
 

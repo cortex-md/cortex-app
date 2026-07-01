@@ -5,6 +5,7 @@ const targets = {
 		"packages/commands",
 		"packages/templates",
 		"packages/properties",
+		"packages/databases",
 		"packages/core",
 		"packages/platform",
 		"packages/ipc",

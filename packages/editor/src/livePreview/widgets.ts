@@ -1,5 +1,6 @@
 import { type MarkdownPortableNode, sanitizeMarkdownUrl } from "@cortex/renderer"
 import type { CodeBlockEmbedLivePreview } from "../codeBlockEmbeds"
+import type { LineEmbedLivePreview } from "../lineEmbeds"
 import type { EditorRuntimeModules, EditorRuntimeView } from "../types"
 import type { LivePreviewEffects } from "./effects"
 import type { ImageBlock, TableCellModel } from "./model"
@@ -517,12 +518,60 @@ export function createLivePreviewWidgets(
 		}
 	}
 
+	class LineEmbedPreviewWidget extends WidgetType {
+		cleanup: (() => void) | null = null
+		mountTimer: ReturnType<typeof setTimeout> | null = null
+
+		constructor(readonly preview: LineEmbedLivePreview) {
+			super()
+		}
+
+		toDOM() {
+			const container = document.createElement("span")
+			container.className = `cm-line-embed-preview${
+				this.preview.className ? ` ${this.preview.className}` : ""
+			}`
+
+			const mountTarget = document.createElement("span")
+			mountTarget.className = "cm-line-embed-mount"
+			mountTarget.setAttribute("aria-label", this.preview.title)
+			container.appendChild(mountTarget)
+			this.mountTimer = setTimeout(() => {
+				this.mountTimer = null
+				this.cleanup = this.preview.mount(mountTarget) ?? null
+			}, 0)
+			return container
+		}
+
+		eq(other: LineEmbedPreviewWidget) {
+			return (
+				other.preview.title === this.preview.title &&
+				other.preview.className === this.preview.className &&
+				other.preview.signature === this.preview.signature
+			)
+		}
+
+		destroy() {
+			if (this.mountTimer) {
+				clearTimeout(this.mountTimer)
+				this.mountTimer = null
+			}
+			this.cleanup?.()
+			this.cleanup = null
+		}
+
+		ignoreEvent() {
+			return true
+		}
+	}
+
 	return {
 		CalloutFoldWidget,
 		CheckboxWidget,
 		CodeBlockChromeWidget,
 		CodeBlockEmbedPreviewWidget,
 		ImageWidget,
+		LineEmbedPreviewWidget,
 		MathBlockWidget,
 		MathInlineWidget,
 		PortableNodeWidget,

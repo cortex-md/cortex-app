@@ -17,6 +17,7 @@ const allowedDependencies: Record<string, readonly string[]> = {
 	"@cortex/commands": [],
 	"@cortex/platform": [],
 	"@cortex/properties": [],
+	"@cortex/databases": ["@cortex/properties"],
 	"@cortex/renderer": [],
 	"@cortex/templates": [],
 	"@cortex/theme": [],
@@ -24,6 +25,7 @@ const allowedDependencies: Record<string, readonly string[]> = {
 	"@cortex/settings": ["@cortex/platform"],
 	"@cortex/core": [
 		"@cortex/platform",
+		"@cortex/databases",
 		"@cortex/properties",
 		"@cortex/settings",
 		"@cortex/templates",
@@ -120,6 +122,10 @@ const sourceBoundaryRules: Record<string, SourceBoundaryRule> = {
 	},
 	"@cortex/theme": {
 		forbiddenImports: [...portableForbiddenImports, /^@cortex\/theme-mobile($|\/)/],
+		forbiddenIdentifiers: portableForbiddenIdentifiers,
+	},
+	"@cortex/databases": {
+		forbiddenImports: portableForbiddenImports,
 		forbiddenIdentifiers: portableForbiddenIdentifiers,
 	},
 	"@cortex/theme-mobile": {

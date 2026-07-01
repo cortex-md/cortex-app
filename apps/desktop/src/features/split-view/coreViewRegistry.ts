@@ -2,6 +2,7 @@ import type { ViewTabState } from "@cortex/core"
 import type { ComponentType } from "react"
 import { AppUpdateChangelogView } from "../app-updates/AppUpdateChangelogView"
 import { BookmarksSidebar } from "../bookmarks/BookmarksSidebar"
+import { DATABASE_VIEW_ID, DatabaseView } from "../databases/DatabaseView"
 import { DrawingBoardView } from "../drawings/DrawingBoardView"
 import { DRAWING_BOARD_VIEW_ID } from "../drawings/drawingDocument"
 import { FileSidebar } from "../file-explorer/FileSidebar"
@@ -33,6 +34,7 @@ const CORE_VIEW_COMPONENTS: Record<string, ComponentType<CoreViewProps>> = {
 	[PLUGIN_MARKDOWN_NOTE_VIEW_ID]: PluginMarkdownNoteView,
 	[DRAWING_BOARD_VIEW_ID]: DrawingBoardView,
 	[MERMAID_DIAGRAM_VIEW_ID]: MermaidDiagramView,
+	[DATABASE_VIEW_ID]: DatabaseView,
 }
 
 export function getCoreViewComponent(viewId: string): ComponentType<CoreViewProps> | null {

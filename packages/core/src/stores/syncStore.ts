@@ -13,6 +13,7 @@ import { notifyVaultSchemaChanged } from "@cortex/properties"
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
+import { useDatabaseStore } from "./databaseStore"
 import { useSubscriptionStore } from "./subscriptionStore"
 import { useSyncLogStore } from "./syncLogStore"
 import { getCurrentVaultPath, refreshCurrentVaultFiles } from "./vaultRuntime"
@@ -250,7 +251,9 @@ export function shouldIgnoreSyncPath(relativePath: string, preferences: SyncPref
 			? normalized.slice(".cortex/".length)
 			: normalized
 
-	if (cortexFile === "schema/properties.json") return false
+	if (cortexFile === "schema/properties.json" || cortexFile === "schema/databases.json") {
+		return false
+	}
 
 	if (
 		cortexFile === "sync-preferences.json" ||
@@ -596,6 +599,13 @@ export const useSyncStore = create<SyncState>()(
 						) {
 							const vaultPath = getCurrentVaultPath()
 							if (vaultPath) notifyVaultSchemaChanged(vaultPath)
+						}
+						if (
+							event.path === ".cortex/schema/databases.json" &&
+							(event.status === "synced" || event.status === "merged")
+						) {
+							const vaultPath = getCurrentVaultPath()
+							if (vaultPath) void useDatabaseStore.getState().loadCatalog(vaultPath)
 						}
 					}),
 					platform.sync.onInitialSyncProgress((event) => {

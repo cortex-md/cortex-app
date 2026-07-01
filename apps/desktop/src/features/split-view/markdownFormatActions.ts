@@ -31,6 +31,8 @@ const markdownFormatCommandIds = [
 	...overflowMarkdownToolbarCommandIds,
 ] as const
 
+const slashCommandIds = [...markdownFormatCommandIds, "database.create", "database.embed"] as const
+
 export type MarkdownFormatCommandId = (typeof markdownFormatCommandIds)[number]
 
 function toSlashCommandItem(command: CommandEntry): SlashCommandItem {
@@ -64,7 +66,7 @@ export function subscribeMarkdownFormatCommands(listener: () => void): () => voi
 
 export function getSlashCommandItems(): SlashCommandItem[] {
 	const commands = getMarkdownFormatCommands()
-	return markdownFormatCommandIds.flatMap((commandId) => {
+	return slashCommandIds.flatMap((commandId) => {
 		const command = commands.get(commandId)
 		return command ? [toSlashCommandItem(command)] : []
 	})

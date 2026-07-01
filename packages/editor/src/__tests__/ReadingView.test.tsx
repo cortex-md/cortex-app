@@ -87,4 +87,31 @@ describe("ReadingView rendering", () => {
 		expect(checkbox?.getAttribute("aria-checked")).toBe("false")
 		expect(checkbox?.querySelector("svg .markdown-task-checkbox-check")).not.toBeNull()
 	})
+
+	it("renders line embeds between markdown pieces", async () => {
+		const { container } = render(
+			<ReadingView
+				content={"Before\n{{database:db#view}}\nAfter"}
+				lineEmbeds={[
+					{
+						id: "database",
+						parse: (line) => (line === "{{database:db#view}}" ? { id: line } : null),
+						render: ({ sourceFrom, sourceTo }) => (
+							<div data-testid="database-embed">
+								Database {sourceFrom}:{sourceTo}
+							</div>
+						),
+					},
+				]}
+			/>,
+		)
+		await waitFor(() =>
+			expect(container.querySelector("[data-testid='database-embed']")).not.toBeNull(),
+		)
+
+		expect(container.textContent).toContain("Before")
+		expect(container.textContent).toContain("Database")
+		expect(container.textContent).toContain("After")
+		expect(container.textContent).not.toContain("{{database:db#view}}")
+	})
 })

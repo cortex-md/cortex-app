@@ -1,5 +1,6 @@
 import "./styles.css"
 import type { CodeBlockEmbedDefinition } from "../codeBlockEmbeds"
+import type { LineEmbedDefinition } from "../lineEmbeds"
 import type { EditorRuntimeModules } from "../types"
 import { createLivePreviewBlockField } from "./blockState"
 import { createLivePreviewEffects } from "./effects"
@@ -11,6 +12,7 @@ export function livePreviewExtension(
 	resolveImageUrl?: (src: string, filePath: string) => string,
 	filePath?: string,
 	codeBlockEmbeds?: readonly CodeBlockEmbedDefinition[],
+	lineEmbeds?: readonly LineEmbedDefinition[],
 ) {
 	const imageResolver = resolveImageUrl ?? ((src) => src)
 	const currentFilePath = filePath ?? ""
@@ -23,6 +25,7 @@ export function livePreviewExtension(
 		imageResolver,
 		currentFilePath,
 		codeBlockEmbeds,
+		lineEmbeds,
 	)
 
 	return [

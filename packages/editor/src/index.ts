@@ -44,6 +44,15 @@ export {
 } from "./foldingCommands"
 export { buildHighlightStyle } from "./highlight"
 export { getLanguageSupport } from "./languages"
+export {
+	findLineEmbedDefinition,
+	getLineEmbedSignature,
+	type LineEmbedDefinition,
+	type LineEmbedLivePreview,
+	type LineEmbedRenderContext,
+	type ParsedLineEmbed,
+	parseLineEmbeds,
+} from "./lineEmbeds"
 export { livePreviewExtension } from "./livePreview"
 export {
 	addTableColumnEnd,

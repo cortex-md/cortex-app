@@ -6,6 +6,7 @@ import {
 	useAppStore,
 	useAuthStore,
 	useBookmarksStore,
+	useDatabaseStore,
 	useDragStore,
 	useEditorStore,
 	useTagsStore,
@@ -45,6 +46,7 @@ import { initializePluginBridges } from "./bootstrap/pluginBridges"
 import { AuthModal } from "./features/auth/AuthModal"
 import { BookmarksSidebar } from "./features/bookmarks/BookmarksSidebar"
 import { CommandPalette } from "./features/command-palette/CommandPalette"
+import { DatabaseDialogHost } from "./features/databases/DatabaseDialogHost"
 import { DrawingModalHost } from "./features/drawings/DrawingModalHost"
 import { FileSidebar } from "./features/file-explorer/FileSidebar"
 import { SidebarViewCarousel } from "./features/file-explorer/SidebarViewCarousel"
@@ -156,11 +158,13 @@ interface VaultWorkspaceLifecycleOptions {
 	resetWorkspace: () => void
 	resetSearch: () => void
 	resetTags: () => void
+	resetDatabases: () => void
 	resetBookmarks: () => void
 	loadSettings: VaultPathTask
 	loadOverrides: VaultPathTask
 	loadBookmarks: VaultPathTask
 	loadTagColors: VaultPathTask
+	loadDatabaseCatalog: VaultPathTask
 }
 
 interface SettingsModalStateOptions {
@@ -359,6 +363,7 @@ function AppOverlays({ settingsModalOpen, onSettingsModalOpenChange }: AppOverla
 			<CommandPalette />
 			<TagPicker />
 			<CreateFromTemplateDialog />
+			<DatabaseDialogHost />
 			<DrawingModalHost />
 			<MermaidModalHost />
 			<PluginModalHost />
@@ -507,17 +512,20 @@ function useVaultWorkspaceLifecycle({
 	resetWorkspace,
 	resetSearch,
 	resetTags,
+	resetDatabases,
 	resetBookmarks,
 	loadSettings,
 	loadOverrides,
 	loadBookmarks,
 	loadTagColors,
+	loadDatabaseCatalog,
 }: VaultWorkspaceLifecycleOptions) {
 	useEffect(() => {
 		if (!vault) {
 			resetWorkspace()
 			resetSearch()
 			resetTags()
+			resetDatabases()
 			resetBookmarks()
 			return
 		}
@@ -534,6 +542,7 @@ function useVaultWorkspaceLifecycle({
 		void loadOverrides(vaultPath)
 		void loadBookmarks(vaultPath)
 		void loadTagColors(vaultPath)
+		void loadDatabaseCatalog(vaultPath)
 		return () => {
 			cancelled = true
 			stopWorkspacePersistence?.()
@@ -545,11 +554,13 @@ function useVaultWorkspaceLifecycle({
 		resetWorkspace,
 		resetSearch,
 		resetTags,
+		resetDatabases,
 		resetBookmarks,
 		loadSettings,
 		loadOverrides,
 		loadBookmarks,
 		loadTagColors,
+		loadDatabaseCatalog,
 	])
 }
 
@@ -567,6 +578,8 @@ function useVaultIndexing(vault: VaultMetadata | null, files: FileEntry[]) {
 	const cancelSearchIndexing = useSearchStore((s) => s.cancelIndexing)
 	const buildTagIndexFromFiles = useTagsStore((s) => s.buildIndexFromFiles)
 	const cancelTagIndexing = useTagsStore((s) => s.cancelIndexing)
+	const buildDatabaseIndexFromFiles = useDatabaseStore((s) => s.buildIndexFromFiles)
+	const cancelDatabaseIndexing = useDatabaseStore((s) => s.cancelIndexing)
 
 	useEffect(() => {
 		if (!vault || files.length === 0) return
@@ -576,15 +589,26 @@ function useVaultIndexing(vault: VaultMetadata | null, files: FileEntry[]) {
 			void (async () => {
 				await indexVault(vault.path, files)
 				if (!cancelled) await buildTagIndexFromFiles(vault.path, files)
+				if (!cancelled) await buildDatabaseIndexFromFiles(vault.path, files)
 			})()
 		})
 		return () => {
 			cancelled = true
 			cancelSearchIndexing()
 			cancelTagIndexing()
+			cancelDatabaseIndexing()
 			cancelScheduledWork()
 		}
-	}, [vault, files, indexVault, cancelSearchIndexing, buildTagIndexFromFiles, cancelTagIndexing])
+	}, [
+		vault,
+		files,
+		indexVault,
+		cancelSearchIndexing,
+		buildTagIndexFromFiles,
+		cancelTagIndexing,
+		buildDatabaseIndexFromFiles,
+		cancelDatabaseIndexing,
+	])
 }
 
 function useSettingsModalState({ settingsOpen, closeSettings }: SettingsModalStateOptions) {
@@ -669,6 +693,8 @@ export default function App() {
 	const loadOverrides = useHotkeysStore((s) => s.loadOverrides)
 	const resetSearch = useSearchStore((s) => s.reset)
 	const resetTags = useTagsStore((s) => s.reset)
+	const resetDatabases = useDatabaseStore((s) => s.reset)
+	const loadDatabaseCatalogAction = useDatabaseStore((s) => s.loadCatalog)
 	const loadTagColors = useTagsStore((s) => s.loadTagColors)
 	const loadBookmarks = useBookmarksStore((s) => s.loadBookmarks)
 	const resetBookmarks = useBookmarksStore((s) => s.reset)
@@ -679,6 +705,12 @@ export default function App() {
 	const handleOpenMarketplace = useCallback(() => {
 		openMarketplaceView("plugins")
 	}, [])
+	const loadDatabaseCatalog = useCallback(
+		async (vaultPath: string) => {
+			await loadDatabaseCatalogAction(vaultPath)
+		},
+		[loadDatabaseCatalogAction],
+	)
 	const { settingsModalOpen, handleSettingsModalOpenChange } = useSettingsModalState({
 		settingsOpen,
 		closeSettings,
@@ -725,11 +757,13 @@ export default function App() {
 		resetWorkspace: reset,
 		resetSearch,
 		resetTags,
+		resetDatabases,
 		resetBookmarks,
 		loadSettings,
 		loadOverrides,
 		loadBookmarks,
 		loadTagColors,
+		loadDatabaseCatalog,
 	})
 	useVaultIndexing(vault, files)
 	useInactiveTabSuspension(suspendInactiveTabs)

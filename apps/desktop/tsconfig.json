@@ -27,6 +27,7 @@
 		{ "path": "../../packages/commands" },
 		{ "path": "../../packages/theme" },
 		{ "path": "../../packages/core" },
+		{ "path": "../../packages/databases" },
 		{ "path": "../../packages/editor" },
 		{ "path": "../../packages/ipc" },
 		{ "path": "../../packages/plugin-api" },

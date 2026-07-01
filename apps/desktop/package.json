@@ -15,6 +15,7 @@
 		"@cortex.md/api": "workspace:*",
 		"@cortex/commands": "workspace:*",
 		"@cortex/core": "workspace:*",
+		"@cortex/databases": "workspace:*",
 		"@cortex/editor": "workspace:*",
 		"@cortex/hotkeys": "workspace:*",
 		"@cortex/import-export": "workspace:*",

@@ -3,12 +3,14 @@ import { initPlatform, type NativeAppearanceSnapshot } from "@cortex/platform"
 import { generateCSSString, generateCSSVariables, initThemeManager } from "@cortex/theme"
 import ReactDOM from "react-dom/client"
 import App from "./App"
+import { initializeDesktopDatabases } from "./databasesRuntime"
 import { WebThemeAdapter } from "./features/themes/webThemeAdapter"
 import { initializeDesktopProperties } from "./propertiesRuntime"
 import "./styles.css"
 
 initPlatform(tauriPlatform)
 initializeDesktopProperties()
+initializeDesktopDatabases()
 initThemeManager("ink", new WebThemeAdapter(), { generateCSSString, generateCSSVariables })
 
 let macosStylesPromise: Promise<unknown> | null = null

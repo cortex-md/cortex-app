@@ -20,5 +20,10 @@
 		}
 	},
 	"include": ["src"],
-	"references": [{ "path": "../properties" }, { "path": "../settings" }, { "path": "../templates" }]
+	"references": [
+		{ "path": "../databases" },
+		{ "path": "../properties" },
+		{ "path": "../settings" },
+		{ "path": "../templates" }
+	]
 }

@@ -6,6 +6,7 @@ import {
 	pluginFoldingExtension,
 } from "./folding"
 import { buildHighlightStyle } from "./highlight"
+import type { LineEmbedDefinition } from "./lineEmbeds"
 import { livePreviewExtension } from "./livePreview"
 import { defaultMarkdownKeymapExtension, type MarkdownCommandExecutor } from "./markdownKeymap"
 import { loadEditorRuntime } from "./runtime"
@@ -447,10 +448,11 @@ function livePreviewModeExtension(
 	resolveImageUrl?: (src: string, filePath: string) => string,
 	filePath?: string,
 	codeBlockEmbeds?: readonly CodeBlockEmbedDefinition[],
+	lineEmbeds?: readonly LineEmbedDefinition[],
 ): EditorRuntimeExtension {
 	return livePreview
 		? [
-				livePreviewExtension(runtime, resolveImageUrl, filePath, codeBlockEmbeds),
+				livePreviewExtension(runtime, resolveImageUrl, filePath, codeBlockEmbeds, lineEmbeds),
 				tableSelectionExtension(runtime),
 				tableAffordancesExtension(runtime),
 				tableResizeExtension(runtime),
@@ -463,6 +465,7 @@ export interface BaseExtensionsOptions {
 	resolveImageUrl?: (src: string, filePath: string) => string
 	filePath?: string
 	codeBlockEmbeds?: readonly CodeBlockEmbedDefinition[]
+	lineEmbeds?: readonly LineEmbedDefinition[]
 	scrollMode?: EditorScrollMode
 	vimCommands?: VimCommandProvider | null
 	commandExecutor?: MarkdownCommandExecutor | null
@@ -481,6 +484,7 @@ export function baseExtensions(
 		resolveImageUrl,
 		filePath,
 		codeBlockEmbeds,
+		lineEmbeds,
 		scrollMode = "internal",
 		vimCommands,
 		commandExecutor,
@@ -508,7 +512,14 @@ export function baseExtensions(
 		]),
 		buildHighlightStyle(runtime),
 		compartments.livePreview.of(
-			livePreviewModeExtension(runtime, livePreview, resolveImageUrl, filePath, codeBlockEmbeds),
+			livePreviewModeExtension(
+				runtime,
+				livePreview,
+				resolveImageUrl,
+				filePath,
+				codeBlockEmbeds,
+				lineEmbeds,
+			),
 		),
 		runtime.langMarkdown.markdown({
 			base: runtime.langMarkdown.markdownLanguage,
@@ -550,6 +561,7 @@ export function reconfigureEditor(
 		resolveImageUrl,
 		filePath,
 		codeBlockEmbeds,
+		lineEmbeds,
 		scrollMode = "internal",
 		vimCommands: normalizedVimCommands,
 	} = normalizeReconfigureOptions(scrollModeOrOptions, vimCommands)
@@ -560,7 +572,14 @@ export function reconfigureEditor(
 				vimModeExtension(runtime, config.vimMode ?? false, normalizedVimCommands),
 			),
 			compartments.livePreview.reconfigure(
-				livePreviewModeExtension(runtime, livePreview, resolveImageUrl, filePath, codeBlockEmbeds),
+				livePreviewModeExtension(
+					runtime,
+					livePreview,
+					resolveImageUrl,
+					filePath,
+					codeBlockEmbeds,
+					lineEmbeds,
+				),
 			),
 			compartments.filePath.reconfigure(editorFilePathExtension(runtime, filePath)),
 			compartments.typography.reconfigure(

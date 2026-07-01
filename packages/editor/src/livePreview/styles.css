@@ -220,6 +220,16 @@
 	min-height: inherit;
 }
 
+.cm-line-embed-wrapper > .cm-line {
+	position: relative;
+}
+
+.cm-line-embed-preview,
+.cm-line-embed-mount {
+	display: block;
+	width: 100%;
+}
+
 .cm-codeblock-embed-preview.is-error {
 	color: var(--status-warning-foreground);
 }

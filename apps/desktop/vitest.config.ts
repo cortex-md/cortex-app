@@ -10,6 +10,15 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			"@": fileURLToPath(new URL("./src", import.meta.url)),
+			"@cortex/databases": fileURLToPath(
+				new URL("../../packages/databases/src/index.ts", import.meta.url),
+			),
+			"@cortex/properties/codemirror": fileURLToPath(
+				new URL("../../packages/properties/src/codemirror.ts", import.meta.url),
+			),
+			"@cortex/properties": fileURLToPath(
+				new URL("../../packages/properties/src/index.ts", import.meta.url),
+			),
 			react: `${workspaceNodeModules}/react`,
 			"react-dom": `${workspaceNodeModules}/react-dom`,
 		},

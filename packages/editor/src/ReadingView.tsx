@@ -17,12 +17,20 @@ import {
 	type ParsedCodeBlockEmbed,
 	parseFencedCodeBlocks,
 } from "./codeBlockEmbeds"
+import {
+	findLineEmbedDefinition,
+	getLineEmbedSignature,
+	type LineEmbedDefinition,
+	type ParsedLineEmbed,
+	parseLineEmbeds,
+} from "./lineEmbeds"
 
 interface Props {
 	content: string
 	scrollMode?: "internal" | "parent"
 	renderDelay?: number
 	codeBlockEmbeds?: readonly CodeBlockEmbedDefinition[]
+	lineEmbeds?: readonly LineEmbedDefinition[]
 	onWikiLinkClick?: (target: string) => void
 	onExternalLinkClick?: (url: string) => void
 	onTaskCheckboxToggle?: (offset: number, checked: boolean) => void
@@ -42,7 +50,13 @@ interface CodeBlockEmbedRenderPiece {
 	block: ParsedCodeBlockEmbed
 }
 
-type RenderPiece = MarkdownRenderPiece | CodeBlockEmbedRenderPiece
+interface LineEmbedRenderPiece {
+	type: "line-embed"
+	id: string
+	embed: ParsedLineEmbed
+}
+
+type RenderPiece = MarkdownRenderPiece | CodeBlockEmbedRenderPiece | LineEmbedRenderPiece
 
 interface MarkdownPlanPiece {
 	type: "markdown"
@@ -58,7 +72,13 @@ interface CodeBlockEmbedPlanPiece {
 	block: ParsedCodeBlockEmbed
 }
 
-type RenderPlanPiece = MarkdownPlanPiece | CodeBlockEmbedPlanPiece
+interface LineEmbedPlanPiece {
+	type: "line-embed"
+	id: string
+	embed: ParsedLineEmbed
+}
+
+type RenderPlanPiece = MarkdownPlanPiece | CodeBlockEmbedPlanPiece | LineEmbedPlanPiece
 
 interface RenderedMarkdown {
 	content: string
@@ -81,33 +101,66 @@ function getRendererRegistryVersion(): string {
 	return `${getMarkdownRegistryVersion()}:${getCalloutRegistryVersion()}`
 }
 
-function createCodeBlockRenderPlan(
+function rangeContains(
+	range: Pick<ParsedCodeBlockEmbed, "sourceFrom" | "sourceTo">,
+	from: number,
+	to: number,
+): boolean {
+	return range.sourceFrom <= from && to <= range.sourceTo
+}
+
+function createRenderPlan(
 	content: string,
 	codeBlockEmbeds: readonly CodeBlockEmbedDefinition[] | undefined,
+	lineEmbeds: readonly LineEmbedDefinition[] | undefined,
 ): RenderPlanPiece[] | null {
 	const languages = getCodeBlockEmbedLanguages(codeBlockEmbeds)
-	if (languages.length === 0) return null
-	const blocks = parseFencedCodeBlocks(content, languages)
-	if (blocks.length === 0) return null
+	const codeBlocks = languages.length > 0 ? parseFencedCodeBlocks(content, languages) : []
+	const lineBlocks = parseLineEmbeds(content, lineEmbeds).filter(
+		(embed) =>
+			!codeBlocks.some((block) =>
+				rangeContains(block, embed.sourceFrom, Math.max(embed.sourceFrom, embed.sourceTo - 1)),
+			),
+	)
+	if (codeBlocks.length === 0 && lineBlocks.length === 0) return null
+	const embeds: Array<CodeBlockEmbedPlanPiece | LineEmbedPlanPiece> = [
+		...codeBlocks.map(
+			(block): CodeBlockEmbedPlanPiece => ({
+				type: "embed",
+				id: `embed:${block.sourceFrom}:${block.sourceTo}:${block.language}`,
+				block,
+			}),
+		),
+		...lineBlocks.map(
+			(embed): LineEmbedPlanPiece => ({
+				type: "line-embed",
+				id: `line-embed:${embed.sourceFrom}:${embed.sourceTo}:${embed.definitionId}`,
+				embed,
+			}),
+		),
+	].sort((left, right) => {
+		const leftFrom = left.type === "embed" ? left.block.sourceFrom : left.embed.sourceFrom
+		const rightFrom = right.type === "embed" ? right.block.sourceFrom : right.embed.sourceFrom
+		return leftFrom - rightFrom
+	})
 
 	const pieces: RenderPlanPiece[] = []
 	let cursor = 0
-	for (const block of blocks) {
-		if (block.sourceFrom > cursor) {
+	for (const embed of embeds) {
+		const sourceFrom = embed.type === "embed" ? embed.block.sourceFrom : embed.embed.sourceFrom
+		const sourceTo = embed.type === "embed" ? embed.block.sourceTo : embed.embed.sourceTo
+		if (sourceFrom < cursor) continue
+		if (sourceFrom > cursor) {
 			pieces.push({
 				type: "markdown",
-				id: `markdown:${cursor}:${block.sourceFrom}`,
+				id: `markdown:${cursor}:${sourceFrom}`,
 				sourceFrom: cursor,
-				sourceTo: block.sourceFrom,
-				content: content.slice(cursor, block.sourceFrom),
+				sourceTo: sourceFrom,
+				content: content.slice(cursor, sourceFrom),
 			})
 		}
-		pieces.push({
-			type: "embed",
-			id: `embed:${block.sourceFrom}:${block.sourceTo}:${block.language}`,
-			block,
-		})
-		cursor = block.sourceTo
+		pieces.push(embed)
+		cursor = sourceTo
 	}
 	if (cursor < content.length) {
 		pieces.push({
@@ -152,6 +205,7 @@ export function ReadingView({
 	scrollMode = "internal",
 	renderDelay = 0,
 	codeBlockEmbeds,
+	lineEmbeds,
 	onWikiLinkClick,
 	onExternalLinkClick,
 	onTaskCheckboxToggle,
@@ -174,10 +228,12 @@ export function ReadingView({
 		getRendererRegistryVersion,
 	)
 	const embedSignature = getCodeBlockEmbedSignature(codeBlockEmbeds)
+	const lineEmbedSignature = getLineEmbedSignature(lineEmbeds)
+	const combinedEmbedSignature = `${embedSignature}:${lineEmbedSignature}`
 	const renderedContentMatches =
 		renderedMarkdown?.content === content &&
 		renderedMarkdown.registryVersion === rendererRegistryVersion &&
-		renderedMarkdown.embedSignature === embedSignature
+		renderedMarkdown.embedSignature === combinedEmbedSignature
 	const html =
 		renderedContentMatches && renderedMarkdown.pieces === null ? renderedMarkdown.html : ""
 	const pieces = renderedContentMatches ? renderedMarkdown.pieces : null
@@ -187,13 +243,15 @@ export function ReadingView({
 		const request = ++renderRequestRef.current
 		const registryVersion = rendererRegistryVersion
 		const requestedContent = content
-		const requestedEmbedSignature = embedSignature
+		const requestedEmbedSignature = combinedEmbedSignature
 		const render = () => {
-			const renderPlan = createCodeBlockRenderPlan(content, codeBlockEmbeds)
+			const renderPlan = createRenderPlan(content, codeBlockEmbeds, lineEmbeds)
 			const renderPromise = renderPlan
 				? Promise.all(
 						renderPlan.map((piece): Promise<RenderPiece> => {
-							if (piece.type === "embed") return Promise.resolve(piece)
+							if (piece.type === "embed" || piece.type === "line-embed") {
+								return Promise.resolve(piece)
+							}
 							return renderMarkdownPiece(piece)
 						}),
 					).then((renderedPieces) => ({
@@ -210,7 +268,8 @@ export function ReadingView({
 				if (
 					request === renderRequestRef.current &&
 					registryVersion === getRendererRegistryVersion() &&
-					requestedEmbedSignature === getCodeBlockEmbedSignature(codeBlockEmbeds)
+					requestedEmbedSignature ===
+						`${getCodeBlockEmbedSignature(codeBlockEmbeds)}:${getLineEmbedSignature(lineEmbeds)}`
 				) {
 					setRenderedMarkdown({
 						content: requestedContent,
@@ -228,7 +287,14 @@ export function ReadingView({
 			if (timeout) clearTimeout(timeout)
 			if (renderRequestRef.current === request) renderRequestRef.current++
 		}
-	}, [content, codeBlockEmbeds, embedSignature, renderDelay, rendererRegistryVersion])
+	}, [
+		content,
+		codeBlockEmbeds,
+		combinedEmbedSignature,
+		lineEmbeds,
+		renderDelay,
+		rendererRegistryVersion,
+	])
 
 	useEffect(() => {
 		const container = containerRef.current
@@ -315,14 +381,28 @@ export function ReadingView({
 							/>
 						)
 					}
-					const definition = findCodeBlockEmbedDefinition(codeBlockEmbeds, piece.block.language)
+					if (piece.type === "embed") {
+						const definition = findCodeBlockEmbedDefinition(codeBlockEmbeds, piece.block.language)
+						return (
+							<div key={piece.id} className="reading-view-content reading-view-embed-content">
+								{definition?.render({
+									block: piece.block,
+									content: piece.block.content,
+									sourceFrom: piece.block.sourceFrom,
+									sourceTo: piece.block.sourceTo,
+								})}
+							</div>
+						)
+					}
+					const definition = findLineEmbedDefinition(lineEmbeds, piece.embed.definitionId)
 					return (
 						<div key={piece.id} className="reading-view-content reading-view-embed-content">
 							{definition?.render({
-								block: piece.block,
-								content: piece.block.content,
-								sourceFrom: piece.block.sourceFrom,
-								sourceTo: piece.block.sourceTo,
+								embed: piece.embed,
+								line: piece.embed.line,
+								data: piece.embed.data,
+								sourceFrom: piece.embed.sourceFrom,
+								sourceTo: piece.embed.sourceTo,
 							})}
 						</div>
 					)

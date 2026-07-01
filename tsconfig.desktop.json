@@ -5,6 +5,7 @@
 		{ "path": "packages/templates" },
 		{ "path": "packages/platform" },
 		{ "path": "packages/properties" },
+		{ "path": "packages/databases" },
 		{ "path": "packages/settings" },
 		{ "path": "packages/core" },
 		{ "path": "packages/renderer" },

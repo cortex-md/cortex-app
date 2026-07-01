@@ -14,6 +14,7 @@
 		"./folding": "./src/folding.ts",
 		"./folding-commands": "./src/foldingCommands.ts",
 		"./keymap": "./src/markdownKeymap.ts",
+		"./line-embeds": "./src/lineEmbeds.tsx",
 		"./markdown-format-commands": "./src/markdownFormatCommands.ts",
 		"./reading-view": "./src/ReadingView.tsx",
 		"./runtime": "./src/runtime.ts",

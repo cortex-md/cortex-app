@@ -18,6 +18,13 @@ export {
 	resolveBookmarkPath,
 	useBookmarksStore,
 } from "./stores/bookmarksStore"
+export {
+	DATABASE_VIEW_ID,
+	type DatabaseState,
+	getDefaultDatabaseSource,
+	isDatabaseCatalogPath,
+	useDatabaseStore,
+} from "./stores/databaseStore"
 export { type DevicesState, useDevicesStore } from "./stores/devicesStore"
 export {
 	type DragPosition,

@@ -1,5 +1,10 @@
 import { getCalloutStyleVariables, resolveCalloutType } from "@cortex/renderer"
 import { type CodeBlockEmbedDefinition, findCodeBlockEmbedDefinition } from "../codeBlockEmbeds"
+import {
+	findLineEmbedDefinition,
+	type LineEmbedDefinition,
+	type LineEmbedLivePreview,
+} from "../lineEmbeds"
 import type {
 	EditorRuntimeBlockWrapper,
 	EditorRuntimeBlockWrapperRange,
@@ -21,6 +26,7 @@ import {
 	type CalloutBlock,
 	collectMarkdownBlocks,
 	createMarkdownBlockIndex,
+	type LineEmbedBlock,
 	type MarkdownBlock,
 	type MarkdownBlockIndex,
 	type MathBlock,
@@ -220,6 +226,15 @@ function createBlockWrapper(
 			},
 		})
 	}
+	if (block.kind === "lineEmbed") {
+		return runtime.view.BlockWrapper.create({
+			tagName: "div",
+			attributes: {
+				class: `cm-markdown-block cm-line-embed-wrapper${selectionOverlaps ? " is-selection-overlap" : ""}`,
+				"data-line-embed-id": block.id,
+			},
+		})
+	}
 	return null
 }
 
@@ -334,6 +349,48 @@ function addMathBlockDecorations(
 	}
 }
 
+function renderLineEmbedPreview(
+	block: LineEmbedBlock,
+	lineEmbeds: readonly LineEmbedDefinition[] | undefined,
+	filePath: string,
+): LineEmbedLivePreview | null {
+	const definition = findLineEmbedDefinition(lineEmbeds, block.definitionId)
+	return (
+		definition?.renderLivePreview?.({
+			embed: {
+				definitionId: block.definitionId,
+				line: block.line,
+				data: block.data,
+				sourceFrom: block.from,
+				sourceTo: block.to,
+			},
+			line: block.line,
+			data: block.data,
+			sourceFrom: block.from,
+			sourceTo: block.to,
+			filePath,
+		}) ?? null
+	)
+}
+
+function addLineEmbedDecorations(
+	runtime: EditorRuntimeModules,
+	widgets: LivePreviewWidgets,
+	ranges: EditorRuntimeDecorationRange[],
+	block: LineEmbedBlock,
+	lineEmbeds: readonly LineEmbedDefinition[] | undefined,
+	filePath: string,
+): void {
+	const preview = renderLineEmbedPreview(block, lineEmbeds, filePath)
+	if (!preview) return
+	ranges.push(runtime.view.Decoration.line({ class: "cm-line-embed-line" }).range(block.from))
+	ranges.push(
+		runtime.view.Decoration.replace({
+			widget: new widgets.LineEmbedPreviewWidget(preview),
+		}).range(block.from, block.to),
+	)
+}
+
 function buildDecorationSets(
 	runtime: EditorRuntimeModules,
 	widgets: LivePreviewWidgets,
@@ -341,6 +398,7 @@ function buildDecorationSets(
 	blocks: MarkdownBlock[],
 	collapsedCallouts: ReadonlyMap<string, boolean>,
 	codeBlockEmbeds: readonly CodeBlockEmbedDefinition[] | undefined,
+	lineEmbeds: readonly LineEmbedDefinition[] | undefined,
 	filePath: string,
 ): LivePreviewDecorationSets {
 	const ranges: EditorRuntimeDecorationRange[] = []
@@ -446,6 +504,12 @@ function buildDecorationSets(
 			addMathBlockDecorations(runtime, widgets, state, ranges, block, selected)
 			continue
 		}
+		if (block.kind === "lineEmbed") {
+			if (replaced) {
+				addLineEmbedDecorations(runtime, widgets, ranges, block, lineEmbeds, filePath)
+			}
+			continue
+		}
 		if (block.kind === "image" && replaced) {
 			ranges.push(
 				runtime.view.Decoration.replace({ widget: new widgets.ImageWidget(block) }).range(
@@ -492,10 +556,11 @@ function createBlockState(
 	resolveImageUrl: (src: string, filePath: string) => string,
 	filePath: string,
 	codeBlockEmbeds: readonly CodeBlockEmbedDefinition[] | undefined,
+	lineEmbeds: readonly LineEmbedDefinition[] | undefined,
 	collapsedCallouts: ReadonlyMap<string, boolean> = new Map(),
 ): LivePreviewBlockState {
 	recordBlockPass()
-	const blocks = collectMarkdownBlocks(runtime, state, resolveImageUrl, filePath)
+	const blocks = collectMarkdownBlocks(runtime, state, resolveImageUrl, filePath, lineEmbeds)
 	const index = createMarkdownBlockIndex(blocks)
 	const replacementBlocks = blocks.filter((block) =>
 		blockUsesReplacement(block, collapsedCallouts, state.selection),
@@ -508,6 +573,7 @@ function createBlockState(
 		blocks,
 		collapsedCallouts,
 		codeBlockEmbeds,
+		lineEmbeds,
 		filePath,
 	)
 	return {
@@ -543,10 +609,19 @@ export function createLivePreviewBlockField(
 	resolveImageUrl: (src: string, filePath: string) => string,
 	filePath: string,
 	codeBlockEmbeds: readonly CodeBlockEmbedDefinition[] | undefined,
+	lineEmbeds: readonly LineEmbedDefinition[] | undefined,
 ): EditorRuntimeStateField<LivePreviewBlockState> {
 	return runtime.state.StateField.define({
 		create(state: EditorRuntimeState) {
-			return createBlockState(runtime, widgets, state, resolveImageUrl, filePath, codeBlockEmbeds)
+			return createBlockState(
+				runtime,
+				widgets,
+				state,
+				resolveImageUrl,
+				filePath,
+				codeBlockEmbeds,
+				lineEmbeds,
+			)
 		},
 		update(value: LivePreviewBlockState, transaction: EditorRuntimeTransaction) {
 			if (transaction.docChanged) {
@@ -557,6 +632,7 @@ export function createLivePreviewBlockField(
 					resolveImageUrl,
 					filePath,
 					codeBlockEmbeds,
+					lineEmbeds,
 					mapCollapsedCallouts(value, transaction),
 				)
 			}
@@ -596,6 +672,7 @@ export function createLivePreviewBlockField(
 				value.blocks,
 				collapsedCallouts,
 				codeBlockEmbeds,
+				lineEmbeds,
 				filePath,
 			)
 			return {

@@ -1,3 +1,4 @@
+import { getOptionalDatabasesRuntime } from "@cortex/databases"
 import type { FileEntry, VaultMetadata, VaultRegistryEntry } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
 import {
@@ -17,6 +18,7 @@ import { pathExists, resolveUniquePath, splitFileName, writeCleanNote } from "..
 import { getPortableFileNameError } from "../utils/fileName"
 import { createDefaultFrontmatter } from "../utils/frontmatter"
 import { useBookmarksStore } from "./bookmarksStore"
+import { isDatabaseCatalogPath, useDatabaseStore } from "./databaseStore"
 import { useSyncStore } from "./syncStore"
 import { useTemplateStore } from "./templateStore"
 import { setVaultRuntimeState } from "./vaultRuntime"
@@ -48,6 +50,15 @@ function isPropertySchemaPath(path: string): boolean {
 		normalized === ".cortex/schema/properties.json" ||
 		normalized.endsWith("/.cortex/schema/properties.json")
 	)
+}
+
+function handleDatabaseCatalogChange(vaultPath: string): void {
+	void useDatabaseStore
+		.getState()
+		.loadCatalog(vaultPath)
+		.catch((error) => {
+			console.error("[Database catalog refresh failed]", { vaultPath, error })
+		})
 }
 
 function getParentPath(filePath: string): string {
@@ -124,6 +135,10 @@ async function migrateVaultPathReferences(
 	await useBookmarksStore.getState().renameBookmarkPath(vaultPath, oldPath, newPath)
 	if (getOptionalPropertiesRuntime()) {
 		await renameNotePropertiesUiState(vaultPath, oldPath, newPath)
+	}
+	if (getOptionalDatabasesRuntime()) {
+		useDatabaseStore.getState().renameFileInIndex(oldPath, newPath)
+		await useDatabaseStore.getState().renameDatabaseReferences(vaultPath, oldPath, newPath)
 	}
 }
 
@@ -235,8 +250,17 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 				scheduleWatcherRefresh(get().refreshFiles)
 				if (isPropertySchemaPath(event.path)) {
 					notifyVaultSchemaChanged(metadata.path)
+				} else if (isDatabaseCatalogPath(event.path)) {
+					handleDatabaseCatalogChange(metadata.path)
 				} else if (isMarkdownPath(event.path)) {
 					invalidatePropertySuggestions(metadata.path)
+				}
+				if (isMarkdownPath(event.path)) {
+					if (event.kind === "deleted") {
+						useDatabaseStore.getState().removeFileFromIndex(event.path)
+					} else if (event.kind === "created" || event.kind === "modified") {
+						void useDatabaseStore.getState().indexFile(metadata.path, event.path)
+					}
 				}
 				if (event.kind !== "created" && event.kind !== "modified") return
 				if (!noteCache.getEntry(event.path)) return
@@ -303,6 +327,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 		await getSettingsManager().flush()
 		useBookmarksStore.getState().reset()
 		useTemplateStore.getState().reset()
+		useDatabaseStore.getState().reset()
 		set({
 			vault: null,
 			files: [],
@@ -391,6 +416,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 		if (vaultPath && getOptionalPropertiesRuntime()) {
 			await removeNotePropertiesUiState(vaultPath, filePath)
 		}
+		useDatabaseStore.getState().removeFileFromIndex(filePath)
 		await get().refreshFiles()
 		if (vaultPath && isMarkdownPath(filePath)) invalidatePropertySuggestions(vaultPath)
 	},

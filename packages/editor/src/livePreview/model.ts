@@ -1,6 +1,7 @@
 import { locateFrontmatter } from "@cortex/properties"
 import { type ParsedCallout, parseCallout, parseCalloutMarker } from "@cortex/renderer"
 import { findBlockMath, type MarkdownMathToken } from "@cortex/renderer/math"
+import type { LineEmbedDefinition } from "../lineEmbeds"
 import type { EditorRuntimeModules, EditorRuntimeState, EditorSelectionState } from "../types"
 
 interface SyntaxNodeLike {
@@ -108,6 +109,13 @@ export interface MathBlock extends BaseBlock {
 	closingTo: number
 }
 
+export interface LineEmbedBlock extends BaseBlock {
+	kind: "lineEmbed"
+	definitionId: string
+	line: string
+	data: unknown
+}
+
 export type MarkdownBlock =
 	| TableBlock
 	| FrontmatterBlock
@@ -118,12 +126,14 @@ export type MarkdownBlock =
 	| BlockquoteBlock
 	| HorizontalRuleBlock
 	| MathBlock
+	| LineEmbedBlock
 
 export interface MarkdownBlockIndex {
 	all: MarkdownBlock[]
 	callouts: CalloutBlock[]
 	blockquotes: BlockquoteBlock[]
 	code: CodeBlock[]
+	lineEmbeds: LineEmbedBlock[]
 	math: MathBlock[]
 	tables: TableBlock[]
 }
@@ -384,6 +394,7 @@ export function collectMarkdownBlocks(
 	state: EditorRuntimeState,
 	resolveImageUrl: (src: string, filePath: string) => string,
 	filePath: string,
+	lineEmbeds?: readonly LineEmbedDefinition[],
 ): MarkdownBlock[] {
 	const blocks: MarkdownBlock[] = []
 	const frontmatter = locateFrontmatter(state.doc.toString())
@@ -442,6 +453,29 @@ export function collectMarkdownBlocks(
 		blocks.push(createMathBlock(state, token))
 	}
 
+	if (lineEmbeds?.length) {
+		for (let lineNumber = 1; lineNumber <= state.doc.lines; lineNumber++) {
+			const line = state.doc.line(lineNumber)
+			if (findBlockContainingRange(sourceBlocks, line.from, line.to)) continue
+			for (const definition of lineEmbeds) {
+				const data = definition.parse(line.text)
+				if (data === null) continue
+				const base = createBaseBlock(state, "lineEmbed", line.from, line.to)
+				blocks.push({
+					...base,
+					id: `lineEmbed:${definition.id}:${line.from}`,
+					from: line.from,
+					to: line.to,
+					kind: "lineEmbed",
+					definitionId: definition.id,
+					line: line.text,
+					data,
+				})
+				break
+			}
+		}
+	}
+
 	return blocks.sort((left, right) => left.from - right.from || left.to - right.to)
 }
 
@@ -451,6 +485,7 @@ export function createMarkdownBlockIndex(blocks: MarkdownBlock[]): MarkdownBlock
 		callouts: blocks.filter((block): block is CalloutBlock => block.kind === "callout"),
 		blockquotes: blocks.filter((block): block is BlockquoteBlock => block.kind === "blockquote"),
 		code: blocks.filter((block): block is CodeBlock => block.kind === "code"),
+		lineEmbeds: blocks.filter((block): block is LineEmbedBlock => block.kind === "lineEmbed"),
 		math: blocks.filter((block): block is MathBlock => block.kind === "math"),
 		tables: blocks.filter((block): block is TableBlock => block.kind === "table"),
 	}
@@ -511,5 +546,10 @@ export function blockUsesReplacement(
 	selection: EditorSelectionState,
 ): boolean {
 	if (selectionOverlapsBlock(selection, block)) return false
-	return block.kind === "image" || block.kind === "horizontalRule" || block.kind === "math"
+	return (
+		block.kind === "image" ||
+		block.kind === "horizontalRule" ||
+		block.kind === "math" ||
+		block.kind === "lineEmbed"
+	)
 }

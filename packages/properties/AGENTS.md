@@ -35,6 +35,9 @@
 - `extractFrontmatterBody` and `replaceFrontmatterBody` preserve the complete frontmatter prefix
   byte-for-byte, including malformed YAML, while body editing remains available.
 - Property keys are immutable after creation. Property names are editable display labels.
+- `cortex-databases` is an internal reserved frontmatter key used by `@cortex/databases` for note
+  membership. Preserve it during YAML mutations, but exclude it from observed property definitions,
+  suggestions, and ordinary property UI.
 - `select` owns stable UUID options, token color keys, optional defaults, and persisted manual or
   alphabetical ordering. Legacy unavailable types remain readable and preserved.
 - `tags` is a built-in primitive backed by the YAML `tags` array. Empty arrays are empty property

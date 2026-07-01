@@ -19,16 +19,20 @@ describe("property suggestions", () => {
 					},
 				],
 			}),
-			"/vault/one.md": "---\npriority: 2\ntags: [one]\n---\n",
+			"/vault/one.md": "---\npriority: 2\ntags: [one]\ncortex-databases: [db]\n---\n",
 			"/vault/two.md": "---\npriority: 3\naliases: [two]\n---\n",
 		})
 		const suggestions = await suggestProperties("pri", "/vault")
+		const internalSuggestions = await suggestProperties("cortex", "/vault")
 		expect(suggestions[0]).toMatchObject({
 			key: "priority",
 			type: "number",
 			observed: true,
 		})
 		expect(suggestions.some((definition) => definition.key === "tags")).toBe(false)
+		expect(internalSuggestions.some((definition) => definition.key === "cortex-databases")).toBe(
+			false,
+		)
 	})
 
 	it("shares one vault scan across simultaneous suggestion queries", async () => {

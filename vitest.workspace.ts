@@ -19,6 +19,15 @@ export default defineWorkspace([
 	},
 	{
 		test: {
+			name: "databases",
+			root: path.join(workspaceRoot, "packages/databases"),
+			environment: "node",
+			globals: true,
+			include: ["src/**/*.test.{ts,tsx}"],
+		},
+	},
+	{
+		test: {
 			name: "core",
 			root: path.join(workspaceRoot, "packages/core"),
 			environment: "node",

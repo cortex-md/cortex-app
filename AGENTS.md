@@ -48,6 +48,7 @@ cortex/
 │   └── mobile/                     # Expo/React Native app — consome packages/core e packages/platform
 ├── packages/
 │   ├── core/                       # Lógica pura: vault, metadata, eventos, Note Cache, índice; usa a abstração de plataforma.
+│   ├── databases/                  # Core portátil de databases: catálogos, índices e queries sobre notas/frontmatter.
 │   ├── commands/                   # Registry agnóstico de comandos, hotkeys associadas e nomes Vim
 │   ├── editor/                     # Motor de edição: CodeMirror 6 + extensões Markdown + Live Preview
 │   ├── ui/                         # Componentes React compartilhados, design system
@@ -230,6 +231,7 @@ bun run tauri build       # Build release binary
 |---------|---------|------------|
 | **ui** | React UI primitives (Button, Input, Command, etc.) | Component functions, CSS class contracts |
 | **core** | Zustand state stores + NoteCache | Stores (vaultStore, editorStore, workspaceStore, uiStore), noteCache |
+| **databases** | Framework-free database engine over Markdown notes | Catalog/runtime APIs, indexing, query/filter/sort/grouping helpers |
 | **commands** | Platform-agnostic command registry | CommandRegistry, CommandEntry, Vim-safe name helpers |
 | **properties** | Framework-free note property engine | Schemas, YAML codecs, validation, suggestions, system metadata, CM6 extension |
 | **platform** | Abstract platform interface | FileSystem, Dialog, Vault, Storage interfaces + Tauri adapter |
@@ -336,6 +338,19 @@ The `NoteCache` class (in `@cortex/core`) manages editor file state:
 - **Lifecycle**: `noteCache.openTab()` on file open, `noteCache.closeTab()` on close
 
 UI doesn't directly access files; it reads/writes through noteCache.
+
+### Databases
+`@cortex/databases` is the portable engine for Notion-like database definitions, indexes, and view
+queries. Database rows are existing Markdown notes, cell values live in frontmatter owned by
+`@cortex/properties`, syncable definitions live in `.cortex/schema/databases.json`, and the local
+derived cache lives in `.cortex/database-index.json`. Keep this package free of React, DOM, Node,
+Tauri, and Zustand. App state and lifecycle belong in `@cortex/core`'s `useDatabaseStore`; desktop
+owns only the React surfaces, commands, and platform runtime wiring.
+Inline database views are embedded in note bodies with `{{database:<databaseId>#<viewId>}}`. Row
+membership lives in the reserved hidden frontmatter key `cortex-databases`; do not surface that key
+as an ordinary property or fall back to folder/tag source queries for V2 behavior.
+Database UI must call rows "notes", never "pages"; Notion is a reference model, but Cortex's user
+vocabulary is note-first.
 
 ### New Vault Onboarding
 New-vault onboarding note content and first-run/vault marker rules live in `@cortex/core`, under
@@ -505,6 +520,16 @@ restore.
   them through root `benchmark:*` scripts.
 
 ## Important Implementation Details
+
+### Desktop Updater
+The Tauri updater v2 expects the updater public key passed to `.pubkey(...)` and manifest
+signatures to be base64 strings that decode to the textual minisign `.pub` and `.sig` file
+contents. Release scripts may accept either decoded minisign text or Tauri-generated base64 input,
+but the compiled `CORTEX_UPDATER_PUBLIC_KEY` value must remain base64 before it reaches
+`tauri-plugin-updater`.
+The desktop release workflow promotes versioned public artifacts to stable platform names before
+generating the release body, updater manifest, and checksums. Do not publish both the versioned
+download artifact and its stable alias.
 
 ### macOS Native Sidebar
 macOS window material is configured through `apps/desktop/src-tauri/tauri.macos.conf.json`.

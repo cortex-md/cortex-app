@@ -5,6 +5,7 @@ import { clipboardImageExtension } from "@cortex/editor/clipboard"
 import type { CodeBlockEmbedDefinition } from "@cortex/editor/code-block-embeds"
 import { EditorView } from "@cortex/editor/editor-view"
 import { reconfigureMarkdownKeymap } from "@cortex/editor/keymap"
+import type { LineEmbedDefinition } from "@cortex/editor/line-embeds"
 import { ReadingView } from "@cortex/editor/reading-view"
 import { SideBySideView } from "@cortex/editor/side-by-side-view"
 import { type SlashCommandMenuState, slashCommandExtension } from "@cortex/editor/slash-commands"
@@ -29,6 +30,7 @@ import {
 } from "@cortex/properties/codemirror"
 import { useSettingsStore } from "@cortex/settings"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { createDatabaseLineEmbeds } from "../databases/databaseLineEmbeds"
 import { DrawingEmbedCard } from "../drawings/DrawingEmbedCard"
 import { mountDrawingLivePreview } from "../drawings/DrawingLivePreview"
 import { DRAWING_FENCE_LANGUAGE, parseDrawingDocument } from "../drawings/drawingDocument"
@@ -126,6 +128,10 @@ export function ActiveTabEditor({
 			? projectedContentDraft.projection
 			: (getCachedProjectedContent(tab.filePath)?.projection ?? null)
 	const codeBlockEmbeds = useMemo(() => createNoteCodeBlockEmbeds(tab.filePath), [tab.filePath])
+	const lineEmbeds = useMemo<LineEmbedDefinition[]>(
+		() => createDatabaseLineEmbeds(tab.filePath),
+		[tab.filePath],
+	)
 
 	const formatBindingsSnapshot = useHotkeysStore((s) =>
 		s.bindings
@@ -329,6 +335,7 @@ export function ActiveTabEditor({
 										content={projectedContent.body}
 										scrollMode="parent"
 										codeBlockEmbeds={codeBlockEmbeds}
+										lineEmbeds={lineEmbeds}
 										onExternalLinkClick={handleExternalLinkClick}
 									/>
 								) : mode === "side-by-side" ? (
@@ -338,6 +345,7 @@ export function ActiveTabEditor({
 										editorConfig={editorConfig}
 										extraExtensions={editorExtensions}
 										codeBlockEmbeds={codeBlockEmbeds}
+										lineEmbeds={lineEmbeds}
 										resolveImageUrl={resolveImageUrl}
 										vimCommandProvider={vimCommandProvider}
 										commandExecutor={executeEditorHotkeyCommand}
@@ -353,6 +361,7 @@ export function ActiveTabEditor({
 										editorConfig={editorConfig}
 										livePreview={mode === "live-preview"}
 										codeBlockEmbeds={codeBlockEmbeds}
+										lineEmbeds={lineEmbeds}
 										resolveImageUrl={resolveImageUrl}
 										extraExtensions={editorExtensions}
 										vimCommandProvider={vimCommandProvider}

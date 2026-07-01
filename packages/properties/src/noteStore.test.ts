@@ -82,7 +82,7 @@ describe("note property store", () => {
 				version: 1,
 				properties: [selectProperty],
 			}),
-			"/vault/note.md": "---\nworkflow: value\npriority: 2\n---\nBody",
+			"/vault/note.md": "---\nworkflow: value\npriority: 2\ncortex-databases: [db]\n---\nBody",
 		})
 		const readNote = vi.spyOn(testRuntime.runtime.notes, "readNote")
 		const readFile = vi.spyOn(testRuntime.runtime.files, "readFile")

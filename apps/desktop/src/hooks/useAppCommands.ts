@@ -52,6 +52,7 @@ import { getThemeManager } from "@cortex/theme"
 import {
 	BookmarkIcon,
 	CalendarIcon,
+	DatabaseIcon,
 	FileIcon,
 	LayoutTemplateIcon,
 	PanelLeftIcon,
@@ -66,6 +67,8 @@ import {
 	UploadIcon,
 } from "lucide-react"
 import { useEffect } from "react"
+import { createInlineDatabaseAtSelection } from "../features/databases/databaseCommands"
+import { openDatabaseDialog } from "../features/databases/databaseDialogStore"
 import { insertDrawingBlock } from "../features/drawings/drawingCommands"
 import {
 	dispatchFileExplorerCommand,
@@ -604,6 +607,54 @@ const appCommands: CommandEntry[] = [
 		category: "View",
 		aliases: ["tags"],
 		execute: () => openSidebarView("tags"),
+	},
+	{
+		id: "database.create",
+		label: "Create Database",
+		category: "Database",
+		aliases: ["new-database", "database-new"],
+		icon: DatabaseIcon,
+		execute: () => {
+			const view = getEditorViewRef() as EditorRuntimeView | null
+			if (!view) {
+				openDatabaseDialog("create")
+				return
+			}
+			void createInlineDatabaseAtSelection(view, useEditorStore.getState().activeFilePath).catch(
+				(error) => {
+					void reportAppError({
+						operation: "create-inline-database",
+						source: "app-command",
+						cause: error,
+						userMessage: "The database could not be created.",
+					})
+				},
+			)
+		},
+	},
+	{
+		id: "database.embed",
+		label: "Embed Database",
+		category: "Database",
+		aliases: ["insert-database", "embed-database"],
+		icon: DatabaseIcon,
+		execute: () => openDatabaseDialog("embed"),
+	},
+	{
+		id: "database.open",
+		label: "Open Database",
+		category: "Database",
+		aliases: ["database", "open-database"],
+		icon: DatabaseIcon,
+		execute: () => openDatabaseDialog("open"),
+	},
+	{
+		id: "database.create-view",
+		label: "Create Database View",
+		category: "Database",
+		aliases: ["new-database-view", "database-view"],
+		icon: DatabaseIcon,
+		execute: () => openDatabaseDialog("create-view"),
 	},
 	{
 		id: "view.toggle-theme",

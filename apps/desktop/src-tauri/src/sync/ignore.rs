@@ -337,7 +337,7 @@ pub fn should_ignore(path: &str, prefs: &SyncPreferences) -> bool {
         .or_else(|| normalized.strip_prefix(".cortex/"))
         .unwrap_or(&normalized);
 
-    if cortex_file == "schema/properties.json" {
+    if cortex_file == "schema/properties.json" || cortex_file == "schema/databases.json" {
         return false;
     }
 
@@ -396,6 +396,8 @@ mod tests {
 
         assert!(!should_ignore(".cortex/app.json", &prefs));
         assert!(!should_ignore(".cortex/schema/properties.json", &prefs));
+        assert!(!should_ignore(".cortex/schema/databases.json", &prefs));
+        assert!(should_ignore(".cortex/database-index.json", &prefs));
         assert!(should_ignore(".cortex/bookmarks.json", &prefs));
         assert!(should_ignore(".cortex/ui-state.json", &prefs));
         assert!(should_ignore(".cortex/sync-preferences.json", &prefs));
