@@ -184,15 +184,19 @@ function collectSourceFiles(directory: string): string[] {
 	const files: string[] = []
 	const visit = (currentDirectory: string) => {
 		for (const entry of readdirSync(currentDirectory)) {
-			if (entry === "dist" || entry === "node_modules" || entry === "target") continue
+			if (entry === "dist" || entry === "node_modules" || entry === "target" || entry === "out") {
+				continue
+			}
 			const path = join(currentDirectory, entry)
 			const stats = statSync(path)
 			if (stats.isDirectory()) visit(path)
 			else if (/\.[cm]?[jt]sx?$/.test(entry)) files.push(path)
 		}
 	}
-	const sourceDirectory = join(directory, "src")
-	if (existsSync(sourceDirectory)) visit(sourceDirectory)
+	for (const sourceName of ["src", "electron"]) {
+		const sourceDirectory = join(directory, sourceName)
+		if (existsSync(sourceDirectory)) visit(sourceDirectory)
+	}
 	return files
 }
 

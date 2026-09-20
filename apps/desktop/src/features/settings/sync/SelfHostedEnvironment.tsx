@@ -102,12 +102,15 @@ function EnvironmentDisclosure({
 export function SelfHostedEnvironment() {
 	const { environment, environmentFile, secrets, updateField } = useSelfHostedEnvironment()
 	const [copied, setCopied] = useState(false)
+	const [exported, setExported] = useState(false)
 	const [openGroupId, setOpenGroupId] = useState<string | null>(null)
 	const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+	const exportTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
 	useEffect(
 		() => () => {
 			if (copyTimer.current) clearTimeout(copyTimer.current)
+			if (exportTimer.current) clearTimeout(exportTimer.current)
 		},
 		[],
 	)
@@ -128,6 +131,9 @@ export function SelfHostedEnvironment() {
 		})
 		if (!path) return
 		await platform.fs.writeFile(path, environmentFile)
+		setExported(true)
+		if (exportTimer.current) clearTimeout(exportTimer.current)
+		exportTimer.current = setTimeout(() => setExported(false), 1200)
 	}
 
 	return (
@@ -142,7 +148,7 @@ export function SelfHostedEnvironment() {
 					</Button>
 					<Button variant="secondary" size="sm" onClick={() => void handleExport()}>
 						<Download size={14} />
-						Export
+						{exported ? "Exported" : "Export"}
 					</Button>
 				</>
 			}

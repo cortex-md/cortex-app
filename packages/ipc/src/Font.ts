@@ -1,5 +1,5 @@
 import type { FontInfo, Font as IFont } from "@cortex/platform"
-import { invoke } from "@tauri-apps/api/core"
+import { invoke } from "./bridge"
 
 export class Font implements IFont {
 	async listSystemFonts(): Promise<FontInfo[]> {

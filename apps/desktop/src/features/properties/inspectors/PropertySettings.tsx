@@ -1,3 +1,4 @@
+import { getPlatform } from "@cortex/platform"
 import {
 	createPropertyOption,
 	getPropertyType,
@@ -54,6 +55,17 @@ export function PropertySettings({
 			await onUpdateDefinition({ ...definition, name: trimmedName })
 		}
 		setNameError(null)
+	}
+
+	const handleDelete = async () => {
+		const confirmed = await getPlatform().dialog.showConfirm({
+			title: "Delete property",
+			message: `Are you sure you want to delete "${definition.name}"? This cannot be undone.`,
+			destructive: true,
+			confirmLabel: "Delete",
+		})
+		if (!confirmed) return
+		await onDeleteDefinition()
 	}
 
 	return (
@@ -136,7 +148,7 @@ export function PropertySettings({
 				<Button
 					variant="ghost"
 					className="note-property-delete-action"
-					onClick={() => void onDeleteDefinition()}
+					onClick={() => void handleDelete()}
 				>
 					<Trash2Icon />
 					Delete property

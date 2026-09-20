@@ -1,5 +1,5 @@
 import type { Subscription as ISubscription, SubscriptionStatus } from "@cortex/platform"
-import { invoke } from "@tauri-apps/api/core"
+import { invoke } from "./bridge"
 
 export class Subscription implements ISubscription {
 	async getStatus(serverUrl: string): Promise<SubscriptionStatus> {

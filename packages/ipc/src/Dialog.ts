@@ -1,17 +1,17 @@
 import type {
 	AlertDialogOptions,
 	ConfirmDialogOptions,
+	ContextMenuOptions,
 	FileDialogOptions,
 	FolderDialogOptions,
 	Dialog as IDialog,
 } from "@cortex/platform"
-import { confirm, message, open, save } from "@tauri-apps/plugin-dialog"
-import { revealItemInDir } from "@tauri-apps/plugin-opener"
+import { invoke } from "./bridge"
 import { normalizeNativePath } from "./path"
 
 function resolveFolderOptions(options?: string | FolderDialogOptions) {
-	if (typeof options === "string") return { title: options, directory: true, multiple: false }
-	return { ...options, directory: true, multiple: false }
+	if (typeof options === "string") return { title: options }
+	return options ?? {}
 }
 
 function resolveConfirmOptions(
@@ -36,26 +36,22 @@ function resolveAlertOptions(
 
 export class Dialog implements IDialog {
 	async pickFolder(options?: string | FolderDialogOptions): Promise<string | null> {
-		const selected = await open(resolveFolderOptions(options))
-		if (Array.isArray(selected)) return selected[0] ? normalizeNativePath(selected[0]) : null
+		const selected = await invoke<string | null>("dialog_pick_folder", resolveFolderOptions(options))
 		return selected ? normalizeNativePath(selected) : null
 	}
 
 	async pickFile(options: FileDialogOptions = {}): Promise<string | null> {
-		const selected = await open({ ...options, multiple: false })
-		if (Array.isArray(selected)) return selected[0] ? normalizeNativePath(selected[0]) : null
+		const selected = await invoke<string | null>("dialog_pick_file", options)
 		return selected ? normalizeNativePath(selected) : null
 	}
 
 	async pickFiles(options: FileDialogOptions = {}): Promise<string[]> {
-		const selected = await open({ ...options, multiple: true })
-		if (!selected) return []
-		const paths = Array.isArray(selected) ? selected : [selected]
-		return paths.map(normalizeNativePath)
+		const selected = await invoke<string[]>("dialog_pick_files", options)
+		return selected.map(normalizeNativePath)
 	}
 
 	async saveFile(options: FileDialogOptions = {}): Promise<string | null> {
-		const selected = await save(options)
+		const selected = await invoke<string | null>("dialog_save_file", options)
 		return selected ? normalizeNativePath(selected) : null
 	}
 
@@ -65,13 +61,7 @@ export class Dialog implements IDialog {
 		titleOrOptions: string | ConfirmDialogOptions,
 		messageText?: string,
 	): Promise<boolean> {
-		const options = resolveConfirmOptions(titleOrOptions, messageText)
-		return await confirm(options.message, {
-			title: options.title,
-			kind: options.destructive ? "warning" : (options.kind ?? "info"),
-			okLabel: options.confirmLabel,
-			cancelLabel: options.cancelLabel,
-		})
+		return await invoke<boolean>("dialog_show_confirm", resolveConfirmOptions(titleOrOptions, messageText))
 	}
 
 	async showAlert(title: string, message: string): Promise<void>
@@ -80,15 +70,17 @@ export class Dialog implements IDialog {
 		titleOrOptions: string | AlertDialogOptions,
 		messageText?: string,
 	): Promise<void> {
-		const options = resolveAlertOptions(titleOrOptions, messageText)
-		await message(options.message, {
-			title: options.title,
-			kind: options.kind ?? "info",
-			okLabel: options.okLabel,
-		})
+		await invoke<void>("dialog_show_alert", resolveAlertOptions(titleOrOptions, messageText))
 	}
 
 	async revealFolder(path: string): Promise<void> {
-		await revealItemInDir(path)
+		await invoke<void>("dialog_reveal_folder", { path })
+	}
+
+	async showContextMenu(options: ContextMenuOptions): Promise<string | null> {
+		return await invoke<string | null>("dialog_show_context_menu", {
+			items: options.items,
+			position: options.position ?? null,
+		})
 	}
 }

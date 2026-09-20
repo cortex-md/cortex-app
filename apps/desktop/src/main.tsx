@@ -1,4 +1,4 @@
-import { tauriPlatform } from "@cortex/ipc"
+import { electronPlatform } from "@cortex/ipc"
 import { initPlatform, type NativeAppearanceSnapshot } from "@cortex/platform"
 import { generateCSSString, generateCSSVariables, initThemeManager } from "@cortex/theme"
 import ReactDOM from "react-dom/client"
@@ -7,7 +7,7 @@ import { WebThemeAdapter } from "./features/themes/webThemeAdapter"
 import { initializeDesktopProperties } from "./propertiesRuntime"
 import "./styles.css"
 
-initPlatform(tauriPlatform)
+initPlatform(electronPlatform)
 initializeDesktopProperties()
 initThemeManager("ink", new WebThemeAdapter(), { generateCSSString, generateCSSVariables })
 
@@ -34,7 +34,7 @@ function applyNativeAppearance(snapshot: NativeAppearanceSnapshot) {
 }
 
 function refreshNativeAppearance() {
-	tauriPlatform.appearance.getSnapshot().then(applyNativeAppearance)
+	void electronPlatform.appearance.getSnapshot().then(applyNativeAppearance)
 }
 
 function prewarmTextRendering() {
@@ -54,7 +54,7 @@ const initialAppearance = window.navigator.userAgent.toLowerCase().includes("mac
 document.body.dataset.platform = initialAppearance
 loadPlatformStyles(initialAppearance)
 refreshNativeAppearance()
-const unsubscribeNativeAppearance = tauriPlatform.appearance.subscribe(applyNativeAppearance)
+const unsubscribeNativeAppearance = electronPlatform.appearance.subscribe(applyNativeAppearance)
 window.addEventListener("beforeunload", unsubscribeNativeAppearance, { once: true })
 prewarmTextRendering()
 

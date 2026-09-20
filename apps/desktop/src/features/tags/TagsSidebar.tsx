@@ -5,7 +5,7 @@ import {
 	useWorkspaceStore,
 } from "@cortex/core"
 import { Badge, Button, InputGroup, InputGroupAddon, InputGroupInput } from "@cortex/ui"
-import { ChevronRightIcon, FileIcon, FolderIcon, TagIcon } from "lucide-react"
+import { ChevronRightIcon, FileIcon, FolderIcon, TagIcon, Vault } from "lucide-react"
 import { useCallback, useMemo, useState } from "react"
 
 interface SidebarNotePresentation {
@@ -56,7 +56,7 @@ function TagRow({
 				/>
 				<span
 					className="sidebar-tag-swatch"
-					style={{ backgroundColor: color ? color : "var(--accent)" }}
+					style={{ backgroundColor: color ? color : "var(--muted-foreground)" }}
 				/>
 				<span className="sidebar-tag-copy">
 					<span className="sidebar-tag-name">{tag}</span>
@@ -145,8 +145,9 @@ export function TagsSidebar() {
 
 	if (!vault) {
 		return (
-			<div className="flex items-center justify-center p-8 text-xs text-muted-foreground">
-				No vault open
+			<div className="sidebar-tool-empty sidebar-tool-empty-stacked p-8">
+				<Vault className="size-6 text-muted-foreground" />
+				<p className="text-xs text-muted-foreground">No vault open</p>
 			</div>
 		)
 	}
@@ -177,7 +178,7 @@ export function TagsSidebar() {
 			<div className="sidebar-tool-scroll">
 				{filteredTags.length === 0 ? (
 					<div className="sidebar-tool-empty sidebar-tool-empty-stacked">
-						<TagIcon className="size-6 text-muted-foreground/50" />
+						<TagIcon className="size-6 text-muted-foreground" />
 						<p className="text-xs text-muted-foreground">
 							{filterQuery ? "No tags match your filter" : "No tags in vault"}
 						</p>

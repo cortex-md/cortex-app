@@ -10,6 +10,7 @@ import {
 	InputGroup,
 	InputGroupAddon,
 	InputGroupInput,
+	Spinner,
 } from "@cortex/ui"
 import { FileIcon, FilterIcon, FolderIcon, SearchIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -256,9 +257,22 @@ export function SearchSidebar() {
 			</div>
 
 			<div className="sidebar-tool-scroll">
-				{visibleResults.length === 0 && localQuery.trim() && !indexing && (
-					<div className="sidebar-tool-empty">No results found</div>
-				)}
+				{indexing ? (
+					<div className="sidebar-tool-empty sidebar-tool-empty-stacked">
+						<Spinner className="size-5 text-muted-foreground" />
+						<p className="text-xs text-muted-foreground">Indexing vault...</p>
+					</div>
+				) : !localQuery.trim() ? (
+					<div className="sidebar-tool-empty sidebar-tool-empty-stacked">
+						<SearchIcon className="size-6 text-muted-foreground" />
+						<p className="text-xs text-muted-foreground">Search your notes</p>
+					</div>
+				) : visibleResults.length === 0 ? (
+					<div className="sidebar-tool-empty sidebar-tool-empty-stacked">
+						<SearchIcon className="size-6 text-muted-foreground" />
+						<p className="text-xs text-muted-foreground">No results found</p>
+					</div>
+				) : null}
 				<div className="sidebar-search-results">
 					{visibleResults.map((result) => {
 						const filePath = getSearchResultPath(result.id, vault?.path)

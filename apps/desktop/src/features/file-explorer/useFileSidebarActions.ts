@@ -2,6 +2,7 @@ import type { useVaultStore, useWorkspaceStore } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
 import { type MouseEvent as ReactMouseEvent, type RefObject, useCallback, useReducer } from "react"
 import { NativeMenuActions } from "@/utils/context-menu"
+import { sendCoreNotification } from "@/utils/nativeNotifications"
 import { reportAppError } from "@/utils/reportAppError"
 import type { FileOpenRequest } from "./FileSidebarTree"
 import type { FileTreeNode } from "./fileTree"
@@ -203,6 +204,7 @@ export function useFileSidebarActions({
 			} else {
 				navigator.clipboard.writeText(filePath)
 			}
+			void sendCoreNotification({ title: "Path copied", body: filePath })
 		},
 		[vaultPath],
 	)

@@ -6,6 +6,7 @@ import {
 	useVaultStore,
 } from "@cortex/core"
 import type { RemoteVaultInfo } from "@cortex/platform"
+import { getPlatform } from "@cortex/platform"
 import {
 	Alert,
 	AlertDescription,
@@ -21,6 +22,7 @@ import {
 	DialogTitle,
 	Input,
 	Label,
+	Spinner,
 } from "@cortex/ui"
 import { Cloud, CreditCard, Link, Lock, Plus, Unlink, Users } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
@@ -320,13 +322,17 @@ function RemoteVaultPickerView({
 	return (
 		<div className="flex flex-col gap-3">
 			{loading || encryptionLoading ? (
-				<p className="py-2 text-sm text-muted-foreground">
-					{encryptionLoading ? "Checking encryption..." : "Loading remote vaults..."}
-				</p>
+				<div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+					<Spinner className="size-4" />
+					<span>{encryptionLoading ? "Checking encryption..." : "Loading remote vaults..."}</span>
+				</div>
 			) : remoteVaults.length === 0 ? (
-				<p className="py-2 text-sm text-muted-foreground">
-					No remote vaults found. Create one to start syncing.
-				</p>
+				<div className="flex flex-col items-center gap-2 py-6 text-center">
+					<Cloud size={20} className="text-muted-foreground" />
+					<p className="text-sm text-muted-foreground">
+						No remote vaults found. Create one to start syncing.
+					</p>
+				</div>
 			) : (
 				<div className="flex max-h-[220px] flex-col gap-1 overflow-y-auto">
 					{remoteVaults.map((remoteVault) => (
@@ -531,9 +537,18 @@ function VaultLinkModalContent({
 
 	const handleUnlink = async () => {
 		if (!vault?.path) return
+		const confirmed = await getPlatform().dialog.showConfirm({
+			title: "Unlink vault",
+			message: "Are you sure you want to unlink this vault from remote sync?",
+			destructive: true,
+			confirmLabel: "Unlink",
+		})
+		if (!confirmed) return
 		try {
 			await unlinkVault(vault.path)
-		} catch {}
+		} catch (unlinkError) {
+			updateDraft({ encryptionError: String(unlinkError) })
+		}
 	}
 
 	const handleCreate = async () => {

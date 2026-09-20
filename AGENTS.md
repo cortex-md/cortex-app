@@ -6,44 +6,26 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 **Cortex** is a modular markdown platform with desktop app and developer tooling. The architecture is a monorepo using bun workspaces, with clear separation between:
 - **apps/cli** — Official Cortex CLI (Go) for plugin/theme create, validate, and publish workflows
-- **apps/desktop** — The Tauri application entry point
-- **packages/** — Reusable modules (ui, core, platform, ipc, theme, editor, settings)
+- **apps/desktop** — The Electron application entry point
+- **packages/** — Reusable modules (ui, core, platform, ipc, theme, editor, settings, sync-engine)
 
 ## Package responsibilities
 
 ```
 cortex/
 ├── apps/
-│   ├── desktop/                    # App Tauri (shell Rust + frontend React/Vite)
-│   │   ├── src-tauri/              # Camada nativa Rust
-│   │   │   ├── src/
-│   │   │   │   ├── commands/       # Handlers IPC expostos ao frontend via tauri-specta
-│   │   │   │   │   ├── vault.rs    # open_vault, close_vault, scan_vault, get_vault_metadata
-│   │   │   │   │   ├── fs.rs       # read_file, write_file, delete_file, rename_file, hash_file
-│   │   │   │   │   ├── watcher.rs  # start_watching, stop_watching (emite eventos Tauri)
-│   │   │   │   │   ├── window.rs   # open_vault_in_new_window, get_window_label
-│   │   │   │   │   ├── dialog.rs   # pick_folder, show_confirm_dialog
-│   │   │   │   │   ├── shell.rs    # open_in_system_explorer, reveal_file
-│   │   │   │   │   ├── registry.rs # update_vault_registry, read_vault_registry, remove_from_vault_registry
-│   │   │   │   │   ├── auth.rs     # keychain read/write para tokens e device identity
-│   │   │   │   │   └── menu.rs     # macOS native menubar: build_menu, refresh_menu_recents, File > Recents submenu
-│   │   │   │   ├── sync/           # Engine de sync — roda em thread Rust separada
-│   │   │   │   │   ├── engine.rs   # Loop principal: detecta mudanças, enfileira ops, executa
-│   │   │   │   │   ├── uploader.rs # Upload de arquivos via HTTP POST com retry e backoff
-│   │   │   │   │   ├── downloader.rs # Download e aplicação de versões remotas
-│   │   │   │   │   ├── sse.rs      # Cliente SSE persistente: conecta, reconecta, emite eventos Tauri
-│   │   │   │   │   ├── merge.rs    # Three-way merge via diff-match-patch (Markdown) e JSON merge
-│   │   │   │   │   ├── conflict.rs # Detecção de conflito via hash triplo (local/remote/ancestor)
-│   │   │   │   │   ├── db.rs       # Interface com sync.db (SQLite): leitura e escrita de sync_state
-│   │   │   │   │   └── auth.rs     # Refresh de access token, fluxo de device token
-│   │   │   │   ├── keychain/       # Abstração cross-platform para keychain do OS
-│   │   │   │   │   └── mod.rs      # macOS Keychain, Windows Credential Manager, Linux libsecret
-│   │   │   │   ├── protocol/       # Protocolo cortex:// para servir assets do vault ao webview
-│   │   │   │   │   └── mod.rs
-│   │   │   │   └── main.rs         # Entry point Tauri: registra comandos, plugins, setup inicial
-│   │   │   └── Cargo.toml
-│   │   └── src/                    # Entrada React — composição dos packages
-│   │       ├── main.tsx            # initPlatform(tauriAdapter), monta React app
+│   ├── desktop/                    # App Electron (main/preload TypeScript + React/Vite renderer)
+│   │   ├── electron/               # Main process: IPC, native services, menus, protocols
+│   │   │   ├── main.ts             # Electron entry: single-instance, deep links, window lifecycle
+│   │   │   ├── preload.ts          # contextBridge window.cortex.invoke/on
+│   │   │   ├── ipc/register.ts     # Command name → Node service handlers
+│   │   │   ├── menu.ts             # macOS/Windows application menu + dock recents
+│   │   │   ├── protocols.ts        # cortex-file:// asset protocol
+│   │   │   └── services/           # FS, vault, registry, watcher, auth, keychain, sync host, …
+│   │   ├── electron.vite.config.ts
+│   │   ├── electron-builder.yml
+│   │   └── src/                    # React renderer — composição dos packages
+│   │       ├── main.tsx            # initPlatform(electronPlatform), monta React app
 │   │       └── App.tsx             # Composição de layout, providers, workspace
 │   └── mobile/                     # Expo/React Native app — consome packages/core e packages/platform
 ├── packages/
@@ -52,14 +34,15 @@ cortex/
 │   ├── editor/                     # Motor de edição: CodeMirror 6 + extensões Markdown + Live Preview
 │   ├── ui/                         # Componentes React compartilhados, design system
 │   ├── plugin-api/                 # Contratos públicos que plugins podem importar
-│   ├── platform/                   # Abstração de plataforma: adapters para Tauri e RN, definição dos tipos principais do filesystem, dialogs e etc.
+│   ├── platform/                   # Abstração de plataforma: adapters para Electron e RN
 │   ├── settings/                   # Engine de configurações, cache em memória, persistência
 │   ├── templates/                  # Linguagem segura e renderização de templates de notas
 │   ├── search/                     # MiniSearch: indexação, serialização, queries
 │   ├── theme/                      # Engine de temas e variáveis CSS para superfícies web
 │   ├── theme-mobile/               # Extrator opt-in CSS→tokens para o futuro app React Native
+│   ├── sync-engine/                # Sync engine Node (UtilityProcess): sync.db, SSE, queue, merge
 │   ├── sync-client/                # Estado reativo do sync no frontend: status, conflitos, UI bridge
-│   └── ipc/                        # Implementação Tauri do pacote platform, com wrappers IPC tipados
+│   └── ipc/                        # electronPlatform + typed invoke/listen over contextBridge
 ├── plugins/                        # Plugins core bundled
 │   ├── file-explorer/
 │   ├── quick-switcher/
@@ -185,14 +168,14 @@ bun run typecheck:web     # Run TypeScript for apps/web
 bun run typecheck:mobile  # Run TypeScript for apps/mobile
 bun run check:web         # Run apps/web Biome check
 bun run check:mobile      # Run mobile lint + typecheck
-bun run test:desktop      # Run desktop frontend suites and Rust tests
+bun run test:desktop      # Run desktop frontend suites and sync-engine tests
 bun run test:web          # Run apps/web tests
 bun run test:mobile       # Run the mobile deterministic gate
 bun run doctor            # Run React Doctor changed-scope scan for apps/desktop
 bun run doctor:mobile     # Run React Doctor changed-scope scan for apps/mobile when needed
 bun run test:frontend     # Run deterministic desktop frontend suites
 bun run test:frontend:all # Run deterministic desktop frontend, theme-mobile, and web suites
-bun run test:rust         # Run the Rust workspace suite
+bun run test:sync-engine  # Run packages/sync-engine vitest suite
 bun run test              # Run the desktop gate
 bun run mobile:start      # Start Expo for apps/mobile
 bun run mobile:ios        # Start Expo and open iOS
@@ -200,20 +183,20 @@ bun run mobile:android    # Start Expo and open Android
 bun run benchmark:editor  # Run editor performance benchmarks from tools/benchmarks
 bun run benchmark:file-explorer # Run desktop file tree benchmarks from tools/benchmarks
 bun run benchmark:large-vault # Run desktop large-vault diagnostic workbench
-bun run tauri dev         # Start Tauri dev server (from apps/desktop/)
+bun run dev:desktop       # Start Electron + Vite (from apps/desktop/)
 ```
 
 GitHub Actions are desktop-scoped by default while mobile is in active development. Automatic CI
-should run desktop Biome, desktop TypeScript, desktop frontend tests, workspace boundaries, Rust
-tests, and desktop React Doctor only. Mobile and web checks stay available through explicit scripts
+should run desktop Biome, desktop TypeScript, desktop frontend tests, sync-engine tests, workspace
+boundaries, and desktop React Doctor only. Mobile and web checks stay available through explicit scripts
 but should not block default CI until those products are promoted back into the main gate. The
 plugin API publish workflow is manual-only while the default workflow set remains desktop-focused.
 
 ### Running the App
 ```bash
 cd apps/desktop
-bun run tauri dev         # Launch Tauri window with hot reload
-bun run tauri build       # Build release binary
+bun run dev               # Launch Electron window with hot reload
+bun run dist              # Build + package release binaries
 ```
 
 ### Monorepo & Workspaces
@@ -232,8 +215,9 @@ bun run tauri build       # Build release binary
 | **core** | Zustand state stores + NoteCache | Stores (vaultStore, editorStore, workspaceStore, uiStore), noteCache |
 | **commands** | Platform-agnostic command registry | CommandRegistry, CommandEntry, Vim-safe name helpers |
 | **properties** | Framework-free note property engine | Schemas, YAML codecs, validation, suggestions, system metadata, CM6 extension |
-| **platform** | Abstract platform interface | FileSystem, Dialog, Vault, Storage interfaces + Tauri adapter |
-| **ipc** | Typed IPC wrappers over Tauri | invoke() and event wrappers for commands |
+| **platform** | Abstract platform interface | FileSystem, Dialog, Vault, Storage interfaces + Electron/RN adapters |
+| **ipc** | Electron platform bridge | electronPlatform, invoke/listen over contextBridge |
+| **sync-engine** | Desktop sync worker | SyncDb, SSE, queue, merge, UtilityProcess entry |
 | **editor** | CodeMirror 6 setup | EditorView, extensions, syntax highlighting |
 | **theme** | CSS theme system | ThemeManager, CSS variable generation, paper/ink themes |
 | **settings** | App settings management | SettingsManager, Zod validation, persisted via JSON |
@@ -247,7 +231,9 @@ bun run tauri build       # Build release binary
   and marketplace UI
 - **src/components/shared/** — Cross-feature desktop helpers only
 - **src/styles.css** — Design system CSS (primitives, layout, components)
-- **src-tauri/** — Rust source (commands, Tauri config)
+- **electron/** — Electron main/preload (IPC handlers, native services, menus)
+- **src-tauri/** — Removed; desktop shell is Electron + TypeScript only
+
 
 ## Architecture Patterns
 
@@ -313,7 +299,7 @@ export function Button({
 ```
 
 ### Platform Abstraction
-Rust commands are abstracted behind `@cortex/platform` interfaces. Desktop code never directly imports from IPC; it uses platform methods:
+Native commands are abstracted behind `@cortex/platform` interfaces. Desktop code never directly imports from IPC; it uses platform methods:
 
 ```typescript
 // ✅ DO
@@ -325,7 +311,7 @@ import { scanVault } from "@cortex/ipc"
 const files = await scanVault(path)
 ```
 
-The platform adapter (`packages/platform/src/adapters/tauri/`) bridges to actual IPC calls.
+The Electron adapter (`packages/ipc` → `electronPlatform`) bridges to `window.cortex.invoke/on`.
 
 ### NoteCache: Cache-First File Handling
 The `NoteCache` class (in `@cortex/core`) manages editor file state:
@@ -489,11 +475,10 @@ restore.
 2. Export from `packages/core/src/index.ts`
 3. Use in components: `const { state, action } = useMyStore()`
 
-### Adding a New Rust Command
-1. Create in `apps/desktop/src-tauri/src/commands/` (e.g., `mycommand.rs`)
-2. Add to `commands` module in `main.rs`
-3. Register with `#[tauri::command]`
-4. Wrap in `@cortex/ipc` and expose via platform
+### Adding a New Electron IPC Command
+1. Implement the service in `apps/desktop/electron/services/`
+2. Register the command name in `apps/desktop/electron/ipc/register.ts`
+3. Expose it through `@cortex/ipc` / `@cortex/platform` if renderer code needs it
 
 ### Debugging
 - **DevTools**: Open with keyboard shortcuts in Tauri
@@ -507,12 +492,10 @@ restore.
 ## Important Implementation Details
 
 ### macOS Native Sidebar
-macOS window material is configured through `apps/desktop/src-tauri/tauri.macos.conf.json`.
-Do not apply vibrancy manually in Rust for the main window; keep the native sidebar material in
-Tauri window configuration so it stays platform-scoped and avoids duplicate `NSVisualEffectView`
-layers. Traffic light placement is owned entirely by the macOS setup path: use a 40px titlebar,
-14px left inset, 8px gaps, and center the native button size vertically. Do not duplicate this
-geometry with `trafficLightPosition` in Tauri JSON. The React shell uses `app-shell`, `app-titlebar`, `app-content`,
+macOS window material is configured through Electron `BrowserWindow` options in
+`apps/desktop/electron/window.ts` (vibrancy sidebar, trafficLightPosition). Do not layer CSS blur
+over the native sidebar material. Traffic light placement uses a 40px titlebar budget with a 14px
+left inset and vertical centering. The React shell uses `app-shell`, `app-titlebar`, `app-content`,
 `app-sidebar`, `app-sidebar-resizer`, and `app-main` as CSS contracts for macOS-only native
 layout styling. The sidebar is edge-to-edge with only a themed right divider; do not restore the
 Tahoe-era inset card, inner radius, or CSS blur. The macOS sidebar toggle is rendered in the
@@ -529,16 +512,15 @@ Settings stays outside the carousel in the footer while the active view owns the
 region. Do not add CSS backdrop blur over the native sidebar material.
 
 ### Native Desktop Shell
-Keep `apps/desktop/src-tauri/tauri.conf.json` platform-neutral. macOS-only chrome belongs in
-`tauri.macos.conf.json`; Windows-only chrome belongs in `tauri.windows.conf.json`. Window-level
-materials should come from Tauri/window effects, not CSS blur layered over opaque web surfaces.
-Settings opens as the in-app `SettingsModal`; do not route it through a separate Tauri webview
-window. Shared settings layout lives in `SettingsContent`.
+Keep Electron main-process chrome platform-aware in `apps/desktop/electron/window.ts` and
+`menu.ts`. Window-level materials should come from Electron window effects (vibrancy/Mica), not CSS
+blur layered over opaque web surfaces. Settings opens as the in-app `SettingsModal`; do not route
+it through a separate BrowserWindow. Shared settings layout lives in `SettingsContent`.
 
 ### Native Notifications
 All app and plugin notifications must go through `getPlatform().notifications`, never DOM toasts
-or browser notification APIs. Desktop delivery is implemented by `@cortex/ipc` through Tauri's
-notification plugin; future mobile adapters should implement the same `Platform.notifications`
+or browser notification APIs. Desktop delivery is implemented by `@cortex/ipc` through Electron's
+notification APIs; future mobile adapters should implement the same `Platform.notifications`
 interface and no-op unsupported feature fields instead of throwing. Core app notifications bypass
 plugin permission checks but still respect OS permission and platform support.
 
@@ -579,9 +561,9 @@ content as an ephemeral workspace tab and must not write it to the vault, `noteC
 - No library (too opinionated for this app)
 
 ### Sync Logging Architecture
-Sync logs follow a **single-source-of-truth** model — Rust is the authority for engine events, the frontend only logs what it originates:
+Sync logs follow a **single-source-of-truth** model — the sync-engine UtilityProcess is the authority for engine events, the frontend only logs what it originates:
 
-**Rust (engine.rs → `emit_log` → `sync-log` Tauri event)**:
+**Sync engine (`emit_log` → `sync-log` event)**:
 - State transitions (connecting, live, offline, denied, etc.)
 - Initial sync start/complete/fail
 - DB errors, VEK errors, reconciliation errors
@@ -593,7 +575,7 @@ Sync logs follow a **single-source-of-truth** model — Rust is the authority fo
 - Sync lifecycle start/stop decisions (useSyncLifecycle.ts)
 - Vault access denied handling on JS side (auto-unlink)
 
-**Never duplicate**: If an event originates in Rust, only Rust logs it. The frontend `onSyncLog` listener bridges Rust logs into `syncLogStore`. Frontend code must NOT add its own log call for the same event.
+**Never duplicate**: If an event originates in the sync engine, only the engine logs it. The frontend `onSyncLog` listener bridges engine logs into `syncLogStore`. Frontend code must NOT add its own log call for the same event.
 
 **Never log tokens or secrets**. Server URLs and vault IDs are safe for debugging self-hosted setups.
 
@@ -605,7 +587,7 @@ Sync logs follow a **single-source-of-truth** model — Rust is the authority fo
   scan, and route concurrent changes for an open note through NoteCache's per-path single-flight.
 - `sync.db` is the only source for note sync metadata on the frontend. `Sync.getNoteMetadata`
   performs a local database read and must never fetch history or contact the server.
-- Rust sync writes replace files atomically before updating `sync.db`. Watcher echoes whose hash
+- Sync engine writes replace files atomically before updating `sync.db`. Watcher echoes whose hash
   already equals `sync_state.local_hash` must not enqueue uploads.
 - Sync queue operations are deduplicated by operation type and path in memory and SQLite. Creation
   history lookups are low-priority, persisted, and never run during note opening.
@@ -623,7 +605,8 @@ initial sync, reconciliation, and queued operations. Frontend helpers in `syncSt
 policy only for UI state and menu affordances.
 
 ### File Watching
-- Rust `notify` crate emits `vault-file-changed` events
+- Rust `notify` crate emits `vault-file-changed` events → Electron chokidar watcher emits the same
+  event names to the renderer
 - `vaultStore.refreshFiles()` polls vault on file changes
 - Prevents editor from overwriting external changes
 - `FileSystem.startWatching` supports multiple watcher IDs plus `includeHidden` and

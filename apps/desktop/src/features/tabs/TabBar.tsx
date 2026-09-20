@@ -84,7 +84,9 @@ function TabBarItem({
 			onContextMenu={(e) => onContextMenu?.(tab.id, e)}
 		>
 			{insertMarker && <span className={`tab-drop-marker tab-drop-marker--${insertMarker}`} />}
-			<span className="tab-title truncate">{tab.title}</span>
+			<span className="tab-title truncate" title={tab.title}>
+				{tab.title}
+			</span>
 			{tab.isDirty && <span className="tab-dirty-dot" aria-hidden="true" />}
 			{!tab.isPinned && (
 				// biome-ignore lint/a11y/useSemanticElements: TabsTrigger already renders the tab button; a nested button would be invalid HTML

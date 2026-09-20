@@ -1,12 +1,9 @@
 import type { RemoteVault as IRemoteVault, RemoteVaultInfo, SyncConfig } from "@cortex/platform"
-import { invoke } from "@tauri-apps/api/core"
+import { invoke } from "./bridge"
 
 export class RemoteVault implements IRemoteVault {
 	async create(name: string, description: string | null): Promise<RemoteVaultInfo> {
-		return await invoke<RemoteVaultInfo>("remote_vault_create", {
-			name,
-			description,
-		})
+		return await invoke<RemoteVaultInfo>("remote_vault_create", { name, description })
 	}
 
 	async list(): Promise<RemoteVaultInfo[]> {
@@ -22,11 +19,7 @@ export class RemoteVault implements IRemoteVault {
 		name: string | null,
 		description: string | null,
 	): Promise<RemoteVaultInfo> {
-		return await invoke<RemoteVaultInfo>("remote_vault_update", {
-			vaultId,
-			name,
-			description,
-		})
+		return await invoke<RemoteVaultInfo>("remote_vault_update", { vaultId, name, description })
 	}
 
 	async delete(vaultId: string): Promise<void> {

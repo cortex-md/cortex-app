@@ -1,5 +1,5 @@
 import type { DeviceEntry, Devices as IDevices } from "@cortex/platform"
-import { invoke } from "@tauri-apps/api/core"
+import { invoke } from "./bridge"
 
 export class Devices implements IDevices {
 	async list(): Promise<DeviceEntry[]> {

@@ -1,5 +1,5 @@
 import type { Http as IHttp } from "@cortex/platform"
-import { invoke } from "@tauri-apps/api/core"
+import { invoke } from "./bridge"
 
 export class Http implements IHttp {
 	async fetch(url: string, options?: RequestInit): Promise<Response> {

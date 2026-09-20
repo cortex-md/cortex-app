@@ -301,7 +301,20 @@ export function FileSidebarTree({
 			onKeyDown={handleKeyDown}
 		>
 			{tree.length === 0 && !isCreatingAtRoot ? (
-				<div className="flex items-center justify-center p-8 text-xs text-text-muted">No files</div>
+				<div className="flex flex-col items-center justify-center gap-3 p-8 text-center">
+					<FolderIcon className="size-6 text-text-muted" />
+					<p className="m-0 text-xs text-text-muted">No files yet</p>
+					<div className="flex items-center gap-2">
+						<Button variant="secondary" size="sm" onClick={() => onNewFile(vaultPath)}>
+							<FilePlusIcon className="size-3.5" />
+							New note
+						</Button>
+						<Button variant="secondary" size="sm" onClick={() => onNewFolder(vaultPath)}>
+							<FolderPlusIcon className="size-3.5" />
+							New folder
+						</Button>
+					</div>
+				</div>
 			) : (
 				<FileSidebarTreeRows
 					rows={rows}
@@ -730,7 +743,7 @@ function TreeNodeRow({
 					selectBaseName={!node.isDir}
 				/>
 			) : (
-				<span className="overflow-hidden text-ellipsis whitespace-nowrap flex-1">
+				<span className="overflow-hidden text-ellipsis whitespace-nowrap flex-1" title={node.name}>
 					{node.isDir ? node.name : node.name.replace(/\.md$/, "")}
 				</span>
 			)}

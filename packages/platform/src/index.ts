@@ -21,7 +21,7 @@ import type { Subscription } from "./interfaces/Subscription"
 import type { Sync } from "./interfaces/Sync"
 import type { Vault } from "./interfaces/Vault"
 
-export type { App, DeepLinkOpenListener } from "./interfaces/App"
+export type { App, DeepLinkOpenListener, NativeEventListener } from "./interfaces/App"
 export type {
 	Appearance,
 	NativeAppearanceSnapshot,
@@ -45,6 +45,15 @@ export type { DeviceEntry, Devices } from "./interfaces/Devices"
 export type {
 	AlertDialogOptions,
 	ConfirmDialogOptions,
+	ContextMenuCheckboxItem,
+	ContextMenuItem,
+	ContextMenuItemBase,
+	ContextMenuItemType,
+	ContextMenuNormalItem,
+	ContextMenuOptions,
+	ContextMenuPosition,
+	ContextMenuSeparatorItem,
+	ContextMenuSubmenuItem,
 	Dialog,
 	DialogFilter,
 	DialogKind,

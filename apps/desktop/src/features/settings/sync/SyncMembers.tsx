@@ -48,6 +48,7 @@ export function SyncMembersPage({
 					engineState="idle"
 					lastSyncedAt={null}
 					connectedDeviceCount={0}
+					devicesError={null}
 					devicesLoading={false}
 					noteCount={0}
 					onOpenLink={onOpenLink}

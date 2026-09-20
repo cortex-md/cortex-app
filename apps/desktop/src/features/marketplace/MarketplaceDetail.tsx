@@ -225,6 +225,17 @@ export function MarketplaceDetail({ tab, entry, hasVault, onBack }: MarketplaceD
 	const uninstallEntry = useMarketplaceStore((state) => state.uninstallEntry)
 	const readmeScrollRef = useRef<HTMLDivElement>(null)
 
+	const handleUninstall = async (uninstallEntryTarget: RegistryEntry) => {
+		const confirmed = await getPlatform().dialog.showConfirm({
+			title: "Uninstall",
+			message: `Are you sure you want to uninstall "${uninstallEntryTarget.name}"?`,
+			destructive: true,
+			confirmLabel: "Uninstall",
+		})
+		if (!confirmed) return
+		await uninstallEntry(uninstallEntryTarget)
+	}
+
 	const isInstalled = entry ? isEntryInstalled(entry.id, tab) : false
 	const isLoading = loadingEntryId === entry?.id
 	const readme = entry ? readmeCache[entry.id] : undefined
@@ -287,7 +298,10 @@ export function MarketplaceDetail({ tab, entry, hasVault, onBack }: MarketplaceD
 						<MarketplaceDetailArtwork entry={entry} />
 						<div className="flex min-w-0 flex-1 flex-col gap-2">
 							<div className="flex min-w-0 flex-wrap items-center gap-2">
-								<h2 className="m-0 truncate text-lg font-semibold leading-7 text-text-primary text-balance">
+								<h2
+									className="m-0 truncate text-lg font-semibold leading-7 text-text-primary text-balance"
+									title={entry.name}
+								>
 									{entry.name}
 								</h2>
 								{isInstalled && (
@@ -329,7 +343,7 @@ export function MarketplaceDetail({ tab, entry, hasVault, onBack }: MarketplaceD
 								<Button
 									variant="ghost"
 									size="sm"
-									onClick={() => void uninstallEntry(entry)}
+									onClick={() => void handleUninstall(entry)}
 									disabled={isLoading}
 									className="text-text-muted hover:text-destructive"
 								>
@@ -341,7 +355,7 @@ export function MarketplaceDetail({ tab, entry, hasVault, onBack }: MarketplaceD
 							<Button
 								variant="destructive"
 								size="sm"
-								onClick={() => void uninstallEntry(entry)}
+								onClick={() => void handleUninstall(entry)}
 								disabled={isLoading}
 							>
 								{isLoading ? <Spinner className="size-3" /> : <Trash2 size={13} />}

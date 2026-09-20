@@ -2,6 +2,7 @@ import { formatLastSyncedAt, SYNC_STATUS_PRESENTATION, useRemoteVaultStore } fro
 import type { SyncEngineState } from "@cortex/platform"
 import { Button, Switch } from "@cortex/ui"
 import { Cloud, CloudOff, Link } from "lucide-react"
+import { useState } from "react"
 import {
 	SettingsField,
 	SettingsGroup,
@@ -22,6 +23,7 @@ const statusToneClassNames = {
 interface SyncOverviewProps {
 	authenticated: boolean
 	connectedDeviceCount: number
+	devicesError: string | null
 	devicesLoading: boolean
 	engineState: SyncEngineState
 	lastSyncedAt: number | null
@@ -40,23 +42,33 @@ function SyncToggleSection({
 	vaultPath,
 }: Pick<SyncOverviewProps, "authenticated" | "syncEnabled" | "vaultPath">) {
 	const setSyncEnabled = useRemoteVaultStore((state) => state.setSyncEnabled)
+	const [toggleError, setToggleError] = useState<string | null>(null)
 	return (
 		<SettingsSection
 			title="Sync"
 			description="Enable or disable sync for this vault without changing its remote link."
 		>
 			<SettingsGroup>
-				<SettingsField label="Enable sync for this vault" htmlFor="sync-enabled">
+				<SettingsField
+					label="Enable sync for this vault"
+					htmlFor="sync-enabled"
+					description={!authenticated ? "Sign in to enable sync" : undefined}
+				>
 					<Switch
 						id="sync-enabled"
 						checked={syncEnabled}
 						disabled={!authenticated}
 						onCheckedChange={(checked) => {
-							if (vaultPath) void setSyncEnabled(vaultPath, checked).catch(() => {})
+							if (!vaultPath) return
+							setToggleError(null)
+							void setSyncEnabled(vaultPath, checked).catch((error) => {
+								setToggleError(error instanceof Error ? error.message : String(error))
+							})
 						}}
 					/>
 				</SettingsField>
 			</SettingsGroup>
+			{toggleError && <p className="m-0 px-1 text-sm text-destructive">{toggleError}</p>}
 		</SettingsSection>
 	)
 }
@@ -68,6 +80,7 @@ export function VaultLinkSection({
 	engineState,
 	lastSyncedAt,
 	connectedDeviceCount,
+	devicesError,
 	devicesLoading,
 	noteCount,
 	onOpenLink,
@@ -86,7 +99,10 @@ export function VaultLinkSection({
 								<Cloud className="size-4" />
 							</div>
 							<div className="min-w-0 flex-1">
-								<p className="m-0 truncate text-[13px] font-semibold text-foreground">
+								<p
+									className="m-0 truncate text-[13px] font-semibold text-foreground"
+									title={vaultName}
+								>
 									{vaultName}
 								</p>
 								<div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -109,7 +125,10 @@ export function VaultLinkSection({
 								{formatLastSyncedAt(lastSyncedAt)}
 							</span>
 						</SettingsField>
-						<SettingsField label="Connected devices">
+						<SettingsField
+							label="Connected devices"
+							description={devicesError ? devicesError : undefined}
+						>
 							<span className="text-[13px] text-muted-foreground">
 								{devicesLoading
 									? "Loading"

@@ -272,9 +272,9 @@ input[type="color"] {
 }
 
 [data-command-surface] [data-slot="command-item"] {
-	min-height: 40px;
+	min-height: 28px;
 	border: 1px solid transparent;
-	border-radius: 8px;
+	border-radius: var(--popup-item-radius);
 	color: var(--text-secondary);
 	transition-property: background-color, border-color, color;
 	transition-duration: 120ms;
@@ -358,7 +358,7 @@ input[type="color"] {
 	width: min(320px, calc(100vw - 20px));
 	overflow: hidden;
 	border: 1px solid var(--menu-border);
-	border-radius: 12px;
+	border-radius: var(--popup-radius);
 	background: var(--popover);
 	box-shadow: var(--shadow-floating);
 	transform-origin: top left;
@@ -486,9 +486,7 @@ input[type="color"] {
 [data-popup-surface] {
 	border-color: color-mix(in srgb, var(--popover) 78%, var(--menu-border, var(--border)) 22%);
 	background: var(--popover);
-	box-shadow:
-		0 10px 24px color-mix(in srgb, black 12%, transparent),
-		0 2px 8px color-mix(in srgb, black 8%, transparent);
+	box-shadow: var(--shadow-floating);
 	backdrop-filter: none;
 }
 
@@ -504,7 +502,7 @@ input[type="color"] {
 		[data-slot="context-menu-sub-trigger"],
 		[data-slot="select-item"]
 	) {
-	border-radius: 7px;
+	border-radius: var(--popup-item-radius);
 	transition:
 		background-color 120ms ease,
 		color 120ms ease;
@@ -524,13 +522,6 @@ input[type="color"] {
 	):is(:focus, [data-highlighted], [data-state="open"]) {
 	background: color-mix(in srgb, var(--bg-hover) 72%, transparent);
 	color: var(--text-primary);
-}
-
-body[data-platform="macos"] [data-command-surface] {
-	--command-selected-bg: color-mix(in srgb, var(--bg-active) 62%, transparent);
-	background: color-mix(in srgb, var(--popover) 84%, transparent);
-	border-color: color-mix(in srgb, var(--border) 58%, transparent);
-	box-shadow: 0 18px 48px rgba(0, 0, 0, 0.16);
 }
 
 body[data-platform="windows"] [data-command-surface] {
@@ -591,9 +582,10 @@ body[data-high-contrast="true"] * {
 }
 
 ::-webkit-scrollbar-thumb {
-	border-radius: 9999px;
+	border-radius: var(--control-pill-radius);
 	background-color: transparent;
-	transition: background-color 220ms cubic-bezier(0.2, 0, 0, 1);
+	transition: background-color var(--macos-duration-base, 220ms)
+		var(--macos-ease, cubic-bezier(0.2, 0, 0, 1));
 }
 
 *:hover::-webkit-scrollbar-thumb,
@@ -614,8 +606,8 @@ body[data-reduced-motion="true"] ::-webkit-scrollbar-thumb {
 [data-slot="scroll-area-thumb"] {
 	opacity: 0;
 	transition:
-		opacity 220ms cubic-bezier(0.2, 0, 0, 1),
-		background-color 220ms cubic-bezier(0.2, 0, 0, 1);
+		opacity var(--macos-duration-base, 220ms) var(--macos-ease, cubic-bezier(0.2, 0, 0, 1)),
+		background-color var(--macos-duration-base, 220ms) var(--macos-ease, cubic-bezier(0.2, 0, 0, 1));
 }
 
 [data-slot="scroll-area-scrollbar"] {
@@ -676,8 +668,8 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 .file-tree-item {
 	position: relative;
 	z-index: 2;
-	height: var(--file-tree-row-height, 28px);
-	min-height: var(--file-tree-row-height, 28px);
+	height: var(--file-tree-row-height, 32px);
+	min-height: var(--file-tree-row-height, 32px);
 	width: calc(100% - 4px);
 	margin-block: 0 2px;
 	margin-inline-start: 4px;
@@ -688,7 +680,7 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 	color: var(--text-secondary);
 	font-size: 13px;
 	font-weight: 400;
-	line-height: 16.9px;
+	line-height: 17px;
 }
 
 .file-tree-item[data-file-tree-is-directory="false"] {
@@ -762,7 +754,7 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 .file-tree-create-row {
 	position: relative;
 	z-index: 2;
-	height: var(--file-tree-row-height, 28px);
+	height: var(--file-tree-row-height, 32px);
 	width: calc(100% - 4px);
 	margin-block: 0 2px;
 	margin-inline-start: 4px;
@@ -771,7 +763,7 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 	padding-left: var(--file-tree-indent, 10px);
 	border-radius: 4px;
 	font-size: 13px;
-	line-height: 16.9px;
+	line-height: 17px;
 }
 
 .file-tree-item:has(.file-tree-inline-input),
@@ -785,8 +777,8 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 
 .file-tree-inline-input {
 	flex: 1 1 auto;
-	height: calc(var(--file-tree-row-height, 25px) - 4px);
-	min-height: calc(var(--file-tree-row-height, 25px) - 4px);
+	height: calc(var(--file-tree-row-height, 32px) - 4px);
+	min-height: calc(var(--file-tree-row-height, 32px) - 4px);
 	width: calc(100% + 4px);
 	min-width: 0;
 	margin-left: -4px;
@@ -796,7 +788,7 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 	background: var(--bg-primary);
 	color: var(--text-primary);
 	font-size: 13px;
-	line-height: 16.9px;
+	line-height: 17px;
 }
 
 .sidebar-view-carousel {
@@ -839,15 +831,15 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 	height: 34px;
 	min-height: 34px;
 	border: 1px solid transparent;
-	border-radius: 9999px;
+	border-radius: var(--control-pill-radius);
 	color: var(--text-muted);
 	scroll-snap-align: center;
 	transition:
-		background-color 160ms ease-out,
-		border-color 160ms ease-out,
-		box-shadow 160ms ease-out,
-		color 160ms ease-out,
-		padding 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+		background-color var(--macos-duration-base, 160ms) var(--macos-ease, ease-out),
+		border-color var(--macos-duration-base, 160ms) var(--macos-ease, ease-out),
+		box-shadow var(--macos-duration-base, 160ms) var(--macos-ease, ease-out),
+		color var(--macos-duration-base, 160ms) var(--macos-ease, ease-out),
+		padding var(--macos-duration-base, 220ms) var(--macos-ease, cubic-bezier(0.2, 0.8, 0.2, 1));
 }
 
 .sidebar-view-tab {
@@ -873,7 +865,8 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 	max-width: var(--sidebar-active-label-max-width, 120px);
 	min-width: 1.8em;
 	overflow: hidden;
-	animation: sidebar-view-label-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+	animation: sidebar-view-label-in var(--macos-duration-base, 220ms)
+		var(--macos-ease, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
 }
 
 .sidebar-view-tab-label > span {
@@ -1004,8 +997,8 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 	position: relative;
 	z-index: 2;
 	display: grid;
-	height: var(--file-tree-row-height, 28px);
-	min-height: var(--file-tree-row-height, 28px);
+	height: var(--file-tree-row-height, 32px);
+	min-height: var(--file-tree-row-height, 32px);
 	width: calc(100% - 4px);
 	grid-template-columns: minmax(0, 1fr) 24px;
 	align-items: center;
@@ -1023,7 +1016,7 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 	font-family: inherit;
 	font-size: 13px;
 	font-weight: 400;
-	line-height: 16.9px;
+	line-height: 17px;
 	outline: none;
 	text-align: left;
 	transition:
@@ -1127,7 +1120,7 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 	font-family: inherit;
 	font-size: 13px;
 	font-weight: 400;
-	line-height: 16.9px;
+	line-height: 17px;
 	outline: none;
 	text-align: left;
 	transition:
@@ -1153,11 +1146,11 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 
 .sidebar-search-result {
 	display: grid;
-	min-height: 44px;
+	min-height: 32px;
 	grid-template-columns: 20px minmax(0, 1fr);
 	align-items: start;
 	gap: 8px;
-	padding: 7px 8px;
+	padding: 5px 8px;
 }
 
 .sidebar-result-icon {
@@ -1172,8 +1165,8 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 }
 
 .sidebar-result-file-icon {
-	width: 14px;
-	height: 14px;
+	width: 13px;
+	height: 13px;
 	flex-shrink: 0;
 }
 
@@ -1246,7 +1239,7 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 
 .sidebar-tag-row {
 	display: grid;
-	min-height: 25px;
+	min-height: 32px;
 	grid-template-columns: 16px 10px minmax(0, 1fr) auto;
 	align-items: center;
 	gap: 6px;
@@ -1268,7 +1261,7 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 	width: 9px;
 	height: 9px;
 	flex-shrink: 0;
-	border-radius: 9999px;
+	border-radius: var(--control-pill-radius);
 	box-shadow: inset 0 0 0 1px color-mix(in srgb, black 12%, transparent);
 }
 
@@ -1282,7 +1275,7 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 .sidebar-tag-name,
 .sidebar-tag-file-title {
 	font-size: 13px;
-	line-height: 16.9px;
+	line-height: 17px;
 }
 
 .sidebar-tag-count {
@@ -1302,7 +1295,7 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 
 .sidebar-tag-file {
 	display: grid;
-	min-height: 25px;
+	min-height: 32px;
 	grid-template-columns: 14px minmax(0, 1fr);
 	align-items: center;
 	gap: 6px;
@@ -1341,19 +1334,23 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 }
 
 .sidebar-view-panel--current.sidebar-view-panel--animated[data-direction="forward"] {
-	animation: sidebar-view-enter-forward 190ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+	animation: sidebar-view-enter-forward var(--macos-duration-base, 190ms)
+		var(--macos-ease, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
 }
 
 .sidebar-view-panel--previous[data-direction="forward"] {
-	animation: sidebar-view-exit-forward 190ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+	animation: sidebar-view-exit-forward var(--macos-duration-base, 190ms)
+		var(--macos-ease, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
 }
 
 .sidebar-view-panel--current.sidebar-view-panel--animated[data-direction="backward"] {
-	animation: sidebar-view-enter-backward 190ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+	animation: sidebar-view-enter-backward var(--macos-duration-base, 190ms)
+		var(--macos-ease, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
 }
 
 .sidebar-view-panel--previous[data-direction="backward"] {
-	animation: sidebar-view-exit-backward 190ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+	animation: sidebar-view-exit-backward var(--macos-duration-base, 190ms)
+		var(--macos-ease, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
 }
 
 .sidebar-footer {
@@ -1554,8 +1551,8 @@ body[data-platform="windows"] .sidebar-bookmark-row.active {
 	text-align: left;
 	outline: none;
 	transition-property: background-color, box-shadow, scale;
-	transition-duration: 150ms;
-	transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+	transition-duration: var(--macos-duration-base, 150ms);
+	transition-timing-function: var(--macos-ease, cubic-bezier(0.2, 0, 0, 1));
 }
 
 .settings-plugin-marketplace-link:not(:disabled):hover {
@@ -1592,8 +1589,8 @@ body[data-platform="windows"] .sidebar-bookmark-row.active {
 	filter: blur(4px);
 	scale: 0.25;
 	transition-property: opacity, filter, scale, color;
-	transition-duration: 170ms;
-	transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+	transition-duration: var(--macos-duration-base, 170ms);
+	transition-timing-function: var(--macos-ease, cubic-bezier(0.2, 0, 0, 1));
 }
 
 .settings-plugin-marketplace-link:not(:disabled):hover .settings-plugin-marketplace-icon,
@@ -1669,14 +1666,15 @@ body[data-platform="windows"] .sidebar-bookmark-row.active {
 	background: transparent;
 	color: var(--text-secondary);
 	transition:
-		width 140ms cubic-bezier(0.2, 0.8, 0.2, 1),
-		min-width 140ms cubic-bezier(0.2, 0.8, 0.2, 1),
-		max-width 140ms cubic-bezier(0.2, 0.8, 0.2, 1),
-		opacity 120ms ease,
-		background-color 140ms ease,
-		border-color 140ms ease,
-		color 140ms ease;
-	animation: tab-enter 150ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+		width var(--macos-duration-base, 140ms) var(--macos-ease, cubic-bezier(0.2, 0.8, 0.2, 1)),
+		min-width var(--macos-duration-base, 140ms) var(--macos-ease, cubic-bezier(0.2, 0.8, 0.2, 1)),
+		max-width var(--macos-duration-base, 140ms) var(--macos-ease, cubic-bezier(0.2, 0.8, 0.2, 1)),
+		opacity var(--macos-duration-base, 120ms) var(--macos-ease, ease),
+		background-color var(--macos-duration-base, 140ms) var(--macos-ease, ease),
+		border-color var(--macos-duration-base, 140ms) var(--macos-ease, ease),
+		color var(--macos-duration-base, 140ms) var(--macos-ease, ease);
+	animation: tab-enter var(--macos-duration-base, 150ms)
+		var(--macos-ease, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
 	will-change: transform, opacity;
 	-webkit-app-region: no-drag;
 }
@@ -1700,7 +1698,7 @@ body[data-platform="windows"] .sidebar-bookmark-row.active {
 	padding-inline: 0;
 	overflow: hidden;
 	pointer-events: none;
-	animation: tab-exit 140ms ease-in both;
+	animation: tab-exit var(--macos-duration-base, 140ms) var(--macos-ease, ease-in) both;
 }
 
 .tab-title {
@@ -1717,11 +1715,11 @@ body[data-platform="windows"] .sidebar-bookmark-row.active {
 	top: 5px;
 	bottom: 5px;
 	width: 2px;
-	border-radius: 9999px;
+	border-radius: var(--control-pill-radius);
 	background: var(--tab-accent);
 	box-shadow: 0 0 0 2px color-mix(in srgb, var(--tab-accent) 18%, transparent);
 	pointer-events: none;
-	animation: tab-marker 120ms ease-out both;
+	animation: tab-marker var(--macos-duration-base, 120ms) var(--macos-ease, ease-out) both;
 }
 
 .tab-drop-marker--before {
@@ -1821,8 +1819,8 @@ body[data-platform="windows"] .sidebar-bookmark-row.active {
 	touch-action: none;
 	position: relative;
 	transition:
-		background-color 120ms ease,
-		opacity 120ms ease;
+		background-color var(--macos-duration-base, 120ms) var(--macos-ease, ease),
+		opacity var(--macos-duration-base, 120ms) var(--macos-ease, ease);
 }
 
 .split-resizer--horizontal {
@@ -1843,8 +1841,8 @@ body[data-platform="windows"] .sidebar-bookmark-row.active {
 	content: "";
 	opacity: 0.72;
 	transition:
-		background-color 120ms ease,
-		opacity 120ms ease;
+		background-color var(--macos-duration-base, 120ms) var(--macos-ease, ease),
+		opacity var(--macos-duration-base, 120ms) var(--macos-ease, ease);
 }
 
 .split-resizer--horizontal::after {
@@ -2125,7 +2123,7 @@ button.mermaid-diagram-surface:hover {
 }
 
 button.mermaid-diagram-surface:focus-visible {
-	outline: 2px solid var(--focus-ring);
+	outline: 2px solid var(--border-focus);
 	outline-offset: 2px;
 }
 
@@ -2334,8 +2332,8 @@ button.mermaid-diagram-surface:focus-visible {
 	background: transparent;
 	outline: none;
 	transition-property: background-color, box-shadow, color, transform;
-	transition-duration: 160ms;
-	transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+	transition-duration: var(--macos-duration-base, 160ms);
+	transition-timing-function: var(--macos-ease, cubic-bezier(0.2, 0, 0, 1));
 }
 
 .marketplace-catalog-row:hover {
@@ -2353,16 +2351,13 @@ button.mermaid-diagram-surface:focus-visible {
 		inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
 		0 1px 2px color-mix(in srgb, var(--accent) 12%, transparent);
 	transform: translateX(2px);
-	animation: marketplace-selection-pop 220ms cubic-bezier(0.2, 0, 0, 1);
+	animation: marketplace-selection-pop var(--macos-duration-base, 220ms)
+		var(--macos-ease, cubic-bezier(0.2, 0, 0, 1));
 }
 
 .marketplace-artwork {
-	outline: 1px solid rgba(0, 0, 0, 0.1);
+	outline: 1px solid var(--border-subtle);
 	outline-offset: -1px;
-}
-
-[data-theme-scheme="dark"] .marketplace-artwork {
-	outline-color: rgba(255, 255, 255, 0.1);
 }
 
 .marketplace-count-pill,
@@ -2385,7 +2380,8 @@ button.mermaid-diagram-surface:focus-visible {
 }
 
 .marketplace-detail {
-	animation: marketplace-detail-enter 180ms cubic-bezier(0.2, 0, 0, 1);
+	animation: marketplace-detail-enter var(--macos-duration-base, 180ms)
+		var(--macos-ease, cubic-bezier(0.2, 0, 0, 1));
 }
 
 .marketplace-detail-header {
@@ -2444,8 +2440,8 @@ button.mermaid-diagram-surface:focus-visible {
 	text-align: left;
 	outline: none;
 	transition-property: background-color, box-shadow, color;
-	transition-duration: 150ms;
-	transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+	transition-duration: var(--macos-duration-base, 150ms);
+	transition-timing-function: var(--macos-ease, cubic-bezier(0.2, 0, 0, 1));
 }
 
 .marketplace-repository-button:hover {
@@ -2500,8 +2496,8 @@ button.mermaid-diagram-surface:focus-visible {
 	text-align: left;
 	outline: none;
 	transition-property: background-color, box-shadow, color;
-	transition-duration: 150ms;
-	transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+	transition-duration: var(--macos-duration-base, 150ms);
+	transition-timing-function: var(--macos-ease, cubic-bezier(0.2, 0, 0, 1));
 }
 
 .marketplace-capabilities-trigger:not(:disabled):hover {
@@ -2535,8 +2531,8 @@ button.mermaid-diagram-surface:focus-visible {
 	flex-shrink: 0;
 	color: var(--text-muted);
 	transition-property: transform, color;
-	transition-duration: 180ms;
-	transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+	transition-duration: var(--macos-duration-base, 180ms);
+	transition-timing-function: var(--macos-ease, cubic-bezier(0.2, 0, 0, 1));
 }
 
 .marketplace-capabilities-trigger[data-state="open"] .marketplace-capabilities-chevron {
@@ -2549,8 +2545,8 @@ button.mermaid-diagram-surface:focus-visible {
 	grid-template-rows: 0fr;
 	opacity: 0;
 	transition-property: grid-template-rows, opacity;
-	transition-duration: 190ms;
-	transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+	transition-duration: var(--macos-duration-base, 190ms);
+	transition-timing-function: var(--macos-ease, cubic-bezier(0.2, 0, 0, 1));
 }
 
 .marketplace-capabilities-content[data-state="open"] {
@@ -2753,8 +2749,8 @@ button.mermaid-diagram-surface:focus-visible {
 	border-radius: 8px;
 	color: var(--text-muted);
 	transition-property: transform, background-color, color, box-shadow, filter;
-	transition-duration: 120ms;
-	transition-timing-function: ease-out;
+	transition-duration: var(--macos-duration-base, 120ms);
+	transition-timing-function: var(--macos-ease, ease-out);
 }
 
 .markdown-toolbar-button[data-slot="button"]::before {
@@ -2785,7 +2781,7 @@ button.mermaid-diagram-surface:focus-visible {
 }
 
 .markdown-toolbar-menu [data-slot="dropdown-menu-item"] {
-	min-height: 40px;
+	min-height: 28px;
 }
 
 .markdown-toolbar-menu [data-slot="dropdown-menu-item"] svg[aria-hidden="true"] {
@@ -2887,9 +2883,7 @@ button.mermaid-diagram-surface:focus-visible {
 .pdf-viewer-canvas {
 	display: block;
 	background: white;
-	box-shadow:
-		0 1px 2px rgb(0 0 0 / 0.14),
-		0 16px 48px rgb(0 0 0 / 0.16);
+	box-shadow: var(--modal-shadow);
 	transform-origin: top left;
 	will-change: transform;
 }
@@ -3183,10 +3177,10 @@ button.mermaid-diagram-surface:focus-visible {
 	display: grid;
 	grid-template-columns: minmax(120px, 35%) minmax(0, 65%);
 	align-items: center;
-	min-height: 44px;
+	min-height: 40px;
 	transition:
-		background-color 120ms ease,
-		border-color 120ms ease;
+		background-color var(--macos-duration-base, 120ms) var(--macos-ease, ease),
+		border-color var(--macos-duration-base, 120ms) var(--macos-ease, ease);
 }
 
 .note-property-row:hover {
@@ -3200,7 +3194,7 @@ button.mermaid-diagram-surface:focus-visible {
 	gap: 6px;
 	width: 100%;
 	min-width: 0;
-	min-height: 34px;
+	min-height: 40px;
 	padding: 0 10px;
 	border: 0;
 	border-radius: 8px;
@@ -3236,8 +3230,8 @@ button.mermaid-diagram-surface:focus-visible {
 }
 
 .note-property-settings-chevron {
-	width: 12px;
-	height: 12px;
+	width: 14px;
+	height: 14px;
 	margin-left: auto;
 	opacity: 0;
 }
@@ -3408,14 +3402,14 @@ button.mermaid-diagram-surface:focus-visible {
 	align-items: center;
 	justify-content: center;
 	border: 0;
-	border-radius: 999px;
+	border-radius: var(--control-pill-radius);
 	background: transparent;
-	color: color-mix(in srgb, var(--brand-text) 72%, transparent);
+	color: var(--text-muted);
 }
 
 .note-property-tag-remove:hover {
-	background: color-mix(in srgb, var(--brand-text) 16%, transparent);
-	color: var(--brand-text);
+	background: color-mix(in srgb, var(--status-error-foreground) 16%, transparent);
+	color: var(--status-error-foreground);
 }
 
 .note-property-tag-list .note-property-tag-chip .note-property-tag-remove svg {
@@ -3468,8 +3462,9 @@ button.mermaid-diagram-surface:focus-visible {
 	width: min(336px, calc(100vw - 24px));
 	overflow: hidden;
 	padding: 0;
-	border-radius: 12px;
-	animation: note-property-inspector-in 120ms ease-out;
+	border-radius: var(--popup-radius);
+	animation: note-property-inspector-in var(--macos-duration-base, 120ms)
+		var(--macos-ease, ease-out);
 }
 
 .note-property-popover [data-slot="command"] {
@@ -3758,6 +3753,14 @@ button.mermaid-diagram-surface:focus-visible {
 	line-height: 16px;
 }
 
+.note-properties-empty {
+	margin: 0;
+	padding: 8px 2px;
+	color: var(--text-muted);
+	font-size: 12px;
+	line-height: 16px;
+}
+
 .note-property-row::before {
 	display: none;
 	content: "";
@@ -3910,17 +3913,14 @@ body[data-platform="macos"] .app-sidebar-toggle {
 	opacity: 0.88;
 	pointer-events: auto;
 	transition:
-		background-color 120ms ease-out,
-		color 120ms ease-out,
-		opacity 160ms ease-out;
+		background-color var(--macos-duration-base) var(--macos-ease),
+		color var(--macos-duration-base) var(--macos-ease),
+		opacity var(--macos-duration-base) var(--macos-ease);
 }
 
 body[data-platform="macos"] .app-sidebar-toggle:hover {
 	opacity: 1;
 	color: var(--text-primary);
-}
-
-body[data-platform="macos"] .app-sidebar-toggle:hover {
 	background: var(--bg-hover);
 }
 
@@ -3940,12 +3940,12 @@ body[data-platform="macos"] .app-sidebar {
 	-webkit-backdrop-filter: none;
 	color: var(--text-secondary);
 	transition:
-		width 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-		min-width 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-		max-width 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-		margin 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-		padding 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
-		border-color 160ms ease-out;
+		width var(--macos-duration-slow) var(--macos-ease),
+		min-width var(--macos-duration-slow) var(--macos-ease),
+		max-width var(--macos-duration-slow) var(--macos-ease),
+		margin var(--macos-duration-slow) var(--macos-ease),
+		padding var(--macos-duration-base) var(--macos-ease),
+		border-color var(--macos-duration-base) var(--macos-ease);
 }
 
 body[data-platform="macos"] .app-shell[data-native-window-effects="disabled"] {
@@ -3969,8 +3969,8 @@ body[data-platform="macos"] .app-titlebar-drag-region {
 
 body[data-platform="macos"] .app-sidebar > * {
 	transition:
-		opacity 140ms ease-out,
-		transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+		opacity var(--macos-duration-base) var(--macos-ease),
+		transform var(--macos-duration-base) var(--macos-ease);
 }
 
 body[data-platform="macos"] .app-sidebar--collapsed {
@@ -4003,9 +4003,9 @@ body[data-platform="macos"] .app-sidebar-resizer {
 	margin: 0 -3px;
 	background: transparent;
 	transition:
-		width 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
-		margin 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
-		opacity 140ms ease-out;
+		width var(--macos-duration-base) var(--macos-ease),
+		margin var(--macos-duration-base) var(--macos-ease),
+		opacity var(--macos-duration-base) var(--macos-ease);
 }
 
 body[data-platform="macos"] .app-sidebar-resizer--hidden {
@@ -4030,8 +4030,8 @@ body[data-platform="macos"] .app-sidebar-resizer::after {
 	content: "";
 	opacity: 0;
 	transition:
-		background-color 120ms ease-out,
-		opacity 120ms ease-out;
+		background-color var(--macos-duration-base) var(--macos-ease),
+		opacity var(--macos-duration-base) var(--macos-ease);
 }
 
 body[data-platform="macos"] .app-sidebar-resizer:hover::after,
@@ -4049,7 +4049,7 @@ body[data-platform="macos"] .app-main {
 body[data-platform="macos"] .app-shell[data-native-window-effects="enabled"] .app-main {
 	border: 1px solid color-mix(in srgb, var(--sidebar-border) 86%, transparent);
 	border-right: 0;
-	border-radius: 10px 0 0 10px;
+	border-radius: var(--macos-radius-lg) 0 0 var(--macos-radius-lg);
 	background: color-mix(in srgb, var(--bg-primary) 94%, transparent);
 }
 

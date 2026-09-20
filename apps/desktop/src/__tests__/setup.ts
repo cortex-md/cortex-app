@@ -45,6 +45,7 @@ vi.mock("@cortex/platform", () => ({
 			openExternalUrl: vi.fn().mockResolvedValue(undefined),
 			resolveFileAssetUrl: vi.fn((path: string) => `asset://${path}`),
 			onDeepLinkOpen: vi.fn().mockResolvedValue(() => {}),
+			onNativeEvent: vi.fn().mockResolvedValue(() => {}),
 		},
 		appUpdates: {
 			getStatus: vi.fn().mockResolvedValue({
@@ -79,13 +80,4 @@ vi.mock("@cortex/platform", () => ({
 		capabilities: ["notifications"],
 	})),
 	initPlatform: vi.fn(),
-}))
-
-vi.mock("@tauri-apps/api/core", () => ({
-	invoke: vi.fn(),
-}))
-
-vi.mock("@tauri-apps/api/event", () => ({
-	listen: vi.fn().mockResolvedValue(() => {}),
-	emit: vi.fn(),
 }))

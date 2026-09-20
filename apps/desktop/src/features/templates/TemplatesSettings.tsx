@@ -1,5 +1,6 @@
 import type { TemplateDefinition } from "@cortex/core"
 import { useTemplateStore, useVaultStore } from "@cortex/core"
+import { getPlatform } from "@cortex/platform"
 import { Button } from "@cortex/ui"
 import {
 	CopyIcon,
@@ -68,6 +69,11 @@ export function TemplatesSection() {
 			setError(null)
 			try {
 				await duplicateTemplate(vault, template.id)
+				await getPlatform().dialog.showAlert({
+					title: "Template duplicated",
+					message: `"${template.name}" was duplicated.`,
+					kind: "info",
+				})
 			} catch (duplicateError) {
 				setError(duplicateError instanceof Error ? duplicateError.message : String(duplicateError))
 			}
@@ -78,6 +84,13 @@ export function TemplatesSection() {
 	const handleDelete = useCallback(
 		async (template: TemplateDefinition) => {
 			if (!vault) return
+			const confirmed = await getPlatform().dialog.showConfirm({
+				title: "Delete template",
+				message: `Are you sure you want to delete "${template.name}"? This cannot be undone.`,
+				destructive: true,
+				confirmLabel: "Delete",
+			})
+			if (!confirmed) return
 			setError(null)
 			try {
 				await deleteTemplate(vault, template.id)
@@ -123,12 +136,17 @@ export function TemplatesSection() {
 										<LayoutTemplateIcon className="size-4" />
 									</div>
 									<div className="min-w-0 flex-1">
-										<div className="truncate text-[13px] font-medium text-foreground">
+										<div
+											className="truncate text-[13px] font-medium text-foreground"
+											title={template.name}
+										>
 											{template.name}
 										</div>
 										<div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
 											<FileTextIcon className="size-3" />
-											<span className="truncate">{template.fileNamePattern}</span>
+											<span className="truncate" title={template.fileNamePattern}>
+												{template.fileNamePattern}
+											</span>
 										</div>
 									</div>
 									<div className="flex shrink-0 items-center gap-1">

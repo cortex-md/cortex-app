@@ -9,6 +9,7 @@ const targets = {
 		"packages/platform",
 		"packages/ipc",
 		"packages/settings",
+		"packages/sync-engine",
 		"packages/hotkeys",
 		"packages/editor",
 		"packages/renderer",

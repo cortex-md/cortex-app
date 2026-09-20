@@ -6,8 +6,7 @@ import type {
 	WatchEvent,
 	WatchOptions,
 } from "@cortex/platform"
-import { invoke } from "@tauri-apps/api/core"
-import { listen } from "@tauri-apps/api/event"
+import { invoke, listen } from "./bridge"
 import { normalizeFileEntries, normalizeWatchEvent } from "./path"
 
 export class FileSystem implements IFileSystem {
@@ -74,9 +73,9 @@ export class FileSystem implements IFileSystem {
 			includeHidden: options.includeHidden ?? false,
 			followSymlinks: options.followSymlinks ?? false,
 		})
-		const unlisten = await listen<WatchEvent>("vault-file-changed", (e) => {
-			if (e.payload.watcherId !== watcherId) return
-			callback(normalizeWatchEvent(e.payload))
+		const unlisten = listen<WatchEvent>("vault-file-changed", (payload) => {
+			if (payload.watcherId !== watcherId) return
+			callback(normalizeWatchEvent(payload))
 		})
 		return async () => {
 			unlisten()

@@ -1,25 +1,30 @@
-import type { DeepLinkOpenListener, App as IApp } from "@cortex/platform"
-import { getVersion } from "@tauri-apps/api/app"
-import { convertFileSrc } from "@tauri-apps/api/core"
-import { onOpenUrl } from "@tauri-apps/plugin-deep-link"
-import { openUrl } from "@tauri-apps/plugin-opener"
+import type { DeepLinkOpenListener, App as IApp, NativeEventListener } from "@cortex/platform"
+import { invoke, listen } from "./bridge"
 
 export class App implements IApp {
 	async getCurrentAppVersion(): Promise<string> {
-		return await getVersion()
+		return await invoke<string>("app_get_version")
 	}
 
 	async openExternalUrl(url: string): Promise<void> {
-		await openUrl(url)
+		await invoke<void>("app_open_external_url", { url })
 	}
 
 	resolveFileAssetUrl(path: string): string {
-		return convertFileSrc(path)
+		const normalized = path.replaceAll("\\", "/")
+		return `cortex-file://local${normalized.startsWith("/") ? "" : "/"}${encodeURI(normalized)}`
 	}
 
 	async onDeepLinkOpen(listener: DeepLinkOpenListener): Promise<() => void> {
-		return await onOpenUrl((urls) => {
-			listener([...urls])
+		return listen<string[]>("deep-link-open", (urls) => {
+			listener(urls)
 		})
+	}
+
+	async onNativeEvent<T = unknown>(
+		name: string,
+		listener: NativeEventListener<T>,
+	): Promise<() => void> {
+		return listen<T>(name, listener)
 	}
 }

@@ -1,5 +1,5 @@
 import type { Keychain as IKeychain } from "@cortex/platform"
-import { invoke } from "@tauri-apps/api/core"
+import { invoke } from "./bridge"
 
 export class Keychain implements IKeychain {
 	async get(key: string): Promise<string | null> {

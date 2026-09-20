@@ -34,6 +34,7 @@ import {
 import { MoreHorizontal } from "lucide-react"
 import { Fragment, type Ref, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { NativeMenuActions } from "@/utils/context-menu"
+import { sendCoreNotification } from "@/utils/nativeNotifications"
 import { reportAppError } from "@/utils/reportAppError"
 import { buildNoteMenuItems } from "../file-explorer/NativeMenuActions"
 import { NoteDropdownMenuItems } from "../file-explorer/NoteMenuItems"
@@ -425,8 +426,12 @@ export function NoteHeader({ filePath, paneId, onViewHistory }: Props) {
 					copyRelativePath: (path) => {
 						const value = vault?.path ? path.replace(`${vault.path}/`, "") : path
 						void navigator.clipboard.writeText(value)
+						void sendCoreNotification({ title: "Path copied", body: value })
 					},
-					copyAbsolutePath: (path) => void navigator.clipboard.writeText(path),
+					copyAbsolutePath: (path) => {
+						void navigator.clipboard.writeText(path)
+						void sendCoreNotification({ title: "Path copied", body: path })
+					},
 					reveal: (path) => void getPlatform().dialog.revealFolder(path),
 					showVersionHistory: (path) => onViewHistory?.(path),
 					toggleBookmark: (path) => {

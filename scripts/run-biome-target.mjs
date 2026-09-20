@@ -17,6 +17,7 @@ const targets = {
 		"packages/renderer",
 		"packages/search",
 		"packages/settings",
+		"packages/sync-engine",
 		"packages/templates",
 		"packages/theme",
 		"packages/ui",

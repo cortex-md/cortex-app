@@ -47,8 +47,38 @@ export function ComponentName({
 
 ## Key Principles
 
-### Native macOS Reference Mapping
-This package uses the Figma file `ZTx4yLga2PKeyRIELjN2OS`, frame `110:2`, as the native-feel reference for macOS polish. The selected reference nodes map to primitives this way:
+### Figma Design System
+This package uses the Figma file `ZTx4yLga2PKeyRIELjN2OS`, page **System Design** (`110:2`).
+
+- `Native Reference` (`182:493`) — Apple macOS kit instances kept intact as visual polish reference
+- `Cortex Components` (`182:497`) — transcribed `@cortex/ui` component sets bound to Cortex variables
+
+#### Cortex Components (code → Figma)
+
+| `@cortex/ui` primitive | Figma node |
+|------------------------|------------|
+| `Button` | `Button` set (`184:442`) |
+| `Switch` | `Switch` set (`184:457`) |
+| `Input` | `Input` set (`184:476`) |
+| `InputGroup` | `InputGroup` set (`185:449`) |
+| `Checkbox` | `Checkbox` set (`185:405`) |
+| `Label` | `Label` (`185:406`) |
+| `Badge` | `Badge` set (`185:420`) |
+| `Separator` | `Separator` set (`185:423`) |
+| `NativeSelect` | `NativeSelect` set (`186:408`) |
+| `Slider` | `Slider` (`186:409`) |
+| `Tabs` | `Tabs` set (`186:427`) |
+| `ToggleGroup` | `ToggleGroup` (`186:428`) |
+| `ScrollArea` | `ScrollArea` (`186:433`) |
+| `Dialog` | `Dialog` (`188:394`) |
+| `AlertDialog` | `AlertDialog` (`188:405`) |
+| `Command` | `Command` (`188:414`) |
+| `Toaster` | `Toaster` (`188:438`) |
+
+Variable collections: `Cortex/Primitives`, `Cortex/Semantic Light`, `Cortex/Semantic Dark`
+(Figma Starter plan limits collections to one mode, so Light/Dark are split).
+
+#### Native Reference (Apple kit → code)
 
 | Figma node | `@cortex/ui` primitive |
 |------------|------------------------|

@@ -86,9 +86,14 @@ function DeletedFileRow({ file, isSelected, onSelect, onRestore, restoring }: De
 			>
 				<FileText className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
 				<div className="min-w-0 flex-1">
-					<p className="m-0 truncate text-xs font-medium text-foreground">{fileName}</p>
+					<p className="m-0 truncate text-xs font-medium text-foreground" title={fileName}>
+						{fileName}
+					</p>
 					{directory && (
-						<p className="m-0 mt-0.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground">
+						<p
+							className="m-0 mt-0.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground"
+							title={directory}
+						>
 							<FolderOpen className="size-2.5 shrink-0" />
 							{directory}
 						</p>
@@ -109,7 +114,7 @@ function DeletedFileRow({ file, isSelected, onSelect, onRestore, restoring }: De
 				onClick={onRestore}
 				disabled={restoring}
 				aria-label={`Restore ${fileName}`}
-				className="mt-1 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-data-[selected=true]:opacity-100"
+				className="mt-1 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-data-[selected=true]:opacity-100 focus-visible:opacity-100"
 			>
 				{restoring ? <Spinner className="size-3" /> : <RotateCcw />}
 			</Button>

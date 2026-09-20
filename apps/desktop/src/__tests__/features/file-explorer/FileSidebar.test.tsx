@@ -331,13 +331,13 @@ describe("FileSidebar layout", () => {
 	})
 
 	it("uses a compact virtual step around Minimal-sized rows", () => {
-		expect(FILE_TREE_ROW_HEIGHT).toBe(25)
-		expect(FILE_TREE_ROW_STEP).toBe(27)
+		expect(FILE_TREE_ROW_HEIGHT).toBe(32)
+		expect(FILE_TREE_ROW_STEP).toBe(34)
 		expect(getFileTreeDepthStyle(2)).toEqual({
 			"--file-tree-depth": 2,
 			"--file-tree-guide-width": "36px",
 			"--file-tree-indent": "46px",
-			"--file-tree-row-height": "25px",
+			"--file-tree-row-height": "32px",
 		})
 	})
 
@@ -352,7 +352,7 @@ describe("FileSidebar layout", () => {
 		expect((nestedRow as HTMLElement).style.getPropertyValue("--file-tree-guide-width")).toBe(
 			"18px",
 		)
-		expect((nestedRow as HTMLElement).style.height).toBe("27px")
+		expect((nestedRow as HTMLElement).style.height).toBe("34px")
 	})
 
 	it("uses the same depth contract for inline creation rows", () => {

@@ -25,6 +25,7 @@ export function SyncSection({ view = "overview" }: SyncSectionProps) {
 				<SyncOverviewPage
 					authenticated={overview.authenticated}
 					connectedDeviceCount={overview.connectedDeviceCount}
+					devicesError={overview.devicesError}
 					devicesLoading={overview.devicesLoading}
 					engineState={overview.engineState}
 					lastSyncedAt={overview.lastSyncedAt}

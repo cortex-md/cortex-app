@@ -3,7 +3,7 @@ import type {
 	PdfTextExtraction,
 	PdfTextExtractionOptions,
 } from "@cortex/platform"
-import { invoke } from "@tauri-apps/api/core"
+import { invoke } from "./bridge"
 
 export class DocumentImport implements IDocumentImport {
 	async extractPdfText(options: PdfTextExtractionOptions): Promise<PdfTextExtraction> {

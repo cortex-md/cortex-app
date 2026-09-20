@@ -79,6 +79,7 @@ export function useSyncOverview(view: SyncSettingsView) {
 	return {
 		authenticated,
 		connectedDeviceCount,
+		devicesError,
 		devicesLoading,
 		engineState,
 		lastSyncedAt,

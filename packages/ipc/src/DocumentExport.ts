@@ -1,5 +1,5 @@
 import type { ExportHtmlToPdfOptions, DocumentExport as IDocumentExport } from "@cortex/platform"
-import { invoke } from "@tauri-apps/api/core"
+import { invoke } from "./bridge"
 
 export class DocumentExport implements IDocumentExport {
 	async exportHtmlToPdf(options: ExportHtmlToPdfOptions): Promise<void> {

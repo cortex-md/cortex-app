@@ -1,25 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { AppUpdates } from "../AppUpdates"
-
-interface TestChannel<T> {
-	onmessage?: (event: T) => void
-}
-
-const tauriCoreMock = vi.hoisted(() => ({
-	channels: [] as TestChannel<unknown>[],
-	invoke: vi.fn(),
-}))
-
-vi.mock("@tauri-apps/api/core", () => ({
-	Channel: class<T> {
-		onmessage?: (event: T) => void
-
-		constructor() {
-			tauriCoreMock.channels.push(this as TestChannel<unknown>)
-		}
-	},
-	invoke: tauriCoreMock.invoke,
-}))
+import { cortexBridgeMock, installCortexBridgeMock, resetCortexBridgeMock } from "./bridgeTestUtils"
 
 const availableStatus = {
 	state: "available",
@@ -39,17 +20,16 @@ const availableStatus = {
 
 describe("AppUpdates IPC adapter", () => {
 	beforeEach(() => {
-		tauriCoreMock.channels = []
-		tauriCoreMock.invoke.mockReset()
-		tauriCoreMock.invoke.mockResolvedValue(availableStatus)
+		installCortexBridgeMock()
+		resetCortexBridgeMock()
+		cortexBridgeMock.invoke.mockResolvedValue(availableStatus)
 	})
 
-	it("gets updater status from the Rust command", async () => {
+	it("gets updater status from the native command", async () => {
 		const updates = new AppUpdates()
 
 		await expect(updates.getStatus()).resolves.toBe(availableStatus)
-
-		expect(tauriCoreMock.invoke).toHaveBeenCalledWith("app_update_status")
+		expect(cortexBridgeMock.invoke).toHaveBeenCalledWith("app_update_status", {})
 	})
 
 	it("checks updates with the requested source", async () => {
@@ -57,29 +37,28 @@ describe("AppUpdates IPC adapter", () => {
 
 		await updates.checkForUpdate({ source: "manual" })
 
-		expect(tauriCoreMock.invoke).toHaveBeenCalledWith("app_update_check", { source: "manual" })
+		expect(cortexBridgeMock.invoke).toHaveBeenCalledWith("app_update_check", { source: "manual" })
 	})
 
-	it("bridges install progress through a Tauri channel", async () => {
+	it("bridges install progress through a native event", async () => {
 		const updates = new AppUpdates()
 		const onEvent = vi.fn()
-		tauriCoreMock.invoke.mockImplementation(async (_command, args) => {
-			args.onEvent.onmessage({
-				event: "progress",
-				data: {
-					chunkLength: 512,
-					downloaded: 512,
-					contentLength: 1024,
-				},
-			})
-			return availableStatus
-		})
+		cortexBridgeMock.on.mockImplementation(
+			(_event: string, listener: (payload: unknown) => void) => {
+				listener({
+					event: "progress",
+					data: {
+						chunkLength: 512,
+						downloaded: 512,
+						contentLength: 1024,
+					},
+				})
+				return () => {}
+			},
+		)
 
 		await expect(updates.installUpdate(onEvent)).resolves.toBe(availableStatus)
-
-		expect(tauriCoreMock.invoke).toHaveBeenCalledWith("app_update_install", {
-			onEvent: tauriCoreMock.channels[0],
-		})
+		expect(cortexBridgeMock.invoke).toHaveBeenCalledWith("app_update_install", {})
 		expect(onEvent).toHaveBeenCalledWith({
 			event: "progress",
 			data: {
@@ -92,11 +71,10 @@ describe("AppUpdates IPC adapter", () => {
 
 	it("fetches changelog markdown by version", async () => {
 		const updates = new AppUpdates()
-		tauriCoreMock.invoke.mockResolvedValue("# Changes")
+		cortexBridgeMock.invoke.mockResolvedValue("# Changes")
 
 		await expect(updates.fetchChangelog("0.1.1")).resolves.toBe("# Changes")
-
-		expect(tauriCoreMock.invoke).toHaveBeenCalledWith("app_update_fetch_changelog", {
+		expect(cortexBridgeMock.invoke).toHaveBeenCalledWith("app_update_fetch_changelog", {
 			version: "0.1.1",
 		})
 	})

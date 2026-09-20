@@ -4,7 +4,7 @@ import type {
 	VaultInvite,
 	VaultMember,
 } from "@cortex/platform"
-import { invoke } from "@tauri-apps/api/core"
+import { invoke } from "./bridge"
 
 export class Members implements IMembers {
 	async listMembers(vaultId: string): Promise<VaultMember[]> {

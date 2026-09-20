@@ -9,6 +9,36 @@
 - Never hardcode white or Tailwind red, green, or yellow for semantic text and controls. Solid
   feedback fills use their matching `on-solid` token.
 
+## Figma Mapping
+
+Design file `ZTx4yLga2PKeyRIELjN2OS`, page **System Design** (`110:2`):
+
+- `Native Reference` (`182:493`) keeps the Apple macOS kit instances as polish reference.
+- `Cortex Components` (`182:497`) holds transcribed component sets bound to Cortex variables
+  (`Cortex/Primitives`, `Cortex/Semantic Light`, `Cortex/Semantic Dark`).
+
+| Primitive | Figma node |
+|-----------|------------|
+| `Button` | `184:442` |
+| `Switch` | `184:457` |
+| `Input` | `184:476` |
+| `InputGroup` | `185:449` |
+| `Checkbox` | `185:405` |
+| `Label` | `185:406` |
+| `Badge` | `185:420` |
+| `Separator` | `185:423` |
+| `NativeSelect` | `186:408` |
+| `Slider` | `186:409` |
+| `Tabs` | `186:427` |
+| `ToggleGroup` | `186:428` |
+| `ScrollArea` | `186:433` |
+| `Dialog` | `188:394` |
+| `AlertDialog` | `188:405` |
+| `Command` | `188:414` |
+| `Toaster` | `188:438` |
+
+Full Apple-kit → primitive mapping lives in `CLAUDE.md`.
+
 ## Components
 
 - Components remain pure primitives with class names and forwarded native props.

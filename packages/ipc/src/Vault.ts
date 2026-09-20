@@ -4,7 +4,7 @@ import type {
 	VaultMetadata,
 	VaultRegistryEntry,
 } from "@cortex/platform"
-import { invoke } from "@tauri-apps/api/core"
+import { invoke } from "./bridge"
 import { normalizeFileEntries, normalizeVaultMetadata, normalizeVaultRegistryEntry } from "./path"
 
 export class Vault implements IVault {

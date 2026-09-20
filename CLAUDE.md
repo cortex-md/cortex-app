@@ -9,7 +9,7 @@ the project manual. If a package has only `CLAUDE.md`, treat it as package-local
 
 ## Repository Rules
 
-- Cortex is a desktop-first Tauri app with reusable TypeScript packages, not a web-only project.
+- Cortex is a desktop-first Electron app with reusable TypeScript packages, not a web-only project.
 - Respect package ownership and dependency boundaries before moving code.
 - Use `@cortex/ui` primitives for UI, `@cortex/platform` for platform access, and
   `@cortex/commands` for command surfaces.

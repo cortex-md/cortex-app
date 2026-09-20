@@ -77,6 +77,7 @@ export function AppearanceSection({
 	onBrowseMarketplace = openMarketplaceView,
 }: AppearanceSectionProps) {
 	const [systemFonts, setSystemFonts] = useState<FontInfo[]>([])
+	const [fontsLoading, setFontsLoading] = useState(true)
 	const [themeFamilies, setThemeFamilies] = useState<ThemeFamily[]>(() =>
 		getThemeManager().getThemeFamilies(),
 	)
@@ -88,7 +89,10 @@ export function AppearanceSection({
 		Boolean(selectedThemeFamily) && selectedThemeFamily?.name !== "default"
 
 	useEffect(() => {
-		getPlatform().font.listSystemFonts().then(setSystemFonts)
+		getPlatform()
+			.font.listSystemFonts()
+			.then(setSystemFonts)
+			.finally(() => setFontsLoading(false))
 		const themeManager = getThemeManager()
 		const refreshThemeOptions = () => {
 			setThemeFamilies(themeManager.getThemeFamilies())
@@ -182,6 +186,7 @@ export function AppearanceSection({
 								size="sm"
 								disabled={!canOpenSelectedThemeInMarketplace}
 								onClick={handleOpenSelectedThemeInMarketplace}
+								title={canOpenSelectedThemeInMarketplace ? undefined : "Built-in theme"}
 							>
 								<Store size={12} />
 								View
@@ -228,10 +233,15 @@ export function AppearanceSection({
 				description="Tune the app chrome and navigation typography."
 			>
 				<SettingsGroup>
-					<SettingsField label="UI font" htmlFor="ui-font-family">
+					<SettingsField
+						label="UI font"
+						htmlFor="ui-font-family"
+						description={fontsLoading ? "Loading system fonts..." : undefined}
+					>
 						<NativeSelect
 							id="ui-font-family"
 							value={settings.uiFontFamily}
+							disabled={fontsLoading}
 							onChange={(e) => handleUIFontFamilyChange(e.target.value)}
 						>
 							<NativeSelectOption value="System Default">System Default</NativeSelectOption>
@@ -287,10 +297,15 @@ export function AppearanceSection({
 
 			<SettingsSection title="Editor" description="Tune note editing typography.">
 				<SettingsGroup>
-					<SettingsField label="Editor font" htmlFor="editor-font-family">
+					<SettingsField
+						label="Editor font"
+						htmlFor="editor-font-family"
+						description={fontsLoading ? "Loading system fonts..." : undefined}
+					>
 						<NativeSelect
 							id="editor-font-family"
 							value={settings.editorFontFamily}
+							disabled={fontsLoading}
 							onChange={(e) => handleEditorFontFamilyChange(e.target.value)}
 						>
 							<NativeSelectOption value="System Default">System Default</NativeSelectOption>

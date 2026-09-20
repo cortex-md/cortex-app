@@ -13,8 +13,7 @@ import type {
 	VaultEncryptionStatus,
 	VersionInfo,
 } from "@cortex/platform"
-import { invoke } from "@tauri-apps/api/core"
-import { listen } from "@tauri-apps/api/event"
+import { invoke, listen } from "./bridge"
 import {
 	normalizeConflictInfo,
 	normalizeDeletedFileInfo,
@@ -22,7 +21,7 @@ import {
 	normalizeSyncFileEvent,
 } from "./path"
 
-function toRustResolution(resolution: ConflictResolution): unknown {
+function toEngineResolution(resolution: ConflictResolution): unknown {
 	switch (resolution.type) {
 		case "keep_local":
 			return "keep_local"
@@ -79,15 +78,12 @@ export class Sync implements ISync {
 	async resolveConflict(path: string, resolution: ConflictResolution): Promise<void> {
 		await invoke<void>("sync_resolve_conflict", {
 			path,
-			resolution: toRustResolution(resolution),
+			resolution: toEngineResolution(resolution),
 		})
 	}
 
 	async getConflicts(vaultId: string, vaultPath: string): Promise<ConflictInfo[]> {
-		const conflicts = await invoke<ConflictInfo[]>("sync_get_conflicts", {
-			vaultId,
-			vaultPath,
-		})
+		const conflicts = await invoke<ConflictInfo[]>("sync_get_conflicts", { vaultId, vaultPath })
 		return conflicts.map(normalizeConflictInfo)
 	}
 
@@ -96,18 +92,11 @@ export class Sync implements ISync {
 		vaultPath: string,
 		filePath: string,
 	): Promise<VersionInfo[]> {
-		return await invoke<VersionInfo[]>("sync_get_version_history", {
-			vaultId,
-			vaultPath,
-			filePath,
-		})
+		return await invoke<VersionInfo[]>("sync_get_version_history", { vaultId, vaultPath, filePath })
 	}
 
 	async getNoteMetadata(vaultPath: string, filePath: string): Promise<NoteSyncMetadata | null> {
-		return await invoke<NoteSyncMetadata | null>("sync_get_note_metadata", {
-			vaultPath,
-			filePath,
-		})
+		return await invoke<NoteSyncMetadata | null>("sync_get_note_metadata", { vaultPath, filePath })
 	}
 
 	async downloadVersion(
@@ -116,12 +105,7 @@ export class Sync implements ISync {
 		filePath: string,
 		version: string,
 	): Promise<string> {
-		return await invoke<string>("sync_download_version", {
-			vaultId,
-			vaultPath,
-			filePath,
-			version,
-		})
+		return await invoke<string>("sync_download_version", { vaultId, vaultPath, filePath, version })
 	}
 
 	async restoreVersion(
@@ -130,87 +114,55 @@ export class Sync implements ISync {
 		filePath: string,
 		version: string,
 	): Promise<void> {
-		await invoke<void>("sync_restore_version", {
-			vaultId,
-			vaultPath,
-			filePath,
-			version,
-		})
+		await invoke<void>("sync_restore_version", { vaultId, vaultPath, filePath, version })
 	}
 
 	async listDeletedFiles(vaultId: string, vaultPath: string): Promise<DeletedFileInfo[]> {
-		const files = await invoke<DeletedFileInfo[]>("sync_list_deleted_files", {
-			vaultId,
-			vaultPath,
-		})
+		const files = await invoke<DeletedFileInfo[]>("sync_list_deleted_files", { vaultId, vaultPath })
 		return files.map(normalizeDeletedFileInfo)
 	}
 
 	async restoreDeletedFile(vaultId: string, vaultPath: string, filePath: string): Promise<void> {
-		await invoke<void>("sync_restore_deleted_file", {
-			vaultId,
-			vaultPath,
-			filePath,
-		})
+		await invoke<void>("sync_restore_deleted_file", { vaultId, vaultPath, filePath })
 	}
 
 	async onStateChanged(callback: (event: SyncStateEvent) => void): Promise<() => void> {
-		const unlisten = await listen<SyncStateEvent>("sync-state-changed", (e) => {
-			callback(e.payload)
-		})
-		return unlisten
+		return listen<SyncStateEvent>("sync-state-changed", callback)
 	}
 
 	async onFileEvent(callback: (event: SyncFileEvent) => void): Promise<() => void> {
-		const unlisten = await listen<SyncFileEvent>("sync-file-event", (e) => {
-			callback(normalizeSyncFileEvent(e.payload))
+		return listen<SyncFileEvent>("sync-file-event", (event) => {
+			callback(normalizeSyncFileEvent(event))
 		})
-		return unlisten
 	}
 
 	async onInitialSyncProgress(
 		callback: (event: InitialSyncProgressEvent) => void,
 	): Promise<() => void> {
-		const unlisten = await listen<InitialSyncProgressEvent>("sync-initial-progress", (e) => {
-			callback(e.payload)
-		})
-		return unlisten
+		return listen<InitialSyncProgressEvent>("sync-initial-progress", callback)
 	}
 
 	async onConflict(callback: (event: SyncConflictEvent) => void): Promise<() => void> {
-		const unlisten = await listen<SyncConflictEvent>("sync-conflict", (e) => {
-			callback(normalizeSyncConflictEvent(e.payload))
+		return listen<SyncConflictEvent>("sync-conflict", (event) => {
+			callback(normalizeSyncConflictEvent(event))
 		})
-		return unlisten
 	}
 
 	async onInitialSyncComplete(callback: () => void): Promise<() => void> {
-		const unlisten = await listen("sync-initial-complete", () => {
-			callback()
-		})
-		return unlisten
+		return listen("sync-initial-complete", callback)
 	}
 
 	async onVekRequired(callback: () => void): Promise<() => void> {
-		const unlisten = await listen("sync-vek-required", () => {
-			callback()
-		})
-		return unlisten
+		return listen("sync-vek-required", callback)
 	}
 
 	async onVaultAccessDenied(callback: (event: SyncAccessDeniedEvent) => void): Promise<() => void> {
-		const unlisten = await listen<SyncAccessDeniedEvent>("sync-vault-access-denied", (e) => {
-			callback(e.payload)
-		})
-		return unlisten
+		return listen<SyncAccessDeniedEvent>("sync-vault-access-denied", callback)
 	}
 
 	async onSyncLog(
 		callback: (event: { level: string; message: string }) => void,
 	): Promise<() => void> {
-		const unlisten = await listen<{ level: string; message: string }>("sync-log", (e) => {
-			callback(e.payload)
-		})
-		return unlisten
+		return listen<{ level: string; message: string }>("sync-log", callback)
 	}
 }

@@ -102,6 +102,11 @@ export async function exportNoteFromDialog(
 			format,
 			targetPath: targetPath ?? undefined,
 		})
+		await platform.dialog.showAlert({
+			title: "Export complete",
+			message: `Exported to ${targetPath}`,
+			kind: "info",
+		})
 	} catch (error) {
 		await reportAppError({
 			operation: "export-note",

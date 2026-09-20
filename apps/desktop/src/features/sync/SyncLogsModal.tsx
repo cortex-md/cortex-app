@@ -9,6 +9,7 @@ import {
 	ToggleGroup,
 	ToggleGroupItem,
 } from "@cortex/ui"
+import { ScrollText } from "lucide-react"
 import { useLayoutEffect, useRef, useState } from "react"
 
 const LEVEL_FILTERS: Array<{ label: string; value: SyncLogLevel | "all" }> = [
@@ -66,7 +67,9 @@ function SyncLogsContent() {
 	const entries = useSyncLogStore((s) => s.entries)
 	const clear = useSyncLogStore((s) => s.clear)
 	const [filter, setFilter] = useState<SyncLogLevel | "all">("all")
+	const [copied, setCopied] = useState(false)
 	const scrollRef = useRef<HTMLDivElement>(null)
+	const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
 	const filteredEntries = filter === "all" ? entries : entries.filter((e) => e.level === filter)
 	const filteredEntryCount = filteredEntries.length
@@ -78,9 +81,19 @@ function SyncLogsContent() {
 		}
 	}, [filteredEntryCount])
 
+	useLayoutEffect(
+		() => () => {
+			if (copyTimer.current) clearTimeout(copyTimer.current)
+		},
+		[],
+	)
+
 	const handleCopyToClipboard = () => {
 		const text = entries.map(formatEntryAsText).join("\n")
 		void navigator.clipboard.writeText(text)
+		setCopied(true)
+		if (copyTimer.current) clearTimeout(copyTimer.current)
+		copyTimer.current = setTimeout(() => setCopied(false), 1200)
 	}
 
 	return (
@@ -128,7 +141,7 @@ function SyncLogsContent() {
 						disabled={entries.length === 0}
 						className="text-muted-foreground"
 					>
-						Copy
+						{copied ? "Copied" : "Copy"}
 					</Button>
 				</div>
 			</div>
@@ -139,7 +152,8 @@ function SyncLogsContent() {
 				className="min-h-0 flex-1 overflow-y-auto px-2 py-2"
 			>
 				{filteredEntryCount === 0 ? (
-					<DialogBody className="flex min-h-48 flex-col items-center justify-center gap-1 px-6 text-center">
+					<DialogBody className="flex min-h-48 flex-col items-center justify-center gap-2 px-6 text-center">
+						<ScrollText className="size-6 text-muted-foreground" />
 						<p className="m-0 text-[13px] text-foreground">
 							{entries.length === 0 ? "No sync activity yet" : "No matching log entries"}
 						</p>

@@ -5,7 +5,7 @@ import type {
 	LoginResult,
 	RegisterResult,
 } from "@cortex/platform"
-import { invoke } from "@tauri-apps/api/core"
+import { invoke } from "./bridge"
 
 export class Auth implements IAuth {
 	async login(serverUrl: string, email: string, password: string): Promise<LoginResult> {

@@ -111,7 +111,9 @@ function MarketplaceCatalogRow({
 			<MarketplaceArtwork entry={entry} />
 			<div className="flex min-w-0 flex-1 flex-col gap-1">
 				<div className="flex min-w-0 items-center gap-2">
-					<span className="truncate text-[13px] font-semibold text-text-primary">{entry.name}</span>
+					<span className="truncate text-[13px] font-semibold text-text-primary" title={entry.name}>
+						{entry.name}
+					</span>
 					{hasUpdate && (
 						<Badge variant="secondary" className="h-5 shrink-0 gap-1 px-1.5 text-[10px]">
 							<ArrowUp size={10} />

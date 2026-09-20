@@ -171,6 +171,7 @@ export function PropertyRow({
 						variant="ghost"
 						className="note-property-name"
 						disabled={unavailable}
+						title={unavailable ? "Unsupported property type" : undefined}
 						onClick={(event) => {
 							event.stopPropagation()
 							openPanel({ kind: "settings" })
@@ -204,6 +205,13 @@ export function PropertyRow({
 								className="note-property-value"
 								aria-label={definition.name}
 								disabled={readOnly || unavailable}
+								title={
+									unavailable
+										? "Unsupported property type"
+										: readOnly
+											? "Read-only frontmatter value"
+											: undefined
+								}
 								onClick={(event) => {
 									event.stopPropagation()
 									if (checkboxValue) {

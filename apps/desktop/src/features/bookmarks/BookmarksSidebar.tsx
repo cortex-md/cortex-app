@@ -164,7 +164,7 @@ export function BookmarksSidebar() {
 				<div className="sidebar-tool-scroll">
 					{rows.length === 0 ? (
 						<div className="sidebar-tool-empty sidebar-tool-empty-stacked">
-							<BookmarkIcon className="size-6 text-muted-foreground/50" />
+							<BookmarkIcon className="size-6 text-muted-foreground" />
 							<p className="text-xs text-muted-foreground">
 								{filterQuery ? "No bookmarks match your filter" : "No bookmarks yet"}
 							</p>
@@ -178,7 +178,7 @@ export function BookmarksSidebar() {
 									Clear filter
 								</Button>
 							) : (
-								<p className="max-w-44 text-[10px] leading-4 text-muted-foreground/70">
+								<p className="max-w-44 text-[10px] leading-4 text-muted-foreground">
 									Use Add Bookmark from a note menu or press ⌘⇧B on the active note.
 								</p>
 							)}

@@ -1,6 +1,6 @@
 import { executeCommand } from "@cortex/commands"
 import { useVaultStore } from "@cortex/core"
-import { listen, type UnlistenFn } from "@tauri-apps/api/event"
+import { getPlatform } from "@cortex/platform"
 import { useCallback, useEffect } from "react"
 import { reportAppError } from "../utils/reportAppError"
 
@@ -29,58 +29,62 @@ export function useNativeMenuEvents(): void {
 			await closeVault()
 			await openVault(vaultPath)
 		}
-		const listenerPromises: Promise<UnlistenFn | null>[] = [
-			listen<string>("dock-open-vault", (event) => {
-				if (!event.payload) return
-				runNativeMenuAction("open-dock-vault", () => switchVault(event.payload))
+
+		const app = getPlatform().app
+		const subscriptions = [
+			app.onNativeEvent<string>("dock-open-vault", (vaultPath) => {
+				if (!vaultPath) return
+				runNativeMenuAction("open-dock-vault", () => switchVault(vaultPath))
 			}),
-			listen("menu-new-note", () => {
+			app.onNativeEvent("menu-new-note", () => {
 				if (!vault) return
 				runNativeMenuAction("create-menu-note", () => {
 					executeCommand("file.new", { source: "menu" })
 				})
 			}),
-			listen("menu-open-vault", () => {
+			app.onNativeEvent("menu-open-vault", () => {
 				runNativeMenuAction("open-menu-vault", () => {
 					executeCommand("vault.open", { source: "menu" })
 				})
 			}),
-			listen("menu-close-vault", () => {
+			app.onNativeEvent("menu-close-vault", () => {
 				runNativeMenuAction("close-menu-vault", () => {
 					executeCommand("vault.close", { source: "menu" })
 				})
 			}),
-			listen("menu-open-settings", () => {
+			app.onNativeEvent("menu-open-settings", () => {
 				runNativeMenuAction("open-menu-settings", () => {
 					executeCommand("app.settings", { source: "menu" })
 				})
 			}),
-			listen("menu-toggle-sidebar", () => {
+			app.onNativeEvent("menu-toggle-sidebar", () => {
 				runNativeMenuAction("toggle-menu-sidebar", () => {
 					executeCommand("view.toggle-sidebar", { source: "menu" })
 				})
 			}),
-			listen("menu-search-vault", () => {
+			app.onNativeEvent("menu-search-vault", () => {
 				runNativeMenuAction("search-menu-vault", () => {
 					executeCommand("view.search", { source: "menu" })
 				})
 			}),
-			listen("menu-command-palette", () => {
+			app.onNativeEvent("menu-command-palette", () => {
 				runNativeMenuAction("open-menu-command-palette", () => {
 					executeCommand("navigate.command-palette", { source: "menu" })
 				})
 			}),
-			listen("menu-toggle-theme", () => {
+			app.onNativeEvent("menu-toggle-theme", () => {
 				runNativeMenuAction("toggle-menu-theme", () => {
 					executeCommand("view.toggle-theme", { source: "menu" })
 				})
 			}),
-			listen<string>("menu-recent-vault", (event) => {
-				if (!event.payload) return
-				runNativeMenuAction("open-recent-vault", () => switchVault(event.payload))
+			app.onNativeEvent<string>("menu-recent-vault", (vaultPath) => {
+				if (!vaultPath) return
+				runNativeMenuAction("open-recent-vault", () => switchVault(vaultPath))
 			}),
-		].map((listenerPromise) =>
-			listenerPromise.catch((error) => {
+		]
+
+		const cleanups = subscriptions.map((subscription) =>
+			subscription.catch((error) => {
 				void reportAppError({
 					operation: "register-native-menu-listener",
 					source: "native-menu",
@@ -91,8 +95,8 @@ export function useNativeMenuEvents(): void {
 		)
 
 		return () => {
-			for (const listenerPromise of listenerPromises) {
-				void listenerPromise.then((unlisten) => unlisten?.())
+			for (const cleanup of cleanups) {
+				void cleanup.then((unlisten) => unlisten?.())
 			}
 		}
 	}, [closeVault, openVault, runNativeMenuAction, vault])

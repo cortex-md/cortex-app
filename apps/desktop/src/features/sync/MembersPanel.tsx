@@ -1,4 +1,5 @@
 import { useMembersStore } from "@cortex/core"
+import { getPlatform } from "@cortex/platform"
 import {
 	Avatar,
 	AvatarFallback,
@@ -87,12 +88,20 @@ export function MembersPanel({ vaultId, currentUserRole }: MembersPanelProps) {
 			await createInvite(vaultId, inviteEmail.trim(), inviteRole, "")
 			setInviteEmail("")
 		} catch {
+			// Failure is surfaced through membersStore.error, rendered below.
 		} finally {
 			setInviting(false)
 		}
 	}
 
-	const handleRemoveMember = async (userId: string) => {
+	const handleRemoveMember = async (userId: string, displayName: string) => {
+		const confirmed = await getPlatform().dialog.showConfirm({
+			title: "Remove member",
+			message: `Are you sure you want to remove ${displayName} from this vault?`,
+			destructive: true,
+			confirmLabel: "Remove",
+		})
+		if (!confirmed) return
 		clearError()
 		await removeMember(vaultId, userId)
 	}
@@ -102,7 +111,14 @@ export function MembersPanel({ vaultId, currentUserRole }: MembersPanelProps) {
 		await updateMemberRole(vaultId, userId, newRole)
 	}
 
-	const handleDeleteInvite = async (inviteId: string) => {
+	const handleDeleteInvite = async (inviteId: string, inviteeEmail: string) => {
+		const confirmed = await getPlatform().dialog.showConfirm({
+			title: "Cancel invite",
+			message: `Are you sure you want to cancel the invite for ${inviteeEmail}?`,
+			destructive: true,
+			confirmLabel: "Cancel invite",
+		})
+		if (!confirmed) return
 		clearError()
 		await deleteInvite(vaultId, inviteId)
 	}
@@ -207,10 +223,16 @@ export function MembersPanel({ vaultId, currentUserRole }: MembersPanelProps) {
 													</AvatarFallback>
 												</Avatar>
 												<div className="min-w-0">
-													<div className="truncate text-[13px] font-medium text-foreground">
+													<div
+														className="truncate text-[13px] font-medium text-foreground"
+														title={member.displayName}
+													>
 														{member.displayName}
 													</div>
-													<div className="truncate text-xs text-muted-foreground">
+													<div
+														className="truncate text-xs text-muted-foreground"
+														title={member.email}
+													>
 														{member.email}
 													</div>
 												</div>
@@ -246,7 +268,7 @@ export function MembersPanel({ vaultId, currentUserRole }: MembersPanelProps) {
 												<Button
 													variant="ghost"
 													size="icon-xs"
-													onClick={() => handleRemoveMember(member.userId)}
+													onClick={() => handleRemoveMember(member.userId, member.displayName)}
 													aria-label={`Remove ${member.displayName}`}
 													className="h-7 w-7 text-muted-foreground hover:text-status-error-foreground"
 												>
@@ -313,7 +335,7 @@ export function MembersPanel({ vaultId, currentUserRole }: MembersPanelProps) {
 											<Button
 												variant="ghost"
 												size="icon-xs"
-												onClick={() => handleDeleteInvite(invite.id)}
+												onClick={() => handleDeleteInvite(invite.id, invite.inviteeEmail)}
 												aria-label={`Cancel invite for ${invite.inviteeEmail}`}
 												className="text-muted-foreground hover:text-status-error-foreground"
 											>

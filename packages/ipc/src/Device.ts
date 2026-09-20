@@ -1,5 +1,5 @@
 import type { DeviceInfo, Device as IDevice } from "@cortex/platform"
-import { invoke } from "@tauri-apps/api/core"
+import { invoke } from "./bridge"
 
 export class Device implements IDevice {
 	async getDeviceId(): Promise<string> {

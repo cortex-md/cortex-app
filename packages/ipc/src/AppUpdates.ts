@@ -4,7 +4,7 @@ import type {
 	AppUpdateStatus,
 	AppUpdates as AppUpdatesInterface,
 } from "@cortex/platform"
-import { Channel, invoke } from "@tauri-apps/api/core"
+import { invoke, listen } from "./bridge"
 
 export class AppUpdates implements AppUpdatesInterface {
 	async getStatus(): Promise<AppUpdateStatus> {
@@ -16,11 +16,14 @@ export class AppUpdates implements AppUpdatesInterface {
 	}
 
 	async installUpdate(onEvent?: (event: AppUpdateInstallEvent) => void): Promise<AppUpdateStatus> {
-		const channel = new Channel<AppUpdateInstallEvent>()
-		channel.onmessage = (event) => {
+		const unlisten = listen<AppUpdateInstallEvent>("app-update-install", (event) => {
 			onEvent?.(event)
+		})
+		try {
+			return await invoke<AppUpdateStatus>("app_update_install")
+		} finally {
+			unlisten()
 		}
-		return await invoke<AppUpdateStatus>("app_update_install", { onEvent: channel })
 	}
 
 	async fetchChangelog(version: string): Promise<string | null> {

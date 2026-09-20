@@ -291,8 +291,13 @@ function VaultRow({ entry }: { entry: VaultRegistryEntry }) {
 					<Vault size={16} className="shrink-0 text-text-muted" />
 				)}
 				<span className="flex flex-col min-w-0">
-					<span className="truncate text-sm font-medium text-foreground">{entry.name}</span>
-					<span className="truncate text-xs text-muted-foreground">
+					<span className="truncate text-sm font-medium text-foreground" title={entry.name}>
+						{entry.name}
+					</span>
+					<span
+						className="truncate text-xs text-muted-foreground"
+						title={entry.displayPath ?? entry.path}
+					>
 						{entry.displayPath ?? entry.path}
 					</span>
 				</span>
@@ -311,7 +316,8 @@ function VaultRow({ entry }: { entry: VaultRegistryEntry }) {
 					variant="ghost"
 					size="icon"
 					onClick={handleRemove}
-					className="h-7 w-7 text-text-muted opacity-0 transition-opacity group-hover:opacity-100"
+					aria-label={`Remove ${entry.name} from recents`}
+					className="h-7 w-7 text-text-muted opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
 				>
 					<Trash2 size={12} />
 				</Button>

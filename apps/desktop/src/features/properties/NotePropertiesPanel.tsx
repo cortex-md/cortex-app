@@ -123,7 +123,7 @@ export function NotePropertiesPanel({
 			</div>
 			{panel.expanded && (
 				<div className="note-properties-content" aria-disabled={Boolean(panel.frontmatterError)}>
-					{visibleDefinitions.length > 0 && (
+					{visibleDefinitions.length > 0 ? (
 						<div className="note-properties-card">
 							{visibleDefinitions.map((definition) => (
 								<PropertyRow
@@ -142,6 +142,12 @@ export function NotePropertiesPanel({
 								/>
 							))}
 						</div>
+					) : (
+						!panel.frontmatterError && (
+							<p className="note-properties-empty">
+								No properties yet. Use "Add property" to start tracking metadata for this note.
+							</p>
+						)
 					)}
 					<AddPropertyPopover
 						vaultPath={panel.vaultPath}

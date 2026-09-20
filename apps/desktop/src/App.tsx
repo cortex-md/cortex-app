@@ -17,12 +17,11 @@ import {
 } from "@cortex/core"
 import { loadEditorRuntime } from "@cortex/editor/runtime"
 import { useHotkeyListener, useHotkeysStore } from "@cortex/hotkeys"
-import type { FileEntry } from "@cortex/platform"
+import { getPlatform, type FileEntry } from "@cortex/platform"
 import { PluginModalHost, PluginViewRenderer, usePluginStore } from "@cortex/plugin-host-web"
 import { useSearchStore } from "@cortex/search"
 import { useSettingsStore } from "@cortex/settings"
 import { Button } from "@cortex/ui"
-import { listen } from "@tauri-apps/api/event"
 import {
 	BookmarkIcon,
 	FolderClosed,
@@ -424,7 +423,7 @@ function useAuthSessionWatcher() {
 		const { loadPreferences, checkAuth } = useAuthStore.getState()
 		void loadPreferences().then(() => checkAuth())
 
-		const unlisten = listen("auth-session-expired", () => {
+		const unlisten = getPlatform().app.onNativeEvent("auth-session-expired", () => {
 			void useAuthStore.getState().logout()
 		})
 		return () => {
@@ -435,17 +434,15 @@ function useAuthSessionWatcher() {
 
 function useMarketplaceOpenEvents() {
 	useEffect(() => {
-		const unlisten = listen<MarketplaceOpenRequest | MarketplaceOpenRequest["tab"]>(
-			"marketplace-open",
-			(event) => {
-				const payload = event.payload
-				if (!payload || typeof payload === "string") {
-					openMarketplaceView(payload ?? "plugins")
-					return
-				}
-				openMarketplaceView(payload.tab, { selectedEntryId: payload.selectedEntryId })
-			},
-		)
+		const unlisten = getPlatform().app.onNativeEvent<
+			MarketplaceOpenRequest | MarketplaceOpenRequest["tab"]
+		>("marketplace-open", (payload) => {
+			if (!payload || typeof payload === "string") {
+				openMarketplaceView(payload ?? "plugins")
+				return
+			}
+			openMarketplaceView(payload.tab, { selectedEntryId: payload.selectedEntryId })
+		})
 		return () => {
 			void unlisten.then((fn) => fn())
 		}

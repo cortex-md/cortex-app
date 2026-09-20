@@ -400,7 +400,7 @@ body[data-platform="macos"] [data-command-surface] {
 	--command-selected-bg: var(--macos-row-bg-active);
 	--command-selected-border: color-mix(in srgb, var(--accent) 10%, transparent);
 	border-color: transparent;
-	border-radius: var(--dialog-radius);
+	border-radius: var(--popup-radius);
 	background: var(--macos-modal-bg);
 	box-shadow:
 		0 0 0 1px var(--macos-surface-border),

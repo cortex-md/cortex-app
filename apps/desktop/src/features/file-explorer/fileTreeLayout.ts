@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react"
 
-export const FILE_TREE_ROW_HEIGHT = 25
-export const FILE_TREE_ROW_STEP = 27
+export const FILE_TREE_ROW_HEIGHT = 32
+export const FILE_TREE_ROW_STEP = 34
 
 const FILE_TREE_INDENT = 18
 const FILE_TREE_BASE_INDENT = 10

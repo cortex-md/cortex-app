@@ -1,0 +1,33 @@
+appId: app.cortex.desktop
+productName: Cortex
+copyright: Copyright © Cortex
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+asar: true
+protocols:
+  - name: Cortex
+    schemes:
+      - cortex
+mac:
+  category: public.app-category.productivity
+  target:
+    - dmg
+    - zip
+  hardenedRuntime: true
+  gatekeeperAssess: false
+win:
+  target:
+    - nsis
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Office
+publish:
+  provider: github
+  owner: cortex-md
+  repo: cortex-app

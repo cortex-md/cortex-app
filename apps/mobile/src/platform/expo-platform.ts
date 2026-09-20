@@ -1150,6 +1150,7 @@ export const expoPlatform: CortexPlatform = {
 			await WebBrowser.openBrowserAsync(url)
 		},
 		resolveFileAssetUrl,
+		onNativeEvent: async () => () => {},
 	},
 	appearance: {
 		getSnapshot: getAppearanceSnapshot,
@@ -1202,6 +1203,7 @@ export const expoPlatform: CortexPlatform = {
 		saveFile: () => unsupportedPhase1("dialog.saveFile"),
 		showAlert,
 		showConfirm,
+		showContextMenu: () => unsupportedPhase1("dialog.showContextMenu"),
 	},
 	documentImport: {
 		extractPdfText: () => unsupportedPhase1("documentImport.extractPdfText"),

@@ -45,6 +45,9 @@ interface CreateVaultModalContentProps {
 
 type CreateVaultStep = "identity" | "preferences"
 
+/** Default vault accent color, matching the brand rose-400 accent used elsewhere in the app. */
+const DEFAULT_VAULT_COLOR = "#fb7185"
+
 interface CreateVaultDraft {
 	step: CreateVaultStep
 	name: string
@@ -64,7 +67,7 @@ function createVaultDraft(defaultName: string): CreateVaultDraft {
 	return {
 		step: "identity",
 		name: defaultName,
-		color: "#fb7185",
+		color: DEFAULT_VAULT_COLOR,
 		icon: undefined,
 		files: [],
 		syncPreferences: createDefaultSyncPreferences(),

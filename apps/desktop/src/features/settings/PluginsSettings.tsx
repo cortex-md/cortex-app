@@ -83,17 +83,25 @@ function PluginRow({
 				</div>
 				<div className="flex min-w-0 flex-1 flex-col">
 					<div className="flex items-center gap-2">
-						<span className="truncate text-sm font-medium text-foreground">
+						<span
+							className="truncate text-sm font-medium text-foreground"
+							title={record.manifest.name}
+						>
 							{record.manifest.name}
 						</span>
 						<span className="text-xs text-muted-foreground">v{record.manifest.version}</span>
 						<span className="text-xs text-muted-foreground">by {record.manifest.author}</span>
 					</div>
-					<span className="truncate text-xs text-muted-foreground">
+					<span
+						className="truncate text-xs text-muted-foreground"
+						title={record.manifest.description}
+					>
 						{record.manifest.description}
 					</span>
 					{hasError && record.error && (
-						<span className="truncate text-xs text-status-error-foreground">{record.error}</span>
+						<span className="truncate text-xs text-status-error-foreground" title={record.error}>
+							{record.error}
+						</span>
 					)}
 				</div>
 				{onOpenMarketplace && (
