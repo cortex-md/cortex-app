@@ -113,7 +113,7 @@ describe("NoteHeader", () => {
 		expect(screen.getByRole("menuitem", { name: "Version History" })).toBeInTheDocument()
 	})
 
-	it("opens note actions for local notes without sync history", async () => {
+	it("opens note actions with local version history for unsynced notes", async () => {
 		const user = userEvent.setup()
 		render(<NoteHeader filePath="/vault/folder/Current.md" />)
 
@@ -121,7 +121,8 @@ describe("NoteHeader", () => {
 
 		expect(screen.getByRole("menuitem", { name: "Open in New Tab" })).toBeInTheDocument()
 		expect(screen.getByRole("menuitem", { name: "Make a Copy" })).toBeInTheDocument()
-		expect(screen.queryByRole("menuitem", { name: "Version History" })).not.toBeInTheDocument()
+		expect(screen.getByRole("menuitem", { name: "Version History" })).toBeInTheDocument()
+		expect(screen.queryByRole("menuitem", { name: "Share…" })).not.toBeInTheDocument()
 	})
 
 	it("renames the note on Enter while preserving the markdown extension", async () => {

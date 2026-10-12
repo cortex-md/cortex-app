@@ -12,6 +12,10 @@
 - `SideBySideView` pairs an editable Live Preview editor with a rendered Reading View. Do not
   regress it to raw Markdown plus Reading View, and keep local asset resolution wired through the
   editable side.
+- `ReadingView` resolves rendered `<img>` sources through the same optional
+  `resolveImageUrl(src, filePath)` used by Live Preview, so note-relative images load in Reading and
+  Side-by-Side modes. `resolveNoteAssetPath` percent-decodes local paths before joining them, so
+  `![x](Pasted%20image.png)` resolves to `Pasted image.png`.
 - `EditorView` must reconfigure the Live Preview projection when `livePreview`, file path, or image
   URL resolution props change. Mode switches must not leave an existing CodeMirror view in raw
   source mode.

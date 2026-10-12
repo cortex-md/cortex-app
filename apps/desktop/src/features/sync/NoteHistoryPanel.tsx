@@ -1,8 +1,16 @@
 import {
 	buildDiffRows,
+	canWriteVaultPath,
+	captureCurrentNoteVersion,
 	getBaseName,
 	getParentPath,
+	type LocalVersion,
+	type LocalVersionReason,
+	listLocalVersions,
+	readCurrentNoteContent,
+	readLocalVersion,
 	reportAppError,
+	restoreLocalVersion,
 	toVaultRelativePath,
 	useRemoteVaultStore,
 	useSyncStore,
@@ -12,8 +20,8 @@ import {
 } from "@cortex/core"
 import { getPlatform, type VersionInfo } from "@cortex/platform"
 import { Button, Spinner, Tabs, TabsList, TabsTrigger } from "@cortex/ui"
-import { CopyIcon, ExternalLinkIcon, InfoIcon, RotateCcwIcon } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { CopyIcon, ExternalLinkIcon, InfoIcon, MonitorIcon, RotateCcwIcon } from "lucide-react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useCopyFeedback } from "@/hooks/useCopyFeedback"
 import { formatDateTime } from "@/utils/format"
 import { ModalStoreHost } from "@/utils/ModalHost"
@@ -38,25 +46,39 @@ import { useVersionContents } from "./useVersionContents"
 type DeviceFilter = "all" | "device" | "others"
 type PaneMode = "changes" | "full"
 
+type HistoryEntry =
+	| { kind: "current"; id: string; timestamp: null }
+	| { kind: "local"; id: string; timestamp: number; local: LocalVersion }
+	| { kind: "server"; id: string; timestamp: number | null; server: VersionInfo }
+
 const TIME_FORMAT = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" })
 const DATE_FORMAT = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" })
+const CURRENT_ENTRY: HistoryEntry = { kind: "current", id: "current", timestamp: null }
+const THIS_DEVICE = "This device"
 
 const DEVICE_FILTERS: readonly { value: DeviceFilter; label: string }[] = [
 	{ value: "all", label: "All" },
-	{ value: "device", label: "This device" },
+	{ value: "device", label: THIS_DEVICE },
 	{ value: "others", label: "Others" },
 ]
 
-function versionTitle(version: VersionInfo, latest: boolean): string {
-	return latest ? "Current version" : `Version ${version.version}`
+const LOCAL_TITLES: Record<LocalVersionReason, string> = {
+	edit: "Autosaved version",
+	external: "Before external change",
+	restore: "Before restore",
 }
 
-function versionTime(version: VersionInfo): string {
-	const timestamp = parseTimestamp(version.createdAt)
-	if (timestamp === null) return ""
-	return historyDayLabel(timestamp) === "Earlier"
-		? DATE_FORMAT.format(timestamp)
-		: TIME_FORMAT.format(timestamp)
+function entryTitle(entry: HistoryEntry): string {
+	if (entry.kind === "current") return "Current version"
+	if (entry.kind === "local") return LOCAL_TITLES[entry.local.reason]
+	return `Version ${entry.server.version}`
+}
+
+function entryTime(entry: HistoryEntry): string {
+	if (entry.timestamp === null) return ""
+	return historyDayLabel(entry.timestamp) === "Earlier"
+		? DATE_FORMAT.format(entry.timestamp)
+		: TIME_FORMAT.format(entry.timestamp)
 }
 
 function authorName(version: VersionInfo, actors: SyncActorNames): string {
@@ -65,6 +87,59 @@ function authorName(version: VersionInfo, actors: SyncActorNames): string {
 
 function deviceLabel(version: VersionInfo, actors: SyncActorNames): string | null {
 	return version.deviceName ?? actors.deviceName(version.deviceId)
+}
+
+function entryMeta(entry: HistoryEntry, actors: SyncActorNames): string {
+	const parts =
+		entry.kind === "server"
+			? [authorName(entry.server, actors), deviceLabel(entry.server, actors)]
+			: [THIS_DEVICE]
+	if (entry.timestamp !== null) parts.push(formatDateTime(entry.timestamp))
+	return parts.filter(Boolean).join(" · ")
+}
+
+function compareEntries(left: HistoryEntry, right: HistoryEntry): number {
+	const timeOrder = (right.timestamp ?? 0) - (left.timestamp ?? 0)
+	if (timeOrder !== 0) return timeOrder
+	if (left.kind === "server" && right.kind === "server") {
+		return right.server.version - left.server.version
+	}
+	return 0
+}
+
+function buildEntries(
+	localVersions: readonly LocalVersion[],
+	serverVersions: readonly VersionInfo[],
+): HistoryEntry[] {
+	const versions: HistoryEntry[] = [
+		...localVersions.map(
+			(local): HistoryEntry => ({
+				kind: "local",
+				id: `local:${local.id}`,
+				timestamp: local.timestamp,
+				local,
+			}),
+		),
+		...serverVersions.map(
+			(server): HistoryEntry => ({
+				kind: "server",
+				id: `server:${server.snapshotId}`,
+				timestamp: parseTimestamp(server.createdAt),
+				server,
+			}),
+		),
+	]
+	return [CURRENT_ENTRY, ...versions.sort(compareEntries)]
+}
+
+function matchesDeviceFilter(
+	entry: HistoryEntry,
+	filter: DeviceFilter,
+	currentDeviceId: string | null,
+): boolean {
+	if (filter === "all") return true
+	const onThisDevice = entry.kind !== "server" || entry.server.deviceId === currentDeviceId
+	return filter === "device" ? onThisDevice : !onThisDevice
 }
 
 export function NoteHistoryHost() {
@@ -76,8 +151,7 @@ export function NoteHistoryHost() {
 }
 
 interface VersionRowProps {
-	version: VersionInfo
-	latest: boolean
+	entry: HistoryEntry
 	last: boolean
 	selected: boolean
 	delta: WordChangeCount | undefined
@@ -85,15 +159,37 @@ interface VersionRowProps {
 	onSelect: () => void
 }
 
-function VersionRow({ version, latest, last, selected, delta, actors, onSelect }: VersionRowProps) {
-	const author = authorName(version, actors)
-	const device = deviceLabel(version, actors)
+function VersionWho({ entry, actors }: { entry: HistoryEntry; actors: SyncActorNames }) {
+	if (entry.kind !== "server") {
+		return (
+			<span className="version-who">
+				<MonitorIcon className="size-3.5 shrink-0" aria-hidden="true" />
+				{THIS_DEVICE}
+			</span>
+		)
+	}
+	const author = authorName(entry.server, actors)
+	const device = deviceLabel(entry.server, actors)
+	return (
+		<span className="version-who">
+			<UserAvatar
+				size="sm"
+				name={author}
+				avatarUrl={entry.server.authorAvatarUrl}
+				className="version-avatar"
+			/>
+			{device ? `${author} · ${device}` : author}
+		</span>
+	)
+}
+
+function VersionRow({ entry, last, selected, delta, actors, onSelect }: VersionRowProps) {
 	return (
 		<Button
 			variant="ghost"
 			className="history-row version-row"
 			data-selected={selected ? "true" : undefined}
-			data-current={latest ? "true" : undefined}
+			data-current={entry.kind === "current" ? "true" : undefined}
 			data-last={last ? "true" : undefined}
 			aria-pressed={selected}
 			onClick={onSelect}
@@ -103,18 +199,10 @@ function VersionRow({ version, latest, last, selected, delta, actors, onSelect }
 			</span>
 			<span className="version-copy">
 				<span className="version-top">
-					<b>{versionTitle(version, latest)}</b>
-					<span>{versionTime(version)}</span>
+					<b>{entryTitle(entry)}</b>
+					<span>{entryTime(entry)}</span>
 				</span>
-				<span className="version-who">
-					<UserAvatar
-						size="sm"
-						name={author}
-						avatarUrl={version.authorAvatarUrl}
-						className="version-avatar"
-					/>
-					{device ? `${author} · ${device}` : author}
-				</span>
+				<VersionWho entry={entry} actors={actors} />
 				{delta && (
 					<span className="version-delta">
 						<span data-kind="add">+{delta.added}</span>
@@ -128,84 +216,84 @@ function VersionRow({ version, latest, last, selected, delta, actors, onSelect }
 }
 
 interface VersionRailProps {
-	versions: VersionInfo[] | null
+	entries: HistoryEntry[] | null
+	showDeviceFilter: boolean
 	selectedId: string | null
-	deltas: Record<number, WordChangeCount>
+	deltas: Record<string, WordChangeCount>
 	actors: SyncActorNames
-	loading: boolean
-	onSelect: (snapshotId: string) => void
+	onSelect: (id: string) => void
 }
 
 function VersionRail({
-	versions,
+	entries,
+	showDeviceFilter,
 	selectedId,
 	deltas,
 	actors,
-	loading,
 	onSelect,
 }: VersionRailProps) {
 	const [deviceFilter, setDeviceFilter] = useState<DeviceFilter>("all")
-	const visibleVersions = useMemo(() => {
-		if (!versions) return []
-		if (deviceFilter === "all") return versions
-		return versions.filter((version) =>
-			deviceFilter === "device"
-				? version.deviceId === actors.currentDeviceId
-				: version.deviceId !== actors.currentDeviceId,
-		)
-	}, [versions, deviceFilter, actors.currentDeviceId])
-	const days = useMemo(
-		() => groupByDay(visibleVersions, (version) => parseTimestamp(version.createdAt)),
-		[visibleVersions],
+	const visibleEntries = useMemo(
+		() =>
+			(entries ?? []).filter((entry) =>
+				matchesDeviceFilter(entry, deviceFilter, actors.currentDeviceId),
+			),
+		[entries, deviceFilter, actors.currentDeviceId],
 	)
-	const latestId = versions?.[0]?.snapshotId
-	const lastVisibleId = visibleVersions.at(-1)?.snapshotId
+	const days = useMemo(
+		() => groupByDay(visibleEntries, (entry) => entry.timestamp ?? Date.now()),
+		[visibleEntries],
+	)
+	const hasVersions = entries !== null && entries.length > 1
+	const lastVisibleId = visibleEntries.at(-1)?.id
 
 	return (
 		<aside className="history-rail" aria-label="Versions">
-			<div className="history-rail-top">
-				<Tabs
-					value={deviceFilter}
-					onValueChange={(value) => setDeviceFilter(value as DeviceFilter)}
-				>
-					<TabsList aria-label="Show" className="history-rail-tabs">
-						{DEVICE_FILTERS.map((filter) => (
-							<TabsTrigger key={filter.value} value={filter.value}>
-								{filter.label}
-							</TabsTrigger>
-						))}
-					</TabsList>
-				</Tabs>
-			</div>
+			{showDeviceFilter && (
+				<div className="history-rail-top">
+					<Tabs
+						value={deviceFilter}
+						onValueChange={(value) => setDeviceFilter(value as DeviceFilter)}
+					>
+						<TabsList aria-label="Show" className="history-rail-tabs">
+							{DEVICE_FILTERS.map((filter) => (
+								<TabsTrigger key={filter.value} value={filter.value}>
+									{filter.label}
+								</TabsTrigger>
+							))}
+						</TabsList>
+					</Tabs>
+				</div>
+			)}
 			<div className="history-list">
-				{loading && <HistoryLoading />}
-				{versions !== null && visibleVersions.length === 0 && (
+				{entries === null && <HistoryLoading />}
+				{entries !== null && (!hasVersions || visibleEntries.length === 0) && (
 					<HistoryEmpty
-						title={versions.length === 0 ? "No history yet" : "No versions here"}
+						title={hasVersions ? "No versions here" : "No history yet"}
 						description={
-							versions.length === 0
-								? "Synced versions of this note will appear here."
-								: "Try another filter."
+							hasVersions
+								? "Try another filter."
+								: "Earlier versions of this note will appear here as it changes."
 						}
 					/>
 				)}
-				{days.map((day) => (
-					<section key={day.label} aria-label={day.label}>
-						<HistoryDayLabel>{day.label}</HistoryDayLabel>
-						{day.items.map((version) => (
-							<VersionRow
-								key={version.snapshotId}
-								version={version}
-								latest={version.snapshotId === latestId}
-								last={version.snapshotId === lastVisibleId}
-								selected={version.snapshotId === selectedId}
-								delta={deltas[version.version]}
-								actors={actors}
-								onSelect={() => onSelect(version.snapshotId)}
-							/>
-						))}
-					</section>
-				))}
+				{hasVersions &&
+					days.map((day) => (
+						<section key={day.label} aria-label={day.label}>
+							<HistoryDayLabel>{day.label}</HistoryDayLabel>
+							{day.items.map((entry) => (
+								<VersionRow
+									key={entry.id}
+									entry={entry}
+									last={entry.id === lastVisibleId}
+									selected={entry.id === selectedId}
+									delta={deltas[entry.id]}
+									actors={actors}
+									onSelect={() => onSelect(entry.id)}
+								/>
+							))}
+						</section>
+					))}
 			</div>
 		</aside>
 	)
@@ -214,19 +302,24 @@ function VersionRail({
 interface VersionPaneProps {
 	filePath: string
 	relativePath: string
-	version: VersionInfo
-	latest: boolean
+	entry: HistoryEntry
 	content: string | undefined
 	previousContent: string | undefined
 	actors: SyncActorNames
 	onError: (message: string) => void
 }
 
+function copyName(filePath: string, entry: HistoryEntry): string {
+	const baseName = getBaseName(filePath).replace(/\.md$/i, "")
+	return entry.kind === "server"
+		? `${baseName} (version ${entry.server.version})`
+		: `${baseName} (earlier version)`
+}
+
 function VersionPane({
 	filePath,
 	relativePath,
-	version,
-	latest,
+	entry,
 	content,
 	previousContent,
 	actors,
@@ -244,14 +337,7 @@ function VersionPane({
 				: null,
 		[content, previousContent],
 	)
-	const timestamp = parseTimestamp(version.createdAt)
-	const meta = [
-		authorName(version, actors),
-		deviceLabel(version, actors),
-		timestamp !== null ? formatDateTime(timestamp) : null,
-	]
-		.filter(Boolean)
-		.join(" · ")
+	const canRestore = entry.kind !== "current" && canWriteVaultPath(filePath)
 
 	const handleCopy = () => {
 		if (content === undefined) return
@@ -263,10 +349,9 @@ function VersionPane({
 		if (content === undefined) return
 		setBusy("copy")
 		try {
-			const name = `${getBaseName(filePath).replace(/\.md$/i, "")} (version ${version.version})`
 			const copyPath = await useVaultStore
 				.getState()
-				.createFileWithContent(getParentPath(filePath), name, content)
+				.createFileWithContent(getParentPath(filePath), copyName(filePath, entry), content)
 			useWorkspaceStore.getState().openTab(copyPath)
 			noteHistoryModal.close()
 		} catch (reason) {
@@ -282,12 +367,18 @@ function VersionPane({
 	}
 
 	const handleRestore = async () => {
-		if (!vaultPath || !linkedVaultId) return
 		setBusy("restore")
 		try {
-			await useSyncStore
-				.getState()
-				.restoreVersion(linkedVaultId, vaultPath, relativePath, String(version.version))
+			if (entry.kind === "local") {
+				await restoreLocalVersion(filePath, entry.local.id)
+			} else if (entry.kind === "server" && vaultPath && linkedVaultId) {
+				await captureCurrentNoteVersion(filePath, "restore")
+				await useSyncStore
+					.getState()
+					.restoreVersion(linkedVaultId, vaultPath, relativePath, String(entry.server.version))
+			} else {
+				return
+			}
 			noteHistoryModal.close()
 		} catch (reason) {
 			onError(String(reason))
@@ -300,8 +391,8 @@ function VersionPane({
 		<>
 			<div className="history-pane-head">
 				<div className="history-pane-title">
-					<b>{versionTitle(version, latest)}</b>
-					<span>{meta}</span>
+					<b>{entryTitle(entry)}</b>
+					<span>{entryMeta(entry, actors)}</span>
 				</div>
 				<Tabs value={mode} onValueChange={(value) => setMode(value as PaneMode)}>
 					<TabsList aria-label="View" className="history-mode-tabs">
@@ -342,7 +433,11 @@ function VersionPane({
 					{busy === "copy" ? <Spinner className="size-3" /> : <ExternalLinkIcon />}
 					Open as copy
 				</Button>
-				<Button size="sm" onClick={() => void handleRestore()} disabled={latest || busy !== null}>
+				<Button
+					size="sm"
+					onClick={() => void handleRestore()}
+					disabled={!canRestore || busy !== null}
+				>
 					{busy === "restore" ? <Spinner className="size-3" /> : <RotateCcwIcon />}
 					Restore this version
 				</Button>
@@ -351,76 +446,121 @@ function VersionPane({
 	)
 }
 
+function historySubtitle(relativePath: string, entries: HistoryEntry[] | null): string {
+	if (!entries) return relativePath
+	let local = 0
+	let server = 0
+	for (const entry of entries) {
+		if (entry.kind === "local") local++
+		else if (entry.kind === "server") server++
+	}
+	const counts = [
+		server > 0 ? `${server} kept by Cortex Sync` : null,
+		`${local} on this device`,
+	].filter(Boolean)
+	return `${relativePath} · ${counts.join(" · ")}`
+}
+
 function NoteHistoryContent({ filePath }: { filePath: string }) {
 	const vaultPath = useVaultStore((state) => state.vault?.path)
 	const linkedVaultId = useRemoteVaultStore((state) => state.linkedVaultId)
 	const actors = useSyncActorNames()
-	const [versions, setVersions] = useState<VersionInfo[] | null>(null)
+	const [localVersions, setLocalVersions] = useState<LocalVersion[] | null>(null)
+	const [serverVersions, setServerVersions] = useState<VersionInfo[] | null>(null)
 	const [error, setError] = useState<string | null>(null)
 	const [selectedId, setSelectedId] = useState<string | null>(null)
 	const relativePath = vaultPath ? (toVaultRelativePath(filePath, vaultPath) ?? filePath) : filePath
-	const { contents, deltas, loadContent } = useVersionContents(versions, relativePath)
+	const serverLinked = Boolean(vaultPath && linkedVaultId)
 
 	useEffect(() => {
-		if (!vaultPath || !linkedVaultId) {
-			setError("This vault is not linked to Cortex Sync.")
-			return
+		let cancelled = false
+		listLocalVersions(filePath)
+			.then((versions) => {
+				if (!cancelled) setLocalVersions(versions)
+			})
+			.catch((reason: unknown) => {
+				if (cancelled) return
+				setLocalVersions([])
+				setError(String(reason))
+			})
+		return () => {
+			cancelled = true
 		}
+	}, [filePath])
+
+	useEffect(() => {
+		if (!vaultPath || !linkedVaultId) return
 		let cancelled = false
 		useSyncStore
 			.getState()
 			.getVersionHistory(linkedVaultId, vaultPath, relativePath)
 			.then((history) => {
-				if (cancelled) return
-				const sorted = history.toSorted((left, right) => right.version - left.version)
-				setVersions(sorted)
-				setSelectedId((sorted[1] ?? sorted[0])?.snapshotId ?? null)
+				if (!cancelled) setServerVersions(history)
 			})
 			.catch((reason: unknown) => {
-				if (!cancelled) setError(String(reason))
+				if (cancelled) return
+				setServerVersions([])
+				setError(`Cortex Sync history is unavailable: ${String(reason)}`)
 			})
 		return () => {
 			cancelled = true
 		}
 	}, [vaultPath, linkedVaultId, relativePath])
 
-	const selectedIndex = versions?.findIndex((version) => version.snapshotId === selectedId) ?? -1
-	const selected = selectedIndex >= 0 ? versions?.[selectedIndex] : undefined
-	const previous = selectedIndex >= 0 ? versions?.[selectedIndex + 1] : undefined
+	const entries = useMemo(
+		() =>
+			localVersions && (!serverLinked || serverVersions)
+				? buildEntries(localVersions, serverVersions ?? [])
+				: null,
+		[localVersions, serverVersions, serverLinked],
+	)
+
+	const loadEntryContent = useCallback(
+		(entry: HistoryEntry): Promise<string> => {
+			if (entry.kind === "current") return readCurrentNoteContent(filePath)
+			if (entry.kind === "local") return readLocalVersion(filePath, entry.local.id)
+			if (!vaultPath || !linkedVaultId) return Promise.reject(new Error("Vault is not linked"))
+			return useSyncStore
+				.getState()
+				.downloadVersion(linkedVaultId, vaultPath, relativePath, String(entry.server.version))
+		},
+		[filePath, vaultPath, linkedVaultId, relativePath],
+	)
+	const { contents, deltas, loadContent } = useVersionContents(entries, loadEntryContent)
+
+	const activeId = selectedId ?? (entries && entries.length > 1 ? entries[1].id : null)
+	const selectedIndex = entries?.findIndex((entry) => entry.id === activeId) ?? -1
+	const selected = selectedIndex >= 0 ? entries?.[selectedIndex] : undefined
+	const previous = selectedIndex >= 0 ? entries?.[selectedIndex + 1] : undefined
 
 	useEffect(() => {
 		if (!selected) return
-		loadContent(selected.version).catch((reason: unknown) => setError(String(reason)))
-		if (previous) loadContent(previous.version).catch(() => undefined)
+		loadContent(selected.id).catch((reason: unknown) => setError(String(reason)))
+		if (previous) loadContent(previous.id).catch(() => undefined)
 	}, [selected, previous, loadContent])
-
-	const versionCount = versions
-		? ` · ${versions.length} ${versions.length === 1 ? "version" : "versions"} kept by Cortex Sync`
-		: ""
 
 	return (
 		<HistoryDialog title="Version history" description={`Earlier versions of ${relativePath}`}>
 			<div className="history-body">
 				<VersionRail
-					versions={versions}
-					selectedId={selectedId}
+					entries={entries}
+					showDeviceFilter={serverLinked}
+					selectedId={activeId}
 					deltas={deltas}
 					actors={actors}
-					loading={versions === null && !error}
 					onSelect={setSelectedId}
 				/>
 				<div className="history-pane">
-					<HistoryHead title="Version history" subtitle={`${relativePath}${versionCount}`} />
+					<HistoryHead title="Version history" subtitle={historySubtitle(relativePath, entries)} />
 					{error && <HistoryError message={error} />}
 					{selected && (
 						<VersionPane
-							key={selected.snapshotId}
+							key={selected.id}
 							filePath={filePath}
 							relativePath={relativePath}
-							version={selected}
-							latest={selectedIndex === 0}
-							content={contents[selected.version]}
-							previousContent={previous ? contents[previous.version] : ""}
+							entry={selected}
+							content={contents[selected.id]}
+							previousContent={previous ? contents[previous.id] : ""}
 							actors={actors}
 							onError={setError}
 						/>

@@ -2,6 +2,7 @@ import { z } from "zod"
 import {
 	DEFAULT_APP_SETTINGS,
 	DEFAULT_APPEARANCE_SETTINGS,
+	DEFAULT_DAILY_NOTES_SETTINGS,
 	DEFAULT_EDITOR_SETTINGS,
 	DEFAULT_FILES_SETTINGS,
 	DEFAULT_GENERAL_SETTINGS,
@@ -70,6 +71,12 @@ export const FilesSettingsSchema = z.object({
 	hideHiddenFiles: z.boolean().default(DEFAULT_FILES_SETTINGS.hideHiddenFiles),
 })
 
+export const DailyNotesSettingsSchema = z.object({
+	folder: z.string().default(DEFAULT_DAILY_NOTES_SETTINGS.folder),
+	format: z.string().min(1).default(DEFAULT_DAILY_NOTES_SETTINGS.format),
+	templateId: z.string().default(DEFAULT_DAILY_NOTES_SETTINGS.templateId),
+})
+
 export const GeneralSettingsSchema = z.object({
 	autoOpenLastVault: z.boolean().default(DEFAULT_GENERAL_SETTINGS.autoOpenLastVault),
 })
@@ -97,6 +104,7 @@ export const AppSettingsSchema = z.object({
 		excludePatterns: [...DEFAULT_APP_SETTINGS.files.excludePatterns],
 		hideHiddenFiles: DEFAULT_APP_SETTINGS.files.hideHiddenFiles,
 	}),
+	dailyNotes: DailyNotesSettingsSchema.default(DEFAULT_APP_SETTINGS.dailyNotes),
 	plugins: PluginsSettingsSchema.default(DEFAULT_APP_SETTINGS.plugins),
 	tasks: TasksSettingsSchema.default(DEFAULT_APP_SETTINGS.tasks),
 })
@@ -105,6 +113,7 @@ export type AppearanceSettings = z.infer<typeof AppearanceSettingsSchema>
 export type GeneralSettings = z.infer<typeof GeneralSettingsSchema>
 export type EditorSettings = z.infer<typeof EditorSettingsSchema>
 export type FilesSettings = z.infer<typeof FilesSettingsSchema>
+export type DailyNotesSettings = z.infer<typeof DailyNotesSettingsSchema>
 export type PluginsSettings = z.infer<typeof PluginsSettingsSchema>
 export type TasksSettings = z.infer<typeof TasksSettingsSchema>
 export type AppSettings = z.infer<typeof AppSettingsSchema>

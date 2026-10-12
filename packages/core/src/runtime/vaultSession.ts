@@ -15,6 +15,7 @@ export interface CreateVaultFromFolderOptions {
 	name: string
 	icon?: string
 	syncPreferences: SyncPreferences
+	createOnboardingNote?: boolean
 }
 
 export function getRegistryOpenOptions(entry: VaultRegistryEntry): OpenVaultOptions {
@@ -46,14 +47,14 @@ export async function resolvePickedFolder(folderPath: string): Promise<PickedFol
 
 export async function createVaultFromFolder(
 	folderPath: string,
-	{ name, icon, syncPreferences }: CreateVaultFromFolderOptions,
+	{ name, icon, syncPreferences, createOnboardingNote = true }: CreateVaultFromFolderOptions,
 ): Promise<VaultMetadata> {
 	const vaultName = name.trim()
 	if (!vaultName) throw new Error("Vault name cannot be empty.")
 	const vault = await openVaultSession(folderPath, {
 		name: vaultName,
 		icon,
-		createOnboardingNote: true,
+		createOnboardingNote,
 	})
 	await useSyncStore.getState().saveSyncPreferences(vault.path, syncPreferences)
 	return vault

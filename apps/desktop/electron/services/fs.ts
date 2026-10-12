@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import type { Stats } from "node:fs"
-import { promises as fs } from "node:fs"
+import { promises as fs, constants as fsConstants } from "node:fs"
 import { dirname, join, resolve, sep } from "node:path"
 import type { FileEntry, FileMetadata, FileSnapshot, TextFileRead } from "@cortex/platform"
 import { hashBytes } from "@cortex/platform/hash"
@@ -166,6 +166,12 @@ export const fsApi = {
 		await writeFileAtomic(allowedPath, content, "utf8")
 	},
 	writeBinaryFile: async (path, data) => await writeWithParents(assertAllowedPath(path), data),
+	copyFile: async (sourcePath, targetPath) => {
+		const allowedSource = assertAllowedPath(sourcePath)
+		const allowedTarget = assertAllowedPath(targetPath)
+		await fs.mkdir(dirname(allowedTarget), { recursive: true })
+		await fs.copyFile(allowedSource, allowedTarget, fsConstants.COPYFILE_EXCL)
+	},
 	deleteFile: async (path) => await fs.rm(assertAllowedPath(path), { recursive: true }),
 	renameFile: async (oldPath, newPath) =>
 		await renameFile(assertAllowedPath(oldPath), assertAllowedPath(newPath)),

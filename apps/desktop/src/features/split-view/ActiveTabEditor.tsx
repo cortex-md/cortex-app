@@ -253,6 +253,8 @@ export function ActiveTabEditor({
 								{mode === "reading" ? (
 									<ReadingView
 										content={documentState.body}
+										filePath={tab.filePath}
+										resolveImageUrl={resolveNoteImageUrl}
 										scrollMode="parent"
 										codeBlockEmbeds={codeBlockEmbeds}
 										onExternalLinkClick={handleExternalLinkClick}

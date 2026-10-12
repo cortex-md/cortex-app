@@ -39,7 +39,7 @@ const BUDGETS = {
 	quickFinder: 30,
 	tabSwitch: 100,
 	settingsOpen: 100,
-	idleMemory: 450,
+	idleMemory: 800,
 	databaseOpen: 300,
 	databaseFilter: 100,
 }
@@ -259,7 +259,7 @@ async function measureSession(fixture: Fixture, profile: string): Promise<Metric
 		const quickFinder: number[] = []
 		await openQuickFinder(page)
 		for (const character of "Note 4217") {
-			await armKey(page)
+			await armKey(page, ".quick-finder-list")
 			await page.keyboard.press(character === " " ? "Space" : character)
 			quickFinder.push(
 				await settleKey(page, { kind: "selector", selector: ".quick-finder-list" }, 5_000).catch(

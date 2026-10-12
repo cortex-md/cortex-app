@@ -2,11 +2,13 @@ import { cleanup, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("@cortex/core", () => ({
+	toVaultRelativePath: vi.fn(),
 	useTemplateStore: vi.fn(),
 	useVaultStore: vi.fn(),
 }))
 
 vi.mock("@cortex/settings", () => ({
+	getSettingsField: vi.fn(),
 	useSettingsStore: vi.fn(),
 }))
 
@@ -52,12 +54,13 @@ beforeEach(() => {
 					showLineNumbers: false,
 					vimMode: false,
 				},
+				dailyNotes: { folder: "Daily", format: "yyyy-MM-dd", templateId: "" },
 			},
 		}
 		return selector ? selector(state) : state
 	}) as never)
 	vi.mocked(useVaultStore).mockImplementation(((selector?: (state: unknown) => unknown) => {
-		const state = { vault: { path: "/vault", name: "Vault" } }
+		const state = { vault: { path: "/vault", name: "Vault" }, files: [], refreshFiles: vi.fn() }
 		return selector ? selector(state) : state
 	}) as never)
 	vi.mocked(useTemplateStore).mockImplementation(((selector?: (state: unknown) => unknown) => {
@@ -75,7 +78,7 @@ describe("TemplatesSection", () => {
 		render(<TemplatesSection />)
 
 		expect(screen.getByText("Templates")).toBeInTheDocument()
-		expect(screen.getByText("Weekly Review")).toBeInTheDocument()
+		expect(screen.getByTitle("Weekly Review")).toBeInTheDocument()
 		expect(screen.getByText("{{ note.title | slug }}")).toBeInTheDocument()
 		expect(screen.getByRole("button", { name: "New template" })).toBeInTheDocument()
 	})

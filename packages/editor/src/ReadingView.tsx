@@ -7,7 +7,14 @@ import {
 	subscribeCalloutTypes,
 	subscribeMarkdownRegistry,
 } from "@cortex/renderer"
-import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react"
+import {
+	useEffect,
+	useEffectEvent,
+	useLayoutEffect,
+	useRef,
+	useState,
+	useSyncExternalStore,
+} from "react"
 import {
 	type CodeBlockEmbedDefinition,
 	findCodeBlockEmbedDefinition,
@@ -19,6 +26,8 @@ import {
 
 interface Props {
 	content: string
+	filePath?: string
+	resolveImageUrl?: (src: string, filePath: string) => string
 	scrollMode?: "internal" | "parent"
 	renderDelay?: number
 	codeBlockEmbeds?: readonly CodeBlockEmbedDefinition[]
@@ -153,6 +162,8 @@ async function renderMarkdownPiece(piece: MarkdownPlanPiece): Promise<MarkdownRe
 
 export function ReadingView({
 	content,
+	filePath,
+	resolveImageUrl,
 	scrollMode = "internal",
 	renderDelay = 0,
 	codeBlockEmbeds,
@@ -281,6 +292,18 @@ export function ReadingView({
 			container.removeEventListener("toggle", handleToggle, true)
 		}
 	}, [])
+
+	useLayoutEffect(() => {
+		const container = containerRef.current
+		if (!renderedMarkdown || !container || !filePath || !resolveImageUrl) return
+		for (const image of container.querySelectorAll<HTMLImageElement>("img[src]")) {
+			const source = image.getAttribute("src")
+			if (!source || image.dataset.noteSrc === source) continue
+			const resolved = resolveImageUrl(source, filePath)
+			image.dataset.noteSrc = resolved
+			image.src = resolved
+		}
+	}, [renderedMarkdown, filePath, resolveImageUrl])
 
 	useEffect(() => {
 		if (!renderedMarkdown) return

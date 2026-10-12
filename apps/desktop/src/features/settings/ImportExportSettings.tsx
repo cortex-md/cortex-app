@@ -14,6 +14,16 @@ export function ImportExportSection() {
 							Import files
 						</Button>
 					</SettingsField>
+					<SettingsField fieldId="import-export.obsidian">
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => runInMainWindow("importObsidian")}
+						>
+							<UploadIcon />
+							Import from Obsidian
+						</Button>
+					</SettingsField>
 				</SettingsGroup>
 			</SettingsSection>
 		</SettingsPage>

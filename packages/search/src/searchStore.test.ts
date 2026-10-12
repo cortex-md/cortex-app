@@ -17,20 +17,17 @@ afterEach(() => {
 })
 
 describe("search store", () => {
-	it("bounds concurrent markdown reads while indexing a vault", async () => {
-		let activeReads = 0
-		let maxActiveReads = 0
-		const readFile = vi.fn(async (path: string) => {
-			if (path.endsWith(".cortex/search-index.json")) throw new Error("No index")
-			activeReads++
-			maxActiveReads = Math.max(maxActiveReads, activeReads)
-			await Promise.resolve()
-			activeReads--
-			return `# ${path}\nBody`
+	it("reads changed markdown notes in one batched request while indexing a vault", async () => {
+		const readFile = vi.fn(async () => {
+			throw new Error("No index")
 		})
+		const readTextFiles = vi.fn(async (paths: readonly string[]) =>
+			paths.map((path) => ({ content: `# ${path}\nBody`, modifiedAt: 0, size: 0 })),
+		)
 		vi.mocked(getPlatform).mockReturnValue({
 			fs: {
 				readFile,
+				readTextFiles,
 				writeFile: vi.fn().mockResolvedValue(undefined),
 			},
 		} as never)
@@ -42,7 +39,8 @@ describe("search store", () => {
 
 		await useSearchStore.getState().indexVault("/vault", files)
 
-		expect(maxActiveReads).toBeLessThanOrEqual(4)
+		expect(readTextFiles).toHaveBeenCalledTimes(1)
+		expect(readTextFiles.mock.calls[0]?.[0]).toHaveLength(12)
 		expect(useSearchStore.getState().documentCount).toBe(12)
 	})
 
@@ -51,15 +49,19 @@ describe("search store", () => {
 			["/vault-a/old.md", "# Old\noldneedle"],
 			["/vault-b/new.md", "# New\nnewneedle"],
 		])
-		const readFile = vi.fn(async (path: string) => {
-			if (path.endsWith(".cortex/search-index.json")) throw new Error("No index")
-			const content = filesByPath.get(path)
-			if (!content) throw new Error(`Missing ${path}`)
-			return content
+		const readFile = vi.fn(async () => {
+			throw new Error("No index")
 		})
+		const readTextFiles = vi.fn(async (paths: readonly string[]) =>
+			paths.map((path) => {
+				const content = filesByPath.get(path)
+				return content === undefined ? null : { content, modifiedAt: 0, size: 0 }
+			}),
+		)
 		vi.mocked(getPlatform).mockReturnValue({
 			fs: {
 				readFile,
+				readTextFiles,
 				writeFile: vi.fn().mockResolvedValue(undefined),
 			},
 		} as never)
@@ -67,16 +69,16 @@ describe("search store", () => {
 		await useSearchStore
 			.getState()
 			.indexVault("/vault-a", [{ path: "/vault-a/old.md", name: "old.md", isDir: false }])
-		useSearchStore.getState().search("oldneedle")
+		await useSearchStore.getState().search("oldneedle")
 		expect(useSearchStore.getState().results).toHaveLength(1)
 
 		await useSearchStore
 			.getState()
 			.indexVault("/vault-b", [{ path: "/vault-b/new.md", name: "new.md", isDir: false }])
-		useSearchStore.getState().search("oldneedle")
+		await useSearchStore.getState().search("oldneedle")
 		expect(useSearchStore.getState().results).toEqual([])
 
-		useSearchStore.getState().search("newneedle")
+		await useSearchStore.getState().search("newneedle")
 		expect(useSearchStore.getState().results[0]?.id).toBe("new.md")
 		expect(useSearchStore.getState().documentCount).toBe(1)
 	})
@@ -113,7 +115,7 @@ describe("search store", () => {
 		])
 
 		expect(readFile).toHaveBeenCalledTimes(1)
-		useSearchStore.getState().search("cachedneedle")
+		await useSearchStore.getState().search("cachedneedle")
 		expect(useSearchStore.getState().results[0]?.id).toBe("note.md")
 		expect(useSearchStore.getState().documentCount).toBe(1)
 	})
@@ -124,16 +126,17 @@ describe("search store", () => {
 		const noteReadStarted = new Promise<void>((resolve) => {
 			markNoteReadStarted = resolve
 		})
-		const readFile = vi.fn((path: string) => {
-			if (path.endsWith(".cortex/search-index.json")) return Promise.reject(new Error("No index"))
+		const readFile = vi.fn(() => Promise.reject(new Error("No index")))
+		const readTextFiles = vi.fn(() => {
 			markNoteReadStarted()
-			return new Promise<string>((resolve) => {
-				resolveNoteRead = resolve
+			return new Promise<{ content: string; modifiedAt: number; size: number }[]>((resolve) => {
+				resolveNoteRead = (content) => resolve([{ content, modifiedAt: 10, size: 20 }])
 			})
 		})
 		vi.mocked(getPlatform).mockReturnValue({
 			fs: {
 				readFile,
+				readTextFiles,
 				writeFile: vi.fn().mockResolvedValue(undefined),
 			},
 		} as never)
@@ -152,7 +155,7 @@ describe("search store", () => {
 		resolveNoteRead("# Note\nstale-needle")
 		await indexing
 
-		useSearchStore.getState().search("stale-needle")
+		await useSearchStore.getState().search("stale-needle")
 		expect(useSearchStore.getState().results).toEqual([])
 		expect(useSearchStore.getState().documentCount).toBe(0)
 		expect(useSearchStore.getState().indexing).toBe(false)

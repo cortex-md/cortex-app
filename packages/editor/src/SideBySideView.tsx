@@ -108,6 +108,8 @@ export function SideBySideView({
 			<div className="side-by-side-preview" ref={readingPanelRef}>
 				<ReadingView
 					content={content}
+					filePath={filePath}
+					resolveImageUrl={resolveImageUrl}
 					renderDelay={80}
 					scrollMode={scrollMode}
 					codeBlockEmbeds={codeBlockEmbeds}

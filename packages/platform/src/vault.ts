@@ -84,7 +84,11 @@ export function snapshotFromContent(content: string, metadata: FileMetadata): Fi
 }
 
 export function isInternalVaultFile(relativePath: string): boolean {
-	return relativePath === VAULT_FILES.searchIndex || relativePath.startsWith(VAULT_FILES.syncDb)
+	return (
+		relativePath === VAULT_FILES.searchIndex ||
+		relativePath.startsWith(VAULT_FILES.syncDb) ||
+		relativePath.startsWith(`${VAULT_FILES.history}/`)
+	)
 }
 
 export function isHiddenVaultPath(

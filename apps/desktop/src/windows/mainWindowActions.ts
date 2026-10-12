@@ -4,6 +4,7 @@ import { getPlatform } from "@cortex/platform"
 import { usePluginStore } from "@cortex/plugin-host-core"
 import { pluginHost } from "../bootstrap/pluginHost"
 import { importFilesFromDialog } from "../features/import-export/importExportActions"
+import { importObsidianVaultFromDialog } from "../features/import-export/obsidianImport"
 import {
 	type OpenMarketplaceViewOptions,
 	openMarketplaceView,
@@ -27,6 +28,7 @@ export const mainWindowActions = {
 		options?: OpenMarketplaceViewOptions
 	}) => inMainWindow(() => openMarketplaceView(tab, options)),
 	importFiles: () => importFilesFromDialog("settings"),
+	importObsidian: () => inMainWindow(() => void importObsidianVaultFromDialog()),
 	setPluginEnabled: async ({ pluginId, enabled }: { pluginId: string; enabled: boolean }) => {
 		const record = usePluginStore.getState().plugins[pluginId]
 		if (!record) return

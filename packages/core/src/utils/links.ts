@@ -10,9 +10,13 @@ interface ResolverIndex {
 
 const resolverCache = new WeakMap<readonly FileEntry[], Map<string, ResolverIndex>>()
 
+export function getWikiLinkNoteTarget(target: string): string {
+	const subpathIndex = target.indexOf("#")
+	return (subpathIndex === -1 ? target : target.slice(0, subpathIndex)).trim()
+}
+
 function normalizeTarget(target: string): string {
-	const trimmed = target
-		.trim()
+	const trimmed = getWikiLinkNoteTarget(target)
 		.replaceAll("\\", "/")
 		.replace(/^\.?\//, "")
 	return (isMarkdownPath(trimmed) ? trimmed : `${trimmed}.md`).toLowerCase()

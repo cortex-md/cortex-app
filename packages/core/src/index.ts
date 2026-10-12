@@ -29,6 +29,19 @@ export {
 } from "./collab/collabRuntime"
 export { useCollabNote, useCollabNoteState } from "./collab/useCollabNote"
 export {
+	captureLocalVersion,
+	LOCAL_HISTORY_SIZE_CAP_BYTES,
+	type LocalVersion,
+	type LocalVersionReason,
+	listLocalVersions,
+	readLocalVersion,
+} from "./history/localHistory"
+export {
+	captureCurrentNoteVersion,
+	readCurrentNoteContent,
+	restoreLocalVersion,
+} from "./history/restoreLocalVersion"
+export {
 	type ExternalChangeEvent,
 	type LiveDocumentHandler,
 	type LiveWriteOptions,
@@ -120,6 +133,12 @@ export {
 	type PickedFolder,
 	resolvePickedFolder,
 } from "./runtime/vaultSession"
+export {
+	applyVaultSettingsImport,
+	type VaultSettingsImportInput,
+	type VaultSettingsImportOptions,
+	type VaultSettingsImportResult,
+} from "./runtime/vaultSettingsImport"
 export { useCanReadVaultPath, useCanWriteVaultPath } from "./stores/accessHooks"
 export {
 	type AccessState,

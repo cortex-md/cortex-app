@@ -74,7 +74,7 @@ describe("NoteHistoryPanel", () => {
 		noteHistoryModal.open({ filePath: "/vault/Notes/Plan.md" })
 		render(<NoteHistoryHost />)
 
-		await userEvent.click(await screen.findByRole("button", { name: /Current version/ }))
+		await userEvent.click(await screen.findByRole("button", { name: /Version 2/ }))
 
 		expect(await screen.findByText("new")).toHaveClass("history-diff-word")
 		expect(screen.getByText("old")).toHaveClass("history-diff-word")
@@ -93,7 +93,7 @@ describe("NoteHistoryPanel", () => {
 		noteHistoryModal.open({ filePath: "/vault/Notes/Plan.md" })
 		render(<NoteHistoryHost />)
 
-		await screen.findByRole("button", { name: /Version 1/ })
+		fireEvent.click(await screen.findByRole("button", { name: /Version 1/ }))
 		fireEvent.click(screen.getByRole("button", { name: "Restore this version" }))
 
 		await waitFor(() => {

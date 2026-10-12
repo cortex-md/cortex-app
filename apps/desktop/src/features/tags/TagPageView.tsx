@@ -168,7 +168,7 @@ export function TagPageView({ viewState, onStateChange }: CoreViewProps) {
 
 	const searchInTag = () => {
 		const query = `tag:${tag} `
-		useSearchStore.getState().runQuery(query)
+		void useSearchStore.getState().runQuery(query)
 		const ui = useUIStore.getState()
 		if (ui.leftSidebarCollapsed) ui.toggleLeftSidebar()
 		ui.setLeftSidebarView("search")

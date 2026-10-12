@@ -1,4 +1,5 @@
 import {
+	canReadVaultPath,
 	canWriteVaultPath,
 	type FileEntryActionId,
 	getFileEntryActions,
@@ -70,7 +71,7 @@ function buildFileEntryMenuItems(
 	)
 }
 
-export function canShowVersionHistory(): boolean {
+export function isSyncLinked(): boolean {
 	const { syncConfig } = useRemoteVaultStore.getState()
 	return syncConfig.enabled && syncConfig.remoteVaultId !== null
 }
@@ -90,8 +91,9 @@ export function buildFileMenuItems(
 	const syncExcluded = shouldIgnoreSyncPath(relativePath, syncPreferences)
 	const bookmarked =
 		isNote && vaultPath ? useBookmarksStore.getState().isBookmarked(vaultPath, filePath) : false
-	const syncLinked = canShowVersionHistory()
-	const showVersionHistory = isNote && syncLinked
+	const syncLinked = isSyncLinked()
+	const canShare = isNote && syncLinked
+	const showVersionHistory = isNote && Boolean(vaultPath) && canReadVaultPath(filePath)
 	const entryItems = buildFileEntryMenuItems({ filePath, isDirectory })
 	const canCreateInside = isDirectory && canWriteVaultPath(filePath, true)
 	const isDatabase = isDirectory && Boolean(useDatabaseStore.getState().databases[filePath])
@@ -207,7 +209,7 @@ export function buildFileMenuItems(
 				text: "Manage Access…",
 				payload: { filePath, isDirectory },
 			}),
-		showVersionHistory &&
+		canShare &&
 			commandMenuItem("sync.share-note", {
 				id: "share-note",
 				text: "Share…",

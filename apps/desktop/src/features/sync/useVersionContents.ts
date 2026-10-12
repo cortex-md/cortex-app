@@ -1,11 +1,4 @@
-import {
-	countWordChanges,
-	useRemoteVaultStore,
-	useSyncStore,
-	useVaultStore,
-	type WordChangeCount,
-} from "@cortex/core"
-import type { VersionInfo } from "@cortex/platform"
+import { countWordChanges, type WordChangeCount } from "@cortex/core"
 import { mapWithConcurrency } from "@cortex/platform/utils"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
@@ -13,66 +6,62 @@ const PREFETCH_LIMIT = 30
 const PREFETCH_CONCURRENCY = 2
 
 export interface VersionContents {
-	contents: Record<number, string>
-	deltas: Record<number, WordChangeCount>
-	loadContent: (version: number) => Promise<string>
+	contents: Record<string, string>
+	deltas: Record<string, WordChangeCount>
+	loadContent: (id: string) => Promise<string>
 }
 
-export function useVersionContents(
-	versions: readonly VersionInfo[] | null,
-	relativePath: string,
+export function useVersionContents<T extends { id: string }>(
+	entries: readonly T[] | null,
+	loadEntryContent: (entry: T) => Promise<string>,
 ): VersionContents {
-	const vaultPath = useVaultStore((state) => state.vault?.path)
-	const linkedVaultId = useRemoteVaultStore((state) => state.linkedVaultId)
-	const [contents, setContents] = useState<Record<number, string>>({})
-	const requests = useRef(new Map<number, Promise<string>>())
+	const [contents, setContents] = useState<Record<string, string>>({})
+	const requests = useRef(new Map<string, Promise<string>>())
 	const deltaCache = useRef(new Map<string, WordChangeCount>())
 
 	const loadContent = useCallback(
-		(version: number): Promise<string> => {
-			const pending = requests.current.get(version)
+		(id: string): Promise<string> => {
+			const pending = requests.current.get(id)
 			if (pending) return pending
-			if (!vaultPath || !linkedVaultId) return Promise.reject(new Error("Vault is not linked"))
-			const request = useSyncStore
-				.getState()
-				.downloadVersion(linkedVaultId, vaultPath, relativePath, String(version))
-				.then((content) => {
-					setContents((current) => ({ ...current, [version]: content }))
-					return content
-				})
-			request.catch(() => requests.current.delete(version))
-			requests.current.set(version, request)
+			const entry = entries?.find((candidate) => candidate.id === id)
+			if (!entry) return Promise.reject(new Error("Version not found"))
+			const request = loadEntryContent(entry).then((content) => {
+				setContents((current) => ({ ...current, [id]: content }))
+				return content
+			})
+			request.catch(() => requests.current.delete(id))
+			requests.current.set(id, request)
 			return request
 		},
-		[vaultPath, linkedVaultId, relativePath],
+		[entries, loadEntryContent],
 	)
 
 	useEffect(() => {
-		if (!versions || versions.length === 0) return
-		const targets = versions.slice(0, PREFETCH_LIMIT + 1)
-		void mapWithConcurrency(targets, PREFETCH_CONCURRENCY, (version) =>
-			loadContent(version.version).catch(() => undefined),
+		if (!entries || entries.length === 0) return
+		const targets = entries.slice(0, PREFETCH_LIMIT + 1)
+		void mapWithConcurrency(targets, PREFETCH_CONCURRENCY, (entry) =>
+			loadContent(entry.id).catch(() => undefined),
 		)
-	}, [versions, loadContent])
+	}, [entries, loadContent])
 
 	const deltas = useMemo(() => {
-		const result: Record<number, WordChangeCount> = {}
-		if (!versions) return result
-		for (const [index, version] of versions.slice(0, PREFETCH_LIMIT).entries()) {
-			const previous = versions[index + 1]
-			const after = contents[version.version]
-			const before = previous ? contents[previous.version] : ""
+		const result: Record<string, WordChangeCount> = {}
+		if (!entries) return result
+		for (const [index, entry] of entries.slice(0, PREFETCH_LIMIT).entries()) {
+			const previous = entries[index + 1]
+			const after = contents[entry.id]
+			const before = previous ? contents[previous.id] : ""
 			if (after === undefined || before === undefined) continue
-			const key = `${version.snapshotId}:${previous?.snapshotId ?? "start"}`
+			const key = `${entry.id}:${previous?.id ?? "start"}`
 			let delta = deltaCache.current.get(key)
 			if (!delta) {
 				delta = countWordChanges(before, after)
 				deltaCache.current.set(key, delta)
 			}
-			result[version.version] = delta
+			result[entry.id] = delta
 		}
 		return result
-	}, [versions, contents])
+	}, [entries, contents])
 
 	return { contents, deltas, loadContent }
 }

@@ -23,7 +23,9 @@ import {
 	renameNotePropertiesUiState,
 } from "@cortex/properties"
 import { getSettingsManager, useSettingsStore } from "@cortex/settings"
+import { formatTemplateDate } from "@cortex/templates"
 import { create } from "zustand"
+import { moveLocalHistory } from "../history/localHistory"
 import { noteCache } from "../noteCache"
 import { ensureVaultOnboardingNote } from "../onboarding/vaultOnboarding"
 import { pathExists, resolveUniquePath, writeCleanNote } from "../utils/createdNote"
@@ -113,25 +115,41 @@ async function writeCleanNoteAndRefreshFiles(
 	await refreshFiles()
 }
 
-async function writeDailyNoteAndRefreshFiles(
+async function createDailyNoteContent(
+	vault: VaultMetadata,
 	filePath: string,
-	vaultPath: string,
-	dateStr: string,
-	dailyDir: string,
-	dailyDirExists: boolean,
-	refreshFiles: () => Promise<void>,
-): Promise<void> {
-	const [content] = await Promise.all([
-		createNoteWithPropertyDefaults(
-			vaultPath,
-			createDefaultFrontmatter({
-				tags: ["daily"],
-				extraFields: { date: dateStr },
-			}),
-		),
-		dailyDirExists ? Promise.resolve() : getPlatform().fs.createDir(dailyDir),
-	])
-	await writeCleanNoteAndRefreshFiles(filePath, `${content}\n# ${dateStr}\n\n`, refreshFiles)
+	now: Date,
+	templateId: string,
+): Promise<string> {
+	const title = splitExtension(getBaseName(filePath)).baseName
+	if (templateId) {
+		const preview = await useTemplateStore
+			.getState()
+			.previewNoteFromTemplate(vault, {
+				templateId,
+				noteTitle: title,
+				targetFolder: toVaultRelativePath(getParentPath(filePath), vault.path) ?? "",
+				fileName: getBaseName(filePath),
+				now,
+			})
+			.catch(() => null)
+		if (preview) return preview.content
+	}
+	const content = await createNoteWithPropertyDefaults(
+		vault.path,
+		createDefaultFrontmatter({
+			tags: ["daily"],
+			extraFields: { date: formatTemplateDate(now, "yyyy-MM-dd") },
+		}),
+	)
+	return `${content}\n# ${title}\n\n`
+}
+
+function resolveDailyNotePath(vaultPath: string, now: Date): string {
+	const { folder, format } = useSettingsStore.getState().settings.dailyNotes
+	const folderPath = folder.replace(/^\/+|\/+$/gu, "")
+	const directory = folderPath ? joinPath(vaultPath, folderPath) : vaultPath
+	return ensureMarkdownExtension(joinPath(directory, formatTemplateDate(now, format)))
 }
 
 function getAffectedNotePaths(files: FileEntry[], oldPath: string): string[] {
@@ -165,6 +183,7 @@ async function migrateVaultPathReferences(
 	useWorkspaceStore.getState().updateTabPath(oldPath, newPath)
 	await useBookmarksStore.getState().renameBookmarkPath(vaultPath, oldPath, newPath)
 	await useCommentsStore.getState().moveNoteComments(vaultPath, oldPath, newPath)
+	await moveLocalHistory(vaultPath, oldPath, newPath)
 	if (getOptionalPropertiesRuntime()) {
 		await renameNotePropertiesUiState(vaultPath, oldPath, newPath)
 	}
@@ -568,25 +587,21 @@ export const useVaultStore = create<VaultState>((set, get) => {
 			const { vault, files } = get()
 			if (!vault) return null
 
-			const today = new Date()
-			const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`
-			const dailyDir = `${vault.path}/Daily`
-			const filePath = `${dailyDir}/${dateStr}.md`
-
-			const existingFile = files.find((f) => f.path === filePath)
-			if (existingFile) return filePath
+			const now = new Date()
+			const filePath = resolveDailyNotePath(vault.path, now)
+			if (files.some((file) => file.path === filePath)) return filePath
 			if (await pathExists(filePath)) return filePath
 
-			const dailyDirExists = files.some((f) => f.isDir && f.path === dailyDir)
+			const dailyDir = getParentPath(filePath)
+			const dailyDirExists =
+				dailyDir === vault.path || files.some((file) => file.isDir && file.path === dailyDir)
 			assertVaultPathWritable(dailyDirExists ? dailyDir : vault.path, true)
-			await writeDailyNoteAndRefreshFiles(
-				filePath,
-				vault.path,
-				dateStr,
-				dailyDir,
-				dailyDirExists,
-				get().refreshFiles,
-			)
+			const { templateId } = useSettingsStore.getState().settings.dailyNotes
+			const [content] = await Promise.all([
+				createDailyNoteContent(vault, filePath, now, templateId),
+				dailyDirExists ? Promise.resolve() : getPlatform().fs.createDir(dailyDir),
+			])
+			await writeCleanNoteAndRefreshFiles(filePath, content, get().refreshFiles)
 			invalidatePropertySuggestions(vault.path)
 			return filePath
 		},

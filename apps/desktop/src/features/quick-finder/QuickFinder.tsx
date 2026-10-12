@@ -29,7 +29,7 @@ import {
 } from "@cortex/ui"
 import { PanelRightIcon } from "lucide-react"
 import type { KeyboardEvent } from "react"
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback"
 import { HighlightedSnippet } from "../search/HighlightedSnippet"
 import { QuickFinderPreview } from "./QuickFinderPreview"
@@ -55,6 +55,18 @@ interface QuickFinderCreateItem {
 }
 
 type QuickFinderItem = QuickFinderOpenItem | QuickFinderCreateItem
+
+interface QuickFinderResults {
+	query: string
+	results: SearchResult[]
+}
+
+interface PendingOpen {
+	newTab: boolean
+	split: boolean
+}
+
+const EMPTY_RESULTS: QuickFinderResults = { query: "", results: [] }
 
 const QUICK_FINDER_FOOTER_HINTS = [
 	{ keys: ["↑", "↓"], label: "navigate" },
@@ -140,10 +152,10 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 	const panes = useWorkspaceStore((s) => s.panes)
 	const recentlyClosed = useWorkspaceStore((s) => s.recentlyClosed)
 	const activePaneId = useWorkspaceStore((s) => s.activePaneId)
-	const searchTitles = useSearchStore((s) => s.searchTitles)
 	const request = useUIStore((s) => s.quickFinderRequest)
 	const preview = useUIStore((s) => s.quickFinderPreview)
 	const files = useVaultStore((s) => s.files)
+	const indexing = useSearchStore((s) => s.indexing)
 	const modifiedTimes = getFileModifiedTimes(files)
 
 	const [query, setQuery] = useState(() =>
@@ -151,27 +163,39 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 	)
 	const [selectedValue, setSelectedValue] = useState("")
 	const [selectionQuery, setSelectionQuery] = useState("")
-	const [contentResults, setContentResults] = useState<{
-		query: string
-		results: SearchResult[]
-	} | null>(null)
+	const [titleResults, setTitleResults] = useState(EMPTY_RESULTS)
+	const [contentResults, setContentResults] = useState(EMPTY_RESULTS)
+	const latestQueryRef = useRef("")
+	const pendingOpenRef = useRef<PendingOpen | null>(null)
 
 	const trimmedQuery = query.trim()
-	const searchQuery = useDeferredValue(trimmedQuery)
+	const searchQuery = trimmedQuery ? titleResults.query : ""
 
-	const loadContentResults = useDebouncedCallback((nextQuery: string) => {
+	const loadContentResults = useDebouncedCallback(async (nextQuery: string) => {
 		const { findNotes, loadMatches } = useSearchStore.getState()
-		const results = findNotes(nextQuery, { limit: QUICK_FINDER_RESULT_LIMIT })
-		void loadMatches(results, nextQuery).then((withMatches) =>
-			setContentResults({ query: nextQuery, results: withMatches }),
-		)
+		const results = await findNotes(nextQuery, { limit: QUICK_FINDER_RESULT_LIMIT })
+		if (latestQueryRef.current !== nextQuery) return
+		const withMatches = await loadMatches(results, nextQuery)
+		if (latestQueryRef.current === nextQuery) {
+			setContentResults({ query: nextQuery, results: withMatches })
+		}
 	}, CONTENT_SEARCH_DELAY_MS)
 
 	useEffect(() => {
-		if (searchQuery.length >= MIN_CONTENT_QUERY_LENGTH && !searchQuery.startsWith(">")) {
-			loadContentResults(searchQuery)
+		latestQueryRef.current = trimmedQuery
+		if (!trimmedQuery || indexing) return
+		void useSearchStore
+			.getState()
+			.searchTitles(trimmedQuery)
+			.then((results) => {
+				if (latestQueryRef.current === trimmedQuery) {
+					setTitleResults({ query: trimmedQuery, results })
+				}
+			})
+		if (trimmedQuery.length >= MIN_CONTENT_QUERY_LENGTH && !trimmedQuery.startsWith(">")) {
+			loadContentResults(trimmedQuery)
 		}
-	}, [loadContentResults, searchQuery])
+	}, [indexing, loadContentResults, trimmedQuery])
 
 	const handleQueryChange = (nextQuery: string) => {
 		if (nextQuery.startsWith(">")) {
@@ -179,6 +203,8 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 			useUIStore.getState().toggleCommandPalette()
 			return
 		}
+		pendingOpenRef.current = null
+		if (!nextQuery.trim()) setTitleResults(EMPTY_RESULTS)
 		setQuery(nextQuery)
 	}
 
@@ -189,17 +215,17 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 
 	const searchResults = useMemo(() => {
 		if (!searchQuery) return []
-		const titleResults = searchTitles(searchQuery).slice(0, QUICK_FINDER_RESULT_LIMIT)
+		const titles = titleResults.results.slice(0, QUICK_FINDER_RESULT_LIMIT)
 		const matchedContent =
-			contentResults?.query === searchQuery
+			contentResults.query === searchQuery
 				? contentResults.results.filter((result) => result.snippets.length > 0)
 				: []
-		const seen = new Set(titleResults.map((result) => result.id))
-		return [...titleResults, ...matchedContent.filter((result) => !seen.has(result.id))].slice(
+		const seen = new Set(titles.map((result) => result.id))
+		return [...titles, ...matchedContent.filter((result) => !seen.has(result.id))].slice(
 			0,
 			QUICK_FINDER_RESULT_LIMIT,
 		)
-	}, [contentResults, searchQuery, searchTitles])
+	}, [contentResults, searchQuery, titleResults])
 
 	const openItems = useMemo<QuickFinderOpenItem[]>(() => {
 		if (!searchQuery) {
@@ -288,6 +314,16 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 		[handleCreateNote, handleOpenItem],
 	)
 
+	const resultsPending = searchQuery !== trimmedQuery
+
+	useEffect(() => {
+		const pendingOpen = pendingOpenRef.current
+		if (!pendingOpen || resultsPending) return
+		pendingOpenRef.current = null
+		const firstItem = displayItems[0]
+		if (firstItem) handleSelectItem(firstItem, pendingOpen.newTab, pendingOpen.split)
+	}, [displayItems, handleSelectItem, resultsPending])
+
 	const handleKeyDown = useCallback(
 		(event: KeyboardEvent) => {
 			if (event.key !== "Enter") return
@@ -296,6 +332,11 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 			if (event.shiftKey && !newTab) {
 				event.preventDefault()
 				void handleCreateNote(trimmedQuery)
+				return
+			}
+			if (resultsPending) {
+				event.preventDefault()
+				pendingOpenRef.current = { newTab, split: newTab && event.shiftKey }
 				return
 			}
 			if (!newTab) return
@@ -308,7 +349,7 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 			event.preventDefault()
 			handleSelectItem(selectedItem, newTab, newTab && event.shiftKey)
 		},
-		[displayItems, handleCreateNote, handleSelectItem, trimmedQuery],
+		[displayItems, handleCreateNote, handleSelectItem, resultsPending, trimmedQuery],
 	)
 
 	return (

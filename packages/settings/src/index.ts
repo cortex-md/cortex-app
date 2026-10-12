@@ -2,6 +2,7 @@ export {
 	DEFAULT_ACCENT_COLOR,
 	DEFAULT_APP_SETTINGS,
 	DEFAULT_APPEARANCE_SETTINGS,
+	DEFAULT_DAILY_NOTES_SETTINGS,
 	DEFAULT_EDITOR_SETTINGS,
 	DEFAULT_FILES_SETTINGS,
 	DEFAULT_GENERAL_SETTINGS,
@@ -26,6 +27,7 @@ export { useSettingsStore } from "./store"
 export type {
 	AppearanceSettings,
 	AppSettings,
+	DailyNotesSettings,
 	EditorSettings,
 	FilesSettings,
 	GeneralSettings,
@@ -37,6 +39,7 @@ export type {
 export {
 	AppearanceSettingsSchema,
 	AppSettingsSchema,
+	DailyNotesSettingsSchema,
 	EditorSettingsSchema,
 	FilesSettingsSchema,
 	GeneralSettingsSchema,

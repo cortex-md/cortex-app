@@ -52,8 +52,8 @@ export async function installProbe(page: Page): Promise<void> {
 	})
 }
 
-export async function armKey(page: Page): Promise<void> {
-	await page.evaluate(() => {
+export async function armKey(page: Page, scopeSelector?: string): Promise<void> {
+	await page.evaluate((scopeSelector) => {
 		const probe = (window as ProbeWindow).__perf
 		if (!probe) throw new Error("perf probe missing")
 		probe.start = null
@@ -62,13 +62,14 @@ export async function armKey(page: Page): Promise<void> {
 		probe.observer = new MutationObserver((records) => {
 			if (probe.start !== null) probe.mutations += records.length
 		})
-		probe.observer.observe(document.body, { childList: true, subtree: true, characterData: true })
+		const scope = (scopeSelector && document.querySelector(scopeSelector)) || document.body
+		probe.observer.observe(scope, { childList: true, subtree: true, characterData: true })
 		if (probe.onKey) window.removeEventListener("keydown", probe.onKey, true)
 		probe.onKey = (event) => {
 			if (probe.start === null) probe.start = event.timeStamp
 		}
 		window.addEventListener("keydown", probe.onKey, true)
-	})
+	}, scopeSelector)
 }
 
 export async function settleKey(

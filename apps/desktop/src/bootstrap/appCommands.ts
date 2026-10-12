@@ -64,6 +64,7 @@ import {
 	exportNoteFromDialog,
 	importFilesFromDialog,
 } from "../features/import-export/importExportActions"
+import { importObsidianVaultFromDialog } from "../features/import-export/obsidianImport"
 import { openMarketplaceView } from "../features/marketplace/openMarketplaceView"
 import { manageAccessModal } from "../features/sync/manageAccessModal"
 import { noteHistoryModal } from "../features/sync/noteHistoryModal"
@@ -358,7 +359,7 @@ const appCommands: CommandEntry[] = [
 	{
 		id: "sync.show-version-history",
 		label: "Version History",
-		category: "Sync",
+		category: "File",
 		aliases: ["version-history", "note-history"],
 		icon: HistoryIcon,
 		execute: withTargetFile((filePath) => {
@@ -412,6 +413,14 @@ const appCommands: CommandEntry[] = [
 		aliases: ["import", "import-files", "batch-import"],
 		icon: UploadIcon,
 		execute: () => void importFilesFromDialog("command-palette"),
+	},
+	{
+		id: "import.obsidian",
+		label: "Import from Obsidian",
+		category: "Import / Export",
+		aliases: ["import-obsidian", "obsidian"],
+		icon: UploadIcon,
+		execute: () => void importObsidianVaultFromDialog(),
 	},
 	{
 		id: "export.active-html",

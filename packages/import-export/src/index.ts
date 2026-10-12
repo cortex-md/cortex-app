@@ -15,6 +15,16 @@ export {
 	stringifyCsvRecords,
 } from "./csv"
 export { decodeHtmlEntities, htmlToMarkdown, renderMarkdownExportHtml } from "./html"
+export { isObsidianVault, OBSIDIAN_CONFIG_DIR } from "./obsidian/config"
+export type { ObsidianFinding, ObsidianFindingKind } from "./obsidian/findings"
+export type { AttachmentLocation, VaultSettingsImport } from "./obsidian/settings"
+export {
+	analyzeObsidianVault,
+	importObsidianVault,
+	type ObsidianFailure,
+	type ObsidianImportResult,
+	type ObsidianProgress,
+} from "./obsidian/vault"
 export { reserveUniquePath, sanitizeFileStem } from "./path"
 export {
 	type Exporter,

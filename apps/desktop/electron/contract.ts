@@ -50,8 +50,9 @@ type SyncCommands = {
 }
 
 export interface MainApi {
-	fs: Omit<FileSystem, "startWatching" | "readBinaryFile"> & {
+	fs: Omit<FileSystem, "startWatching" | "readBinaryFile" | "copyFile"> & {
 		readBinaryFile(path: string): Promise<Uint8Array>
+		copyFile(sourcePath: string, targetPath: string): Promise<void>
 		startWatching(path: string, options: WatchOptions): Promise<string>
 		stopWatching(watcherId: string): Promise<void>
 		downloadText(url: string): Promise<string>

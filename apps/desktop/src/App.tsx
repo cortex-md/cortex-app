@@ -30,6 +30,7 @@ import {
 	type SidebarViewItem,
 	type SidebarViewPanelProps,
 } from "./features/file-explorer/sidebarViewUtils"
+import { obsidianImportModal } from "./features/import-export/obsidianImportModal"
 import { EmptyVaultLayout } from "./features/layout/empty-vault-layout"
 import { type SplitPaneLeafProps, SplitPaneView } from "./features/layout/SplitPane"
 import { openMarketplaceView } from "./features/marketplace/openMarketplaceView"
@@ -78,6 +79,7 @@ const overlayLoaders = {
 	syncDialogs: () => import("./features/sync/syncDialogs"),
 	createVault: () => import("./features/vault/CreateVaultModal"),
 	newDatabase: () => import("./features/databases/NewDatabaseDialog"),
+	obsidianImport: () => import("./features/import-export/ObsidianImportDialog"),
 }
 
 const LazyAuthModal = lazyNamed(overlayLoaders.auth, "AuthModal")
@@ -95,6 +97,7 @@ const LazyTagPicker = lazyNamed(overlayLoaders.tagPicker, "TagPicker")
 const LazySyncDialogsHost = lazyNamed(overlayLoaders.syncDialogs, "SyncDialogsHost")
 const LazyCreateVaultModalHost = lazyNamed(overlayLoaders.createVault, "CreateVaultModalHost")
 const LazyNewDatabaseHost = lazyNamed(overlayLoaders.newDatabase, "NewDatabaseHost")
+const LazyObsidianImportHost = lazyNamed(overlayLoaders.obsidianImport, "ObsidianImportHost")
 
 function preloadOverlays(): () => void {
 	return scheduleIdleWork(() => {
@@ -301,6 +304,7 @@ const AppOverlays = memo(function AppOverlays() {
 	const deletedNotesOpen = deletedNotesModal.useTarget() !== null
 	const createVaultOpen = createVaultModal.useTarget() !== null
 	const newDatabaseOpen = newDatabaseModal.useTarget() !== null
+	const obsidianImportOpen = obsidianImportModal.useTarget() !== null
 
 	useEffect(preloadOverlays, [])
 
@@ -342,6 +346,9 @@ const AppOverlays = memo(function AppOverlays() {
 			</DeferredOverlay>
 			<DeferredOverlay open={newDatabaseOpen}>
 				<LazyNewDatabaseHost />
+			</DeferredOverlay>
+			<DeferredOverlay open={obsidianImportOpen}>
+				<LazyObsidianImportHost />
 			</DeferredOverlay>
 			<PluginModalHost />
 			<DragPreview />

@@ -1,4 +1,4 @@
-import { inferFileTabKind, type Tab } from "@cortex/core"
+import { canReadVaultPath, inferFileTabKind, type Tab } from "@cortex/core"
 import type { ContextMenuActionContext } from "@cortex.md/api"
 import { PinIcon, PinOffIcon, XIcon } from "lucide-react"
 import {
@@ -8,7 +8,7 @@ import {
 	MENU_SEPARATOR,
 	type MenuItem,
 } from "@/utils/context-menu"
-import { canShowVersionHistory } from "../file-explorer/fileMenu"
+import { isSyncLinked } from "../file-explorer/fileMenu"
 
 function getTabPluginContext(tab: Tab): ContextMenuActionContext {
 	return {
@@ -71,14 +71,14 @@ export function buildTabMenuItems(tab: Tab, paneId: string): MenuItem[] {
 			}),
 		MENU_SEPARATOR,
 		isMarkdown &&
-			canShowVersionHistory() &&
+			isSyncLinked() &&
 			commandMenuItem("sync.share-note", {
 				id: "share-note",
 				text: "Share…",
 				payload: filePayload,
 			}),
 		isMarkdown &&
-			canShowVersionHistory() &&
+			canReadVaultPath(tab.filePath) &&
 			commandMenuItem("sync.show-version-history", {
 				id: "version-history",
 				text: "Version History",

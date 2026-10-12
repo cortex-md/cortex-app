@@ -9,6 +9,7 @@ import {
 	toVaultRelativePath,
 	VAULT_CONFIG_DIR,
 } from "@cortex/core"
+import { isObsidianVault } from "@cortex/import-export"
 import type { FileEntry, SyncPreferences } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
 import {
@@ -22,6 +23,8 @@ import {
 	DialogHeader,
 	DialogTitle,
 	Field,
+	FieldContent,
+	FieldDescription,
 	FieldGroup,
 	FieldLabel,
 	FolderPicker,
@@ -34,6 +37,7 @@ import {
 import { FileIcon, FolderIcon, XIcon } from "lucide-react"
 import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from "react"
 import { ModalStoreHost } from "@/utils/ModalHost"
+import { obsidianImportModal } from "../import-export/obsidianImportModal"
 import { createVaultModal } from "./createVaultModalStore"
 
 interface CreateVaultModalContentProps {
@@ -50,6 +54,8 @@ interface CreateVaultDraft {
 	files: FileEntry[]
 	syncPreferences: SyncPreferences
 	creating: boolean
+	obsidianVault: boolean
+	adoptObsidianSettings: boolean
 }
 
 function fileEntryToRelativePath(entry: FileEntry, vaultPath: string): string {
@@ -65,6 +71,8 @@ function createVaultDraft(defaultName: string): CreateVaultDraft {
 		files: [],
 		syncPreferences: createDefaultSyncPreferences(),
 		creating: false,
+		obsidianVault: false,
+		adoptObsidianSettings: true,
 	}
 }
 
@@ -96,6 +104,11 @@ function CreateVaultModalContent({ folderPath, defaultName }: CreateVaultModalCo
 			.catch(() => {
 				if (active) setDraft((current) => ({ ...current, files: [] }))
 			})
+		isObsidianVault(folderPath)
+			.then((obsidianVault) => {
+				if (active) setDraft((current) => ({ ...current, obsidianVault }))
+			})
+			.catch(() => undefined)
 		return () => {
 			active = false
 		}
@@ -149,8 +162,16 @@ function CreateVaultModalContent({ folderPath, defaultName }: CreateVaultModalCo
 	const handleCreate = async () => {
 		setDraft((current) => ({ ...current, creating: true }))
 		try {
-			await createVaultFromFolder(folderPath, { name, icon, syncPreferences })
+			await createVaultFromFolder(folderPath, {
+				name,
+				icon,
+				syncPreferences,
+				createOnboardingNote: !draft.obsidianVault,
+			})
 			createVaultModal.close()
+			if (draft.obsidianVault && draft.adoptObsidianSettings) {
+				obsidianImportModal.open({ mode: "adopt" })
+			}
 		} catch (error) {
 			await reportAppError({
 				operation: "create-vault",
@@ -198,6 +219,24 @@ function CreateVaultModalContent({ folderPath, defaultName }: CreateVaultModalCo
 									}
 								/>
 							</Field>
+							{draft.obsidianVault && (
+								<Field orientation="horizontal" className="items-center justify-between py-2">
+									<FieldContent>
+										<FieldLabel htmlFor="new-vault-obsidian">Use Obsidian settings</FieldLabel>
+										<FieldDescription>
+											Attachments, daily notes, templates, bookmarks, and property types. The
+											.obsidian folder is not changed.
+										</FieldDescription>
+									</FieldContent>
+									<Switch
+										id="new-vault-obsidian"
+										checked={draft.adoptObsidianSettings}
+										onCheckedChange={(checked) =>
+											setDraft((current) => ({ ...current, adoptObsidianSettings: checked }))
+										}
+									/>
+								</Field>
+							)}
 						</FieldGroup>
 					</DialogBody>
 					<DialogFooter className="dialog-chrome-footer">

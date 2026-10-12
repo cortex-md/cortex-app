@@ -43,6 +43,7 @@ export interface FileSystem {
 	writeFile(path: string, content: string): Promise<void>
 	atomicWriteFile(path: string, content: string): Promise<void>
 	writeBinaryFile(path: string, data: Uint8Array): Promise<void>
+	copyFile?(sourcePath: string, targetPath: string): Promise<void>
 	deleteFile(path: string): Promise<void>
 	renameFile(oldPath: string, newPath: string): Promise<void>
 	createDir(path: string): Promise<void>

@@ -212,7 +212,7 @@ function indexNoteContent(
 }
 
 function removeIndexedPath(vaultPath: string, filePath: string): void {
-	useSearchStore.getState().removeFile(vaultPath, filePath)
+	void useSearchStore.getState().removeFile(vaultPath, filePath)
 	useTagsStore.getState().removeFileFromIndex(filePath)
 	useLinksStore.getState().removeFileFromIndex(filePath)
 	useTasksStore.getState().removeFileFromIndex(filePath)

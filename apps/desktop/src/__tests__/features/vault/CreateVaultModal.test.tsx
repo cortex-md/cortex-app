@@ -62,6 +62,7 @@ describe("CreateVaultModal", () => {
 			expect(createVaultFromFolder).toHaveBeenCalledWith("/vault", {
 				icon: undefined,
 				name: "vault",
+				createOnboardingNote: true,
 				syncPreferences: expect.objectContaining({
 					ignoreImages: true,
 					syncBookmarks: true,

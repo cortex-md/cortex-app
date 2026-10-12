@@ -51,3 +51,8 @@
 
 - `tasks.mentionsEnabled` (default `true`) gates mention and comment notifications; it shares quiet
   hours and sound with task reminders.
+
+- The `dailyNotes` section (`DEFAULT_DAILY_NOTES_SETTINGS`, `DailyNotesSettingsSchema`) is a vault
+  setting: `folder` (vault-relative, empty for the root), `format` (an `@cortex/templates` date
+  pattern such as `yyyy-MM-dd`, may contain `/`), and `templateId` (empty for the built-in daily
+  note).

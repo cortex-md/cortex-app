@@ -20,6 +20,7 @@ import {
 	SettingsPage,
 	SettingsSection,
 } from "../settings/SettingsPrimitives"
+import { DailyNotesSettings } from "./DailyNotesSettings"
 import { createTemplateDraft, type TemplateEditorDraft as EditorDraft } from "./templateEditorDraft"
 
 const LazyTemplateEditorDialog = lazy(() =>
@@ -194,6 +195,7 @@ export function TemplatesSection() {
 				</SettingsGroup>
 				{error && <p className="m-0 px-1 text-sm text-destructive">{error}</p>}
 			</SettingsSection>
+			<DailyNotesSettings templates={templates} />
 			{editorMounted && (
 				<Suspense fallback={null}>
 					<LazyTemplateEditorDialog

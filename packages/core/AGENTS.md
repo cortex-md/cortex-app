@@ -288,6 +288,27 @@ cost guard, similarity-paired word diffs, folded unchanged lines with stable row
 `countWordChanges` for version deltas. Keep both pure so mobile can reuse them.
 `vaultStore.createFileWithContent` creates a uniquely named note with given content.
 
+### Local Version History
+
+`history/localHistory.ts` keeps per-note versions for every vault, synced or not, under
+`.cortex/history/` (`VAULT_FILES.history`; never synced and skipped by the watcher through
+`isInternalVaultFile`). Layout: `index.json` (`{ version: 1, notes: { "<vault-relative path>": "<noteId>" } }`)
+plus one folder per note id (blake3 of the first path, 24 hex chars) holding full-content files named
+`<timestamp>-<edit|external|restore>-<content hash>.txt`. Renames and moves only rewrite the index
+(`moveLocalHistory`, called from `migrateVaultPathReferences`), so history follows the note.
+Capture points are the single write paths: NoteCache autosave snapshots the previous disk content at
+most once per 5 minutes per note (`edit`); disk refreshes of cached notes snapshot the replaced
+content, and a dirty conflict snapshots the incoming disk text (`external`); `mutateNote` snapshots
+`previous` before every write (`historyReason`, default `external`). `captureLocalVersion` is
+fire-and-forget on one serialized queue, skips empty text and content equal to the latest version.
+Retention: every version from the last 24 h, then the newest per day up to 30 days, then a
+200 MB per-vault cap (`LOCAL_HISTORY_SIZE_CAP_BYTES`, oldest first). The capturing note is pruned
+inline; the whole vault is pruned at most every 30 minutes, 30 s after a capture, never at startup.
+`listLocalVersions`/`readLocalVersion` feed the history UI; `restoreLocalVersion` checks write
+access, writes through `mutateNote` (which snapshots the current text first) and flushes;
+`captureCurrentNoteVersion` snapshots before a server restore. Unopened notes changed by the sync
+engine are not captured locally (the server keeps their history).
+
 ### Tasks and Reminders
 
 `tasksStore` indexes Markdown checkbox tasks with the pure rules from `@cortex/tasks`, following the
@@ -301,7 +322,8 @@ through one line rewrite on top of `notes/mutateNote.ts` and return a `TaskLineE
 `mutateNote(path, transform)` is the only read-modify-write path for note text outside the editor:
 it serializes writes per path, reads from `noteCache` when the note is open, and writes through
 `noteCache.writeExternal` or `fs.atomicWriteFile`. Tasks, tags, properties (`notes.updateNote`), and
-database config writes use it, so concurrent edits to the same note cannot drop each other.
+database config writes use it, so concurrent edits to the same note cannot drop each other. It also
+records the replaced text in local version history.
 `runtime/tasksRuntime.ts` re-plans reminders with `planReminders` whenever tasks or the `tasks`
 settings change (debounced, plus a periodic re-plan) and replaces the platform queue through the
 optional `notifications.schedule(vaultPath, …)`; notification actions arrive on
@@ -643,8 +665,10 @@ events reindex open notes. App shells pass platform hooks (`onVaultOpened`, `onW
 (default true; mobile passes false), `trackActiveFile` (default true: mirrors the active pane's
 active Markdown tab into `editorStore.activeFilePath`, including renames/moves, so apps never call
 `setActiveFile` manually), and `indexing: "eager" | "lazy"` (mobile is `lazy` and skips search/tag
-indexing until it has a search screen). `startSyncLifecycle()` owns the `canStartSync` rule and is
-started by the desktop shell only.
+indexing until it has a search screen). Search indexing calls are async and go through the
+`@cortex/search` backend chosen by the host (`setSearchBackend`; desktop uses a Web Worker), so the
+runtime fires them without awaiting except for the ordered `indexVault` pass. `startSyncLifecycle()`
+owns the `canStartSync` rule and is started by the desktop shell only.
 
 `runtime/appStartup.ts` owns startup for every app: `bootstrapApp()` loads app info, the first-run
 marker, recent vaults and global settings; `openLastVault()` opens `resolveStartupVault(...)` (the
@@ -1054,3 +1078,21 @@ recombine edits with the current cached frontmatter prefix before calling `noteC
   respects `tasks.mentionsEnabled`, quiet hours, and `tasks.sound`. Activations with
   `payload.kind === "comment"` open the note and focus the thread, and `actionId: "reply"` posts the
   inline reply. `resolveCommentMentions` maps comment text to member ids.
+
+## Vault Settings Import
+
+- `runtime/vaultSettingsImport.ts` `applyVaultSettingsImport(vault, input, { applyVaultSettings })`
+  applies settings migrated from another app (today the Obsidian importer in
+  `@cortex/import-export`). Templates are created through `templateStore` and skipped by name,
+  bookmarks go through `bookmarksStore.addBookmark` (Markdown notes only), and property types are
+  merged into the vault schema with `createPropertyDefinition`/`updateVaultSchema`, never replacing
+  an existing key or name. Attachment location and daily notes settings change only when
+  `applyVaultSettings` is set.
+- `vaultStore.openDailyNote` reads the `dailyNotes` settings section (folder, `formatTemplateDate`
+  pattern that may contain `/`, optional template id rendered through
+  `templateStore.previewNoteFromTemplate`); the defaults keep `Daily/yyyy-MM-dd.md`.
+- `createWikiLinkResolver` and `openWikiLink` ignore `#Heading` and `#^block` subpaths
+  (`getWikiLinkNoteTarget`), so heading and block links open the note instead of creating
+  `Note#Heading.md`.
+- `createVaultFromFolder` accepts `createOnboardingNote: false`; desktop uses it for folders that are
+  already Obsidian vaults.

@@ -185,6 +185,10 @@ function fileMenu(context: MenuContext): MenuItemConstructorOptions {
 			},
 			separator(),
 			commandItem(context, "import.files", { label: "Import…", requires: "vault" }),
+			commandItem(context, "import.obsidian", {
+				label: "Import from Obsidian…",
+				requires: "vault",
+			}),
 			{
 				label: "Export",
 				submenu: [

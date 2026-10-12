@@ -146,7 +146,7 @@ function getIsoWeek(date: Date): number {
 	return Math.ceil(((copy.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
 }
 
-function formatDate(value: Date, pattern: string): string {
+export function formatTemplateDate(value: Date, pattern: string): string {
 	const replacements: Record<string, string> = {
 		yyyy: String(value.getFullYear()),
 		yy: String(value.getFullYear()).slice(-2),
@@ -257,14 +257,14 @@ function parseArguments(value: string): string[] {
 }
 
 function createBaseValues(context: TemplateRenderContext): Record<string, TemplateValue> {
-	const today = formatDate(context.now, "yyyy-MM-dd")
+	const today = formatTemplateDate(context.now, "yyyy-MM-dd")
 	return {
 		now: context.now,
 		"date.today": today,
-		"date.year": formatDate(context.now, "yyyy"),
-		"date.month": formatDate(context.now, "MM"),
-		"date.day": formatDate(context.now, "dd"),
-		"date.week": formatDate(context.now, "ww"),
+		"date.year": formatTemplateDate(context.now, "yyyy"),
+		"date.month": formatTemplateDate(context.now, "MM"),
+		"date.day": formatTemplateDate(context.now, "dd"),
+		"date.week": formatTemplateDate(context.now, "ww"),
 		"note.title": context.note.title,
 		"note.fileName": context.note.fileName ?? "",
 		"note.folder": context.note.folder ?? "",
@@ -306,7 +306,7 @@ function resolvePlaceholder(
 }
 
 function applyFilter(value: TemplateValue, name: string, args: string[]): TemplateValue {
-	if (name === "date") return formatDate(coerceDate(value), args[0] ?? "yyyy-MM-dd")
+	if (name === "date") return formatTemplateDate(coerceDate(value), args[0] ?? "yyyy-MM-dd")
 	if (name === "slug") return slugify(value)
 	if (name === "lower") return coerceString(value).toLocaleLowerCase()
 	if (name === "upper") return coerceString(value).toLocaleUpperCase()

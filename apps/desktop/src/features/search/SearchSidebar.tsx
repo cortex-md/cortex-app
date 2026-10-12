@@ -159,7 +159,7 @@ export function SearchSidebar() {
 
 	const handleSubmit = (value: string) => {
 		setLocalQuery(value)
-		runQuery(value)
+		void runQuery(value)
 		useSearchStore.getState().addRecentQuery(value)
 	}
 

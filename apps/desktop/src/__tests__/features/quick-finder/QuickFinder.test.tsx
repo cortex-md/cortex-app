@@ -42,7 +42,7 @@ function setupQuickFinder({
 	recentlyClosed?: Array<{ filePath: string; title: string; closedAt: number }>
 	searchResults?: Array<{ id: string; title: string; folder: string }>
 } = {}) {
-	searchTitles.mockReturnValue(
+	searchTitles.mockResolvedValue(
 		searchResults.map((result) => ({ ...result, matchCount: 0, snippets: [] })),
 	)
 
@@ -99,7 +99,7 @@ function setupQuickFinder({
 
 	const searchState = {
 		searchTitles,
-		findNotes: () => [],
+		findNotes: async () => [],
 		loadMatches: async () => [],
 	}
 	vi.mocked(useSearchStore).mockImplementation(((

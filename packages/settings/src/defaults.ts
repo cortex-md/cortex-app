@@ -39,6 +39,12 @@ export const DEFAULT_FILES_SETTINGS = {
 	hideHiddenFiles: true,
 } as const
 
+export const DEFAULT_DAILY_NOTES_SETTINGS = {
+	folder: "Daily",
+	format: "yyyy-MM-dd",
+	templateId: "",
+} as const
+
 export const DEFAULT_PLUGINS_SETTINGS = {
 	allowCommunity: false,
 } as const
@@ -61,6 +67,7 @@ export const DEFAULT_APP_SETTINGS = {
 	appearance: DEFAULT_APPEARANCE_SETTINGS,
 	editor: DEFAULT_EDITOR_SETTINGS,
 	files: DEFAULT_FILES_SETTINGS,
+	dailyNotes: DEFAULT_DAILY_NOTES_SETTINGS,
 	plugins: DEFAULT_PLUGINS_SETTINGS,
 	tasks: DEFAULT_TASKS_SETTINGS,
 } as const

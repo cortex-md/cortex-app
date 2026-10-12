@@ -163,6 +163,20 @@ one sync worker per window. Window bounds are remembered per vault (`services/wi
 - `@cortex/hotkeys` stores bindings only; command `hotkey` metadata is mirrored by
   `bootstrap/commandHotkeyBridge.ts`.
 
+## Obsidian Import
+
+- `import.obsidian` ("Import from Obsidian…" in the File menu and the Import settings page) picks a
+  folder outside the current vault and opens `obsidianImportModal` (`features/import-export/
+  obsidianImportModal.ts`, kept tiny so `App.tsx` does not load `@cortex/import-export`). The lazy
+  `ObsidianImportDialog` asks for a destination folder and whether to apply attachment/daily note
+  settings, shows progress with Cancel, then the summary (content, settings migrated, findings).
+- Opening a new folder that contains `.obsidian` shows "Use Obsidian settings" in
+  `CreateVaultModal`; the vault is created without the onboarding note and the same dialog runs in
+  `adopt` mode (`analyzeObsidianVault` + `applyVaultSettingsImport`), leaving notes untouched.
+- Daily note folder, date format, and template live in the Templates settings page
+  (`features/templates/DailyNotesSettings.tsx`); folder options come from
+  `useSettingsVaultFolders`.
+
 ## Modals and Lazy Surfaces
 
 Global modal targets use `createModalStore<T>()` with one mounted host: `embedModal` +
@@ -173,6 +187,20 @@ so `@pierre/diffs` stays out of the main chunk. Dialogs render their content onl
 a render function) from `utils/ModalHost.tsx`, and rarely used surfaces mount after first open
 (`useHasOpened`). Relative "edited N minutes ago" labels read `hooks/useMinuteNow`, one shared
 interval for every subscriber. Search snippets render through `features/search/HighlightedSnippet`.
+
+## Search Worker
+
+Vault search runs in a dedicated Web Worker. `initRenderer()` calls
+`setSearchBackend(createSearchWorkerBackend())`; `features/search/searchWorkerBackend.ts` starts
+`features/search/searchWorker.ts` lazily on the first call (Vite `new Worker(new URL(...))`, so the
+Settings window never spawns it) and forwards each `SearchBackend` method as one ordered
+`{ id, method, args }` message (`searchWorkerProtocol.ts`). The worker hosts
+`createLocalSearchBackend()` from `@cortex/search/backend`: MiniSearch, fingerprints, persisted
+index parse and serialization never run on the renderer main thread. The worker has no IPC access;
+the renderer reads note batches and the index file through `getPlatform()` and posts the text.
+The Quick Finder requests titles per keystroke and keeps the previous results until the response
+for the current query arrives (latest query wins); Enter pressed while results are pending opens
+the first result once they arrive, and title search waits while the index is still loading.
 
 ## Settings and Appearance
 
@@ -312,8 +340,16 @@ Tests live in `src/__tests__/` (Vitest + jsdom, Testing Library, jest-dom). Run 
   kinds, tones, paths and details and merge bursts of transfers. Conflict rows open
   `syncConflictModal` (hosted in `SyncDialogsHost`) while the conflict is still pending.
 - Author and device ids resolve to names through `useSyncActorNames`; version contents and word
-  deltas load through `useVersionContents` with bounded prefetch. "Open as copy" uses
-  `vaultStore.createFileWithContent`.
+  deltas load through `useVersionContents(entries, loader)` (keyed by entry id) with bounded
+  prefetch. "Open as copy" uses `vaultStore.createFileWithContent`.
+- Version history works for every vault: `NoteHistoryPanel` merges a synthetic "Current version"
+  (NoteCache or disk), core local versions (`listLocalVersions`, labeled "This device" with the
+  capture reason) and, when the vault is linked, Cortex Sync versions, sorted by time. The device
+  filter tabs only appear for linked vaults; a server error keeps local history visible. Restore of
+  a local version uses core `restoreLocalVersion`; a server restore first calls
+  `captureCurrentNoteVersion`. Restore is disabled without write access (`canWriteVaultPath`).
+  The `sync.show-version-history` command is offered for any readable note
+  (file tree, note header, tab menu, native menu); Share stays behind `isSyncLinked()`.
 
 ## Tasks and Reminders
 

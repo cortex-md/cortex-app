@@ -24,6 +24,9 @@
   `FileSystem.readTextFiles(paths)`: one call returns content, `modifiedAt`, and `size` per path
   (`null` when unreadable) so callers never pay one IPC round trip per note. Keep this contract platform-neutral so desktop and future mobile
   adapters can provide the same cache-friendly path.
+- `FileSystem.copyFile(source, target)` is optional and must fail when the target exists (desktop
+  uses `COPYFILE_EXCL`); bulk copies such as the Obsidian importer fall back to binary read/write when
+  an adapter does not implement it.
 - Fresh note creation should use `FileSystem.writeFileSnapshot(...)` when the adapter provides it so
   content, hash, and filesystem metadata come back from the same native write. Shared code must keep
   a `writeFile` plus post-write fingerprint fallback for adapters that do not implement it yet.
@@ -80,7 +83,7 @@
     sync. Snapshot hashes come from `snapshotFromContent(content, metadata)`.
   - `@cortex/platform/vault`: `toFileEntry`/`toFileMetadata`/`compareFileEntries`,
     `isHiddenVaultPath` (dot segments hidden except `.cortex/schema/`; `.git`, `node_modules`, OS
-    junk files, `sync.db*`, and the search index always ignored), `isCaseOnlyRename`,
+    junk files, `sync.db*`, the search index, and `.cortex/history/` always ignored), `isCaseOnlyRename`,
     `archiveEntrySegments`, vault identity (`readOrCreateVaultId` creates an id only when the file
     is not found; `resolveVaultName` reads `.cortex/vault-metadata.json` and falls back to the
     folder name; `serializeVaultMetadata`), registry ops (`parseVaultRegistry`,
