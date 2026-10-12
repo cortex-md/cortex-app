@@ -11,7 +11,6 @@ target
 .tanstack/
 .impeccable/
 *.tsbuildinfo
-bun.lock
 .next/
 docs/internal/
 /infra/
