@@ -17,9 +17,5 @@
 		"baseUrl": "."
 	},
 	"include": ["src"],
-	"references": [
-		{ "path": "../platform" },
-		{ "path": "../plugin-host-core" },
-		{ "path": "../theme" }
-	]
+	"references": [{ "path": "../platform" }, { "path": "../theme" }]
 }

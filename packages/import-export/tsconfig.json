@@ -17,4 +17,3 @@
 	"references": [{ "path": "../platform" }, { "path": "../renderer" }],
 	"include": ["src"]
 }
-

@@ -1,11 +1,15 @@
 import { getPropertyType } from "@cortex/properties"
 import { Button, Checkbox } from "@cortex/ui"
+import { lazy, Suspense } from "react"
 import type { PropertyValueEditorProps } from "../types"
-import { DateValueEditor } from "./DateValueEditor"
 import { OptionValueEditor } from "./OptionValueEditor"
 import { PersonValueEditor } from "./PersonValueEditor"
 import { TagsValueEditor } from "./TagsValueEditor"
 import { TextValueEditor } from "./TextValueEditor"
+
+const LazyDateValueEditor = lazy(() =>
+	import("./DateValueEditor").then((module) => ({ default: module.DateValueEditor })),
+)
 
 export function PropertyValueEditor({
 	definition,
@@ -52,13 +56,15 @@ export function PropertyValueEditor({
 	}
 	if (propertyType.baseType === "date") {
 		return (
-			<DateValueEditor
-				definition={definition}
-				value={value}
-				onSetValue={onSetValue}
-				onRemoveValue={onRemoveValue}
-				onClose={onClose}
-			/>
+			<Suspense fallback={null}>
+				<LazyDateValueEditor
+					definition={definition}
+					value={value}
+					onSetValue={onSetValue}
+					onRemoveValue={onRemoveValue}
+					onClose={onClose}
+				/>
+			</Suspense>
 		)
 	}
 	if (propertyType.baseType === "person" || definition.key === "author") {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react"
 import type { CodeBlockEmbedDefinition } from "./codeBlockEmbeds"
+import type { CollabEditorBinding } from "./collab"
 import { EditorView } from "./EditorView"
 import type { MarkdownCommandExecutor } from "./markdownKeymap"
 import { ReadingView } from "./ReadingView"
@@ -20,6 +21,7 @@ interface Props {
 	scrollMode?: "internal" | "parent"
 	vimCommandProvider?: VimCommandProvider | null
 	commandExecutor?: MarkdownCommandExecutor | null
+	collab?: CollabEditorBinding | null
 	onChange: (content: string) => void
 	onViewReady?: (view: EditorRuntimeView) => void
 	onWikiLinkClick?: (target: string) => void
@@ -36,6 +38,7 @@ export function SideBySideView({
 	scrollMode = "internal",
 	vimCommandProvider,
 	commandExecutor,
+	collab,
 	onChange,
 	onViewReady,
 	onWikiLinkClick,
@@ -97,6 +100,7 @@ export function SideBySideView({
 					scrollMode={scrollMode}
 					vimCommandProvider={vimCommandProvider}
 					commandExecutor={commandExecutor}
+					collab={collab}
 					onChange={onChange}
 					onViewReady={handleViewReady}
 				/>

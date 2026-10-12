@@ -5,29 +5,26 @@ import {
 } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
 import { Button, Input, Switch } from "@cortex/ui"
-import { Loader2 } from "lucide-react"
-import { type ChangeEvent, type KeyboardEvent, useEffect, useState } from "react"
+import { Loader2, ServerIcon } from "lucide-react"
+import { type ChangeEvent, type KeyboardEvent, useState } from "react"
 import { SettingsField, SettingsGroup, SettingsSection } from "../SettingsPrimitives"
 
-export function SelfHostedConnection() {
-	const vaultPath = useVaultStore((state) => state.vault?.path)
-	const linkedVaultId = useRemoteVaultStore((state) => state.linkedVaultId)
-	const syncConfig = useRemoteVaultStore((state) => state.syncConfig)
-	const saveServerUrl = useRemoteVaultStore((state) => state.saveServerUrl)
-	const setSelfHosted = useRemoteVaultStore((state) => state.setSelfHosted)
-	const unlinkVault = useRemoteVaultStore((state) => state.unlinkVault)
-	const [inputValue, setInputValue] = useState(
-		syncConfig.serverUrl ?? DEFAULT_SELF_HOSTED_SYNC_SERVER_URL,
-	)
-	const [saving, setSaving] = useState(false)
+interface ServerUrlFieldProps {
+	vaultPath: string | undefined
+	savedServerUrl: string | null
+}
 
-	useEffect(() => {
-		setInputValue(syncConfig.serverUrl ?? DEFAULT_SELF_HOSTED_SYNC_SERVER_URL)
-	}, [syncConfig.serverUrl])
+function ServerUrlField({ vaultPath, savedServerUrl }: ServerUrlFieldProps) {
+	const linkedVaultId = useRemoteVaultStore((state) => state.linkedVaultId)
+	const saveServerUrl = useRemoteVaultStore((state) => state.saveServerUrl)
+	const unlinkVault = useRemoteVaultStore((state) => state.unlinkVault)
+	const initialValue = savedServerUrl ?? DEFAULT_SELF_HOSTED_SYNC_SERVER_URL
+	const [inputValue, setInputValue] = useState(initialValue)
+	const [saving, setSaving] = useState(false)
 
 	const handleSave = async () => {
 		const trimmed = inputValue.trim().replace(/\/+$/, "")
-		if (!vaultPath || !trimmed || trimmed === syncConfig.serverUrl) return
+		if (!vaultPath || !trimmed || trimmed === savedServerUrl) return
 		if (linkedVaultId) {
 			const confirmed = await getPlatform().dialog.showConfirm({
 				title: "Change sync server?",
@@ -37,7 +34,7 @@ export function SelfHostedConnection() {
 				destructive: true,
 			})
 			if (!confirmed) {
-				setInputValue(syncConfig.serverUrl ?? DEFAULT_SELF_HOSTED_SYNC_SERVER_URL)
+				setInputValue(initialValue)
 				return
 			}
 			await unlinkVault(vaultPath)
@@ -55,44 +52,60 @@ export function SelfHostedConnection() {
 	}
 
 	return (
-		<SettingsSection
-			title="Connection"
-			description="Choose Cortex Cloud or point this vault at a self-hosted sync server."
-		>
+		<div className="settings-env-control">
+			<Input
+				id="server-url"
+				size="sm"
+				type="url"
+				value={inputValue}
+				onChange={(event: ChangeEvent<HTMLInputElement>) => setInputValue(event.target.value)}
+				onKeyDown={handleKeyDown}
+				placeholder={DEFAULT_SELF_HOSTED_SYNC_SERVER_URL}
+				disabled={saving}
+			/>
+			<Button
+				variant="secondary"
+				size="xs"
+				onClick={() => void handleSave()}
+				disabled={saving || inputValue.trim() === savedServerUrl}
+				className="shrink-0"
+			>
+				{saving ? <Loader2 size={14} className="animate-spin" /> : "Save"}
+			</Button>
+		</div>
+	)
+}
+
+export function SelfHostedConnection() {
+	const vaultPath = useVaultStore((state) => state.vault?.path)
+	const syncConfig = useRemoteVaultStore((state) => state.syncConfig)
+	const setSelfHosted = useRemoteVaultStore((state) => state.setSelfHosted)
+
+	return (
+		<SettingsSection title="Connection">
 			<SettingsGroup>
-				<SettingsField label="Self-hosted sync" htmlFor="self-hosted-sync">
+				<SettingsField
+					fieldId="sync-self-host.enabled"
+					icon={<ServerIcon />}
+					htmlFor="self-hosted-sync"
+				>
 					<Switch
 						id="self-hosted-sync"
+						size="sm"
 						checked={syncConfig.selfHosted}
 						onCheckedChange={(checked) => vaultPath && void setSelfHosted(vaultPath, checked)}
 					/>
 				</SettingsField>
 				<SettingsField
-					label="Sync URL"
-					description="Remote vaults and login use this URL for the active vault only."
+					fieldId="sync-self-host.server-url"
 					htmlFor="server-url"
-					controlClassName="max-w-[440px]"
+					controlClassName="settings-env-control-column"
 				>
-					<div className="flex gap-2">
-						<Input
-							id="server-url"
-							type="url"
-							value={inputValue}
-							onChange={(event: ChangeEvent<HTMLInputElement>) => setInputValue(event.target.value)}
-							onKeyDown={handleKeyDown}
-							placeholder={DEFAULT_SELF_HOSTED_SYNC_SERVER_URL}
-							disabled={saving}
-						/>
-						<Button
-							variant="secondary"
-							size="sm"
-							onClick={() => void handleSave()}
-							disabled={saving || inputValue.trim() === syncConfig.serverUrl}
-							className="shrink-0"
-						>
-							{saving ? <Loader2 size={14} className="animate-spin" /> : "Save"}
-						</Button>
-					</div>
+					<ServerUrlField
+						key={syncConfig.serverUrl ?? ""}
+						vaultPath={vaultPath}
+						savedServerUrl={syncConfig.serverUrl}
+					/>
 				</SettingsField>
 			</SettingsGroup>
 		</SettingsSection>

@@ -1,5 +1,7 @@
 import {
 	getPropertyType,
+	getPropertyValueHref,
+	getPropertyValueList,
 	isEmptyPropertyValue,
 	isResolvedPropertyActor,
 	type PropertyDefinition,
@@ -8,35 +10,16 @@ import {
 	type ResolvedPropertyActor,
 	resolvePropertyOption,
 } from "@cortex/properties"
-import { Avatar, AvatarFallback } from "@cortex/ui"
 import { CheckSquare2Icon } from "lucide-react"
+import { formatDateTime, formatShortDate } from "@/utils/format"
+import { UserAvatar } from "../sync/UserAvatar"
 import { PropertyOptionValue } from "./PropertyOptionValue"
 import { TagChipList } from "./TagChipList"
 import { getTagsFromPropertyValue } from "./tagsValue"
 
-const propertyDateFormatter = new Intl.DateTimeFormat(undefined, {
-	month: "short",
-	day: "numeric",
-	year: "numeric",
-})
-
-const propertyDateTimeFormatter = new Intl.DateTimeFormat(undefined, {
-	dateStyle: "medium",
-	timeStyle: "short",
-})
-
-function getInitials(label: string): string {
-	return label
-		.trim()
-		.split(/\s+/)
-		.slice(0, 2)
-		.map((part) => part[0]?.toLocaleUpperCase())
-		.join("")
-}
-
 function formatPropertyDate(value: unknown): string {
 	const date = parsePropertyDate(value)
-	return date ? propertyDateFormatter.format(date) : String(value ?? "")
+	return date ? formatShortDate(date) : String(value ?? "")
 }
 
 function ActorValue({ actor }: { actor: ResolvedPropertyActor }) {
@@ -50,9 +33,12 @@ function ActorValue({ actor }: { actor: ResolvedPropertyActor }) {
 				: undefined
 	return (
 		<span className="note-property-person-value">
-			<Avatar size="sm">
-				<AvatarFallback>{getInitials(actor.label)}</AvatarFallback>
-			</Avatar>
+			<UserAvatar
+				name={actor.label}
+				avatarUrl={actor.kind === "person" ? actor.avatarUrl : null}
+				size="sm"
+				className="note-property-avatar"
+			/>
 			<span className="note-property-identity-copy">
 				<span>{actor.label}</span>
 				{detail && <small>{detail}</small>}
@@ -88,19 +74,38 @@ export function PropertyValueDisplay({
 	}
 	if (isEmptyPropertyValue(value)) return <span className="note-property-empty">Empty</span>
 	if (propertyType.baseType === "select") {
-		return <PropertyOptionValue option={resolvePropertyOption(definition, value)} />
+		return (
+			<span className="note-property-value-list">
+				{getPropertyValueList(value).map((item) => (
+					<PropertyOptionValue
+						key={String(item)}
+						option={resolvePropertyOption(definition, item)}
+					/>
+				))}
+			</span>
+		)
 	}
 	if (isResolvedPropertyActor(value)) return <ActorValue actor={value} />
 	const personBased = propertyType.baseType === "person" || definition.key === "author"
-	if (personBased && authorConfig.variant === "person" && typeof value === "string") {
-		const person = authorConfig.options.find((option) => option.id === value)
-		if (person) {
+	if (personBased && authorConfig.variant === "person") {
+		const people = getPropertyValueList(value).flatMap((item) => {
+			const person = authorConfig.options.find((option) => option.id === item)
+			return person ? [person] : []
+		})
+		if (people.length > 0) {
 			return (
-				<span className="note-property-person-value">
-					<Avatar size="sm">
-						<AvatarFallback>{getInitials(person.label)}</AvatarFallback>
-					</Avatar>
-					{person.label}
+				<span className="note-property-value-list">
+					{people.map((person) => (
+						<span key={person.id} className="note-property-person-value">
+							<UserAvatar
+								name={person.label}
+								avatarUrl={person.avatarUrl}
+								size="sm"
+								className="note-property-avatar"
+							/>
+							{person.label}
+						</span>
+					))}
 				</span>
 			)
 		}
@@ -117,14 +122,12 @@ export function PropertyValueDisplay({
 	}
 	if (propertyType.baseType === "date") {
 		if (definition.type === "created_time" || definition.type === "last_edited_time") {
-			const date = new Date(String(value))
-			return (
-				<span>
-					{Number.isNaN(date.getTime()) ? String(value) : propertyDateTimeFormatter.format(date)}
-				</span>
-			)
+			return <span>{formatDateTime(String(value))}</span>
 		}
 		return <span>{formatPropertyDate(value)}</span>
+	}
+	if (getPropertyValueHref(definition.type, value)) {
+		return <span className="note-property-link-value">{String(value)}</span>
 	}
 	return <span className="note-property-text-value">{String(value)}</span>
 }

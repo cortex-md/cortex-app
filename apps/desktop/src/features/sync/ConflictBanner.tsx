@@ -1,19 +1,15 @@
-import { useSyncStore, useVaultStore } from "@cortex/core"
+import { toVaultRelativePath, useSyncStore, useVaultStore } from "@cortex/core"
 import type { ConflictResolution } from "@cortex/platform"
 import { Button } from "@cortex/ui"
 import { AlertTriangleIcon } from "lucide-react"
-import { useState } from "react"
-import { ConflictDiffView } from "./ConflictDiffView"
+import { lazy, Suspense, useState } from "react"
+
+const LazyConflictDiffView = lazy(() =>
+	import("./ConflictDiffView").then((module) => ({ default: module.ConflictDiffView })),
+)
 
 interface Props {
 	filePath: string
-}
-
-function relativeFilePath(vaultPath: string, absolutePath: string): string {
-	if (absolutePath.startsWith(vaultPath)) {
-		return absolutePath.slice(vaultPath.length).replace(/^\//, "")
-	}
-	return absolutePath
 }
 
 export function ConflictBanner({ filePath }: Props) {
@@ -24,7 +20,7 @@ export function ConflictBanner({ filePath }: Props) {
 
 	if (!vault) return null
 
-	const relativePath = relativeFilePath(vault.path, filePath)
+	const relativePath = toVaultRelativePath(filePath, vault.path) ?? filePath
 	const conflict = conflicts[relativePath]
 
 	if (!conflict) return null
@@ -55,11 +51,13 @@ export function ConflictBanner({ filePath }: Props) {
 			</div>
 
 			{showDiff && (
-				<ConflictDiffView
-					conflict={conflict}
-					onResolve={handleResolve}
-					onClose={() => setShowDiff(false)}
-				/>
+				<Suspense fallback={null}>
+					<LazyConflictDiffView
+						conflict={conflict}
+						onResolve={handleResolve}
+						onClose={() => setShowDiff(false)}
+					/>
+				</Suspense>
 			)}
 		</>
 	)

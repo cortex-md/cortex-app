@@ -1,4 +1,4 @@
-import type { SlashCommandMenuState } from "@cortex/editor/slash-commands"
+import type { SlashCommandItem, SlashCommandMenuState } from "@cortex/editor/slash-commands"
 import {
 	Command,
 	CommandEmpty,
@@ -31,11 +31,13 @@ import {
 	StrikethroughIcon,
 	Table2Icon,
 } from "lucide-react"
-import { useCallback, useEffect, useRef } from "react"
+import { type ComponentType, useCallback, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 
 interface SlashCommandMenuProps {
 	state: SlashCommandMenuState | null
+	emptyMessage?: string
+	ItemIcon?: ComponentType<{ item: SlashCommandItem }>
 }
 
 const slashCommandFooterHints = [
@@ -66,7 +68,11 @@ const slashCommandIcons: Record<string, LucideIcon> = {
 	"format.strikethrough": StrikethroughIcon,
 }
 
-export function SlashCommandMenu({ state }: SlashCommandMenuProps) {
+export function SlashCommandMenu({
+	state,
+	emptyMessage = "No Markdown commands found",
+	ItemIcon = SlashCommandIcon,
+}: SlashCommandMenuProps) {
 	const itemRefs = useRef<Map<string, HTMLElement> | null>(null)
 	if (itemRefs.current === null) {
 		itemRefs.current = new Map()
@@ -113,7 +119,7 @@ export function SlashCommandMenu({ state }: SlashCommandMenuProps) {
 				onMouseDown={(event) => event.preventDefault()}
 			>
 				<CommandList className="slash-command-list">
-					<CommandEmpty>No Markdown commands found</CommandEmpty>
+					<CommandEmpty>{emptyMessage}</CommandEmpty>
 					{state.items.length > 0 && (
 						<CommandGroup>
 							{state.items.map((command, index) => (
@@ -131,7 +137,7 @@ export function SlashCommandMenu({ state }: SlashCommandMenuProps) {
 									onMouseMove={() => state.select(index)}
 									onSelect={() => state.execute(command.id)}
 								>
-									<SlashCommandIcon commandId={command.id} />
+									<ItemIcon item={command} />
 									<span className="command-item-copy">
 										<span className="command-item-title">{command.label}</span>
 										<span className="command-item-meta">{command.category}</span>
@@ -157,12 +163,12 @@ export function SlashCommandMenu({ state }: SlashCommandMenuProps) {
 	)
 }
 
-function SlashCommandIcon({ commandId }: { commandId: string }) {
-	const Icon = slashCommandIcons[commandId] ?? CodeIcon
+function SlashCommandIcon({ item }: { item: SlashCommandItem }) {
+	const Icon = slashCommandIcons[item.id] ?? CodeIcon
 
 	return (
 		<span className="slash-command-icon" aria-hidden="true">
-			<Icon className="size-[15px]" data-slash-command-icon={commandId} />
+			<Icon className="size-[15px]" data-slash-command-icon={item.id} />
 		</span>
 	)
 }

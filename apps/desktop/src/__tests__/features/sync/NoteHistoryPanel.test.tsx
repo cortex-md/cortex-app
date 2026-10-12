@@ -6,36 +6,32 @@ const getVersionHistory = vi.fn()
 const downloadVersion = vi.fn()
 const restoreVersion = vi.fn()
 
-vi.mock("@cortex/core", () => ({
-	useRemoteVaultStore: () => ({ linkedVaultId: "remote-vault-id" }),
-	useSyncStore: () => ({
-		getVersionHistory,
-		downloadVersion,
-		restoreVersion,
-	}),
-	useVaultStore: () => ({
-		vault: { path: "/vault", name: "Writing", uuid: "vault-id", fileCount: 1 },
-	}),
+const syncState = { getVersionHistory, downloadVersion, restoreVersion }
+
+vi.mock("@cortex/core", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@cortex/core")>()),
+	useRemoteVaultStore: (selector: (state: { linkedVaultId: string }) => unknown) =>
+		selector({ linkedVaultId: "remote-vault-id" }),
+	useSyncStore: Object.assign(
+		(selector: (state: Record<string, unknown>) => unknown) => selector(syncState),
+		{ getState: () => syncState },
+	),
+	useVaultStore: (selector?: (state: unknown) => unknown) => {
+		const state = { vault: { path: "/vault", name: "Writing", uuid: "vault-id", fileCount: 1 } }
+		return selector ? selector(state) : state
+	},
 }))
 
-vi.mock("@cortex/theme", () => ({
-	getThemeManager: () => ({
-		getActiveTheme: () => ({ isDark: false }),
-		subscribe: () => () => {},
-	}),
+vi.mock("@cortex/editor/reading-view", () => ({
+	ReadingView: ({ content }: { content: string }) => (
+		<div data-testid="reading-view">{content}</div>
+	),
 }))
 
-vi.mock("@pierre/diffs", () => ({
-	parseDiffFromFile: () => ({
-		hunks: [{ additionLines: 2, deletionLines: 1 }],
-	}),
-}))
+const contentByVersion: Record<string, string> = { "2": "new content", "1": "old content" }
 
-vi.mock("@pierre/diffs/react", () => ({
-	FileDiff: () => <div data-testid="file-diff">Rendered diff</div>,
-}))
-
-import { NoteHistoryPanel } from "../../../features/sync/NoteHistoryPanel"
+import { NoteHistoryHost } from "../../../features/sync/NoteHistoryPanel"
+import { noteHistoryModal } from "../../../features/sync/noteHistoryModal"
 
 const versions = [
 	{
@@ -68,47 +64,41 @@ afterEach(() => {
 })
 
 describe("NoteHistoryPanel", () => {
-	it("loads versions and renders the diff inside an independently scrollable region", async () => {
+	it("loads versions and shows word-level changes against the previous version", async () => {
 		getVersionHistory.mockResolvedValue(versions)
-		downloadVersion.mockResolvedValueOnce("new content").mockResolvedValueOnce("old content")
-
-		render(<NoteHistoryPanel filePath="/vault/Notes/Plan.md" open onOpenChange={vi.fn()} />)
-
-		expect(await screen.findByRole("button", { name: /Ada.*Latest/i })).toBeInTheDocument()
-
-		await userEvent.click(screen.getByRole("button", { name: /Ada.*Latest/i }))
-
-		expect(await screen.findByTestId("file-diff")).toBeInTheDocument()
-		expect(downloadVersion).toHaveBeenNthCalledWith(
-			1,
-			"remote-vault-id",
-			"/vault",
-			"Notes/Plan.md",
-			"2",
+		downloadVersion.mockImplementation(
+			async (_vaultId: string, _vaultPath: string, _path: string, version: string) =>
+				contentByVersion[version] ?? "",
 		)
-		expect(document.querySelector('[data-slot="note-history-diff"]')).toHaveClass(
-			"min-h-0",
-			"overflow-auto",
-		)
-		expect(screen.getByText("+2")).toBeInTheDocument()
-		expect(screen.getByText("-1")).toBeInTheDocument()
+
+		noteHistoryModal.open({ filePath: "/vault/Notes/Plan.md" })
+		render(<NoteHistoryHost />)
+
+		await userEvent.click(await screen.findByRole("button", { name: /Current version/ }))
+
+		expect(await screen.findByText("new")).toHaveClass("history-diff-word")
+		expect(screen.getByText("old")).toHaveClass("history-diff-word")
+		expect(downloadVersion).toHaveBeenCalledWith("remote-vault-id", "/vault", "Notes/Plan.md", "2")
+		expect(await screen.findByText("+1")).toBeInTheDocument()
+		expect(screen.getAllByText("−1").length).toBeGreaterThan(0)
 	})
 
 	it("restores the selected version and closes the panel", async () => {
 		getVersionHistory.mockResolvedValue(versions)
-		downloadVersion.mockResolvedValueOnce("new content").mockResolvedValueOnce("old content")
+		downloadVersion.mockImplementation(
+			async (_vaultId: string, _vaultPath: string, _path: string, version: string) =>
+				contentByVersion[version] ?? "",
+		)
 		restoreVersion.mockResolvedValue(undefined)
-		const onOpenChange = vi.fn()
+		noteHistoryModal.open({ filePath: "/vault/Notes/Plan.md" })
+		render(<NoteHistoryHost />)
 
-		render(<NoteHistoryPanel filePath="/vault/Notes/Plan.md" open onOpenChange={onOpenChange} />)
-
-		await userEvent.click(await screen.findByRole("button", { name: /Ada.*Latest/i }))
-		await screen.findByTestId("file-diff")
-		fireEvent.click(screen.getByRole("button", { name: "Restore version" }))
+		await screen.findByRole("button", { name: /Version 1/ })
+		fireEvent.click(screen.getByRole("button", { name: "Restore this version" }))
 
 		await waitFor(() => {
-			expect(restoreVersion).toHaveBeenCalledWith("remote-vault-id", "/vault", "Notes/Plan.md", "2")
+			expect(restoreVersion).toHaveBeenCalledWith("remote-vault-id", "/vault", "Notes/Plan.md", "1")
 		})
-		expect(onOpenChange).toHaveBeenCalledWith(false)
+		expect(noteHistoryModal.getTarget()).toBeNull()
 	})
 })

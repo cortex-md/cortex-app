@@ -1,13 +1,12 @@
 import { type FileEntry, getPlatform } from "@cortex/platform"
-import {
-	disablePlugin,
-	getCommunityPluginLoadError,
-	pluginStore,
-	unregisterCommunityPlugin,
-} from "@cortex/plugin-host-core"
 import { getThemeManager, parseCommunityThemeManifest } from "@cortex/theme"
 import { fetchLatestRelease } from "./registryService"
-import type { GitHubRelease, GitHubReleaseAsset, RegistryEntry } from "./types"
+import type {
+	GitHubRelease,
+	GitHubReleaseAsset,
+	MarketplacePluginHost,
+	RegistryEntry,
+} from "./types"
 
 interface PluginManifestFile {
 	id?: unknown
@@ -112,9 +111,9 @@ function prepareSourceFallbackInstall(
 		.then(() => installPluginFromSourceArchive(entry, release, sourceDir, stagingDir))
 }
 
-function assertCommunityPluginLoaded(pluginId: string): void {
-	if (pluginId in pluginStore.getState().plugins) return
-	const loadError = getCommunityPluginLoadError(pluginId)
+function assertCommunityPluginLoaded(pluginHost: MarketplacePluginHost, pluginId: string): void {
+	if (pluginHost.isPluginInstalled(pluginId)) return
+	const loadError = pluginHost.getCommunityPluginLoadError(pluginId)
 	throw new Error(
 		loadError
 			? `Plugin ${pluginId} was downloaded but could not be loaded: ${loadError}`
@@ -236,7 +235,7 @@ async function installPluginFromSourceArchive(
 export async function installPlugin(
 	entry: RegistryEntry,
 	pluginsDir: string,
-	reloadPluginHost: (dir: string) => Promise<void>,
+	pluginHost: MarketplacePluginHost,
 ): Promise<void> {
 	const release = await fetchLatestRelease(entry.repo)
 	const destDir = `${pluginsDir}/${entry.id}`
@@ -264,29 +263,33 @@ export async function installPlugin(
 		await getPlatform().fs.renameFile(stagingDir, destDir)
 		stagedPluginPromoted = true
 
-		await reloadPluginHost(pluginsDir)
-		assertCommunityPluginLoaded(entry.id)
+		await pluginHost.reloadCommunityPlugins(pluginsDir)
+		assertCommunityPluginLoaded(pluginHost, entry.id)
 		await safeDelete(workspaceDir)
 	} catch (error) {
 		if (stagedPluginPromoted) await safeDelete(destDir)
 		if (previousPluginMoved) {
 			await getPlatform().fs.renameFile(backupDir, destDir)
 			try {
-				await reloadPluginHost(pluginsDir)
+				await pluginHost.reloadCommunityPlugins(pluginsDir)
 			} catch {}
 		} else if (stagedPluginPromoted) {
-			unregisterCommunityPlugin(entry.id)
+			pluginHost.unregisterCommunityPlugin(entry.id)
 		}
 		await safeDelete(workspaceDir)
 		throw error
 	}
 }
 
-export async function uninstallPlugin(id: string, pluginsDir: string): Promise<void> {
+export async function uninstallPlugin(
+	id: string,
+	pluginsDir: string,
+	pluginHost: MarketplacePluginHost,
+): Promise<void> {
 	const destDir = `${pluginsDir}/${id}`
-	await disablePlugin(id)
+	await pluginHost.disablePlugin(id)
 	await getPlatform().fs.deleteFile(destDir)
-	unregisterCommunityPlugin(id)
+	pluginHost.unregisterCommunityPlugin(id)
 }
 
 export async function installTheme(

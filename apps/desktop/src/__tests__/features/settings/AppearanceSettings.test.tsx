@@ -14,7 +14,8 @@ vi.mock("../../../features/themes/communityThemeLoader", () => ({
 	ensureCommunityThemeCssLoaded,
 }))
 
-vi.mock("../../../utils/reportAppError", () => ({
+vi.mock("@cortex/core", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@cortex/core")>()),
 	reportAppError,
 }))
 
@@ -42,6 +43,7 @@ function setupAppearance() {
 		},
 		window: {
 			restartApp,
+			setColorScheme: vi.fn().mockResolvedValue(undefined),
 		},
 	} as never)
 }
@@ -55,7 +57,13 @@ afterEach(() => {
 describe("AppearanceSection", () => {
 	it("opens the workspace Marketplace on the themes tab", async () => {
 		setupAppearance()
-		render(<AppearanceSection settings={appearanceSettings} onUpdate={onUpdate} />)
+		render(
+			<AppearanceSection
+				settings={appearanceSettings}
+				onUpdate={onUpdate}
+				onBrowseMarketplace={openMarketplaceView}
+			/>,
+		)
 
 		await userEvent.click(screen.getByRole("button", { name: "Browse themes" }))
 
@@ -75,6 +83,7 @@ describe("AppearanceSection", () => {
 			<AppearanceSection
 				settings={{ ...appearanceSettings, theme: "quiet-theme" }}
 				onUpdate={onUpdate}
+				onBrowseMarketplace={openMarketplaceView}
 			/>,
 		)
 
@@ -90,7 +99,13 @@ describe("AppearanceSection", () => {
 		const themeManager = getThemeManager()
 		const applyOverrides = vi.spyOn(themeManager, "applyOverrides")
 
-		render(<AppearanceSection settings={appearanceSettings} onUpdate={onUpdate} />)
+		render(
+			<AppearanceSection
+				settings={appearanceSettings}
+				onUpdate={onUpdate}
+				onBrowseMarketplace={openMarketplaceView}
+			/>,
+		)
 
 		const successSwatch = await screen.findByRole("button", {
 			name: "Success (#4a9b7a)",
@@ -127,6 +142,7 @@ describe("AppearanceSection", () => {
 			<AppearanceSection
 				settings={{ ...appearanceSettings, colorscheme: "light" }}
 				onUpdate={onUpdate}
+				onBrowseMarketplace={openMarketplaceView}
 			/>,
 		)
 
@@ -156,7 +172,13 @@ describe("AppearanceSection", () => {
 
 	it("keeps line height out of settings UI and runtime overrides", async () => {
 		setupAppearance()
-		render(<AppearanceSection settings={appearanceSettings} onUpdate={onUpdate} />)
+		render(
+			<AppearanceSection
+				settings={appearanceSettings}
+				onUpdate={onUpdate}
+				onBrowseMarketplace={openMarketplaceView}
+			/>,
+		)
 
 		expect(await screen.findAllByRole("option", { name: "Inter" })).toHaveLength(2)
 		expect(screen.getByLabelText("UI font")).toBeInTheDocument()
@@ -176,7 +198,13 @@ describe("AppearanceSection", () => {
 
 	it("updates native window effects and offers a restart", async () => {
 		setupAppearance()
-		render(<AppearanceSection settings={appearanceSettings} onUpdate={onUpdate} />)
+		render(
+			<AppearanceSection
+				settings={appearanceSettings}
+				onUpdate={onUpdate}
+				onBrowseMarketplace={openMarketplaceView}
+			/>,
+		)
 
 		await userEvent.click(screen.getByLabelText("Native window effects"))
 

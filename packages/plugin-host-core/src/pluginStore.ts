@@ -1,287 +1,265 @@
 import type {
-	ContextMenuItemRegistration,
+	ContextMenuActionContext,
+	ContextMenuLocation,
 	ModalOpenOptions,
 	PluginManifest,
-	PluginSettingDefinition,
-	SettingsTabRegistration,
-	SidebarItemRegistration,
-	StatusBarItemRegistration,
-	ViewRegistration,
+	PluginSettingsSchema,
+	PluginViewLocation,
+	PluginViewState,
+	ViewDescriptor,
 } from "@cortex.md/api"
-import { devtools } from "zustand/middleware"
-import { immer } from "zustand/middleware/immer"
-import { createStore } from "zustand/vanilla"
+import { create } from "zustand"
+import type { RemoteViewRuntime } from "./bridge/remoteView"
 
-export type PluginStatus = "discovered" | "loaded" | "enabled" | "disabled" | "error"
+export const CORE_OWNER = "core"
+
+export type PluginStatus = "loaded" | "enabled" | "disabled" | "error"
 
 export interface PluginRecord {
 	manifest: PluginManifest
 	status: PluginStatus
 	error?: string
+	community: boolean
+}
+
+export type ContributionIcon = string | object
+
+interface ContributionIdentity {
+	owner: string
+	key: string
+	id: string
+}
+
+export interface RegisteredView extends ContributionIdentity {
+	label: string
+	icon: ContributionIcon
+	location: PluginViewLocation
+	initialState: PluginViewState
+	component?: unknown
+	render?: (state: PluginViewState) => ViewDescriptor
+	reduce?: (state: PluginViewState, action: string, payload: unknown) => PluginViewState
+	onAction?: (action: string, payload: unknown, state: PluginViewState) => void
+	activate?: () => Promise<void>
+	remote?: RemoteViewRuntime
+}
+
+export interface RegisteredSidebarItem extends ContributionIdentity {
+	label: string
+	icon: ContributionIcon
+	viewKey: string
+}
+
+export interface RegisteredStatusBarItem extends ContributionIdentity {
+	position: "left" | "right"
+	priority: number
+	text?: string
+	icon?: string
+	tooltip?: string
+	when?: string
+	component?: unknown
+	onClick?: () => void
+}
+
+export interface RegisteredSettingsPage extends ContributionIdentity {
+	label: string
+	title: string
+	description: string
+	group: string
+	icon: ContributionIcon
+	schema?: PluginSettingsSchema
+	component?: unknown
+}
+
+export interface RegisteredContextMenuItem extends ContributionIdentity {
+	label: string
+	icon?: string
+	location: ContextMenuLocation
+	action: (context: ContextMenuActionContext) => void
 }
 
 export interface PluginModalInstance {
 	id: string
-	pluginId: string
-	viewId: string
+	owner: string
 	viewKey: string
 	title?: string
-	state: Record<string, unknown>
+	state: PluginViewState
 }
 
-export interface PluginRegistrationOwner {
-	pluginId: string
-	registrationKey: string
+type ContributionInput<T> = Omit<T, "owner" | "key">
+
+export interface ContributionSet {
+	views?: ContributionInput<RegisteredView>[]
+	sidebarItems?: ContributionInput<RegisteredSidebarItem>[]
+	statusBarItems?: ContributionInput<RegisteredStatusBarItem>[]
+	settingsPages?: ContributionInput<RegisteredSettingsPage>[]
+	contextMenuItems?: ContributionInput<RegisteredContextMenuItem>[]
 }
 
-export type RegisteredPluginView = ViewRegistration & PluginRegistrationOwner
-export type RegisteredSidebarItem = SidebarItemRegistration & PluginRegistrationOwner
-export type RegisteredStatusBarItem = StatusBarItemRegistration & PluginRegistrationOwner
-export type RegisteredSettingsTab = SettingsTabRegistration & PluginRegistrationOwner
-export type RegisteredContextMenuItem = ContextMenuItemRegistration & PluginRegistrationOwner
+type ContributionKind = keyof ContributionSet
 
 export interface PluginStoreState {
 	plugins: Record<string, PluginRecord>
+	loadErrors: Record<string, string>
+	views: RegisteredView[]
 	sidebarItems: RegisteredSidebarItem[]
 	statusBarItems: RegisteredStatusBarItem[]
-	settingsTabs: RegisteredSettingsTab[]
-	views: RegisteredPluginView[]
+	settingsPages: RegisteredSettingsPage[]
 	contextMenuItems: RegisteredContextMenuItem[]
 	modalInstances: PluginModalInstance[]
-	settingsSchemas: Record<string, PluginSettingDefinition[]>
-
-	setPluginStatus: (pluginId: string, status: PluginStatus, error?: string) => void
-	registerPlugin: (manifest: PluginManifest) => void
-	unregisterPlugin: (pluginId: string) => void
-
-	addSidebarItem: (pluginId: string, item: SidebarItemRegistration) => void
-	removeSidebarItem: (pluginId: string, itemId: string) => void
-	addStatusBarItem: (pluginId: string, item: StatusBarItemRegistration) => void
-	removeStatusBarItem: (pluginId: string, itemId: string) => void
-	addSettingsTab: (pluginId: string, tab: SettingsTabRegistration) => void
-	removeSettingsTab: (pluginId: string, tabId: string) => void
-	addView: (pluginId: string, view: ViewRegistration) => void
-	removeView: (pluginId: string, viewId: string) => void
-	addContextMenuItem: (pluginId: string, item: ContextMenuItemRegistration) => void
-	removeContextMenuItem: (pluginId: string, itemId: string) => void
-	openModal: (pluginId: string, viewId: string, options?: ModalOpenOptions) => string | null
-	closeModal: (instanceId: string) => void
-	closePluginModal: (pluginId: string, instanceId: string) => void
-	updateModalState: (instanceId: string, state: Record<string, unknown>) => void
-	setSettingsSchema: (pluginId: string, schema: PluginSettingDefinition[]) => void
-	removeSettingsSchema: (pluginId: string) => void
-	clearPluginContributions: (pluginId: string) => void
-
-	reset: () => void
+	settingsValues: Record<string, Record<string, unknown>>
 }
 
-const initialState = {
-	plugins: {} as Record<string, PluginRecord>,
-	sidebarItems: [] as RegisteredSidebarItem[],
-	statusBarItems: [] as RegisteredStatusBarItem[],
-	settingsTabs: [] as RegisteredSettingsTab[],
-	views: [] as RegisteredPluginView[],
-	contextMenuItems: [] as RegisteredContextMenuItem[],
-	modalInstances: [] as PluginModalInstance[],
-	settingsSchemas: {} as Record<string, PluginSettingDefinition[]>,
-}
+const contributionKinds: ContributionKind[] = [
+	"views",
+	"sidebarItems",
+	"statusBarItems",
+	"settingsPages",
+	"contextMenuItems",
+]
 
-let nextModalInstanceId = 0
-
-export function getPluginRegistrationKey(pluginId: string, registrationId: string): string {
-	return `${pluginId}:${registrationId}`
-}
-
-function ownsRegistration(
-	registration: PluginRegistrationOwner & { id: string },
-	pluginId: string,
-	registrationId: string,
-): boolean {
-	return registration.pluginId === pluginId && registration.id === registrationId
-}
-
-function createOwnedRegistration<T extends { id: string }>(
-	pluginId: string,
-	registration: T,
-): T & PluginRegistrationOwner {
+function createInitialState(): PluginStoreState {
 	return {
-		...registration,
-		pluginId,
-		registrationKey: getPluginRegistrationKey(pluginId, registration.id),
+		plugins: {},
+		loadErrors: {},
+		views: [],
+		sidebarItems: [],
+		statusBarItems: [],
+		settingsPages: [],
+		contextMenuItems: [],
+		modalInstances: [],
+		settingsValues: {},
 	}
 }
 
-export const pluginStore = createStore<PluginStoreState>()(
-	devtools(
-		immer((set) => ({
-			...initialState,
+export const usePluginStore = create<PluginStoreState>()(createInitialState)
 
-			setPluginStatus: (pluginId, status, error) =>
-				set((state) => {
-					const plugin = state.plugins[pluginId]
-					if (plugin) {
-						plugin.status = status
-						plugin.error = error
-					}
-				}),
+let nextModalInstanceId = 0
 
-			registerPlugin: (manifest) =>
-				set((state) => {
-					state.plugins[manifest.id] = { manifest, status: "loaded" }
-				}),
+export function getContributionKey(owner: string, id: string): string {
+	return owner === CORE_OWNER ? id : `${owner}:${id}`
+}
 
-			unregisterPlugin: (pluginId) =>
-				set((state) => {
-					delete state.plugins[pluginId]
-					clearPluginContributionsState(state, pluginId)
-				}),
+function withoutOwner<T extends { owner: string }>(items: T[], owner: string): T[] {
+	return items.some((item) => item.owner === owner)
+		? items.filter((item) => item.owner !== owner)
+		: items
+}
 
-			addSidebarItem: (pluginId, item) =>
-				set((state) => {
-					state.sidebarItems = state.sidebarItems.filter(
-						(i) => !ownsRegistration(i, pluginId, item.id),
-					)
-					state.sidebarItems.push(createOwnedRegistration(pluginId, item))
-				}),
-			removeSidebarItem: (pluginId, itemId) =>
-				set((state) => {
-					state.sidebarItems = state.sidebarItems.filter(
-						(i) => !ownsRegistration(i, pluginId, itemId),
-					)
-				}),
+export function registerContributions(owner: string, contributions: ContributionSet): () => void {
+	const state = usePluginStore.getState()
+	const next: Partial<PluginStoreState> = {}
+	for (const kind of contributionKinds) {
+		const items = contributions[kind]
+		if (!items?.length) continue
+		const owned = items.map((item) => ({
+			...item,
+			owner,
+			key: getContributionKey(owner, item.id),
+		}))
+		const keys = new Set(owned.map((item) => item.key))
+		const current = state[kind] as ContributionIdentity[]
+		next[kind] = [...current.filter((item) => !keys.has(item.key)), ...owned] as never
+	}
+	usePluginStore.setState(next)
+	return () => clearOwnerContributions(owner)
+}
 
-			addStatusBarItem: (pluginId, item) =>
-				set((state) => {
-					state.statusBarItems = state.statusBarItems.filter(
-						(i) => !ownsRegistration(i, pluginId, item.id),
-					)
-					state.statusBarItems.push(createOwnedRegistration(pluginId, item))
-				}),
-			removeStatusBarItem: (pluginId, itemId) =>
-				set((state) => {
-					state.statusBarItems = state.statusBarItems.filter(
-						(i) => !ownsRegistration(i, pluginId, itemId),
-					)
-				}),
+export function clearOwnerContributions(owner: string): void {
+	const state = usePluginStore.getState()
+	const { [owner]: _removed, ...settingsValues } = state.settingsValues
+	usePluginStore.setState({
+		views: withoutOwner(state.views, owner),
+		sidebarItems: withoutOwner(state.sidebarItems, owner),
+		statusBarItems: withoutOwner(state.statusBarItems, owner),
+		settingsPages: withoutOwner(state.settingsPages, owner),
+		contextMenuItems: withoutOwner(state.contextMenuItems, owner),
+		modalInstances: withoutOwner(state.modalInstances, owner),
+		settingsValues: owner in state.settingsValues ? settingsValues : state.settingsValues,
+	})
+}
 
-			addSettingsTab: (pluginId, tab) =>
-				set((state) => {
-					state.settingsTabs = state.settingsTabs.filter(
-						(t) => !ownsRegistration(t, pluginId, tab.id),
-					)
-					state.settingsTabs.push(createOwnedRegistration(pluginId, tab))
-				}),
-			removeSettingsTab: (pluginId, tabId) =>
-				set((state) => {
-					state.settingsTabs = state.settingsTabs.filter(
-						(t) => !ownsRegistration(t, pluginId, tabId),
-					)
-				}),
+export function updateView(key: string, patch: Partial<RegisteredView>): void {
+	usePluginStore.setState((state) => ({
+		views: state.views.map((view) => (view.key === key ? { ...view, ...patch } : view)),
+	}))
+}
 
-			addView: (pluginId, view) =>
-				set((state) => {
-					state.views = state.views.filter((v) => !ownsRegistration(v, pluginId, view.id))
-					state.views.push(createOwnedRegistration(pluginId, view))
-				}),
-			removeView: (pluginId, viewId) =>
-				set((state) => {
-					const viewKey = getPluginRegistrationKey(pluginId, viewId)
-					state.views = state.views.filter((v) => !ownsRegistration(v, pluginId, viewId))
-					state.modalInstances = state.modalInstances.filter((modal) => modal.viewKey !== viewKey)
-				}),
+export function setPluginRecord(pluginId: string, record: PluginRecord | null): void {
+	usePluginStore.setState((state) => {
+		const { [pluginId]: _removed, ...plugins } = state.plugins
+		return { plugins: record ? { ...plugins, [pluginId]: record } : plugins }
+	})
+}
 
-			addContextMenuItem: (pluginId, item) =>
-				set((state) => {
-					state.contextMenuItems = state.contextMenuItems.filter(
-						(i) => !ownsRegistration(i, pluginId, item.id),
-					)
-					state.contextMenuItems.push(createOwnedRegistration(pluginId, item))
-				}),
-			removeContextMenuItem: (pluginId, itemId) =>
-				set((state) => {
-					state.contextMenuItems = state.contextMenuItems.filter(
-						(i) => !ownsRegistration(i, pluginId, itemId),
-					)
-				}),
+export function setPluginLoadError(pluginId: string, error: string | null): void {
+	usePluginStore.setState((state) => {
+		if (!error && !(pluginId in state.loadErrors)) return state
+		const { [pluginId]: _removed, ...loadErrors } = state.loadErrors
+		return { loadErrors: error ? { ...loadErrors, [pluginId]: error } : loadErrors }
+	})
+}
 
-			openModal: (pluginId, viewId, options) => {
-				let instanceId: string | null = null
-				set((state) => {
-					const view = state.views.find(
-						(candidate) =>
-							candidate.pluginId === pluginId &&
-							candidate.id === viewId &&
-							candidate.location === "modal",
-					)
-					if (!view) return
-					instanceId = `${pluginId}:modal-${nextModalInstanceId++}`
-					state.modalInstances.push({
-						id: instanceId,
-						pluginId,
-						viewId,
-						viewKey: view.registrationKey,
-						title: options?.title,
-						state: options?.initialState ?? view.initialState ?? {},
-					})
-				})
-				return instanceId
-			},
-			closeModal: (instanceId) =>
-				set((state) => {
-					state.modalInstances = state.modalInstances.filter((modal) => modal.id !== instanceId)
-				}),
-			closePluginModal: (pluginId, instanceId) =>
-				set((state) => {
-					state.modalInstances = state.modalInstances.filter(
-						(modal) => modal.pluginId !== pluginId || modal.id !== instanceId,
-					)
-				}),
-			updateModalState: (instanceId, modalState) =>
-				set((state) => {
-					const modal = state.modalInstances.find((candidate) => candidate.id === instanceId)
-					if (modal) modal.state = modalState
-				}),
+export function setPluginStatus(pluginId: string, status: PluginStatus, error?: string): void {
+	const record = usePluginStore.getState().plugins[pluginId]
+	if (record) setPluginRecord(pluginId, { ...record, status, error })
+}
 
-			setSettingsSchema: (pluginId, schema) =>
-				set((state) => {
-					state.settingsSchemas[pluginId] = schema
-				}),
-			removeSettingsSchema: (pluginId) =>
-				set((state) => {
-					delete state.settingsSchemas[pluginId]
-				}),
-			clearPluginContributions: (pluginId) =>
-				set((state) => {
-					clearPluginContributionsState(state, pluginId)
-				}),
-
-			reset: () => {
-				nextModalInstanceId = 0
-				set(initialState)
-			},
-		})),
-		{ name: "pluginStore" },
-	),
-)
-
-function clearPluginContributionsState(
-	state: Pick<
-		PluginStoreState,
-		| "sidebarItems"
-		| "statusBarItems"
-		| "settingsTabs"
-		| "views"
-		| "contextMenuItems"
-		| "modalInstances"
-		| "settingsSchemas"
-	>,
-	pluginId: string,
+export function setOwnerSettingsValues(
+	owner: string,
+	values: Record<string, unknown> | null,
 ): void {
-	state.sidebarItems = state.sidebarItems.filter((item) => item.pluginId !== pluginId)
-	state.statusBarItems = state.statusBarItems.filter((item) => item.pluginId !== pluginId)
-	state.settingsTabs = state.settingsTabs.filter((tab) => tab.pluginId !== pluginId)
-	state.views = state.views.filter((view) => view.pluginId !== pluginId)
-	state.contextMenuItems = state.contextMenuItems.filter((item) => item.pluginId !== pluginId)
-	state.modalInstances = state.modalInstances.filter((modal) => modal.pluginId !== pluginId)
-	delete state.settingsSchemas[pluginId]
+	usePluginStore.setState((state) => {
+		const { [owner]: _removed, ...settingsValues } = state.settingsValues
+		return { settingsValues: values ? { ...settingsValues, [owner]: values } : settingsValues }
+	})
+}
+
+export function openModal(
+	owner: string,
+	viewKey: string,
+	options?: ModalOpenOptions & { instanceId?: unknown },
+): string | null {
+	const { views, modalInstances } = usePluginStore.getState()
+	const view = views.find(
+		(candidate) => candidate.key === viewKey && candidate.location === "modal",
+	)
+	if (!view || view.owner !== owner) return null
+	const id = options?.instanceId ?? `${owner}:modal-${nextModalInstanceId++}`
+	if (
+		typeof id !== "string" ||
+		!id.startsWith(`${owner}:`) ||
+		modalInstances.some((modal) => modal.id === id)
+	) {
+		return null
+	}
+	const instance: PluginModalInstance = {
+		id,
+		owner,
+		viewKey,
+		title: options?.title,
+		state: options?.initialState ?? view.initialState,
+	}
+	usePluginStore.setState((state) => ({ modalInstances: [...state.modalInstances, instance] }))
+	return instance.id
+}
+
+export function closeModal(instanceId: string, owner?: string): void {
+	usePluginStore.setState((state) => ({
+		modalInstances: state.modalInstances.filter(
+			(modal) => modal.id !== instanceId || (owner !== undefined && modal.owner !== owner),
+		),
+	}))
+}
+
+export function updateModalState(instanceId: string, modalState: PluginViewState): void {
+	usePluginStore.setState((state) => ({
+		modalInstances: state.modalInstances.map((modal) =>
+			modal.id === instanceId ? { ...modal, state: modalState } : modal,
+		),
+	}))
+}
+
+export function resetPluginStore(): void {
+	nextModalInstanceId = 0
+	usePluginStore.setState(createInitialState(), true)
 }

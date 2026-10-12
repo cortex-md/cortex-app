@@ -44,8 +44,7 @@ async function readPdfFileData(filePath: string): Promise<Uint8Array> {
 		throw new Error("This platform cannot read PDF files yet.")
 	}
 
-	const bytes = await platform.fs.readBinaryFile(filePath)
-	return bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+	return await platform.fs.readBinaryFile(filePath)
 }
 
 function readPdfProgress({ loaded, total }: { loaded: number; total?: number }): LoadingProgress {

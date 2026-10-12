@@ -10,19 +10,21 @@ must all originate here.
   name helpers.
 - Cache command snapshots, Vim choices, and Vim-name lookups inside `CommandRegistry`; consumers
   should read snapshots instead of rebuilding derived lists on every render or key event.
-- Stay free of React, Tauri, DOM, CodeMirror, and platform imports so mobile can reuse the same
+- Stay free of React, Electron, DOM, CodeMirror, and platform imports so mobile can reuse the same
   registry.
 - Store command metadata only. Platform-specific execution details should be injected by the app
   command registration layer.
 - Keep plugin and app commands disposable; removed commands must disappear from command lists and
   Vim choices.
+- Register static command sets with `registerCommands([...])` / `registry.registerMany(...)` so
+  subscribers are notified once per batch instead of once per command.
 
 ## Command Shape
 
 - Use stable IDs such as `file.new`, `editor.find`, or `plugin-id:command-id`.
 - Put user-facing names in `label`, grouping in `category`, and optional direct Vim names in
   `aliases`.
-- Put configurable keyboard shortcuts in `hotkey`. Use `scope: "global"` for app-level shortcuts,
+- Put configurable keyboard shortcuts in `hotkey`; there is no separate display `shortcut` field. Use `scope: "global"` for app-level shortcuts,
   `scope: "editor"` for CodeMirror-owned shortcuts, and `scope: "file-explorer"` for shortcuts
   that are interpreted only while the desktop file tree has focus.
 - Use `execute(context)` for all dispatch paths. Callers should pass `palette`, `hotkey`, `vim`,

@@ -1,10 +1,10 @@
 import { useVaultStore, useWorkspaceStore, type VaultMetadata } from "@cortex/core"
 import { useMarketplaceStore } from "@cortex/marketplace"
+import { usePluginStore } from "@cortex/plugin-host-core"
 import { beforeEach, describe, expect, it } from "vitest"
-import { MarketplaceView } from "../../../features/marketplace/MarketplaceView"
+import { registerCoreContributions } from "../../../bootstrap/coreContributions"
 import { MARKETPLACE_VIEW_ID } from "../../../features/marketplace/marketplaceWorkspaceView"
 import { openMarketplaceView } from "../../../features/marketplace/openMarketplaceView"
-import { getCoreViewComponent } from "../../../features/split-view/coreViewRegistry"
 
 const ROOT_PANE_ID = "root"
 
@@ -88,7 +88,10 @@ describe("openMarketplaceView", () => {
 		expect(useWorkspaceStore.getState().panes[ROOT_PANE_ID].tabs).toHaveLength(0)
 	})
 
-	it("registers Marketplace as a core view", () => {
-		expect(getCoreViewComponent(MARKETPLACE_VIEW_ID)).toBe(MarketplaceView)
+	it("registers Marketplace as a lazy core view", () => {
+		const unregister = registerCoreContributions()
+		const view = usePluginStore.getState().views.find((item) => item.key === MARKETPLACE_VIEW_ID)
+		expect(view?.component).toMatchObject({ $$typeof: Symbol.for("react.lazy") })
+		unregister()
 	})
 })

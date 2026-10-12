@@ -10,7 +10,8 @@ import {
 	PlusIcon,
 	Trash2Icon,
 } from "lucide-react"
-import { useCallback, useEffect, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useState } from "react"
+import { useHasOpened } from "../../hooks/useHasOpened"
 import {
 	SettingsEmptyState,
 	SettingsGroup,
@@ -19,8 +20,11 @@ import {
 	SettingsPage,
 	SettingsSection,
 } from "../settings/SettingsPrimitives"
-import { TemplateEditorDialog } from "./TemplateEditorDialog"
 import { createTemplateDraft, type TemplateEditorDraft as EditorDraft } from "./templateEditorDraft"
+
+const LazyTemplateEditorDialog = lazy(() =>
+	import("./TemplateEditorDialog").then((module) => ({ default: module.TemplateEditorDialog })),
+)
 
 export function TemplatesSection() {
 	const vault = useVaultStore((state) => state.vault)
@@ -32,6 +36,7 @@ export function TemplatesSection() {
 	const deleteTemplate = useTemplateStore((state) => state.deleteTemplate)
 	const readTemplateBody = useTemplateStore((state) => state.readTemplateBody)
 	const [editorOpen, setEditorOpen] = useState(false)
+	const editorMounted = useHasOpened(editorOpen)
 	const [editingTemplate, setEditingTemplate] = useState<TemplateDefinition | null>(null)
 	const [draft, setDraft] = useState<EditorDraft | null>(null)
 	const [error, setError] = useState<string | null>(null)
@@ -116,6 +121,7 @@ export function TemplatesSection() {
 	return (
 		<SettingsPage>
 			<SettingsSection
+				fieldId="templates.list"
 				title="Templates"
 				description="Vault templates stored in .cortex/templates."
 				action={
@@ -131,7 +137,10 @@ export function TemplatesSection() {
 					) : (
 						<SettingsList>
 							{templates.map((template) => (
-								<SettingsListItem key={template.id}>
+								<SettingsListItem
+									key={template.id}
+									data-settings-field={`templates.${template.id}`}
+								>
 									<div className="flex size-8 shrink-0 items-center justify-center rounded-[8px] border border-border bg-bg-secondary text-muted-foreground">
 										<LayoutTemplateIcon className="size-4" />
 									</div>
@@ -185,13 +194,17 @@ export function TemplatesSection() {
 				</SettingsGroup>
 				{error && <p className="m-0 px-1 text-sm text-destructive">{error}</p>}
 			</SettingsSection>
-			<TemplateEditorDialog
-				open={editorOpen}
-				template={editingTemplate}
-				initialDraft={draft}
-				onOpenChange={setEditorOpen}
-				onSave={handleSave}
-			/>
+			{editorMounted && (
+				<Suspense fallback={null}>
+					<LazyTemplateEditorDialog
+						open={editorOpen}
+						template={editingTemplate}
+						initialDraft={draft}
+						onOpenChange={setEditorOpen}
+						onSave={handleSave}
+					/>
+				</Suspense>
+			)}
 		</SettingsPage>
 	)
 }

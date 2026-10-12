@@ -1,297 +1,328 @@
-import { createRequire } from "node:module"
-import { dirname, join } from "node:path"
-import { fileURLToPath } from "node:url"
-import { SyncDb } from "@cortex/sync-engine"
-import { type UtilityProcess, utilityProcess } from "electron"
-import { emitToRenderer } from "../events"
-import { getDeviceInfo } from "./device"
-import * as keychain from "./keychain"
+import { access } from "node:fs/promises"
+import { join } from "node:path"
+import type {
+	CollabFileSyncRole,
+	EffectiveAccess,
+	Sync,
+	SyncPreferences,
+	WatchEvent,
+} from "@cortex/platform"
+import { getVaultFilePath, isPathOrDescendant, VAULT_FILES } from "@cortex/platform/utils"
+import type { AccountIdentity } from "@cortex/sync-api"
+import {
+	createVaultKey,
+	ensureOwnVaultKey,
+	type FromWorkerMessage,
+	type MainMethods,
+	RpcChannel,
+	type RpcRequest,
+	requestVaultKey,
+	respond,
+	type SyncCommand,
+	type ToWorkerMessage,
+	unlockVaultKey,
+	type VaultRef,
+	vekSecretKey,
+	type WorkerMethods,
+} from "@cortex/sync-engine"
+import { type UtilityProcess, utilityProcess, webContents } from "electron"
+import { EVENT_CHANNEL_PREFIX } from "../contract"
+import { getInvokeSender } from "../ipc/sender"
+import { resolveMainWindowId } from "../windows"
+import { getDeviceId } from "./device"
+import { secrets, serverApi } from "./serverApi"
 
-const require = createRequire(import.meta.url)
-
-interface WorkerOutboundMessage {
-	type: string
-	id?: string
-	method?: string
-	account?: string
-	value?: string
-	args?: Record<string, unknown>
-	command?: unknown
-	result?: unknown
-	error?: string
+type SyncCommands = {
+	[K in keyof Sync as K extends `on${string}` ? never : K]: Sync[K]
 }
 
-interface PendingInvoke {
-	resolve: (value: unknown) => void
-	reject: (error: Error) => void
+interface WorkerHandle {
+	process: UtilityProcess
+	rpc: RpcChannel<WorkerMethods>
 }
 
-let child: UtilityProcess | null = null
-let ready: Promise<void> | null = null
-const pending = new Map<string, PendingInvoke>()
-let messageId = 0
-
-function nextId(): string {
-	messageId += 1
-	return `sync-${messageId}`
+interface SyncSession {
+	ownerId: number
+	worker: WorkerHandle | null
+	vaultPath: string | null
+	preferences: SyncPreferences | null
+	access: EffectiveAccess | null
+	collabRoles: Map<string, CollabFileSyncRole>
 }
 
-function resolveWorkerEntry(): string {
-	try {
-		return require.resolve("@cortex/sync-engine/worker")
-	} catch {
-		const here = dirname(fileURLToPath(import.meta.url))
-		return join(here, "../../../packages/sync-engine/src/worker.ts")
+const sessions = new Map<number, SyncSession>()
+
+function sendToOwner(ownerId: number, event: string, payload: unknown): void {
+	const contents = webContents.fromId(ownerId)
+	if (contents && !contents.isDestroyed()) contents.send(`${EVENT_CHANNEL_PREFIX}${event}`, payload)
+}
+
+function sessionFor(ownerId: number): SyncSession {
+	let session = sessions.get(ownerId)
+	if (!session) {
+		session = {
+			ownerId,
+			worker: null,
+			vaultPath: null,
+			preferences: null,
+			access: null,
+			collabRoles: new Map(),
+		}
+		sessions.set(ownerId, session)
+	}
+	return session
+}
+
+function currentSession(): SyncSession {
+	const sender = getInvokeSender()
+	const ownerId = sender ? resolveMainWindowId(sender.id) : null
+	if (ownerId === null) throw new Error("Sync requests must come from an app window")
+	return sessionFor(ownerId)
+}
+
+async function requireIdentity(): Promise<AccountIdentity> {
+	const identity = await serverApi.currentIdentity()
+	if (!identity) throw new Error("Set up your encryption keys on this device first.")
+	return identity
+}
+
+async function loadVaultKey(vaultId: string): Promise<string | null> {
+	const secretKey = vekSecretKey(vaultId)
+	const identity = await serverApi.currentIdentity()
+	if (!secrets.get(secretKey) && identity) {
+		await requestVaultKey(await serverApi.client(), secrets, vaultId, identity)
+	}
+	const encoded = secrets.get(secretKey)
+	if (encoded && identity) {
+		void serverApi
+			.client()
+			.then((api) => ensureOwnVaultKey(api, secrets, vaultId, identity))
+			.catch((error) => console.warn("[sync] vault key self-registration failed:", error))
+	}
+	return encoded
+}
+
+async function handleMainRequest(request: RpcRequest<MainMethods>): Promise<unknown> {
+	switch (request.method) {
+		case "getAccessToken":
+			return await serverApi.session.getAccessToken(request.args.serverUrl)
+		case "refreshAccessToken":
+			return await serverApi.session.refreshAccessToken(request.args.serverUrl)
+		case "getVek":
+			return await loadVaultKey(request.args.vaultId)
 	}
 }
 
-function collectKeychainEntries(): Record<string, string> {
-	const entries: Record<string, string> = {}
-	for (const account of [
-		"access_token",
-		"refresh_token",
-		"device_token",
-		"server_url",
-		"display_name",
-		"user_id",
-		"user_email",
-		"user_display_name",
-	]) {
-		const value = keychain.get(account)
-		if (value) entries[account] = value
-	}
-	return entries
+function post(handle: WorkerHandle, message: ToWorkerMessage): void {
+	handle.process.postMessage(message)
 }
 
-function post(message: WorkerOutboundMessage): void {
-	if (!child) throw new Error("Sync worker is not running")
-	child.postMessage(message)
-}
-
-function request(message: Omit<WorkerOutboundMessage, "id">): Promise<unknown> {
-	const id = nextId()
-	return new Promise((resolve, reject) => {
-		pending.set(id, { resolve, reject })
-		post({ ...message, id })
+function spawnWorker(session: SyncSession): WorkerHandle {
+	const child = utilityProcess.fork(join(__dirname, "sync-worker.js"), [], {
+		serviceName: "cortex-sync-engine",
+		stdio: "inherit",
 	})
-}
-
-function handleWorkerMessage(raw: unknown): void {
-	const message = raw as WorkerOutboundMessage
-	switch (message.type) {
-		case "ready":
-		case "result": {
-			if (!message.id) return
-			const waiter = pending.get(message.id)
-			if (!waiter) return
-			pending.delete(message.id)
-			if (message.error) waiter.reject(new Error(message.error))
-			else waiter.resolve(message.result ?? null)
-			return
-		}
-		case "event": {
-			if (!message.method) return
-			emitToRenderer(message.method, message.args)
-			return
-		}
-		case "keychain": {
-			try {
-				if (message.method === "get" && message.account) {
-					const result = keychain.get(message.account)
-					if (message.id) {
-						post({ type: "keychainResult", id: message.id, account: message.account, result })
-					}
-					return
-				}
-				if (message.method === "set" && message.account && typeof message.value === "string") {
-					keychain.set(message.account, message.value)
-					if (message.id) {
-						post({ type: "keychainResult", id: message.id, account: message.account, result: null })
-					}
-					return
-				}
-				if (message.method === "delete" && message.account) {
-					keychain.delete(message.account)
-					if (message.id) {
-						post({ type: "keychainResult", id: message.id, account: message.account, result: null })
-					}
-				}
-			} catch (error) {
-				if (message.id) {
-					post({
-						type: "keychainResult",
-						id: message.id,
-						error: error instanceof Error ? error.message : String(error),
-					})
-				}
-			}
-			return
-		}
-		default:
-			return
+	const handle: WorkerHandle = {
+		process: child,
+		rpc: new RpcChannel<WorkerMethods>((message) => child.postMessage(message)),
 	}
-}
-
-export async function ensureSyncWorker(): Promise<void> {
-	if (ready) return await ready
-	ready = (async () => {
-		const entry = resolveWorkerEntry()
-		child = utilityProcess.fork(entry, [], {
-			serviceName: "cortex-sync-engine",
-			stdio: "inherit",
-		})
-		child.on("message", handleWorkerMessage)
-		child.on("exit", () => {
-			child = null
-			ready = null
-			for (const waiter of pending.values()) {
-				waiter.reject(new Error("Sync worker exited"))
-			}
-			pending.clear()
-		})
-
-		const deviceInfo = getDeviceInfo()
-		await request({
-			type: "bootstrap",
-			args: {
-				deviceId: deviceInfo.deviceId,
-				deviceName: deviceInfo.deviceName,
-				deviceType: deviceInfo.deviceType,
-				keychainEntries: collectKeychainEntries(),
-			},
-		})
-	})()
-	await ready
-}
-
-function toEngineCommand(
-	command: string,
-	args: Record<string, unknown>,
-): Record<string, unknown> | null {
-	switch (command) {
-		case "sync_start":
-			return {
-				type: "start",
-				vaultId: args.vaultId,
-				vaultPath: args.vaultPath,
-				serverUrl: args.serverUrl,
-				requiresEntitlement: Boolean(args.requiresEntitlement),
-			}
-		case "sync_stop":
-			return { type: "stop" }
-		case "sync_force_sync_file":
-			return { type: "forceSyncFile", path: args.path }
-		case "sync_resolve_conflict":
-			return {
-				type: "resolveConflict",
-				path: args.path,
-				resolution: args.resolution,
-			}
-		case "sync_update_preferences":
-			return {
-				type: "updateSyncPreferences",
-				syncSettings: Boolean(args.syncSettings),
-				syncHotkeys: Boolean(args.syncHotkeys),
-				syncWorkspace: Boolean(args.syncWorkspace),
-				syncPluginMetadata: Boolean(args.syncPluginMetadata),
-				syncThemeMetadata: Boolean(args.syncThemeMetadata),
-				syncBookmarks: Boolean(args.syncBookmarks),
-				ignoreImages: Boolean(args.ignoreImages),
-				excludedPaths: Array.isArray(args.excludedPaths) ? args.excludedPaths : [],
-			}
-		default:
-			return null
+	child.on("message", (message: FromWorkerMessage) => {
+		switch (message.type) {
+			case "event":
+				if (message.name === "sync-access-changed") session.access = message.payload
+				sendToOwner(session.ownerId, message.name, message.payload)
+				return
+			case "request":
+				respond(message, handleMainRequest, (response) => child.postMessage(response)).catch(
+					(error: unknown) => console.warn("[sync] failed to answer worker request:", error),
+				)
+				return
+			case "response":
+				handle.rpc.settle(message)
+				return
+		}
+	})
+	child.on("exit", (code) => {
+		handle.rpc.rejectAll(new Error("Sync worker exited"))
+		if (session.worker !== handle) return
+		session.worker = null
+		session.access = null
+		if (session.vaultPath) {
+			session.vaultPath = null
+			sendToOwner(session.ownerId, "sync-log", {
+				level: "error",
+				message: `Sync worker exited (${code})`,
+			})
+			sendToOwner(session.ownerId, "sync-state-changed", { state: "idle" })
+		}
+	})
+	post(handle, { type: "init", deviceId: getDeviceId() })
+	if (session.preferences) {
+		post(handle, { type: "command", command: updatePreferencesCommand(session.preferences) })
 	}
+	for (const [path, role] of session.collabRoles) {
+		post(handle, { type: "command", command: { type: "setCollabRole", path, role } })
+	}
+	return handle
 }
 
-function getConflicts(vaultPath: string) {
-	const db = SyncDb.open(vaultPath)
+function ensureWorker(session: SyncSession): WorkerHandle {
+	session.worker ??= spawnWorker(session)
+	return session.worker
+}
+
+function command(session: SyncSession, message: SyncCommand): void {
+	if (session.worker) post(session.worker, { type: "command", command: message })
+}
+
+function updatePreferencesCommand(next: SyncPreferences): SyncCommand {
+	return { type: "updateSyncPreferences", preferences: next }
+}
+
+async function vaultRef(vaultId: string, vaultPath: string): Promise<VaultRef> {
+	const serverUrl = await serverApi.selectServerUrl()
+	if (!serverUrl) throw new Error("No sync server configured")
+	return { vaultId, vaultPath, serverUrl }
+}
+
+async function hasSyncDb(vaultPath: string): Promise<boolean> {
 	try {
-		return db
-			.listAllSyncStates()
-			.filter((row) => row.syncStatus === "conflict")
-			.map((row) => ({
-				path: row.filePath,
-				localHash: row.localHash,
-				remoteHash: row.remoteHash,
-				ancestorHash: row.ancestorHash,
-			}))
-	} finally {
-		db.close()
+		await access(getVaultFilePath(vaultPath, VAULT_FILES.syncDb))
+		return true
+	} catch {
+		return false
 	}
 }
 
-export async function handleSyncInvoke(
-	command: string,
-	args: Record<string, unknown> = {},
-): Promise<unknown> {
-	if (!command.startsWith("sync_")) {
-		throw new Error(`Not a sync command: ${command}`)
+export function notifyLocalFileChange(absolutePath: string, kind: WatchEvent["kind"]): void {
+	for (const session of sessions.values()) {
+		if (!session.worker || !session.vaultPath) continue
+		if (!isPathOrDescendant(absolutePath, session.vaultPath)) continue
+		command(
+			session,
+			kind === "deleted"
+				? { type: "localFileDeleted", path: absolutePath }
+				: { type: "localFileChanged", path: absolutePath },
+		)
 	}
+}
 
-	if (command === "sync_get_note_metadata") {
-		const vaultPath = String(args.vaultPath ?? "")
-		const filePath = String(args.filePath ?? "")
-		const db = SyncDb.open(vaultPath)
-		try {
-			return db.getNoteMetadata(filePath)
-		} finally {
-			db.close()
+export function setCollabRole(
+	ownerId: number,
+	path: string,
+	role: CollabFileSyncRole | null,
+): void {
+	const session = sessionFor(ownerId)
+	if (role) session.collabRoles.set(path, role)
+	else if (!session.collabRoles.delete(path)) return
+	command(session, { type: "setCollabRole", path, role })
+}
+
+export function clearCollabRoles(ownerId: number): void {
+	const session = sessions.get(ownerId)
+	if (!session) return
+	for (const path of session.collabRoles.keys()) {
+		command(session, { type: "setCollabRole", path, role: null })
+	}
+	session.collabRoles.clear()
+}
+
+export function disposeSyncSession(ownerId: number): void {
+	const session = sessions.get(ownerId)
+	if (!session) return
+	sessions.delete(ownerId)
+	session.worker?.process.kill()
+}
+
+export function stopSyncWorkers(): void {
+	for (const ownerId of [...sessions.keys()]) disposeSyncSession(ownerId)
+}
+
+export const syncService = {
+	updateSyncPreferences: async (next) => {
+		const session = currentSession()
+		session.preferences = { ...next, excludedPaths: [...next.excludedPaths] }
+		command(session, updatePreferencesCommand(session.preferences))
+	},
+	checkVaultEncryption: serverApi.checkVaultEncryption,
+	createVaultKey: async (vaultId) =>
+		await createVaultKey(await serverApi.client(), secrets, vaultId, await requireIdentity()),
+	requestVaultKey: async (vaultId) =>
+		await requestVaultKey(await serverApi.client(), secrets, vaultId, await requireIdentity()),
+	unlockVaultKey: async (vaultId, password) => {
+		const api = await serverApi.client()
+		await unlockVaultKey(api, secrets, vaultId, password)
+		const identity = await serverApi.currentIdentity()
+		if (identity) {
+			await ensureOwnVaultKey(api, secrets, vaultId, identity).catch((error) =>
+				console.warn("[sync] vault key self-registration failed:", error),
+			)
 		}
-	}
-
-	if (command === "sync_get_conflicts") {
-		return getConflicts(String(args.vaultPath ?? ""))
-	}
-
-	if (command === "sync_check_vault_encryption") {
-		return { hasKey: Boolean(keychain.get(`vek:${String(args.vaultId ?? "")}`)) }
-	}
-
-	if (command === "sync_create_vault_key") {
-		keychain.set(`vek:${String(args.vaultId ?? "")}`, String(args.password ?? ""))
-		return null
-	}
-
-	if (command === "sync_unlock_vault_key") {
-		const vaultId = String(args.vaultId ?? "")
-		const password = String(args.password ?? "")
-		const stored = keychain.get(`vek:${vaultId}`)
-		if (!stored || stored !== password) {
-			throw new Error("Invalid vault encryption password")
-		}
-		return null
-	}
-
-	if (command === "sync_get_version_history" || command === "sync_list_deleted_files") {
-		return []
-	}
-
-	await ensureSyncWorker()
-
-	if (command === "sync_stop") {
-		await request({ type: "command", command: { type: "stop" } })
-		await stopSyncWorker()
-		return null
-	}
-
-	const engineCommand = toEngineCommand(command, args)
-	if (engineCommand) {
-		await request({ type: "command", command: engineCommand })
-		return null
-	}
-
-	throw new Error(`Sync command not yet implemented in Electron bridge: ${command}`)
-}
-
-export function isSyncCommand(command: string): boolean {
-	return command.startsWith("sync_")
-}
-
-export async function stopSyncWorker(): Promise<void> {
-	if (!child) return
-	await request({ type: "stop" }).catch(() => undefined)
-	child.kill()
-	child = null
-	ready = null
-}
+	},
+	getAccess: async () => currentSession().access,
+	getKeyTrustIssues: async (vaultId) => {
+		const worker = currentSession().worker
+		return worker ? await worker.rpc.call("getKeyTrustIssues", { vaultId }) : []
+	},
+	trustMemberKey: async (vaultId, userId, fingerprint) => {
+		const worker = currentSession().worker
+		if (!worker) throw new Error("Start sync for this vault before verifying member keys.")
+		await worker.rpc.call("trustMemberKey", { vaultId, userId, fingerprint })
+	},
+	start: async (vaultId, vaultPath, serverUrl, requiresEntitlement) => {
+		const session = currentSession()
+		await serverApi.selectServerUrl(serverUrl)
+		const userId = (await serverApi.currentUserId(serverUrl)) ?? null
+		session.vaultPath = vaultPath
+		post(ensureWorker(session), {
+			type: "command",
+			command: { type: "start", vaultId, vaultPath, serverUrl, requiresEntitlement, userId },
+		})
+	},
+	stop: async () => {
+		const session = currentSession()
+		session.vaultPath = null
+		session.access = null
+		session.collabRoles.clear()
+		command(session, { type: "stop" })
+	},
+	forceSyncFile: async (path) => command(currentSession(), { type: "forceSyncFile", path }),
+	resolveConflict: async (path, resolution) =>
+		command(currentSession(), { type: "resolveConflict", path, resolution }),
+	getConflicts: async (_vaultId, vaultPath) =>
+		(await hasSyncDb(vaultPath))
+			? await ensureWorker(currentSession()).rpc.call("getConflicts", { vaultPath })
+			: [],
+	getNoteMetadata: async (vaultPath, filePath) =>
+		(await hasSyncDb(vaultPath))
+			? await ensureWorker(currentSession()).rpc.call("getNoteMetadata", { vaultPath, filePath })
+			: null,
+	getVersionHistory: async (vaultId, vaultPath, filePath) =>
+		await ensureWorker(currentSession()).rpc.call("getVersionHistory", {
+			vault: await vaultRef(vaultId, vaultPath),
+			filePath,
+		}),
+	downloadVersion: async (vaultId, vaultPath, filePath, version) =>
+		await ensureWorker(currentSession()).rpc.call("downloadVersion", {
+			vault: await vaultRef(vaultId, vaultPath),
+			filePath,
+			version,
+		}),
+	restoreVersion: async (vaultId, vaultPath, filePath, version) => {
+		await ensureWorker(currentSession()).rpc.call("restoreVersion", {
+			vault: await vaultRef(vaultId, vaultPath),
+			filePath,
+			version,
+		})
+	},
+	listDeletedFiles: async (vaultId, vaultPath) =>
+		await ensureWorker(currentSession()).rpc.call("listDeletedFiles", {
+			vault: await vaultRef(vaultId, vaultPath),
+		}),
+	restoreDeletedFile: async (vaultId, vaultPath, filePath) => {
+		await ensureWorker(currentSession()).rpc.call("restoreDeletedFile", {
+			vault: await vaultRef(vaultId, vaultPath),
+			filePath,
+		})
+	},
+} satisfies SyncCommands

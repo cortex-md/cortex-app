@@ -1,289 +1,189 @@
-import type { useVaultStore, useWorkspaceStore } from "@cortex/core"
-import { getPlatform } from "@cortex/platform"
-import { type MouseEvent as ReactMouseEvent, type RefObject, useCallback, useReducer } from "react"
-import { NativeMenuActions } from "@/utils/context-menu"
-import { sendCoreNotification } from "@/utils/nativeNotifications"
-import { reportAppError } from "@/utils/reportAppError"
-import type { FileOpenRequest } from "./FileSidebarTree"
-import type { FileTreeNode } from "./fileTree"
+import { executeCommand } from "@cortex/commands"
+import {
+	canWriteVaultPath,
+	FILE_COMMAND_IDS,
+	type FileTreeNode,
+	reportAppError,
+	useVaultStore,
+	useWorkspaceStore,
+} from "@cortex/core"
+import { FilePlusIcon, FolderPlusIcon } from "lucide-react"
+import { type RefObject, useMemo, useReducer } from "react"
+import type { MenuPosition } from "@/utils/context-menu"
+import { openDatabaseView } from "../databases/databaseWorkspace"
+import { FILE_EXPLORER_COMMAND_IDS, type FileExplorerCommandId } from "./fileExplorerCommands"
+import { buildFileMenuItems } from "./fileMenu"
 import { getFileTreeItemId, getKeyboardMenuPosition } from "./fileTreeDom"
-import { buildRootContextMenuItems } from "./NativeMenuActions"
 
-type VaultStoreState = ReturnType<typeof useVaultStore.getState>
-type WorkspaceStoreState = ReturnType<typeof useWorkspaceStore.getState>
+export type FileCreateType = "file" | "folder"
 
-interface FileSidebarUiState {
+export type FileOpenMode = "reuse-active" | "new-tab"
+
+export interface FileSidebarUiState {
 	renamingPath: string | null
 	creatingIn: string | null
-	creatingType: "file" | "folder" | null
-	historyFilePath: string | null
+	creatingType: FileCreateType | null
 }
 
 type FileSidebarUiAction =
-	| { type: "startCreate"; parentPath: string; createType: "file" | "folder" }
+	| { type: "startCreate"; parentPath: string; createType: FileCreateType }
 	| { type: "cancelCreate" }
 	| { type: "startRename"; path: string }
 	| { type: "cancelRename" }
-	| { type: "openHistory"; path: string }
-	| { type: "closeHistory" }
+
+export interface FileTreeActions {
+	openFile: (path: string, mode: FileOpenMode) => void
+	openDatabase: (path: string, mode: FileOpenMode) => void
+	toggle: (path: string) => void
+	ensureExpanded: (path: string) => void
+	focusPath: (path: string) => void
+	startCreate: (parentPath: string, createType: FileCreateType) => void
+	confirmCreate: (parentPath: string, name: string, createType: FileCreateType) => Promise<void>
+	cancelCreate: () => void
+	startRename: (path: string) => void
+	confirmRename: (oldPath: string, newName: string) => Promise<void>
+	cancelRename: () => void
+	runCommand: (commandId: FileExplorerCommandId, node: FileTreeNode) => void
+	showEntryMenu: (node: FileTreeNode, position: MenuPosition) => void
+	showRootMenu: (position: MenuPosition) => void
+	reportDropError: (error: unknown) => Promise<void>
+}
 
 interface UseFileSidebarActionsOptions {
-	closeTabsByPath: WorkspaceStoreState["closeTabsByPath"]
-	createFile: VaultStoreState["createFile"]
-	createFolder: VaultStoreState["createFolder"]
-	deleteFile: VaultStoreState["deleteFile"]
-	duplicateFile: VaultStoreState["duplicateFile"]
-	ensureExpanded: (path: string) => void
-	openTab: WorkspaceStoreState["openTab"]
-	renameFile: VaultStoreState["renameFile"]
-	treeScrollRef: RefObject<HTMLDivElement | null>
 	vaultPath: string
+	treeScrollRef: RefObject<HTMLDivElement | null>
+	toggle: (path: string) => void
+	ensureExpanded: (path: string) => void
+	focusPath: (path: string) => void
+	showMenu: (items: ReturnType<typeof buildFileMenuItems>, position: MenuPosition) => void
 }
 
 const initialFileSidebarUiState: FileSidebarUiState = {
 	renamingPath: null,
 	creatingIn: null,
 	creatingType: null,
-	historyFilePath: null,
-}
-
-const hasNativeMenu = () => getPlatform().capabilities.includes("menu")
-
-const nativeMenu = new NativeMenuActions()
-
-function isFileTreeItemContextTarget(target: EventTarget | null): boolean {
-	if (!(target instanceof Element)) return false
-	return Boolean(
-		target.closest(
-			"[data-file-tree-path], .file-tree-create-row, input, textarea, [contenteditable='true']",
-		),
-	)
 }
 
 export function useFileSidebarActions({
-	closeTabsByPath,
-	createFile,
-	createFolder,
-	deleteFile,
-	duplicateFile,
-	ensureExpanded,
-	openTab,
-	renameFile,
-	treeScrollRef,
 	vaultPath,
-}: UseFileSidebarActionsOptions) {
+	treeScrollRef,
+	toggle,
+	ensureExpanded,
+	focusPath,
+	showMenu,
+}: UseFileSidebarActionsOptions): { uiState: FileSidebarUiState; actions: FileTreeActions } {
 	const [uiState, dispatchUi] = useReducer(fileSidebarUiReducer, initialFileSidebarUiState)
-	const { creatingType } = uiState
 
-	const handleNewFile = useCallback(
-		(parentPath: string) => {
+	const actions = useMemo<FileTreeActions>(() => {
+		const startCreate = (parentPath: string, createType: FileCreateType) => {
 			ensureExpanded(parentPath)
-			dispatchUi({ type: "startCreate", parentPath, createType: "file" })
-		},
-		[ensureExpanded],
-	)
+			dispatchUi({ type: "startCreate", parentPath, createType })
+		}
+		const startRename = (path: string) => dispatchUi({ type: "startRename", path })
+		const showEntryMenu = (node: FileTreeNode, position: MenuPosition) =>
+			showMenu(
+				buildFileMenuItems(
+					{ filePath: node.path, isDirectory: node.isDir },
+					{
+						onNewNote: node.isDir ? () => startCreate(node.path, "file") : undefined,
+						onNewFolder: node.isDir ? () => startCreate(node.path, "folder") : undefined,
+					},
+				),
+				position,
+			)
 
-	const handleNewFolder = useCallback(
-		(parentPath: string) => {
-			ensureExpanded(parentPath)
-			dispatchUi({ type: "startCreate", parentPath, createType: "folder" })
-		},
-		[ensureExpanded],
-	)
-
-	const handleConfirmCreate = useCallback(
-		async (parentPath: string, name: string) => {
-			try {
-				if (creatingType === "folder") {
-					await createFolder(parentPath, name)
-				} else {
-					const filePath = await createFile(parentPath, name)
-					openTab(filePath)
+		return {
+			openFile: (path, mode) =>
+				useWorkspaceStore
+					.getState()
+					.openTab(path, mode === "reuse-active" ? { reuseActive: true } : undefined),
+			openDatabase: (path, mode) => openDatabaseView(path, { newTab: mode === "new-tab" }),
+			toggle,
+			ensureExpanded,
+			focusPath,
+			startCreate,
+			confirmCreate: async (parentPath, name, createType) => {
+				const vaultState = useVaultStore.getState()
+				try {
+					if (createType === "folder") {
+						await vaultState.createFolder(parentPath, name)
+					} else {
+						useWorkspaceStore.getState().openTab(await vaultState.createFile(parentPath, name))
+					}
+				} catch (error) {
+					await reportAppError({
+						operation: "create-file-entry",
+						source: "file-explorer",
+						cause: error,
+						userMessage: "The file or folder could not be created.",
+						context: { parentPath, name },
+					})
 				}
-			} catch (error) {
-				await reportAppError({
-					operation: "create-file-entry",
+				dispatchUi({ type: "cancelCreate" })
+			},
+			cancelCreate: () => dispatchUi({ type: "cancelCreate" }),
+			startRename,
+			confirmRename: async (oldPath, newName) => {
+				try {
+					await useVaultStore.getState().renameFile(oldPath, newName)
+				} catch (error) {
+					await reportAppError({
+						operation: "rename-file-entry",
+						source: "file-explorer",
+						cause: error,
+						userMessage: "The file or folder could not be renamed.",
+						context: { oldPath, newName },
+					})
+				}
+				dispatchUi({ type: "cancelRename" })
+			},
+			cancelRename: () => dispatchUi({ type: "cancelRename" }),
+			runCommand: (commandId, node) => {
+				if (commandId === FILE_EXPLORER_COMMAND_IDS.rename) {
+					startRename(node.path)
+				} else if (commandId === FILE_EXPLORER_COMMAND_IDS.delete) {
+					executeCommand(FILE_COMMAND_IDS.delete, {
+						source: "hotkey",
+						payload: { filePath: node.path },
+					})
+				} else {
+					const element = document.getElementById(getFileTreeItemId(node.path))
+					showEntryMenu(node, getKeyboardMenuPosition(element))
+					treeScrollRef.current?.focus({ preventScroll: true })
+				}
+			},
+			showEntryMenu,
+			showRootMenu: (position) => {
+				if (!vaultPath || !canWriteVaultPath(vaultPath, true)) return
+				showMenu(
+					[
+						{
+							id: "new-file",
+							text: "New Note",
+							icon: FilePlusIcon,
+							action: () => startCreate(vaultPath, "file"),
+						},
+						{
+							id: "new-folder",
+							text: "New Folder",
+							icon: FolderPlusIcon,
+							action: () => startCreate(vaultPath, "folder"),
+						},
+					],
+					position,
+				)
+			},
+			reportDropError: (error) =>
+				reportAppError({
+					operation: "move-file-entry",
 					source: "file-explorer",
 					cause: error,
-					userMessage: "The file or folder could not be created.",
-					context: { parentPath, name },
-				})
-			}
-			dispatchUi({ type: "cancelCreate" })
-		},
-		[creatingType, createFile, createFolder, openTab],
-	)
-
-	const handleCancelCreate = useCallback(() => {
-		dispatchUi({ type: "cancelCreate" })
-	}, [])
-
-	const handleCancelRename = useCallback(() => dispatchUi({ type: "cancelRename" }), [])
-
-	const handleConfirmRename = useCallback(
-		async (oldPath: string, newName: string) => {
-			try {
-				await renameFile(oldPath, newName)
-			} catch (error) {
-				await reportAppError({
-					operation: "rename-file-entry",
-					source: "file-explorer",
-					cause: error,
-					userMessage: "The file or folder could not be renamed.",
-					context: { oldPath, newName },
-				})
-			}
-			dispatchUi({ type: "cancelRename" })
-		},
-		[renameFile],
-	)
-
-	const handleDelete = useCallback(
-		async (filePath: string, _isDir: boolean) => {
-			const platform = getPlatform()
-			const name = filePath.split("/").pop() ?? filePath
-			const confirmed = await platform.dialog.showConfirm(
-				"Delete",
-				`Are you sure you want to delete "${name}"?`,
-			)
-			if (!confirmed) return
-			closeTabsByPath(filePath)
-			try {
-				await deleteFile(filePath)
-			} catch (error) {
-				await reportAppError({
-					operation: "delete-file-entry",
-					source: "file-explorer",
-					cause: error,
-					userMessage: `"${name}" could not be deleted.`,
-					context: { filePath },
-				})
-			}
-		},
-		[deleteFile, closeTabsByPath],
-	)
-
-	const handleDuplicate = useCallback(
-		async (filePath: string) => {
-			try {
-				const newPath = await duplicateFile(filePath)
-				openTab(newPath)
-			} catch (error) {
-				await reportAppError({
-					operation: "duplicate-file",
-					source: "file-explorer",
-					cause: error,
-					userMessage: "The note could not be duplicated.",
-					context: { filePath },
-				})
-			}
-		},
-		[duplicateFile, openTab],
-	)
-
-	const handleOpenFile = useCallback(
-		(filePath: string, request: FileOpenRequest) => {
-			if (request.mode === "new-tab") {
-				openTab(filePath)
-				return
-			}
-			openTab(filePath, { reuseActive: true })
-		},
-		[openTab],
-	)
-
-	const handleReveal = useCallback(async (filePath: string) => {
-		const platform = getPlatform()
-		await platform.dialog.revealFolder(filePath)
-	}, [])
-
-	const handleCopyPath = useCallback(
-		(filePath: string, kind: "relative" | "absolute") => {
-			if (kind === "relative" && vaultPath) {
-				navigator.clipboard.writeText(filePath.replace(`${vaultPath}/`, ""))
-			} else {
-				navigator.clipboard.writeText(filePath)
-			}
-			void sendCoreNotification({ title: "Path copied", body: filePath })
-		},
-		[vaultPath],
-	)
-
-	const handleStartRename = useCallback(
-		(path: string) => dispatchUi({ type: "startRename", path }),
-		[],
-	)
-
-	const handleViewHistory = useCallback(
-		(path: string) => dispatchUi({ type: "openHistory", path }),
-		[],
-	)
-
-	const handleHistoryOpenChange = useCallback((open: boolean) => {
-		if (!open) dispatchUi({ type: "closeHistory" })
-	}, [])
-
-	const handleOpenContextMenu = useCallback(
-		(node: FileTreeNode) => {
-			const element = document.getElementById(getFileTreeItemId(node.path))
-			const position = getKeyboardMenuPosition(element)
-			element?.dispatchEvent(
-				new MouseEvent("contextmenu", {
-					bubbles: true,
-					cancelable: true,
-					button: 2,
-					clientX: position.x,
-					clientY: position.y,
+					userMessage: "The file or folder could not be moved.",
 				}),
-			)
-			treeScrollRef.current?.focus({ preventScroll: true })
-		},
-		[treeScrollRef],
-	)
+		}
+	}, [ensureExpanded, focusPath, showMenu, toggle, treeScrollRef, vaultPath])
 
-	const handleDropError = useCallback(async (error: unknown) => {
-		await reportAppError({
-			operation: "move-file-entry",
-			source: "file-explorer",
-			cause: error,
-			userMessage: "The file or folder could not be moved.",
-		})
-	}, [])
-
-	const handleRootContextMenu = useCallback(
-		(event: ReactMouseEvent<HTMLDivElement>) => {
-			if (!vaultPath || !hasNativeMenu()) return
-			if (isFileTreeItemContextTarget(event.target)) return
-			event.preventDefault()
-			const items = buildRootContextMenuItems(vaultPath, {
-				createFile: (parentPath) => handleNewFile(parentPath ?? vaultPath),
-				createFolder: (parentPath) => handleNewFolder(parentPath ?? vaultPath),
-			})
-			nativeMenu.showContextMenu({ items, position: { x: event.clientX, y: event.clientY } })
-		},
-		[handleNewFile, handleNewFolder, vaultPath],
-	)
-
-	return {
-		uiState,
-		handleCancelCreate,
-		handleCancelRename,
-		handleConfirmCreate,
-		handleConfirmRename,
-		handleCopyPath,
-		handleDelete,
-		handleDropError,
-		handleDuplicate,
-		handleHistoryOpenChange,
-		handleNewFile,
-		handleNewFolder,
-		handleOpenContextMenu,
-		handleOpenFile,
-		handleReveal,
-		handleRootContextMenu,
-		handleStartRename,
-		handleViewHistory,
-	}
+	return { uiState, actions }
 }
 
 function fileSidebarUiReducer(
@@ -292,21 +192,12 @@ function fileSidebarUiReducer(
 ): FileSidebarUiState {
 	switch (action.type) {
 		case "startCreate":
-			return {
-				...state,
-				renamingPath: null,
-				creatingIn: action.parentPath,
-				creatingType: action.createType,
-			}
+			return { renamingPath: null, creatingIn: action.parentPath, creatingType: action.createType }
 		case "cancelCreate":
 			return { ...state, creatingIn: null, creatingType: null }
 		case "startRename":
-			return { ...state, creatingIn: null, creatingType: null, renamingPath: action.path }
+			return { creatingIn: null, creatingType: null, renamingPath: action.path }
 		case "cancelRename":
 			return { ...state, renamingPath: null }
-		case "openHistory":
-			return { ...state, historyFilePath: action.path }
-		case "closeHistory":
-			return { ...state, historyFilePath: null }
 	}
 }

@@ -46,13 +46,15 @@ describe("Sync settings overview", () => {
 
 		render(<SyncSection />)
 
-		expect(screen.getByText("Team Notes")).toBeInTheDocument()
+		expect(screen.getAllByText("Team Notes").length).toBeGreaterThan(0)
 		expect(screen.queryByText("remote-vault-id")).not.toBeInTheDocument()
-		expect(screen.getByText("Synced")).toBeInTheDocument()
-		expect(screen.getByText("Just now")).toBeInTheDocument()
-		expect(screen.getByText("2 devices")).toBeInTheDocument()
-		expect(screen.getByText("2 notes")).toBeInTheDocument()
-		expect(screen.getByText("owner access")).toBeInTheDocument()
+		expect(screen.getByText("Team Notes is up to date")).toBeInTheDocument()
+		expect(screen.getByText("Synced just now")).toBeInTheDocument()
+		expect(
+			screen.getByText("Devices", { selector: ".settings-sync-stats span" }).previousElementSibling,
+		).toHaveTextContent("2")
+		expect(screen.getByText("Notes synced").previousElementSibling).toHaveTextContent("2")
+		expect(screen.getByText("owner")).toBeInTheDocument()
 	})
 
 	it("fetches devices only for an enabled linked overview with an empty device store", async () => {

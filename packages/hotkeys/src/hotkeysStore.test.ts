@@ -1,10 +1,24 @@
+import { type CommandEntry, commandRegistry } from "@cortex/commands"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useHotkeysStore } from "./hotkeysStore"
 
+function command(
+	id: string,
+	category: string,
+	defaultKeys: string,
+	scope: "global" | "editor" = "global",
+	execute: CommandEntry["execute"] = () => {},
+): CommandEntry {
+	return {
+		id,
+		label: id === "plugin:command" ? "Plugin Command" : `${category} Command`,
+		category,
+		hotkey: { defaultKeys, scope },
+		execute,
+	}
+}
+
 const platform = {
-	storage: {
-		getVaultConfigDir: vi.fn(async () => "/vault/.cortex"),
-	},
 	fs: {
 		readFile: vi.fn(async () =>
 			JSON.stringify({
@@ -26,10 +40,9 @@ beforeEach(() => {
 	useHotkeysStore.setState({
 		bindings: [],
 		parsedBindings: [],
-		handlers: {},
 		overrides: {},
 	})
-	platform.storage.getVaultConfigDir.mockClear()
+	commandRegistry.clear()
 	platform.fs.readFile.mockClear()
 	platform.fs.writeFile.mockClear()
 })
@@ -38,15 +51,7 @@ describe("useHotkeysStore", () => {
 	it("applies loaded overrides to command bindings added later", async () => {
 		await useHotkeysStore.getState().loadOverrides("/vault")
 
-		useHotkeysStore.getState().addBinding({
-			id: "plugin:command",
-			label: "Plugin Command",
-			category: "Plugin",
-			scope: "global",
-			defaultKeys: "mod+p",
-			keys: "mod+p",
-			enabled: true,
-		})
+		useHotkeysStore.getState().syncCommands([command("plugin:command", "Plugin", "mod+p")])
 
 		expect(
 			useHotkeysStore.getState().bindings.find((binding) => binding.id === "plugin:command"),
@@ -64,15 +69,7 @@ describe("useHotkeysStore", () => {
 	it("preserves overrides for commands that are not currently registered", async () => {
 		await useHotkeysStore.getState().loadOverrides("/vault")
 
-		useHotkeysStore.getState().addBinding({
-			id: "app.command",
-			label: "App Command",
-			category: "App",
-			scope: "global",
-			defaultKeys: "mod+a",
-			keys: "mod+a",
-			enabled: true,
-		})
+		useHotkeysStore.getState().syncCommands([command("app.command", "App", "mod+a")])
 		useHotkeysStore.getState().updateBinding("app.command", "mod+shift+a")
 		await useHotkeysStore.getState().saveOverrides("/vault")
 
@@ -98,26 +95,12 @@ describe("useHotkeysStore", () => {
 	it("dispatches only global scoped enabled bindings", () => {
 		const globalHandler = vi.fn()
 		const editorHandler = vi.fn()
-		useHotkeysStore.getState().addBinding({
-			id: "app.command",
-			label: "App Command",
-			category: "App",
-			scope: "global",
-			defaultKeys: "mod+a",
-			keys: "mod+a",
-			enabled: true,
-		})
-		useHotkeysStore.getState().addBinding({
-			id: "editor.command",
-			label: "Editor Command",
-			category: "Editor",
-			scope: "editor",
-			defaultKeys: "mod+a",
-			keys: "mod+a",
-			enabled: true,
-		})
-		useHotkeysStore.getState().registerHandler("app.command", globalHandler)
-		useHotkeysStore.getState().registerHandler("editor.command", editorHandler)
+		const commands = [
+			command("editor.command", "Editor", "mod+a", "editor", editorHandler),
+			command("app.command", "App", "mod+a", "global", globalHandler),
+		]
+		commandRegistry.registerMany(commands)
+		useHotkeysStore.getState().syncCommands(commands)
 
 		const event = {
 			key: "a",

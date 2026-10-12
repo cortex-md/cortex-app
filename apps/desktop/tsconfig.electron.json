@@ -1,0 +1,26 @@
+{
+	"compilerOptions": {
+		"composite": true,
+		"target": "ES2022",
+		"lib": ["ES2023"],
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"strict": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"noEmit": true,
+		"types": ["node"]
+	},
+	"include": ["electron"],
+	"references": [
+		{ "path": "../../packages/collab" },
+		{ "path": "../../packages/platform" },
+		{ "path": "../../packages/sync-api" },
+		{ "path": "../../packages/sync-engine" },
+		{ "path": "../../packages/tasks" }
+	]
+}

@@ -4,6 +4,14 @@
 
 - Keep `src/routes/index.tsx` limited to route metadata and page composition.
 - Landing content belongs in `src/content`, site URLs in `src/config`, and business logic in `src/server` or `src/lib`.
+- Cortex Sync requests go through `@cortex/sync-api` (`request*` auth helpers, defensive mappers,
+  `SyncError`). `src/server/sync/api.ts` adapts the cookie session into a `TokenProvider`; keep
+  tokens in HttpOnly cookies and never add a second HTTP client.
+- Passwords never reach the web server for KDF v1 accounts: `features/auth/AuthPage.tsx` calls the
+  `prelogin` server fn, derives the Argon2id + HKDF `authKey` in the browser with
+  `src/lib/accountKeys.ts` (`hash-wasm` + WebCrypto, byte-identical to desktop), and signup creates
+  the X25519 identity there (no recovery key on web). KDF v0 accounts still send the raw password
+  and are upgraded by the desktop app.
 - Landing sections live one-per-file in `src/features/landing/sections`; shared landing primitives
   live in `src/features/landing/components`.
 - Import shared UI primitives by subpath, such as `@cortex/ui/button`. Do not import the package barrel.

@@ -5,3 +5,4 @@ export type Capabilities =
 	| "notifications:icons"
 	| "notifications:sounds"
 	| "notifications:actions"
+	| "notifications:schedule"

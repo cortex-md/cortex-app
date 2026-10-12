@@ -3,6 +3,7 @@ import type { CodeBlockEmbedDefinition } from "../codeBlockEmbeds"
 import type { EditorRuntimeModules } from "../types"
 import { createLivePreviewBlockField } from "./blockState"
 import { createLivePreviewEffects } from "./effects"
+import { createMentionChipsPlugin } from "./mentionChips"
 import { createVisibleDecorationsPlugin } from "./visibleDecorations"
 import { createLivePreviewWidgets } from "./widgets"
 
@@ -36,6 +37,7 @@ export function livePreviewExtension(
 			codeBlockEmbeds,
 			currentFilePath,
 		),
+		createMentionChipsPlugin(runtime),
 	]
 }
 

@@ -25,6 +25,8 @@ const propertyDefinitionSchema = z.object({
 	options: z.array(propertyOptionSchema).optional(),
 	defaultOptionId: z.string().uuid().optional(),
 	optionSort: z.enum(["manual", "alphabetical"]).optional(),
+	multiple: z.boolean().optional(),
+	hideWhenEmpty: z.boolean().optional(),
 })
 
 const vaultSchemaSchema = z.object({

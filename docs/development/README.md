@@ -5,7 +5,7 @@ desktop app and the shared packages used by desktop.
 
 ## Guides
 
-- [Desktop development](desktop.md): how the Tauri desktop app is organized and how to run it.
+- [Desktop development](desktop.md): how the Electron desktop app is organized and how to run it.
 - [Code quality](code-quality.md): checks, tests, React Doctor, and CI expectations.
 - [Architecture practices](architecture-practices.md): package ownership, platform boundaries, and
   common implementation rules.

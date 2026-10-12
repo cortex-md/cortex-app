@@ -1,6 +1,16 @@
 import { useSyncStore } from "@cortex/core"
 import type { SyncPreferences } from "@cortex/platform"
 import { Switch } from "@cortex/ui"
+import {
+	BookmarkIcon,
+	ImageIcon,
+	KeyboardIcon,
+	type LucideIcon,
+	PaletteIcon,
+	PanelsTopLeftIcon,
+	PuzzleIcon,
+	SettingsIcon,
+} from "lucide-react"
 import { ExcludedPathsSettings } from "../ExcludedPathsSettings"
 import { SettingsField, SettingsGroup, SettingsPage, SettingsSection } from "../SettingsPrimitives"
 import { SignedOutNotice } from "./SignedOutNotice"
@@ -9,28 +19,45 @@ import { SyncDisabledNotice } from "./SyncDisabledNotice"
 interface SyncPreferenceField {
 	key: keyof Omit<SyncPreferences, "excludedPaths">
 	label: string
+	icon: LucideIcon
 }
 
-const syncPreferenceFields: SyncPreferenceField[] = [
-	{ key: "ignoreImages", label: "Ignore images" },
-	{ key: "syncSettings", label: "App settings" },
-	{ key: "syncHotkeys", label: "Keyboard shortcuts" },
-	{ key: "syncWorkspace", label: "Workspace layout" },
-	{ key: "syncBookmarks", label: "Bookmarks" },
-	{ key: "syncPluginMetadata", label: "Plugin configuration" },
-	{ key: "syncThemeMetadata", label: "Theme configuration" },
+const contentPreferenceFields: SyncPreferenceField[] = [
+	{ key: "ignoreImages", label: "Ignore images", icon: ImageIcon },
 ]
 
-function SyncPreferencesSection() {
+const appStatePreferenceFields: SyncPreferenceField[] = [
+	{ key: "syncSettings", label: "App settings", icon: SettingsIcon },
+	{ key: "syncHotkeys", label: "Keyboard shortcuts", icon: KeyboardIcon },
+	{ key: "syncWorkspace", label: "Workspace layout", icon: PanelsTopLeftIcon },
+	{ key: "syncBookmarks", label: "Bookmarks", icon: BookmarkIcon },
+	{ key: "syncPluginMetadata", label: "Plugin configuration", icon: PuzzleIcon },
+	{ key: "syncThemeMetadata", label: "Theme configuration", icon: PaletteIcon },
+]
+
+interface SyncPreferenceGroupProps {
+	title: string
+	footer?: string
+	fields: SyncPreferenceField[]
+}
+
+function SyncPreferenceGroup({ title, footer, fields }: SyncPreferenceGroupProps) {
 	const syncPreferences = useSyncStore((state) => state.syncPreferences)
 	const updateSyncPreference = useSyncStore((state) => state.updateSyncPreference)
 	return (
-		<SettingsSection title="Content" description="Choose what sync should include for this vault.">
+		<SettingsSection title={title} footer={footer}>
 			<SettingsGroup>
-				{syncPreferenceFields.map(({ key, label }) => (
-					<SettingsField key={key} label={label} htmlFor={`sync-preference-${key}`}>
+				{fields.map(({ key, label, icon: Icon }) => (
+					<SettingsField
+						key={key}
+						fieldId={`sync-preferences.${key}`}
+						icon={<Icon />}
+						label={label}
+						htmlFor={`sync-preference-${key}`}
+					>
 						<Switch
 							id={`sync-preference-${key}`}
+							size="sm"
 							checked={syncPreferences[key]}
 							onCheckedChange={(checked) => void updateSyncPreference(key, checked)}
 						/>
@@ -38,6 +65,19 @@ function SyncPreferencesSection() {
 				))}
 			</SettingsGroup>
 		</SettingsSection>
+	)
+}
+
+function SyncPreferencesSection() {
+	return (
+		<>
+			<SyncPreferenceGroup
+				title="Content"
+				footer="Turn on to keep large attachments on this device only."
+				fields={contentPreferenceFields}
+			/>
+			<SyncPreferenceGroup title="App state" fields={appStatePreferenceFields} />
+		</>
 	)
 }
 

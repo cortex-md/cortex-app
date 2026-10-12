@@ -1,5 +1,5 @@
 import { locateFrontmatter } from "@cortex/properties"
-import { type ParsedCallout, parseCallout, parseCalloutMarker } from "@cortex/renderer"
+import { type ParsedCallout, parseCallout, parseCalloutMarker } from "@cortex/renderer/callouts"
 import { findBlockMath, type MarkdownMathToken } from "@cortex/renderer/math"
 import type { EditorRuntimeModules, EditorRuntimeState, EditorSelectionState } from "../types"
 

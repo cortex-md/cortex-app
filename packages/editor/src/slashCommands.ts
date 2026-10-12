@@ -35,6 +35,8 @@ export interface SlashCommandExtensionOptions {
 	onStateChange: (state: SlashCommandMenuState | null) => void
 	onExecuteCommand: (commandId: string, view: EditorRuntimeView) => void
 	itemLimit?: number
+	trigger?: string
+	insertText?: (item: SlashCommandItem) => string
 }
 
 interface SlashCommandMatch {
@@ -70,9 +72,17 @@ function normalizeSearchText(value: string): string {
 		.trim()
 }
 
+const TRIGGER_SPECIAL_CHARACTERS = /[.*+?^${}()|[\]\\]/g
+
+function createTriggerPattern(trigger: string): RegExp {
+	const escaped = trigger.replace(TRIGGER_SPECIAL_CHARACTERS, "\\$&")
+	return new RegExp(`(?:^|\\s)${escaped}([^\\s${escaped}\\[\\]]*)$`)
+}
+
 function getSlashMatch(
 	view: EditorRuntimeView,
 	runtime: EditorRuntimeModules,
+	triggerPattern: RegExp,
 ): SlashCommandMatch | null {
 	const { state } = view
 	const selection = state.selection.main
@@ -81,7 +91,7 @@ function getSlashMatch(
 
 	const line = state.doc.lineAt(selection.head)
 	const textBeforeCursor = state.sliceDoc(line.from, selection.head)
-	const match = /(?:^|\s)\/([^\s/]*)$/.exec(textBeforeCursor)
+	const match = triggerPattern.exec(textBeforeCursor)
 	if (!match) return null
 	const query = match[1]
 	if (query.length > MAX_QUERY_LENGTH) return null
@@ -192,6 +202,8 @@ export function slashCommandExtension(
 	runtime: EditorRuntimeModules,
 	options: SlashCommandExtensionOptions,
 ): EditorRuntimeExtension {
+	const triggerPattern = createTriggerPattern(options.trigger ?? "/")
+
 	class SlashCommandViewPlugin {
 		private session: SlashCommandSession | null = null
 		private emittedKey = sessionKey(null)
@@ -236,11 +248,12 @@ export function slashCommandExtension(
 			const item = session?.items.find((candidate) => candidate.id === commandId)
 			if (!session || !item) return false
 
+			const insert = options.insertText?.(item) ?? ""
 			this.view.dispatch({
-				changes: { from: session.match.from, to: session.match.to, insert: "" },
-				selection: { anchor: session.match.from },
+				changes: { from: session.match.from, to: session.match.to, insert },
+				selection: { anchor: session.match.from + insert.length },
 			})
-			options.onExecuteCommand(item.id, this.view)
+			if (!options.insertText) options.onExecuteCommand(item.id, this.view)
 			this.close()
 			this.view.focus()
 			return true
@@ -259,7 +272,7 @@ export function slashCommandExtension(
 				return
 			}
 
-			const match = getSlashMatch(this.view, runtime)
+			const match = getSlashMatch(this.view, runtime, triggerPattern)
 			if (!match) {
 				this.close()
 				return

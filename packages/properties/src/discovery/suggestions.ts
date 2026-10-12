@@ -11,6 +11,20 @@ import {
 interface IndexedProperty {
 	definition: PropertyDefinition
 	usage: number
+	values: Map<string, number>
+}
+
+export interface PropertyValueUsage {
+	notes: number
+	values: Record<string, number>
+}
+
+function countValues(target: Map<string, number>, value: unknown): void {
+	for (const item of Array.isArray(value) ? value : [value]) {
+		if (typeof item !== "string" && typeof item !== "number" && typeof item !== "boolean") continue
+		const key = String(item)
+		target.set(key, (target.get(key) ?? 0) + 1)
+	}
 }
 
 interface SuggestionCacheEntry {
@@ -63,7 +77,7 @@ async function buildIndex(vaultPath: string): Promise<IndexedProperty[]> {
 	const indexed = new Map<string, IndexedProperty>(
 		schema.properties.map((definition) => [
 			definition.key.toLocaleLowerCase(),
-			{ definition, usage: 0 },
+			{ definition, usage: 0, values: new Map<string, number>() },
 		]),
 	)
 	const notePropertyEntries = await mapWithConcurrency(
@@ -85,12 +99,16 @@ async function buildIndex(vaultPath: string): Promise<IndexedProperty[]> {
 			const existing = indexed.get(normalizedKey)
 			if (existing) {
 				existing.usage++
+				countValues(existing.values, value)
 				continue
 			}
 			if (!isObservablePropertyValue(value)) continue
+			const values = new Map<string, number>()
+			countValues(values, value)
 			indexed.set(normalizedKey, {
 				definition: createObservedPropertyDefinition(key, value),
 				usage: 1,
+				values,
 			})
 		}
 	}
@@ -165,4 +183,17 @@ export async function suggestProperties(
 				left.definition.name.localeCompare(right.definition.name),
 		)
 		.map((entry) => entry.definition)
+}
+
+export async function getPropertyValueUsage(
+	vaultPath: string,
+	key: string,
+): Promise<PropertyValueUsage> {
+	const indexed = (await getSuggestionIndex(vaultPath)).find(
+		(entry) => entry.definition.key.toLocaleLowerCase() === key.toLocaleLowerCase(),
+	)
+	return {
+		notes: indexed?.usage ?? 0,
+		values: indexed ? Object.fromEntries(indexed.values) : {},
+	}
 }

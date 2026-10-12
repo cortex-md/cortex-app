@@ -2,32 +2,19 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("@cortex/core", () => ({
-	getNotePathPresentation: (filePath: string, vaultPath?: string) => {
-		const normalizedFilePath = filePath.replaceAll("\\", "/")
-		const normalizedVaultPath = vaultPath?.replaceAll("\\", "/").replace(/\/+$/, "")
-		const vaultPrefix = normalizedVaultPath ? `${normalizedVaultPath}/` : null
-		const relativePath =
-			vaultPrefix && normalizedFilePath.startsWith(vaultPrefix)
-				? normalizedFilePath.slice(vaultPrefix.length)
-				: normalizedFilePath
-		const segments = relativePath.split("/").filter(Boolean)
-		const fileName = segments.at(-1) ?? ""
-		const title = fileName.replace(/\.md$/i, "")
-		if (segments.length > 0) segments[segments.length - 1] = title
-		return {
-			title,
-			segments: segments.map((label, index) => ({
-				id: segments.slice(0, index + 1).join("/"),
-				label,
-			})),
-		}
-	},
+vi.mock("@cortex/core", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@cortex/core")>()),
+	joinPath: (parentPath: string, name: string) => `${parentPath}/${name}`,
+	getFolderNoteCounts: () => [],
+	selectSortedTags: () => [],
+	useTagsStore: (selector: (state: unknown) => unknown) =>
+		selector({ tagIndex: {}, tagColors: {} }),
 	useVaultStore: vi.fn(),
-	useWorkspaceStore: vi.fn(),
+	useWorkspaceStore: Object.assign(vi.fn(), { getState: () => ({ openTab }) }),
 }))
 
-vi.mock("@cortex/search", () => ({
+vi.mock("@cortex/search", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@cortex/search")>()),
 	useSearchStore: vi.fn(),
 }))
 
@@ -35,9 +22,9 @@ import { useVaultStore, useWorkspaceStore } from "@cortex/core"
 import { useSearchStore } from "@cortex/search"
 import { SearchSidebar } from "../../../features/search/SearchSidebar"
 
-const openTab = vi.fn()
-const search = vi.fn()
-const setQuery = vi.fn()
+const { openTab } = vi.hoisted(() => ({ openTab: vi.fn() }))
+const runQuery = vi.fn()
+const setNoteHighlight = vi.fn()
 const vault = {
 	path: "/vault",
 	name: "Test Vault",
@@ -50,7 +37,8 @@ interface SearchResultFixture {
 	folder: string
 	score: number
 	matchedFields: string[]
-	snippet: string
+	matchCount: number
+	snippets: Array<{ text: string; ranges: Array<readonly [number, number]> }>
 }
 
 function setupSearchSidebar({
@@ -62,7 +50,7 @@ function setupSearchSidebar({
 	results?: SearchResultFixture[]
 	indexing?: boolean
 } = {}) {
-	const vaultState = { vault }
+	const vaultState = { vault, files: [] }
 	vi.mocked(useVaultStore).mockImplementation(((
 		selector?: (state: typeof vaultState) => unknown,
 	) => (selector ? selector(vaultState) : vaultState)) as never)
@@ -75,13 +63,16 @@ function setupSearchSidebar({
 	const searchState = {
 		query,
 		results,
-		search,
-		setQuery,
+		runQuery,
 		indexing,
+		recentQueries: [],
+		setNoteHighlight,
+		addRecentQuery: vi.fn(),
 	}
 	vi.mocked(useSearchStore).mockImplementation(((
 		selector?: (state: typeof searchState) => unknown,
 	) => (selector ? selector(searchState) : searchState)) as never)
+	Object.assign(useSearchStore, { getState: () => searchState })
 }
 
 afterEach(() => {
@@ -100,7 +91,8 @@ describe("SearchSidebar", () => {
 					folder: "Projects",
 					score: 1,
 					matchedFields: ["content"],
-					snippet: "Draft plan for the alpha launch",
+					matchCount: 1,
+					snippets: [{ text: "Draft plan for the alpha launch", ranges: [[6, 10]] }],
 				},
 			],
 		})
@@ -110,8 +102,13 @@ describe("SearchSidebar", () => {
 		expect(screen.getByText("Projects")).toBeInTheDocument()
 		expect(document.querySelector(".sidebar-search-mark")).toHaveTextContent("plan")
 
-		await userEvent.click(screen.getByRole("button", { name: "Open Plan" }))
+		await userEvent.click(screen.getByRole("button", { name: /Draft plan/ }))
 
+		expect(setNoteHighlight).toHaveBeenCalledWith({
+			filePath: "/vault/Projects/Plan.md",
+			query: "plan",
+			matchIndex: 0,
+		})
 		expect(openTab).toHaveBeenCalledWith("/vault/Projects/Plan.md")
 	})
 
@@ -124,11 +121,7 @@ describe("SearchSidebar", () => {
 		})
 
 		await waitFor(() =>
-			expect(search).toHaveBeenLastCalledWith("roadmap", {
-				tags: ["work"],
-				folder: "Projects",
-				files: ["Plan"],
-			}),
+			expect(runQuery).toHaveBeenLastCalledWith("roadmap tag:work path:Projects file:Plan"),
 		)
 	})
 })

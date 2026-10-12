@@ -2,6 +2,13 @@
 
 ## Performance
 
+- The root `@cortex/renderer` barrel is the light API (registries, callouts, URL policy, types).
+  The unified pipeline lives only behind `@cortex/renderer/pipeline` and must be loaded with a
+  dynamic `import()` from app code so it stays out of the main chunk. Callout metadata is also
+  available from `@cortex/renderer/callouts`.
+- Registry getters return priority-sorted arrays cached per registry version; treat them as
+  read-only. `getMarkdownTextTransforms` returns early when no inline or semantic registration
+  exists, and Live Preview skips the pass via `hasMarkdownTextRegistrations()`.
 - Import callout helpers from their direct modules instead of the `callouts` barrel in renderer
   internals so pipeline and plugin chunks do not pull unrelated exports.
 - Keep callout definition lookups indexed by type and alias. Avoid repeated linear scans in renderer
@@ -36,3 +43,13 @@
   available so Reading View can map checkbox toggles back to Markdown.
 - React sinks should unwrap renderer output with `sanitizeRenderedMarkdownHtml(...)` instead of
   treating arbitrary strings as trusted HTML.
+
+## Frontmatter
+
+- Frontmatter fields are parsed through `@cortex/properties/frontmatter`; do not add a second YAML
+  frontmatter parser here.
+
+## Mentions
+
+- `rehypeWikiLinks` renders `@[[Name]]` as `<span data-mention class="mention">` instead of a wiki
+  link; style it under `.markdown-surface span[data-mention]`.

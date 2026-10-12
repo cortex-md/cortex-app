@@ -3,272 +3,36 @@ import type {
 	ConflictResolution,
 	DeletedFileInfo,
 	InitialSyncProgressEvent,
+	KeyTrustIssue,
 	SyncEngineState,
 	SyncPreferences,
 	VaultEncryptionStatus,
+	VaultKeyRequestResult,
 	VersionInfo,
 } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
+import {
+	createDefaultSyncPreferences,
+	normalizeSyncPathPattern,
+	normalizeSyncPreferences,
+	shouldIgnoreSyncPath,
+} from "@cortex/platform/sync-rules"
+import { getVaultFilePath, VAULT_FILES } from "@cortex/platform/utils"
 import { notifyVaultSchemaChanged } from "@cortex/properties"
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
+import { useAccessStore } from "./accessStore"
 import { useSubscriptionStore } from "./subscriptionStore"
 import { useSyncLogStore } from "./syncLogStore"
 import { getCurrentVaultPath, refreshCurrentVaultFiles } from "./vaultRuntime"
 
-const syncImageExtensions = new Set([
-	"png",
-	"jpg",
-	"jpeg",
-	"gif",
-	"webp",
-	"avif",
-	"bmp",
-	"tif",
-	"tiff",
-	"heic",
-	"heif",
-	"ico",
-	"svg",
-])
-
-interface SyncPathPattern {
-	negated: boolean
-	anchored: boolean
-	directoryOnly: boolean
-	hasSlash: boolean
-	segments: string[]
-}
-
-export function createDefaultSyncPreferences(): SyncPreferences {
-	return {
-		syncSettings: false,
-		syncHotkeys: false,
-		syncWorkspace: false,
-		syncPluginMetadata: false,
-		syncThemeMetadata: false,
-		syncBookmarks: false,
-		ignoreImages: false,
-		excludedPaths: [],
-	}
-}
-
-export function isSyncImagePath(relativePath: string): boolean {
-	const normalized = relativePath.replaceAll("\\", "/")
-	const filename = normalized.split("/").at(-1) ?? normalized
-	const dotIndex = filename.lastIndexOf(".")
-	if (dotIndex < 0 || dotIndex === filename.length - 1) return false
-	return syncImageExtensions.has(filename.slice(dotIndex + 1).toLowerCase())
-}
-
-export function normalizeSyncPathPattern(pattern: string): string {
-	let normalized = pattern.replaceAll("\\", "/").trim()
-	const negated = normalized.startsWith("!")
-	if (negated) {
-		normalized = normalized.slice(1).trim()
-	}
-	normalized = normalized.replace(/^\.\/+/, "").replace(/\/+/g, "/")
-	if (!normalized || normalized === "/") return ""
-	return `${negated ? "!" : ""}${normalized}`
-}
-
-function parseSyncPathPattern(pattern: string): SyncPathPattern | null {
-	const normalized = normalizeSyncPathPattern(pattern)
-	if (!normalized || normalized.startsWith("#")) return null
-
-	const negated = normalized.startsWith("!")
-	let value = negated ? normalized.slice(1) : normalized
-	const anchored = value.startsWith("/")
-	value = value.replace(/^\/+/, "")
-	const directoryOnly = value.endsWith("/")
-	value = value.replace(/\/+$/, "")
-	if (!value) return null
-
-	return {
-		negated,
-		anchored,
-		directoryOnly,
-		hasSlash: value.includes("/"),
-		segments: value.split("/").filter(Boolean),
-	}
-}
-
-function splitSyncPathSegments(path: string): string[] {
-	const normalized = path.replaceAll("\\", "/").replace(/^\/+/, "").replace(/\/+$/, "")
-	if (!normalized) return []
-	return normalized.split("/").filter(Boolean)
-}
-
-function segmentMatchesPattern(pattern: string, segment: string): boolean {
-	const patternChars = Array.from(pattern)
-	const segmentChars = Array.from(segment)
-	const memo = new Map<string, boolean>()
-
-	const matches = (patternIndex: number, segmentIndex: number): boolean => {
-		const key = `${patternIndex}:${segmentIndex}`
-		const cached = memo.get(key)
-		if (cached !== undefined) return cached
-
-		let result = false
-		if (patternIndex === patternChars.length) {
-			result = segmentIndex === segmentChars.length
-		} else if (patternChars[patternIndex] === "*") {
-			result =
-				matches(patternIndex + 1, segmentIndex) ||
-				(segmentIndex < segmentChars.length && matches(patternIndex, segmentIndex + 1))
-		} else if (patternChars[patternIndex] === "?") {
-			result = segmentIndex < segmentChars.length && matches(patternIndex + 1, segmentIndex + 1)
-		} else {
-			result =
-				segmentIndex < segmentChars.length &&
-				patternChars[patternIndex] === segmentChars[segmentIndex] &&
-				matches(patternIndex + 1, segmentIndex + 1)
-		}
-
-		memo.set(key, result)
-		return result
-	}
-
-	return matches(0, 0)
-}
-
-function syncPathSegmentsMatch(
-	patternSegments: string[],
-	pathSegments: string[],
-	startIndex: number,
-	allowDescendants: boolean,
-): boolean {
-	const memo = new Map<string, boolean>()
-
-	const matches = (patternIndex: number, pathIndex: number): boolean => {
-		const key = `${patternIndex}:${pathIndex}`
-		const cached = memo.get(key)
-		if (cached !== undefined) return cached
-
-		let result = false
-		if (patternIndex === patternSegments.length) {
-			result = allowDescendants || pathIndex === pathSegments.length
-		} else if (patternSegments[patternIndex] === "**") {
-			for (let nextPathIndex = pathIndex; nextPathIndex <= pathSegments.length; nextPathIndex++) {
-				if (matches(patternIndex + 1, nextPathIndex)) {
-					result = true
-					break
-				}
-			}
-		} else if (pathIndex < pathSegments.length) {
-			result =
-				segmentMatchesPattern(patternSegments[patternIndex], pathSegments[pathIndex]) &&
-				matches(patternIndex + 1, pathIndex + 1)
-		}
-
-		memo.set(key, result)
-		return result
-	}
-
-	return matches(0, startIndex)
-}
-
-export function syncPathPatternMatches(relativePath: string, pattern: string): boolean {
-	const parsed = parseSyncPathPattern(pattern)
-	if (!parsed) return false
-
-	const pathSegments = splitSyncPathSegments(relativePath)
-	if (pathSegments.length === 0) return false
-
-	const allowDescendants = parsed.directoryOnly || !parsed.hasSlash
-	if (parsed.anchored || parsed.hasSlash) {
-		return syncPathSegmentsMatch(parsed.segments, pathSegments, 0, allowDescendants)
-	}
-
-	for (let startIndex = 0; startIndex < pathSegments.length; startIndex++) {
-		if (syncPathSegmentsMatch(parsed.segments, pathSegments, startIndex, allowDescendants)) {
-			return true
-		}
-	}
-
-	return false
-}
-
-function shouldIgnoreByExcludedPatterns(relativePath: string, patterns: string[]): boolean {
-	let ignored = false
-	for (const pattern of patterns) {
-		const parsed = parseSyncPathPattern(pattern)
-		if (parsed && syncPathPatternMatches(relativePath, pattern)) {
-			ignored = !parsed.negated
-		}
-	}
-	return ignored
-}
-
-export function normalizeSyncPreferences(preferences: Partial<SyncPreferences>): SyncPreferences {
-	const excludedPaths = Array.isArray(preferences.excludedPaths)
-		? Array.from(
-				new Set(
-					preferences.excludedPaths.flatMap((pattern) => {
-						const normalizedPattern = normalizeSyncPathPattern(pattern)
-						return normalizedPattern ? [normalizedPattern] : []
-					}),
-				),
-			)
-		: []
-
-	return {
-		...createDefaultSyncPreferences(),
-		syncSettings: preferences.syncSettings ?? false,
-		syncHotkeys: preferences.syncHotkeys ?? false,
-		syncWorkspace: preferences.syncWorkspace ?? false,
-		syncPluginMetadata: preferences.syncPluginMetadata ?? false,
-		syncThemeMetadata: preferences.syncThemeMetadata ?? false,
-		syncBookmarks: preferences.syncBookmarks ?? false,
-		ignoreImages: preferences.ignoreImages ?? false,
-		excludedPaths,
-	}
-}
-
-export function shouldIgnoreSyncPath(relativePath: string, preferences: SyncPreferences): boolean {
-	const normalized = relativePath.replaceAll("\\", "/")
-	const filename = normalized.split("/").at(-1) ?? normalized
-	if (filename === ".DS_Store" || filename === "Thumbs.db" || filename === "desktop.ini") {
-		return true
-	}
-
-	const isCortex =
-		normalized.includes("/.cortex/") ||
-		normalized.endsWith("/.cortex") ||
-		normalized.startsWith(".cortex/") ||
-		normalized === ".cortex"
-
-	if (!isCortex) {
-		if (shouldIgnoreByExcludedPatterns(normalized, preferences.excludedPaths)) return true
-		return preferences.ignoreImages && isSyncImagePath(normalized)
-	}
-
-	const cortexFile = normalized.includes("/.cortex/")
-		? (normalized.split("/.cortex/").at(-1) ?? normalized)
-		: normalized.startsWith(".cortex/")
-			? normalized.slice(".cortex/".length)
-			: normalized
-
-	if (cortexFile === "schema/properties.json") return false
-
-	if (
-		cortexFile === "sync-preferences.json" ||
-		cortexFile === "sync.db" ||
-		cortexFile === "sync.db-wal" ||
-		cortexFile === "sync.db-journal" ||
-		cortexFile === "sync.db-shm"
-	) {
-		return true
-	}
-
-	if (cortexFile === "app.json") return !preferences.syncSettings
-	if (cortexFile === "hotkeys.json") return !preferences.syncHotkeys
-	if (cortexFile === "workspace.json") return !preferences.syncWorkspace
-	if (cortexFile === "sync-plugins.json") return !preferences.syncPluginMetadata
-	if (cortexFile === "sync-themes.json") return !preferences.syncThemeMetadata
-	if (cortexFile === "bookmarks.json") return !preferences.syncBookmarks
-	return true
+export { isSyncImagePath } from "@cortex/platform/sync-rules"
+export {
+	createDefaultSyncPreferences,
+	normalizeSyncPathPattern,
+	normalizeSyncPreferences,
+	shouldIgnoreSyncPath,
 }
 
 export interface SyncState {
@@ -281,6 +45,7 @@ export interface SyncState {
 	initialSyncProgress: InitialSyncProgressEvent | null
 	initialSyncComplete: boolean
 	vekRequired: boolean
+	keyTrustIssues: KeyTrustIssue[]
 	syncPreferences: SyncPreferences
 	noteMetadataRevisions: Record<string, number>
 
@@ -299,6 +64,7 @@ export interface SyncState {
 		requiresEntitlement: boolean,
 	) => Promise<void>
 	stopSync: () => Promise<void>
+	restartSync: () => Promise<void>
 	forceSyncFile: (path: string) => Promise<void>
 	resolveConflict: (path: string, resolution: ConflictResolution) => Promise<void>
 	loadConflicts: (vaultId: string, vaultPath: string) => Promise<void>
@@ -322,10 +88,36 @@ export interface SyncState {
 	listDeletedFiles: (vaultId: string, vaultPath: string) => Promise<DeletedFileInfo[]>
 	restoreDeletedFile: (vaultId: string, vaultPath: string, filePath: string) => Promise<void>
 	checkVaultEncryption: (vaultId: string) => Promise<VaultEncryptionStatus>
-	createVaultKey: (vaultId: string, password: string) => Promise<void>
+	createVaultKey: (vaultId: string) => Promise<void>
+	requestVaultKey: (vaultId: string) => Promise<VaultKeyRequestResult>
 	unlockVaultKey: (vaultId: string, password: string) => Promise<void>
+	loadKeyTrustIssues: (vaultId: string) => Promise<void>
+	trustMemberKey: (vaultId: string, userId: string, fingerprint: string) => Promise<void>
 	subscribeEvents: () => Promise<void>
 	unsubscribeEvents: () => void
+}
+
+let lastSyncStart: {
+	vaultId: string
+	vaultPath: string
+	serverUrl: string
+	requiresEntitlement: boolean
+} | null = null
+
+const VAULT_KEY_RETRY_MS = 15_000
+let vaultKeyRetryTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearVaultKeyRetry(): void {
+	if (vaultKeyRetryTimer) clearTimeout(vaultKeyRetryTimer)
+	vaultKeyRetryTimer = null
+}
+
+function upsertKeyTrustIssue(issues: KeyTrustIssue[], issue: KeyTrustIssue): void {
+	const index = issues.findIndex(
+		(candidate) => candidate.vaultId === issue.vaultId && candidate.userId === issue.userId,
+	)
+	if (index === -1) issues.push(issue)
+	else issues[index] = issue
 }
 
 export const useSyncStore = create<SyncState>()(
@@ -340,12 +132,13 @@ export const useSyncStore = create<SyncState>()(
 			initialSyncProgress: null,
 			initialSyncComplete: false,
 			vekRequired: false,
+			keyTrustIssues: [],
 			syncPreferences: createDefaultSyncPreferences(),
 			noteMetadataRevisions: {},
 
 			loadSyncPreferences: async (vaultPath) => {
 				const platform = getPlatform()
-				const filePath = `${vaultPath}/.cortex/sync-preferences.json`
+				const filePath = getVaultFilePath(vaultPath, VAULT_FILES.syncPreferences)
 				try {
 					const content = await platform.fs.readFile(filePath)
 					const parsed = JSON.parse(content) as Partial<SyncPreferences>
@@ -366,7 +159,7 @@ export const useSyncStore = create<SyncState>()(
 			saveSyncPreferences: async (vaultPath, preferences) => {
 				const platform = getPlatform()
 				const prefs = normalizeSyncPreferences(preferences)
-				const filePath = `${vaultPath}/.cortex/sync-preferences.json`
+				const filePath = getVaultFilePath(vaultPath, VAULT_FILES.syncPreferences)
 				await platform.fs.writeFile(filePath, JSON.stringify(prefs, null, "\t"))
 				set((state) => {
 					state.syncPreferences = prefs
@@ -382,7 +175,7 @@ export const useSyncStore = create<SyncState>()(
 				const prefs = get().syncPreferences
 				const vaultPath = getCurrentVaultPath()
 				if (vaultPath) {
-					const filePath = `${vaultPath}/.cortex/sync-preferences.json`
+					const filePath = getVaultFilePath(vaultPath, VAULT_FILES.syncPreferences)
 					await platform.fs.writeFile(filePath, JSON.stringify(prefs, null, "\t"))
 				}
 				await platform.sync.updateSyncPreferences(prefs)
@@ -405,7 +198,7 @@ export const useSyncStore = create<SyncState>()(
 				const prefs = get().syncPreferences
 				const vaultPath = getCurrentVaultPath()
 				if (vaultPath) {
-					const filePath = `${vaultPath}/.cortex/sync-preferences.json`
+					const filePath = getVaultFilePath(vaultPath, VAULT_FILES.syncPreferences)
 					await platform.fs.writeFile(filePath, JSON.stringify(prefs, null, "\t"))
 				}
 				await platform.sync.updateSyncPreferences(prefs)
@@ -416,6 +209,7 @@ export const useSyncStore = create<SyncState>()(
 			},
 
 			startSync: async (vaultId, vaultPath, serverUrl, requiresEntitlement) => {
+				lastSyncStart = { vaultId, vaultPath, serverUrl, requiresEntitlement }
 				try {
 					get().unsubscribeEvents()
 					set((state) => {
@@ -428,6 +222,10 @@ export const useSyncStore = create<SyncState>()(
 					const platform = getPlatform()
 					await Promise.all([get().loadSyncPreferences(vaultPath), get().subscribeEvents()])
 					await platform.sync.start(vaultId, vaultPath, serverUrl, requiresEntitlement)
+					await Promise.all([
+						useAccessStore.getState().loadAccess(),
+						get().loadKeyTrustIssues(vaultId),
+					])
 				} catch (e) {
 					set((state) => {
 						state.error = String(e)
@@ -435,7 +233,22 @@ export const useSyncStore = create<SyncState>()(
 				}
 			},
 
+			restartSync: async () => {
+				const start = lastSyncStart
+				if (!start) return
+				await get().stopSync()
+				await get().startSync(
+					start.vaultId,
+					start.vaultPath,
+					start.serverUrl,
+					start.requiresEntitlement,
+				)
+			},
+
 			stopSync: async () => {
+				lastSyncStart = null
+				clearVaultKeyRetry()
+				useAccessStore.getState().setAccess(null)
 				try {
 					get().unsubscribeEvents()
 					const platform = getPlatform()
@@ -447,6 +260,7 @@ export const useSyncStore = create<SyncState>()(
 						state.initialSyncProgress = null
 						state.initialSyncComplete = false
 						state.vekRequired = false
+						state.keyTrustIssues = []
 						state.noteMetadataRevisions = {}
 					})
 				} catch (e) {
@@ -535,38 +349,74 @@ export const useSyncStore = create<SyncState>()(
 				return platform.sync.checkVaultEncryption(vaultId)
 			},
 
-			createVaultKey: async (vaultId, password) => {
-				const platform = getPlatform()
-				await platform.sync.createVaultKey(vaultId, password)
+			createVaultKey: async (vaultId) => {
+				await getPlatform().sync.createVaultKey(vaultId)
+			},
+
+			requestVaultKey: async (vaultId) => {
+				const result = await getPlatform().sync.requestVaultKey(vaultId)
+				if (result === "granted" && get().vekRequired) {
+					clearVaultKeyRetry()
+					set((state) => {
+						state.vekRequired = false
+					})
+					if (lastSyncStart?.vaultId === vaultId) await get().restartSync()
+				}
+				return result
 			},
 
 			unlockVaultKey: async (vaultId, password) => {
 				const platform = getPlatform()
 				await platform.sync.unlockVaultKey(vaultId, password)
+				clearVaultKeyRetry()
 				set((state) => {
 					state.vekRequired = false
 				})
 			},
 
+			loadKeyTrustIssues: async (vaultId) => {
+				try {
+					const issues = await getPlatform().sync.getKeyTrustIssues(vaultId)
+					set((state) => {
+						state.keyTrustIssues = issues
+					})
+				} catch {}
+			},
+
+			trustMemberKey: async (vaultId, userId, fingerprint) => {
+				await getPlatform().sync.trustMemberKey(vaultId, userId, fingerprint)
+				set((state) => {
+					state.keyTrustIssues = state.keyTrustIssues.filter(
+						(issue) => issue.vaultId !== vaultId || issue.userId !== userId,
+					)
+				})
+			},
+
 			subscribeEvents: async () => {
 				const platform = getPlatform()
+				const scheduleVaultKeyRetry = () => {
+					clearVaultKeyRetry()
+					vaultKeyRetryTimer = setTimeout(() => {
+						vaultKeyRetryTimer = null
+						const vaultId = lastSyncStart?.vaultId
+						if (!vaultId || !get().vekRequired) return
+						void get()
+							.requestVaultKey(vaultId)
+							.then((result) => {
+								if (result === "pending") scheduleVaultKeyRetry()
+							})
+							.catch(scheduleVaultKeyRetry)
+					}, VAULT_KEY_RETRY_MS)
+				}
 
-				const [
-					unlistenState,
-					unlistenFile,
-					unlistenProgress,
-					unlistenConflict,
-					unlistenComplete,
-					unlistenVek,
-					unlistenLog,
-					unlistenDenied,
-				] = await Promise.all([
+				const unlisteners = [
 					platform.sync.onStateChanged((event) => {
 						set((state) => {
 							state.engineState = event.state
 							if (event.state === "live") {
 								state.lastSyncedAt = Date.now()
 								state.error = null
+								state.vekRequired = false
 							}
 						})
 					}),
@@ -591,7 +441,7 @@ export const useSyncStore = create<SyncState>()(
 						})
 
 						if (
-							event.path === ".cortex/schema/properties.json" &&
+							event.path === VAULT_FILES.propertySchema &&
 							(event.status === "synced" || event.status === "merged")
 						) {
 							const vaultPath = getCurrentVaultPath()
@@ -625,6 +475,15 @@ export const useSyncStore = create<SyncState>()(
 						set((state) => {
 							state.vekRequired = true
 						})
+						scheduleVaultKeyRetry()
+					}),
+					platform.sync.onAccessChanged((access) => {
+						useAccessStore.getState().setAccess(access)
+					}),
+					platform.sync.onKeyTrustIssue((issue) => {
+						set((state) => {
+							upsertKeyTrustIssue(state.keyTrustIssues, issue)
+						})
 					}),
 					platform.sync.onSyncLog((event) => {
 						const level =
@@ -636,7 +495,7 @@ export const useSyncStore = create<SyncState>()(
 							})
 						}
 					}),
-					platform.sync.onVaultAccessDenied(async (event) => {
+					platform.sync.onVaultAccessDenied((event) => {
 						set((state) => {
 							state.engineState = "denied"
 							state.error = event.reason
@@ -644,13 +503,7 @@ export const useSyncStore = create<SyncState>()(
 						const logPrefix =
 							event.kind === "subscription" ? "Sync plan validation failed" : "Vault access denied"
 						useSyncLogStore.getState().log("error", `${logPrefix}: ${event.reason}`)
-						if (event.kind === "vault") {
-							const vaultPath = getCurrentVaultPath()
-							if (vaultPath) {
-								const { useRemoteVaultStore } = await import("./remoteVaultStore")
-								await useRemoteVaultStore.getState().unlinkVault(vaultPath)
-							}
-						} else {
+						if (event.kind === "subscription") {
 							useSubscriptionStore.setState({
 								block: {
 									code: event.code ?? "subscription_required",
@@ -659,19 +512,10 @@ export const useSyncStore = create<SyncState>()(
 							})
 						}
 					}),
-				])
+				]
 
 				set((state) => {
-					state.unlisteners = [
-						unlistenState,
-						unlistenFile,
-						unlistenProgress,
-						unlistenConflict,
-						unlistenComplete,
-						unlistenVek,
-						unlistenLog,
-						unlistenDenied,
-					]
+					state.unlisteners = unlisteners
 				})
 			},
 

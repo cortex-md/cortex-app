@@ -68,7 +68,7 @@ function SelectContent({
 				data-slot="select-content"
 				data-popup-surface=""
 				className={cn(
-					"relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-[var(--popup-radius,10px)] p-1 text-popover-foreground outline-hidden",
+					"relative z-[110] max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-[var(--popup-radius,10px)] p-1 text-popover-foreground outline-hidden",
 					nativePopupSurface,
 					nativePopupContentMotion,
 					position === "popper" &&

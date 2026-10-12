@@ -1,17 +1,35 @@
-import { isSyncImagePath, shouldIgnoreSyncPath, useSyncStore, useVaultStore } from "@cortex/core"
+import {
+	isPathOrDescendant,
+	isSyncImagePath,
+	shouldIgnoreSyncPath,
+	toVaultRelativePath,
+	useSyncStore,
+	useVaultStore,
+	VAULT_CONFIG_DIR,
+} from "@cortex/core"
 import type { FileEntry } from "@cortex/platform"
-import { Badge, Button, FolderPicker } from "@cortex/ui"
-import { FileIcon, FolderIcon, XIcon } from "lucide-react"
+import { Button, FolderPicker } from "@cortex/ui"
+import { AsteriskIcon, FileIcon, FolderIcon, XIcon } from "lucide-react"
 import { useMemo } from "react"
 import {
 	SettingsEmptyState,
 	SettingsGroup,
 	SettingsGroupContent,
+	SettingsIconTile,
+	SettingsListItem,
 	SettingsSection,
 } from "./SettingsPrimitives"
 
+type ExcludedPathKind = "Folder" | "File" | "Pattern"
+
+function getExcludedPathKind(path: string): ExcludedPathKind {
+	const normalized = path.replace(/^!/, "")
+	if (/[*?[\]]/.test(normalized)) return "Pattern"
+	return normalized.endsWith("/") ? "Folder" : "File"
+}
+
 function fileEntryToRelativePath(entry: FileEntry, vaultPath: string): string {
-	const relative = entry.path.replace(`${vaultPath}/`, "")
+	const relative = toVaultRelativePath(entry.path, vaultPath) ?? entry.path
 	return entry.isDir ? (relative.endsWith("/") ? relative : `${relative}/`) : relative
 }
 
@@ -26,7 +44,7 @@ export function ExcludedPathsSettings() {
 		if (!vault?.path) return []
 		return files.flatMap((file) => {
 			const path = fileEntryToRelativePath(file, vault.path)
-			if (path.startsWith(".cortex/") || path.startsWith(".cortex")) return []
+			if (isPathOrDescendant(path, VAULT_CONFIG_DIR)) return []
 			if (syncPreferences.ignoreImages && isSyncImagePath(path)) return []
 			if (shouldIgnoreSyncPath(path, syncPreferences)) return []
 			return [
@@ -41,52 +59,57 @@ export function ExcludedPathsSettings() {
 
 	return (
 		<SettingsSection
-			title="Excluded from Sync"
-			description="Files, folders, and patterns excluded from sync will not be uploaded to the remote vault."
+			fieldId="sync-preferences.excluded-paths"
+			title="Excluded from sync"
+			footer="Excluded items stay on this device and are never uploaded."
 		>
 			<SettingsGroup>
-				<SettingsGroupContent>
-					{excludedPaths.length > 0 && (
-						<div className="mb-3 flex flex-wrap gap-1.5">
-							{excludedPaths.map((path) => (
-								<Badge
-									key={path}
-									variant="secondary"
-									className="flex items-center gap-1.5 py-1 pr-1 pl-2"
-								>
-									{path.replace(/^!/, "").endsWith("/") ? (
-										<FolderIcon className="size-3 shrink-0 text-text-muted" />
-									) : (
-										<FileIcon className="size-3 shrink-0 text-text-muted" />
-									)}
-									<span className="text-xs">{path}</span>
-									<Button
-										variant="ghost"
-										size="icon-xs"
-										onClick={() => toggleExcludedPath(path, false)}
-										aria-label={`Remove ${path}`}
-										className="-mr-0.5 ml-0.5 size-5"
-									>
-										<XIcon className="size-3" />
-									</Button>
-								</Badge>
-							))}
-						</div>
-					)}
-					{excludedPaths.length === 0 && (
-						<SettingsEmptyState className="px-0 pt-0">No excluded paths</SettingsEmptyState>
-					)}
-
+				<SettingsGroupContent className="settings-excluded-add">
 					<FolderPicker
 						options={availableOptions}
 						value=""
 						onChange={(path) => toggleExcludedPath(path, true)}
-						placeholder="Search files, folders, or add a pattern..."
+						placeholder="Add a folder, file or pattern"
 						allowCustomValue
 						getCustomValueLabel={(value) => `Add pattern "${value}"`}
 						reserveDropdownSpace
 					/>
 				</SettingsGroupContent>
+				{excludedPaths.length === 0 ? (
+					<SettingsEmptyState>No excluded paths</SettingsEmptyState>
+				) : (
+					excludedPaths.map((path) => {
+						const kind = getExcludedPathKind(path)
+						return (
+							<SettingsListItem key={path} data-has-icon="true">
+								<SettingsIconTile>
+									{kind === "Folder" ? (
+										<FolderIcon />
+									) : kind === "Pattern" ? (
+										<AsteriskIcon />
+									) : (
+										<FileIcon />
+									)}
+								</SettingsIconTile>
+								<span className="settings-member-copy settings-field-label" data-kind={kind}>
+									{path}
+								</span>
+								<div className="settings-row-trail">
+									<span className="settings-row-kind">{kind}</span>
+									<Button
+										variant="ghost"
+										size="icon-xs"
+										onClick={() => toggleExcludedPath(path, false)}
+										aria-label={`Remove ${path}`}
+										className="settings-row-remove"
+									>
+										<XIcon />
+									</Button>
+								</div>
+							</SettingsListItem>
+						)
+					})
+				)}
 			</SettingsGroup>
 		</SettingsSection>
 	)

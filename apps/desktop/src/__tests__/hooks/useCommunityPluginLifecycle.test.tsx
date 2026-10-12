@@ -9,7 +9,6 @@ const lifecycleMocks = vi.hoisted(() => ({
 	loadEnabledPlugins: vi.fn(),
 	discoverCommunityPlugins: vi.fn(),
 	reloadCommunityPlugins: vi.fn(),
-	setCommunityPluginsDir: vi.fn(),
 	reportAppError: vi.fn(),
 }))
 
@@ -22,18 +21,17 @@ vi.mock("@cortex/platform", () => ({
 	}),
 }))
 
-vi.mock("@cortex/plugin-host-core", () => ({
-	disableAllPlugins: lifecycleMocks.disableAllPlugins,
-	loadEnabledPlugins: lifecycleMocks.loadEnabledPlugins,
+vi.mock("../../bootstrap/pluginHost", () => ({
+	pluginHost: {
+		disableAllPlugins: lifecycleMocks.disableAllPlugins,
+		loadEnabledPlugins: lifecycleMocks.loadEnabledPlugins,
+		discoverCommunityPlugins: lifecycleMocks.discoverCommunityPlugins,
+		reloadCommunityPlugins: lifecycleMocks.reloadCommunityPlugins,
+	},
 }))
 
-vi.mock("@cortex/plugin-host-web", () => ({
-	discoverCommunityPlugins: lifecycleMocks.discoverCommunityPlugins,
-	reloadCommunityPlugins: lifecycleMocks.reloadCommunityPlugins,
-	setCommunityPluginsDir: lifecycleMocks.setCommunityPluginsDir,
-}))
-
-vi.mock("../../utils/reportAppError", () => ({
+vi.mock("@cortex/core", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@cortex/core")>()),
 	reportAppError: lifecycleMocks.reportAppError,
 }))
 
@@ -133,9 +131,6 @@ describe("useCommunityPluginLifecycle", () => {
 			vi.advanceTimersByTime(350)
 		})
 
-		expect(lifecycleMocks.reloadCommunityPlugins).toHaveBeenCalledWith(
-			"/vault/.cortex/plugins",
-			expect.any(Function),
-		)
+		expect(lifecycleMocks.reloadCommunityPlugins).toHaveBeenCalledWith("/vault/.cortex/plugins")
 	})
 })

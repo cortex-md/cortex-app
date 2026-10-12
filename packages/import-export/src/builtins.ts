@@ -1,4 +1,5 @@
 import { getPlatform } from "@cortex/platform"
+import { getNoteTitle } from "@cortex/platform/utils"
 import {
 	csvRecordsToMarkdownTable,
 	extractFirstMarkdownTable,
@@ -16,7 +17,7 @@ export const csvImporter: Importer = {
 		const content = await getPlatform().fs.readFile(input.sourcePath)
 		const table = csvRecordsToMarkdownTable(parseCsvRecords(content))
 		return {
-			content: `# ${input.targetPath.split("/").pop()?.replace(/\.md$/iu, "") ?? "Imported CSV"}\n\n${table}\n`,
+			content: `# ${getNoteTitle(input.targetPath) || "Imported CSV"}\n\n${table}\n`,
 		}
 	},
 }
@@ -42,7 +43,7 @@ export const pdfImporter: Importer = {
 		const extractPdfText = getPlatform().documentImport?.extractPdfText
 		if (!extractPdfText) throw new Error("This platform cannot extract PDF text")
 		const extraction = await extractPdfText({ path: input.sourcePath })
-		const title = input.targetPath.split("/").pop()?.replace(/\.md$/iu, "") ?? "Imported PDF"
+		const title = getNoteTitle(input.targetPath) || "Imported PDF"
 		const pages = extraction.pages
 			.map((page) => ({
 				pageNumber: page.pageNumber,
@@ -64,7 +65,10 @@ export const csvExporter: Exporter = {
 	mimeType: "text/csv",
 	async exportFile(input) {
 		const table = extractFirstMarkdownTable(input.markdown)
-		const records = table ?? [["title", "content"], [input.title, input.markdown.trim()]]
+		const records = table ?? [
+			["title", "content"],
+			[input.title, input.markdown.trim()],
+		]
 		return {
 			content: stringifyCsvRecords(records),
 			extension: "csv",

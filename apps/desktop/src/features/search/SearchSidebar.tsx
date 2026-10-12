@@ -1,312 +1,244 @@
-import { getNotePathPresentation, useVaultStore, useWorkspaceStore } from "@cortex/core"
-import { useSearchStore } from "@cortex/search"
 import {
-	Button,
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuTrigger,
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	Spinner,
-} from "@cortex/ui"
-import { FileIcon, FilterIcon, FolderIcon, SearchIcon } from "lucide-react"
-import { useCallback, useEffect, useRef, useState } from "react"
+	getFolderNoteCounts,
+	joinPath,
+	selectSortedTags,
+	useTagsStore,
+	useVaultStore,
+	useWorkspaceStore,
+} from "@cortex/core"
+import {
+	formatSearchFilterSummary,
+	hasSearchFilters,
+	parseSearchQuery,
+	type SearchResult,
+	useSearchStore,
+} from "@cortex/search"
+import { Button, Spinner } from "@cortex/ui"
+import { ChevronDownIcon, ChevronsDownUpIcon, SearchIcon } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { useDebouncedCallback } from "@/hooks/useDebouncedCallback"
+import { formatCount } from "@/utils/format"
+import { type SidebarToolEmptyState, SidebarToolView } from "../sidebar/SidebarToolView"
+import { getSidebarNotePresentation } from "../sidebar/sidebarNotePresentation"
+import { HighlightedSnippet } from "./HighlightedSnippet"
+import { SearchQueryField } from "./SearchQueryField"
 
 const SEARCH_SIDEBAR_RESULT_LIMIT = 100
+const SEARCH_DEBOUNCE_MS = 150
 
-interface SidebarNotePresentation {
-	title: string
-	folder: string
+const INDEXING_EMPTY_STATE: SidebarToolEmptyState = {
+	icon: <Spinner className="size-5 text-muted-foreground" />,
+	message: "Indexing vault...",
+}
+const IDLE_EMPTY_STATE: SidebarToolEmptyState = {
+	icon: <SearchIcon className="size-6 text-muted-foreground" />,
+	message: "Search your notes",
+}
+const NO_RESULTS_EMPTY_STATE: SidebarToolEmptyState = {
+	icon: <SearchIcon className="size-6 text-muted-foreground" />,
+	message: "No results found",
 }
 
-function highlightSnippet(snippet: string, query: string): React.ReactNode {
-	if (!query.trim()) return snippet
-
-	const terms = query.toLowerCase().split(/\s+/).filter(Boolean)
-	const regex = new RegExp(`(${terms.map(escapeRegex).join("|")})`, "gi")
-	const parts = snippet.split(regex)
-
-	let offset = 0
-	return parts.map((part) => {
-		const key = `${offset}-${part}`
-		offset += part.length
-		const isMatch = terms.some((t) => part.toLowerCase() === t)
-		if (isMatch) {
-			return (
-				<mark key={key} className="sidebar-search-mark">
-					{part}
-				</mark>
-			)
-		}
-		return part
-	})
+function getSearchEmptyState(
+	indexing: boolean,
+	query: string,
+	resultCount: number,
+): SidebarToolEmptyState | null {
+	if (indexing) return INDEXING_EMPTY_STATE
+	if (!query.trim()) return IDLE_EMPTY_STATE
+	if (resultCount === 0) return NO_RESULTS_EMPTY_STATE
+	return null
 }
 
-function escapeRegex(str: string): string {
-	return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+interface SearchResultGroupProps {
+	result: SearchResult
+	vaultPath: string | undefined
+	collapsed: boolean
+	query: string
+	onToggle: (id: string) => void
 }
 
-function getSearchResultPath(resultId: string, vaultPath: string | undefined): string {
-	return vaultPath ? `${vaultPath.replace(/\/+$/, "")}/${resultId}` : resultId
-}
-
-function getSidebarNotePresentation(
-	filePath: string,
-	vaultPath: string | undefined,
-): SidebarNotePresentation {
-	const notePath = getNotePathPresentation(filePath, vaultPath)
-	const folder = notePath.segments
-		.slice(0, -1)
-		.map((segment) => segment.label)
-		.join("/")
-	return {
-		title: notePath.title,
-		folder,
-	}
-}
-
-function formatFilterSummary(parsed: ParsedQuery): string {
-	return [
-		...parsed.tags.map((tag) => `tag:${tag}`),
-		...parsed.paths.map((path) => `path:${path}`),
-		...parsed.files.map((file) => `file:${file}`),
-	].join(" ")
-}
-
-interface ParsedQuery {
-	text: string
-	tags: string[]
-	paths: string[]
-	files: string[]
-}
-
-function parseSearchQuery(raw: string): ParsedQuery {
-	const result: ParsedQuery = { text: "", tags: [], paths: [], files: [] }
-	const parts: string[] = []
-
-	const regex = /(tag|path|file):(\S+)/gi
-	let lastIndex = 0
-	let match: RegExpExecArray | null = null
-
-	match = regex.exec(raw)
-	while (match !== null) {
-		if (match.index > lastIndex) {
-			parts.push(raw.slice(lastIndex, match.index))
-		}
-		const prefix = match[1].toLowerCase()
-		const value = match[2]
-		if (prefix === "tag") result.tags.push(value)
-		else if (prefix === "path") result.paths.push(value)
-		else if (prefix === "file") result.files.push(value)
-		lastIndex = regex.lastIndex
-		match = regex.exec(raw)
+function SearchResultGroup({
+	result,
+	vaultPath,
+	collapsed,
+	query,
+	onToggle,
+}: SearchResultGroupProps) {
+	const filePath = vaultPath ? joinPath(vaultPath, result.id) : result.id
+	const notePath = getSidebarNotePresentation(filePath, vaultPath)
+	const openMatch = (snippetIndex: number) => {
+		const matchIndex = result.snippets
+			.slice(0, snippetIndex)
+			.reduce((total, snippet) => total + snippet.ranges.length, 0)
+		useSearchStore.getState().setNoteHighlight({ filePath, query, matchIndex })
+		useWorkspaceStore.getState().openTab(filePath)
 	}
 
-	if (lastIndex < raw.length) {
-		parts.push(raw.slice(lastIndex))
-	}
-
-	result.text = parts.join("").trim()
-	return result
+	return (
+		<div className="sidebar-search-file">
+			<Button
+				variant="ghost"
+				className="sidebar-search-file-header"
+				aria-expanded={!collapsed}
+				onClick={() => onToggle(result.id)}
+				onDoubleClick={() => openMatch(0)}
+			>
+				<ChevronDownIcon className="sidebar-search-chevron" aria-hidden="true" />
+				<span className="sidebar-search-file-title">
+					<span className="sidebar-search-title">{notePath.title || result.title}</span>
+					{notePath.folder && <span className="sidebar-search-path">{notePath.folder}</span>}
+				</span>
+				{result.matchCount > 0 && <span className="sidebar-search-count">{result.matchCount}</span>}
+			</Button>
+			{!collapsed &&
+				(result.snippets.length > 0 ? (
+					result.snippets.map((snippet, index) => (
+						<Button
+							key={`${result.id}:${snippet.text}`}
+							variant="ghost"
+							className="sidebar-search-snippet"
+							onClick={() => openMatch(index)}
+						>
+							<span>
+								<HighlightedSnippet snippet={snippet} markClassName="sidebar-search-mark" />
+							</span>
+						</Button>
+					))
+				) : (
+					<Button variant="ghost" className="sidebar-search-snippet" onClick={() => openMatch(0)}>
+						<span>Open note</span>
+					</Button>
+				))}
+		</div>
+	)
 }
 
 export function SearchSidebar() {
 	const query = useSearchStore((s) => s.query)
 	const results = useSearchStore((s) => s.results)
-	const search = useSearchStore((s) => s.search)
-	const setQuery = useSearchStore((s) => s.setQuery)
+	const runQuery = useSearchStore((s) => s.runQuery)
 	const indexing = useSearchStore((s) => s.indexing)
-	const openTab = useWorkspaceStore((s) => s.openTab)
+	const recentQueries = useSearchStore((s) => s.recentQueries)
 	const vault = useVaultStore((s) => s.vault)
+	const files = useVaultStore((s) => s.files)
+	const tagIndex = useTagsStore((s) => s.tagIndex)
+	const tagColors = useTagsStore((s) => s.tagColors)
 	const inputRef = useRef<HTMLInputElement>(null)
 	const [localQuery, setLocalQuery] = useState(query)
-	const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
-
-	const clearPendingSearch = useCallback(() => {
-		if (!debounceRef.current) return
-		clearTimeout(debounceRef.current)
-		debounceRef.current = undefined
-	}, [])
+	const [syncedStoreQuery, setSyncedStoreQuery] = useState(query)
+	const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(() => new Set())
+	const scheduleQuery = useDebouncedCallback(runQuery, SEARCH_DEBOUNCE_MS)
 
 	useEffect(() => {
 		inputRef.current?.focus()
-		return clearPendingSearch
-	}, [clearPendingSearch])
+	}, [])
 
-	const runSearch = useCallback(
-		(rawQuery: string) => {
-			const parsed = parseSearchQuery(rawQuery)
+	if (syncedStoreQuery !== query) {
+		setSyncedStoreQuery(query)
+		if (localQuery.trim() !== query.trim()) setLocalQuery(query)
+	}
 
-			if (
-				!parsed.text &&
-				parsed.tags.length === 0 &&
-				parsed.paths.length === 0 &&
-				parsed.files.length === 0
-			) {
-				setQuery("")
-				return
-			}
-
-			const searchText =
-				parsed.text ||
-				parsed.files.join(" ") ||
-				parsed.tags.join(" ") ||
-				parsed.paths.join(" ") ||
-				" "
-
-			search(searchText, {
-				tags: parsed.tags.length > 0 ? parsed.tags : undefined,
-				folder: parsed.paths.length > 0 ? parsed.paths[0] : undefined,
-				files: parsed.files.length > 0 ? parsed.files : undefined,
-			})
-		},
-		[search, setQuery],
+	const folders = useMemo(
+		() => (vault ? getFolderNoteCounts(files, vault.path) : []),
+		[files, vault],
+	)
+	const tags = useMemo(
+		() =>
+			selectSortedTags({ tagIndex, tagColors }).map((entry) => ({
+				tag: entry.tag,
+				count: entry.filePaths.length,
+			})),
+		[tagColors, tagIndex],
 	)
 
-	const handleQueryChange = useCallback(
-		(value: string) => {
-			setLocalQuery(value)
-			clearPendingSearch()
-			debounceRef.current = setTimeout(() => {
-				runSearch(value)
-			}, 150)
-		},
-		[clearPendingSearch, runSearch],
-	)
+	const handleQueryChange = (value: string) => {
+		setLocalQuery(value)
+		scheduleQuery(value)
+	}
 
-	const handleInsertFilter = useCallback(
-		(prefix: string) => {
-			const newQuery = `${localQuery} ${prefix}`.trimStart()
-			setLocalQuery(newQuery)
-			inputRef.current?.focus()
-		},
-		[localQuery],
-	)
+	const handleSubmit = (value: string) => {
+		setLocalQuery(value)
+		runQuery(value)
+		useSearchStore.getState().addRecentQuery(value)
+	}
 
-	const handleResultClick = useCallback(
-		(id: string) => {
-			if (!vault) return
-			openTab(`${vault.path}/${id}`)
-		},
-		[vault, openTab],
-	)
+	const toggleCollapsed = (id: string) => {
+		setCollapsedIds((current) => {
+			const next = new Set(current)
+			if (next.has(id)) next.delete(id)
+			else next.add(id)
+			return next
+		})
+	}
 
 	const parsed = parseSearchQuery(localQuery)
-	const hasFilters = parsed.tags.length > 0 || parsed.paths.length > 0 || parsed.files.length > 0
 	const visibleResults = results.slice(0, SEARCH_SIDEBAR_RESULT_LIMIT)
-	const filterSummary = hasFilters ? formatFilterSummary(parsed) : ""
+	const matchTotal = visibleResults.reduce((total, result) => total + result.matchCount, 0)
+	const allCollapsed =
+		visibleResults.length > 0 && visibleResults.every((result) => collapsedIds.has(result.id))
 
 	return (
-		<div className="sidebar-search-view">
-			<div className="sidebar-tool-header">
-				<div className="flex items-center gap-1">
-					<InputGroup variant="search" className="flex-1" aria-label="Search notes">
-						<InputGroupAddon>
-							<SearchIcon />
-						</InputGroupAddon>
-						<InputGroupInput
-							ref={inputRef}
-							type="text"
-							value={localQuery}
-							onChange={(e) => handleQueryChange(e.target.value)}
-							placeholder="Search in vault..."
-						/>
-					</InputGroup>
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Button
-								variant="ghost"
-								size="icon-sm"
-								className="size-9 flex-shrink-0"
-								aria-label="Add search filter"
-								title="Add filter"
-							>
-								<FilterIcon className="size-3.5" />
-							</Button>
-						</DropdownMenuTrigger>
-						<DropdownMenuContent align="start" className="w-60">
-							<DropdownMenuLabel>Filter options</DropdownMenuLabel>
-							<DropdownMenuItem className="text-sm" onSelect={() => handleInsertFilter("tag:")}>
-								<span>tag</span>
-								<span className="ml-auto text-muted-foreground">tag:name</span>
-							</DropdownMenuItem>
-							<DropdownMenuItem className="text-sm" onSelect={() => handleInsertFilter("path:")}>
-								<span>path</span>
-								<span className="ml-auto text-muted-foreground">path:folder</span>
-							</DropdownMenuItem>
-							<DropdownMenuItem className="text-sm" onSelect={() => handleInsertFilter("file:")}>
-								<span>file name</span>
-								<span className="ml-auto text-muted-foreground">file:name</span>
-							</DropdownMenuItem>
-						</DropdownMenuContent>
-					</DropdownMenu>
-				</div>
-
-				<div className="sidebar-tool-meta-row">
-					<span className="sidebar-tool-count">
-						{visibleResults.length !== 0 &&
-							`${visibleResults.length} result${visibleResults.length !== 1 ? "s" : ""}`}
-					</span>
-					{hasFilters && <span className="sidebar-tool-filters">{filterSummary}</span>}
-				</div>
-
-				<p className="sidebar-tool-hint">Use tag:, path:, or file: to narrow results</p>
+		<SidebarToolView
+			title="Search"
+			filterLabel="Search notes"
+			filterIcon={<SearchIcon />}
+			filterPlaceholder="Search in vault..."
+			filterValue={localQuery}
+			onFilterChange={handleQueryChange}
+			inputRef={inputRef}
+			field={
+				<SearchQueryField
+					inputRef={inputRef}
+					value={localQuery}
+					folders={folders}
+					tags={tags}
+					recentQueries={recentQueries}
+					onChange={handleQueryChange}
+					onSubmit={handleSubmit}
+				/>
+			}
+			headerAction={
+				visibleResults.length > 0 && (
+					<Button
+						variant="ghost"
+						size="icon-xs"
+						className="sidebar-tool-action"
+						aria-label={allCollapsed ? "Expand all" : "Collapse all"}
+						title={allCollapsed ? "Expand all" : "Collapse all"}
+						onClick={() =>
+							setCollapsedIds(
+								allCollapsed ? new Set() : new Set(visibleResults.map((result) => result.id)),
+							)
+						}
+					>
+						<ChevronsDownUpIcon />
+					</Button>
+				)
+			}
+			count={
+				visibleResults.length !== 0 &&
+				`${formatCount(visibleResults.length, "note")}${matchTotal > 0 ? ` · ${formatCount(matchTotal, "match", "matches")}` : ""}`
+			}
+			meta={
+				hasSearchFilters(parsed) && (
+					<span className="sidebar-tool-filters">in {formatSearchFilterSummary(parsed)}</span>
+				)
+			}
+			empty={getSearchEmptyState(indexing, localQuery, visibleResults.length)}
+		>
+			<div className="sidebar-tool-list" role="tree" aria-label="Search results">
+				{visibleResults.map((result) => (
+					<SearchResultGroup
+						key={result.id}
+						result={result}
+						vaultPath={vault?.path}
+						collapsed={collapsedIds.has(result.id)}
+						query={parsed.text}
+						onToggle={toggleCollapsed}
+					/>
+				))}
 			</div>
-
-			<div className="sidebar-tool-scroll">
-				{indexing ? (
-					<div className="sidebar-tool-empty sidebar-tool-empty-stacked">
-						<Spinner className="size-5 text-muted-foreground" />
-						<p className="text-xs text-muted-foreground">Indexing vault...</p>
-					</div>
-				) : !localQuery.trim() ? (
-					<div className="sidebar-tool-empty sidebar-tool-empty-stacked">
-						<SearchIcon className="size-6 text-muted-foreground" />
-						<p className="text-xs text-muted-foreground">Search your notes</p>
-					</div>
-				) : visibleResults.length === 0 ? (
-					<div className="sidebar-tool-empty sidebar-tool-empty-stacked">
-						<SearchIcon className="size-6 text-muted-foreground" />
-						<p className="text-xs text-muted-foreground">No results found</p>
-					</div>
-				) : null}
-				<div className="sidebar-search-results">
-					{visibleResults.map((result) => {
-						const filePath = getSearchResultPath(result.id, vault?.path)
-						const notePath = getSidebarNotePresentation(filePath, vault?.path)
-						return (
-							<button
-								type="button"
-								key={result.id}
-								className="sidebar-search-result"
-								onClick={() => handleResultClick(result.id)}
-								aria-label={`Open ${notePath.title}`}
-							>
-								<span className="sidebar-result-icon">
-									<FileIcon className="sidebar-result-file-icon" />
-								</span>
-								<span className="sidebar-result-body">
-									<span className="sidebar-result-title">{notePath.title || result.title}</span>
-									{notePath.folder && (
-										<span className="sidebar-result-path">
-											<FolderIcon className="sidebar-result-folder-icon" />
-											<span>{notePath.folder}</span>
-										</span>
-									)}
-									{result.snippet && (
-										<span className="sidebar-search-snippet">
-											{highlightSnippet(result.snippet, parsed.text)}
-										</span>
-									)}
-								</span>
-							</button>
-						)
-					})}
-				</div>
-			</div>
-		</div>
+		</SidebarToolView>
 	)
 }

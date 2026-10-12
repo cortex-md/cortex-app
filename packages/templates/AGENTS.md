@@ -3,7 +3,7 @@
 ## Package Purpose
 
 `@cortex/templates` owns the platform-neutral template language used by desktop and future
-React Native clients. Keep it free of React, DOM, Tauri, Node-only APIs, and filesystem access.
+React Native clients. Keep it free of React, DOM, Electron, Node-only APIs, and filesystem access.
 
 ## Rules
 

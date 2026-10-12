@@ -1,4 +1,4 @@
-import type { SettingsControlComponents } from "@cortex/plugin-host-web"
+import type { SettingsControlComponents } from "../plugins/rendering/PluginSettingsRenderer"
 import {
 	DesktopColorPicker,
 	DesktopDescription,

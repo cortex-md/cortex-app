@@ -116,7 +116,7 @@ Native-feel rules for this package:
   `on-solid` foreground. Settings composition may use `settings-group-*`.
 - Primary buttons use `brand` with the adaptive `primary-foreground`. Never force white text over a
   configurable accent.
-- `SidebarProvider` accepts `platform?: "macos" | "windows" | "linux"` and otherwise reads `document.body[data-platform]`. macOS sidebars use translucent material-like surfaces and compact rows; Windows sidebars use opaque surfaces, clear dividers, and an accent rail for active rows.
+- `SidebarNav` (with `SidebarNavGroup` and `SidebarNavItem`) is a static grouped navigation list. It accepts `platform?: "macos" | "windows" | "linux"` and otherwise reads `document.body[data-platform]`. macOS uses translucent material-like surfaces and compact rows; Windows uses opaque surfaces and an accent rail for active rows. It has no collapse state, cookies, or global shortcuts.
 - Do not add `cursor-pointer` to rows, buttons, tabs, menu items, or sidebar items. Keep text cursors only for text-entry affordances and resize cursors only for resize rails.
 - Avoid broad web elevation. Use native material surfaces and subtle borders instead of generic `shadow-xs`, `shadow-sm`, or `shadow-lg`.
 - Avoid broad `transition-all` and smooth scrolling in primitives.
@@ -417,6 +417,6 @@ Because these components are primitives:
 - They can be used in a future web landing page
 - Styling is consistent everywhere (CSS variables)
 - Platform feel is selected through props or `data-platform` attributes, not native APIs
-- No Tauri or React Native dependencies
+- No Electron or React Native dependencies
 
 This ensures the design system is a single source of truth.

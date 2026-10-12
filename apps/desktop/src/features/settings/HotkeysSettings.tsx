@@ -1,9 +1,10 @@
 import { commandRegistry } from "@cortex/commands"
 import { useVaultStore } from "@cortex/core"
-import { formatHotkeyDisplay, useHotkeysStore } from "@cortex/hotkeys"
+import { formatHotkeyDisplay, type HotkeyBinding, useHotkeysStore } from "@cortex/hotkeys"
 import { Button, InputGroup, InputGroupAddon, InputGroupInput, Kbd } from "@cortex/ui"
 import { RotateCcwIcon, SearchIcon } from "lucide-react"
 import {
+	memo,
 	useCallback,
 	useEffect,
 	useEffectEvent,
@@ -105,8 +106,54 @@ function getCommandRegistryVersion(): number {
 	return commandRegistry.getSnapshot().version
 }
 
+interface HotkeyRowProps {
+	binding: HotkeyBinding
+	vimCommandName?: string
+	onRecord: (id: string, keys: string) => void
+	onReset: (id: string) => void
+}
+
+const HotkeyRow = memo(function HotkeyRow({
+	binding,
+	vimCommandName,
+	onRecord,
+	onReset,
+}: HotkeyRowProps) {
+	return (
+		<SettingsListItem className="justify-between hover:bg-bg-hover">
+			<span className="flex min-w-0 flex-col gap-1">
+				<span className="text-sm text-text-primary">{binding.label}</span>
+				{vimCommandName && (
+					<span className="font-mono text-xs text-muted-foreground">:{vimCommandName}</span>
+				)}
+			</span>
+			<div className="flex items-center gap-2">
+				<HotkeyRecorder
+					currentKeys={binding.keys}
+					onRecord={(keys) => onRecord(binding.id, keys)}
+				/>
+				{binding.keys !== binding.defaultKeys && (
+					<Button
+						variant="ghost"
+						size="sm"
+						className="text-xs text-muted-foreground h-7 w-7 p-0"
+						onClick={() => onReset(binding.id)}
+						title="Reset to default"
+					>
+						<RotateCcwIcon className="size-3" />
+					</Button>
+				)}
+			</div>
+		</SettingsListItem>
+	)
+})
+
 export function HotkeysSection() {
-	const { bindings, updateBinding, resetBinding, resetAll, saveOverrides } = useHotkeysStore()
+	const bindings = useHotkeysStore((state) => state.bindings)
+	const updateBinding = useHotkeysStore((state) => state.updateBinding)
+	const resetBinding = useHotkeysStore((state) => state.resetBinding)
+	const resetAll = useHotkeysStore((state) => state.resetAll)
+	const saveOverrides = useHotkeysStore((state) => state.saveOverrides)
 	const vault = useVaultStore((s) => s.vault)
 	const pendingSave = useRef(false)
 	const [searchQuery, setSearchQuery] = useState("")
@@ -169,11 +216,15 @@ export function HotkeysSection() {
 		})
 	}, [bindings, searchQuery, vimCommandNames])
 
-	const categories = Array.from(new Set(filtered.map((b) => b.category)))
-	const grouped = categories.map((category) => ({
-		category,
-		items: filtered.filter((b) => b.category === category),
-	}))
+	const grouped = useMemo(() => {
+		const groups = new Map<string, HotkeyBinding[]>()
+		for (const binding of filtered) {
+			const items = groups.get(binding.category)
+			if (items) items.push(binding)
+			else groups.set(binding.category, [binding])
+		}
+		return Array.from(groups, ([category, items]) => ({ category, items }))
+	}, [filtered])
 
 	return (
 		<SettingsPage>
@@ -212,42 +263,15 @@ export function HotkeysSection() {
 							<div key={category} className="flex flex-col gap-2">
 								<h4 className="m-0 text-sm font-medium text-foreground">{category}</h4>
 								<SettingsList>
-									{items.map((binding) => {
-										const isModified = binding.keys !== binding.defaultKeys
-										const vimCommandName = vimCommandNames.get(binding.id)
-										return (
-											<SettingsListItem
-												key={binding.id}
-												className="justify-between hover:bg-bg-hover"
-											>
-												<span className="flex min-w-0 flex-col gap-1">
-													<span className="text-sm text-text-primary">{binding.label}</span>
-													{vimCommandName && (
-														<span className="font-mono text-xs text-muted-foreground">
-															:{vimCommandName}
-														</span>
-													)}
-												</span>
-												<div className="flex items-center gap-2">
-													<HotkeyRecorder
-														currentKeys={binding.keys}
-														onRecord={(keys) => handleRecord(binding.id, keys)}
-													/>
-													{isModified && (
-														<Button
-															variant="ghost"
-															size="sm"
-															className="text-xs text-muted-foreground h-7 w-7 p-0"
-															onClick={() => handleReset(binding.id)}
-															title="Reset to default"
-														>
-															<RotateCcwIcon className="size-3" />
-														</Button>
-													)}
-												</div>
-											</SettingsListItem>
-										)
-									})}
+									{items.map((binding) => (
+										<HotkeyRow
+											key={binding.id}
+											binding={binding}
+											vimCommandName={vimCommandNames.get(binding.id)}
+											onRecord={handleRecord}
+											onReset={handleReset}
+										/>
+									))}
 								</SettingsList>
 							</div>
 						))}

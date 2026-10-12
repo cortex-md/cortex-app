@@ -34,6 +34,7 @@ export interface CSSGenerator {
 export interface ThemeTokens {
 	primitive: {
 		stone: Record<string, string>
+		mist?: Record<string, string>
 		ink: Record<string, string>
 		amber: Record<string, string>
 		amberDark: Record<string, string>

@@ -1,16 +1,9 @@
-import { parse } from "yaml"
+import { parseYamlMapping } from "@cortex/properties/frontmatter"
 
 export interface FrontmatterField {
 	key: string
 	value: string
 	values: string[]
-}
-
-export interface ParsedFrontmatter {
-	from: number
-	to: number
-	yaml: string
-	fields: FrontmatterField[]
 }
 
 function formatFrontmatterValue(value: unknown): string[] {
@@ -21,32 +14,14 @@ function formatFrontmatterValue(value: unknown): string[] {
 }
 
 export function parseFrontmatterFields(yaml: string): FrontmatterField[] {
-	let parsed: unknown
+	let parsed: Record<string, unknown>
 	try {
-		parsed = parse(yaml)
+		parsed = parseYamlMapping(yaml)
 	} catch {
 		return []
 	}
-	if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return []
-
 	return Object.entries(parsed).map(([key, value]) => {
 		const values = formatFrontmatterValue(value)
-		return {
-			key,
-			value: values.join(", "),
-			values,
-		}
+		return { key, value: values.join(", "), values }
 	})
-}
-
-export function parseFrontmatter(source: string): ParsedFrontmatter | null {
-	const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)
-	if (!match) return null
-
-	return {
-		from: 0,
-		to: match[0].length,
-		yaml: match[1],
-		fields: parseFrontmatterFields(match[1]),
-	}
 }

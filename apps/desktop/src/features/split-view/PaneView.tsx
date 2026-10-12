@@ -1,54 +1,62 @@
-import type { FileTabKind, Tab } from "@cortex/core"
-import { useDragStore, useEditorStore, useRemoteVaultStore, useWorkspaceStore } from "@cortex/core"
+import type { FileTabKind, Tab, ViewTabState } from "@cortex/core"
+import { inferFileTabKind, useDragStore, useEditorStore, useWorkspaceStore } from "@cortex/core"
 import type { CursorInfo, EditorConfig } from "@cortex/editor/types"
-import { PluginViewRenderer, usePluginStore } from "@cortex/plugin-host-web"
-import { useSettingsStore } from "@cortex/settings"
+import { usePluginStore } from "@cortex/plugin-host-core"
 import { Button, Kbd, Spinner } from "@cortex/ui"
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react"
+import {
+	type ComponentType,
+	lazy,
+	type MouseEvent,
+	memo,
+	Suspense,
+	useCallback,
+	useMemo,
+} from "react"
+import { useCommandHotkey } from "../../hooks/useCommandHotkey"
+import { useContextMenu } from "../context-menu/useContextMenu"
+import { PluginViewRenderer } from "../plugins/rendering/PluginViewRenderer"
 import { ConflictBanner } from "../sync/ConflictBanner"
-import { NoteHistoryPanel } from "../sync/NoteHistoryPanel"
 import { TabBar } from "../tabs/TabBar"
 import { ActiveTabEditor, type TabEditorProps } from "./ActiveTabEditor"
-import { getCoreViewComponent } from "./coreViewRegistry"
+import type { CoreViewProps } from "./coreViewProps"
 import { DropZoneOverlay } from "./DropZoneOverlay"
-import { PaneFallbackMenu } from "./PaneFallbackMenu"
-import { usePaneTabMenu } from "./usePaneTabMenu"
+import { useEditorConfig } from "./noteEditorAssets"
+import { buildTabMenuItems } from "./tabMenu"
 
 const emptyTabs: Tab[] = []
+const EMPTY_VIEW_STATE: ViewTabState = {}
+const MAX_MOUNTED_INACTIVE_FILE_TABS = 3
 const LazyPdfTabView = lazy(() =>
 	import("./PdfTabView").then((module) => ({ default: module.PdfTabView })),
 )
 
-function inferFileTabKind(filePath: string): FileTabKind {
-	return filePath.toLocaleLowerCase().endsWith(".pdf") ? "pdf" : "markdown"
+function getMountedFileTabIds(tabs: readonly Tab[], activeTabId: string | null): Set<string> {
+	const mountedTabIds = new Set<string>()
+	if (activeTabId) mountedTabIds.add(activeTabId)
+	const recentFileTabs = tabs
+		.filter((tab) => tab.tabType === "file" && !tab.isSuspended && tab.id !== activeTabId)
+		.sort((left, right) => right.lastAccessed - left.lastAccessed)
+		.slice(0, MAX_MOUNTED_INACTIVE_FILE_TABS)
+	for (const tab of recentFileTabs) mountedTabIds.add(tab.id)
+	return mountedTabIds
+}
+
+function TabLoadingState({ isActive, label }: { isActive: boolean; label: string }) {
+	return (
+		<div
+			className="absolute inset-0 flex items-center justify-center gap-2 bg-bg-primary text-xs text-text-muted"
+			style={{ display: isActive ? "flex" : "none" }}
+			aria-hidden={!isActive}
+		>
+			<Spinner className="size-4" />
+			{label}
+		</div>
+	)
 }
 
 function getFileTabKind(tab: Tab | null): FileTabKind | null {
 	if (!tab || tab.tabType !== "file") return null
 	return tab.fileKind ?? inferFileTabKind(tab.filePath)
-}
-
-function useEditorConfig(): EditorConfig {
-	const editorFontSize = useSettingsStore((s) => s.settings.appearance.editorFontSize)
-	const wordWrap = useSettingsStore((s) => s.settings.editor.wordWrap)
-	const folding = useSettingsStore((s) => s.settings.editor.folding)
-	const tabSize = useSettingsStore((s) => s.settings.editor.tabSize)
-	const useSpaces = useSettingsStore((s) => s.settings.editor.useSpaces)
-	const showLineNumbers = useSettingsStore((s) => s.settings.editor.showLineNumbers)
-	const vimMode = useSettingsStore((s) => s.settings.editor.vimMode)
-
-	return useMemo(
-		() => ({
-			fontSize: editorFontSize,
-			wordWrap,
-			folding,
-			tabSize,
-			useSpaces,
-			showLineNumbers,
-			vimMode,
-		}),
-		[editorFontSize, wordWrap, folding, tabSize, useSpaces, showLineNumbers, vimMode],
-	)
 }
 
 function SuspendedTabContent({ tab, paneId, isActive }: TabEditorProps) {
@@ -74,28 +82,19 @@ function SuspendedTabContent({ tab, paneId, isActive }: TabEditorProps) {
 	)
 }
 
-function TabEditor(props: TabEditorProps) {
+const TabEditor = memo(function TabEditor(props: TabEditorProps) {
 	if (props.tab.isSuspended) return <SuspendedTabContent {...props} />
 	if (getFileTabKind(props.tab) === "pdf") {
 		return (
 			<Suspense
-				fallback={
-					<div
-						className="absolute inset-0 flex items-center justify-center gap-2 bg-bg-primary text-xs text-text-muted"
-						style={{ display: props.isActive ? "flex" : "none" }}
-						aria-hidden={!props.isActive}
-					>
-						<Spinner className="size-4" />
-						Loading PDF viewer...
-					</div>
-				}
+				fallback={<TabLoadingState isActive={props.isActive} label="Loading PDF viewer..." />}
 			>
 				<LazyPdfTabView tab={props.tab} paneId={props.paneId} isActive={props.isActive} />
 			</Suspense>
 		)
 	}
 	return <ActiveTabEditor {...props} />
-}
+})
 
 interface ViewTabContentProps {
 	tab: Tab
@@ -103,14 +102,21 @@ interface ViewTabContentProps {
 	isActive: boolean
 }
 
-function ViewTabContent({ tab, paneId, isActive }: ViewTabContentProps) {
-	const views = usePluginStore((s) => s.views)
+const ViewTabContent = memo(function ViewTabContent({
+	tab,
+	paneId,
+	isActive,
+}: ViewTabContentProps) {
+	const registration = usePluginStore((s) => s.views.find((view) => view.key === tab.viewId))
 	const updateViewTabState = useWorkspaceStore((s) => s.updateViewTabState)
-	const CoreComponent = tab.viewId ? getCoreViewComponent(tab.viewId) : null
-	const pluginRegistration =
-		views.find((view) => view.registrationKey === tab.viewId) ??
-		views.find((view) => view.id === tab.viewId)
-	const viewState = tab.viewState ?? pluginRegistration?.initialState ?? {}
+	const CoreComponent = registration?.component as ComponentType<CoreViewProps> | undefined
+	const pluginRegistration = CoreComponent ? undefined : registration
+	const viewState = tab.viewState ?? registration?.initialState ?? EMPTY_VIEW_STATE
+	const tabId = tab.id
+	const handleStateChange = useCallback(
+		(nextState: ViewTabState) => updateViewTabState(tabId, paneId, nextState),
+		[updateViewTabState, tabId, paneId],
+	)
 
 	return (
 		<div
@@ -119,17 +125,19 @@ function ViewTabContent({ tab, paneId, isActive }: ViewTabContentProps) {
 			aria-hidden={!isActive}
 		>
 			{CoreComponent ? (
-				<CoreComponent
-					viewState={viewState}
-					onStateChange={(nextState) => updateViewTabState(tab.id, paneId, nextState)}
-					isActive={isActive}
-				/>
+				<Suspense fallback={<TabLoadingState isActive={isActive} label="Loading view..." />}>
+					<CoreComponent
+						viewState={viewState}
+						onStateChange={handleStateChange}
+						isActive={isActive}
+					/>
+				</Suspense>
 			) : pluginRegistration ? (
 				<div className="p-4">
 					<PluginViewRenderer
 						registration={pluginRegistration}
 						state={viewState}
-						onStateChange={(nextState) => updateViewTabState(tab.id, paneId, nextState)}
+						onStateChange={handleStateChange}
 					/>
 				</div>
 			) : (
@@ -146,22 +154,25 @@ function ViewTabContent({ tab, paneId, isActive }: ViewTabContentProps) {
 			)}
 		</div>
 	)
+})
+
+function EmptyPaneHint({ commandId, label }: { commandId: string; label: string }) {
+	const hotkey = useCommandHotkey(commandId)
+	if (!hotkey) return null
+	return (
+		<p className="flex gap-1 items-center">
+			<Kbd>{hotkey}</Kbd>
+			<span>{label}</span>
+		</p>
+	)
 }
 
 function EmptyPaneState() {
 	return (
 		<div className="flex flex-col items-center justify-center gap-5 h-full text-sm text-text-muted">
 			<p>No open files</p>
-			<p className="flex gap-1 items-center">
-				<Kbd>⌘</Kbd>
-				<Kbd>n</Kbd>
-				<span>New File</span>
-			</p>
-			<p className="flex gap-1 items-center">
-				<Kbd>⌘</Kbd>
-				<Kbd>o</Kbd>
-				<span>Search notes</span>
-			</p>
+			<EmptyPaneHint commandId="file.new" label="New File" />
+			<EmptyPaneHint commandId="navigate.quick-finder" label="Search notes" />
 		</div>
 	)
 }
@@ -172,7 +183,6 @@ interface PaneContentProps {
 	activeTabId: string | null
 	editorConfig: EditorConfig
 	onCursorChange: (cursor: CursorInfo) => void
-	onViewHistory: (filePath: string) => void
 }
 
 function PaneContent({
@@ -181,16 +191,16 @@ function PaneContent({
 	activeTabId,
 	editorConfig,
 	onCursorChange,
-	onViewHistory,
 }: PaneContentProps) {
-	const dragSource = useDragStore((state) => state.dragSource)
+	const isDragging = useDragStore((state) => state.dragSource !== null)
+	const mountedFileTabIds = useMemo(
+		() => getMountedFileTabIds(paneTabs, activeTabId),
+		[paneTabs, activeTabId],
+	)
 
 	return (
-		<div
-			className="pane-content flex-1 overflow-hidden relative bg-bg-primary"
-			data-drop-pane-id={paneId}
-		>
-			{dragSource && <DropZoneOverlay paneId={paneId} />}
+		<div className="pane-content flex-1 overflow-hidden relative" data-drop-pane-id={paneId}>
+			{isDragging && <DropZoneOverlay paneId={paneId} />}
 			{paneTabs.length === 0 ? (
 				<EmptyPaneState />
 			) : (
@@ -202,7 +212,7 @@ function PaneContent({
 							paneId={paneId}
 							isActive={tab.id === activeTabId}
 						/>
-					) : (
+					) : !mountedFileTabIds.has(tab.id) ? null : (
 						<TabEditor
 							key={tab.id}
 							tab={tab}
@@ -210,7 +220,6 @@ function PaneContent({
 							isActive={tab.id === activeTabId}
 							editorConfig={editorConfig}
 							onCursorChange={onCursorChange}
-							onViewHistory={onViewHistory}
 						/>
 					),
 				)
@@ -219,31 +228,15 @@ function PaneContent({
 	)
 }
 
-function useActivePaneFile(
-	paneId: string,
-	activePaneId: string,
-	activeFileTab: Tab | null,
-	setActiveFile: (filePath: string | null) => void,
-) {
-	// oxlint-disable react-doctor/no-event-handler -- active editor file follows the active pane/tab bridge
-	useEffect(() => {
-		if (paneId === activePaneId) setActiveFile(activeFileTab?.filePath ?? null)
-	}, [paneId, activePaneId, activeFileTab, setActiveFile])
-	// oxlint-enable react-doctor/no-event-handler
-}
-
 interface Props {
 	paneId: string
 }
 
 export function PaneView({ paneId }: Props) {
 	const pane = useWorkspaceStore((s) => s.panes[paneId] ?? null)
-	const activePaneId = useWorkspaceStore((s) => s.activePaneId)
 	const activateTab = useWorkspaceStore((s) => s.activateTab)
 	const closeTab = useWorkspaceStore((s) => s.closeTab)
-	const pinTab = useWorkspaceStore((s) => s.pinTab)
 	const updateCursor = useEditorStore((s) => s.updateCursor)
-	const setActiveFile = useEditorStore((s) => s.setActiveFile)
 	const editorConfig = useEditorConfig()
 
 	const paneTabs = pane?.tabs ?? emptyTabs
@@ -253,36 +246,22 @@ export function PaneView({ paneId }: Props) {
 	const activeMarkdownFileTab =
 		getFileTabKind(activeFileTab ?? null) === "markdown" ? activeFileTab : null
 
-	const linkedVaultId = useRemoteVaultStore((s) => s.linkedVaultId)
-	const [historyFilePath, setHistoryFilePath] = useState<string | null>(null)
-
-	const handleViewHistory = useCallback((filePath: string) => {
-		setHistoryFilePath(filePath)
-	}, [])
-	const {
-		fallbackMenu,
-		fallbackTab,
-		dismissFallbackMenu,
-		handleCloseOthers,
-		handleCloseToRight,
-		handleCopyPath,
-		handleReveal,
-		handleOpenInRight,
-		handleViewHistory: handleTabViewHistory,
-		handleTabContextMenu,
-	} = usePaneTabMenu({
-		paneId,
-		paneTabs,
-		closeTab,
-		pinTab,
-		linkedVaultId,
-		onViewHistory: handleViewHistory,
-	})
+	const { showMenu, menu } = useContextMenu()
+	const handleTabContextMenu = useCallback(
+		(tabId: string, event: MouseEvent) => {
+			event.preventDefault()
+			const tab = useWorkspaceStore
+				.getState()
+				.panes[paneId]?.tabs.find((entry) => entry.id === tabId)
+			if (tab) showMenu(buildTabMenuItems(tab, paneId), { x: event.clientX, y: event.clientY })
+		},
+		[paneId, showMenu],
+	)
 	const handleCursorChange = useCallback(
 		(cursor: CursorInfo) => {
-			if (paneId === activePaneId) updateCursor(cursor)
+			if (useWorkspaceStore.getState().activePaneId === paneId) updateCursor(cursor)
 		},
-		[activePaneId, paneId, updateCursor],
+		[paneId, updateCursor],
 	)
 	const handleActivate = useCallback(
 		(tabId: string) => {
@@ -296,48 +275,22 @@ export function PaneView({ paneId }: Props) {
 		},
 		[closeTab, paneId],
 	)
-	const handlePin = useCallback(
-		(tabId: string) => {
-			pinTab(tabId, paneId)
-		},
-		[pinTab, paneId],
-	)
-	const handleHistoryOpenChange = useCallback((open: boolean) => {
-		if (!open) setHistoryFilePath(null)
-	}, [])
-
-	useActivePaneFile(paneId, activePaneId, activeMarkdownFileTab, setActiveFile)
-
 	if (!pane) return null
 
 	return (
-		<div className="pane-view relative flex flex-col h-full overflow-hidden bg-bg-primary">
+		<div className="pane-view relative flex flex-col h-full overflow-hidden">
 			<TabBar
 				tabs={pane.tabs}
 				activeTabId={activeTabId}
 				paneId={paneId}
 				onActivate={handleActivate}
 				onClose={handleClose}
-				onPin={handlePin}
 				onContextMenu={handleTabContextMenu}
 			/>
 
 			{activeMarkdownFileTab && <ConflictBanner filePath={activeMarkdownFileTab.filePath} />}
 
-			<PaneFallbackMenu
-				menu={fallbackMenu}
-				tab={fallbackTab}
-				showVersionHistory={Boolean(linkedVaultId)}
-				onDismiss={dismissFallbackMenu}
-				onClose={handleClose}
-				onCloseOthers={handleCloseOthers}
-				onCloseToRight={handleCloseToRight}
-				onPin={handlePin}
-				onOpenInRight={handleOpenInRight}
-				onCopyPath={handleCopyPath}
-				onReveal={handleReveal}
-				onViewHistory={handleTabViewHistory}
-			/>
+			{menu}
 
 			<PaneContent
 				paneId={paneId}
@@ -345,13 +298,6 @@ export function PaneView({ paneId }: Props) {
 				activeTabId={activeTabId}
 				editorConfig={editorConfig}
 				onCursorChange={handleCursorChange}
-				onViewHistory={handleViewHistory}
-			/>
-
-			<NoteHistoryPanel
-				filePath={historyFilePath ?? ""}
-				open={historyFilePath !== null}
-				onOpenChange={handleHistoryOpenChange}
 			/>
 		</div>
 	)

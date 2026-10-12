@@ -1,6 +1,6 @@
 import type { EditorRuntimeView } from "@cortex/editor/types"
 import { createDrawingFence, createEmptyDrawingDocument } from "./drawingDocument"
-import { openDrawingModal } from "./drawingModalStore"
+import { openDrawingModal } from "./drawingWorkspace"
 
 function needsLeadingBreak(view: EditorRuntimeView, from: number): boolean {
 	if (from === 0) return false

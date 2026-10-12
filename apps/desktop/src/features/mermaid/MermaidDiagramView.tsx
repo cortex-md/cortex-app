@@ -1,6 +1,6 @@
 import { noteCache } from "@cortex/core"
 import { useEffect, useMemo, useState } from "react"
-import type { CoreViewProps } from "../split-view/coreViewRegistry"
+import type { CoreViewProps } from "../split-view/coreViewProps"
 import { MermaidDiagramExplorer } from "./MermaidDiagramExplorer"
 import {
 	type MermaidDiagramReference,

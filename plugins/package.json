@@ -1,0 +1,15 @@
+{
+	"name": "@cortex/plugins",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		".": "./index.ts"
+	},
+	"dependencies": {
+		"@cortex.md/api": "workspace:*"
+	},
+	"devDependencies": {
+		"typescript": "~5.8.3"
+	}
+}

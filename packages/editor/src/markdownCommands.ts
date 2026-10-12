@@ -1,3 +1,4 @@
+import { isTaskLine } from "@cortex/tasks"
 import {
 	addTableColumnEnd,
 	addTableColumnLeft,
@@ -32,6 +33,7 @@ import {
 	hasTableCellSelection,
 	hasTableVisualSelection,
 } from "./tableSelection"
+import { toggleTaskAt } from "./taskToggle"
 import type { EditorRuntimeView } from "./types"
 
 function wrapOrInsert(view: EditorRuntimeView, marker: string): boolean {
@@ -88,7 +90,7 @@ function stripBlockPrefixes(text: string): string {
 	return text
 		.replace(/^#{1,6} /, "")
 		.replace(/^> /, "")
-		.replace(/^- \[[ x]\] /, "")
+		.replace(/^[-*+] \[[ xX]\] /, "")
 		.replace(/^- /, "")
 		.replace(/^\d+\. /, "")
 }
@@ -280,14 +282,8 @@ export function insertCallout(view: EditorRuntimeView, type = "note"): boolean {
 export function toggleTaskList(view: EditorRuntimeView): boolean {
 	const { state } = view
 	const line = state.doc.lineAt(state.selection.main.head)
-	const taskMatch = line.text.match(/^(\s*- \[)( |x)(\] )/)
-
-	if (taskMatch) {
-		const checkChar = taskMatch[2] === " " ? "x" : " "
-		const checkOffset = line.from + taskMatch[1].length
-		view.dispatch({
-			changes: { from: checkOffset, to: checkOffset + 1, insert: checkChar },
-		})
+	if (isTaskLine(line.text)) {
+		toggleTaskAt(view, line.from + line.text.indexOf("["))
 	} else {
 		const stripped = stripBlockPrefixes(line.text)
 		const strippedLength = line.text.length - stripped.length

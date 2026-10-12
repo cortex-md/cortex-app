@@ -16,9 +16,6 @@ function setMemoryPlatform(initialFiles: Record<string, string> = {}) {
 
 	vi.mocked(getPlatform).mockReturnValue({
 		fs: { readFile, writeFile, createDir },
-		storage: {
-			getVaultConfigDir: vi.fn(async (vaultPath: string) => `${vaultPath}/.cortex`),
-		},
 	} as never)
 
 	return { files, readFile, writeFile, createDir }

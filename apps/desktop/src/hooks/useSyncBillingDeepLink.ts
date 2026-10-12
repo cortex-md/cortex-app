@@ -5,7 +5,7 @@ import {
 	useWorkspaceStore,
 } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
-import { useEffect, useEffectEvent, useRef } from "react"
+import { useEffect } from "react"
 import {
 	SYNC_WELCOME_MARKDOWN,
 	SYNC_WELCOME_TITLE,
@@ -23,62 +23,40 @@ export function isSyncCheckoutCompleteDeepLink(value: string): boolean {
 	}
 }
 
-export function useSyncBillingDeepLink() {
-	const vault = useVaultStore((state) => state.vault)
-	const openViewTab = useWorkspaceStore((state) => state.openViewTab)
-	const refreshStatus = useSubscriptionStore((state) => state.refreshStatus)
-	const clearBlock = useSubscriptionStore((state) => state.clearBlock)
-	const processingRef = useRef(false)
-	const welcomeOpenedRef = useRef(false)
+function startSyncBillingDeepLinks(): () => void {
+	let processing = false
+	let welcomeOpened = false
 
-	const handleDeepLinkUrls = useEffectEvent(async (urls: string[]) => {
-		if (!urls.some(isSyncCheckoutCompleteDeepLink)) return
-		if (processingRef.current) return
-
-		processingRef.current = true
+	const handleDeepLinkUrls = async (urls: string[]) => {
+		if (!urls.some(isSyncCheckoutCompleteDeepLink) || processing) return
+		processing = true
 		try {
-			const status = await refreshStatus(DEFAULT_CLOUD_SYNC_SERVER_URL, { force: true })
+			const subscription = useSubscriptionStore.getState()
+			const status = await subscription.refreshStatus(DEFAULT_CLOUD_SYNC_SERVER_URL, {
+				force: true,
+			})
 			if (!status.entitled) return
 
-			clearBlock()
-			if (!vault || welcomeOpenedRef.current) return
+			subscription.clearBlock()
+			if (!useVaultStore.getState().vault || welcomeOpened) return
 
-			welcomeOpenedRef.current = true
-			openViewTab(SYNC_WELCOME_VIEW_ID, SYNC_WELCOME_TITLE, {
+			welcomeOpened = true
+			useWorkspaceStore.getState().openViewTab(SYNC_WELCOME_VIEW_ID, SYNC_WELCOME_TITLE, {
 				ephemeral: true,
-				viewState: {
-					content: SYNC_WELCOME_MARKDOWN,
-				},
+				viewState: { content: SYNC_WELCOME_MARKDOWN },
 			})
 		} catch (error) {
 			console.error("[Sync billing deep link failed]", { error })
 		} finally {
-			processingRef.current = false
+			processing = false
 		}
+	}
+
+	return getPlatform().app.onDeepLinkOpen((urls) => {
+		void handleDeepLinkUrls(urls)
 	})
+}
 
-	useEffect(() => {
-		let cancelled = false
-		let unlisten: (() => void) | null = null
-
-		void getPlatform()
-			.app.onDeepLinkOpen((urls) => {
-				void handleDeepLinkUrls(urls)
-			})
-			.then((nextUnlisten) => {
-				if (cancelled) {
-					nextUnlisten()
-				} else {
-					unlisten = nextUnlisten
-				}
-			})
-			.catch((error) => {
-				console.error("[Sync billing deep link subscription failed]", { error })
-			})
-
-		return () => {
-			cancelled = true
-			unlisten?.()
-		}
-	}, [])
+export function useSyncBillingDeepLink() {
+	useEffect(() => startSyncBillingDeepLinks(), [])
 }

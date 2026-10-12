@@ -4,9 +4,7 @@ import { formatHotkeyDisplay, useHotkeysStore } from "@cortex/hotkeys"
 import {
 	CommandDialog,
 	CommandEmpty,
-	CommandFooter,
-	CommandFooterHint,
-	CommandFooterKey,
+	CommandFooterHints,
 	CommandGroup,
 	CommandInput,
 	CommandItem,
@@ -76,7 +74,7 @@ export function CommandPalette() {
 				{grouped.map((group) => (
 					<CommandGroup key={group.category} heading={group.category}>
 						{group.commands.map((cmd) => {
-							const shortcut = cmd.shortcut ?? shortcutMap.get(cmd.id)
+							const shortcut = shortcutMap.get(cmd.id)
 							return (
 								<CommandItem
 									key={cmd.id}
@@ -94,16 +92,7 @@ export function CommandPalette() {
 					</CommandGroup>
 				))}
 			</CommandList>
-			<CommandFooter>
-				{COMMAND_PALETTE_FOOTER_HINTS.map((hint) => (
-					<CommandFooterHint key={`${hint.keys.join("-")}-${hint.label}`}>
-						{hint.keys.map((key) => (
-							<CommandFooterKey key={key}>{key}</CommandFooterKey>
-						))}
-						{hint.label}
-					</CommandFooterHint>
-				))}
-			</CommandFooter>
+			<CommandFooterHints hints={COMMAND_PALETTE_FOOTER_HINTS} />
 		</CommandDialog>
 	)
 }

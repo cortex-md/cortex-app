@@ -20,12 +20,12 @@ describe("Sync settings routing", () => {
 		setupSyncSettingsMocks({ authenticated: false, syncEnabled: false })
 		render(<SyncSection />)
 
-		expect(screen.getByText("Enable sync for this vault")).toBeInTheDocument()
+		expect(screen.getByText("Sync this vault")).toBeInTheDocument()
 		expect(screen.getByText("Sign in before enabling sync")).toBeInTheDocument()
 		expect(screen.queryByText("Connection")).not.toBeInTheDocument()
-		expect(screen.getByRole("switch", { name: "Enable sync for this vault" })).toBeDisabled()
+		expect(screen.getByRole("switch", { name: "Sync this vault" })).toBeDisabled()
 
-		await userEvent.click(screen.getByRole("switch", { name: "Enable sync for this vault" }))
+		await userEvent.click(screen.getByRole("switch", { name: "Sync this vault" }))
 
 		expect(setSyncEnabled).not.toHaveBeenCalled()
 	})

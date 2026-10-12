@@ -1,37 +1,6 @@
 import { type CommandEntry, commandRegistry, getCommands } from "@cortex/commands"
+import { markdownToolbarCommandIds } from "@cortex/editor/markdown-format-commands"
 import type { SlashCommandItem } from "@cortex/editor/slash-commands"
-
-export const visibleMarkdownToolbarCommandIds = [
-	"format.heading-1",
-	"format.heading-2",
-	"format.heading-3",
-	"format.bold",
-	"format.italic",
-	"format.inline-math",
-	"format.link",
-	"format.unordered-list",
-	"format.ordered-list",
-	"format.task-list",
-	"format.blockquote",
-] as const
-
-export const overflowMarkdownToolbarCommandIds = [
-	"format.strikethrough",
-	"format.inline-code",
-	"format.code-block",
-	"format.math-block",
-	"format.callout",
-	"format.image",
-	"format.table",
-	"format.drawing",
-] as const
-
-const markdownFormatCommandIds = [
-	...visibleMarkdownToolbarCommandIds,
-	...overflowMarkdownToolbarCommandIds,
-] as const
-
-export type MarkdownFormatCommandId = (typeof markdownFormatCommandIds)[number]
 
 function toSlashCommandItem(command: CommandEntry): SlashCommandItem {
 	return {
@@ -48,7 +17,7 @@ export function getMarkdownFormatCommands(): Map<string, CommandEntry> {
 
 export function getMarkdownFormatCommandsSnapshot(): string {
 	const commands = getMarkdownFormatCommands()
-	return markdownFormatCommandIds
+	return markdownToolbarCommandIds
 		.map((commandId) => {
 			const command = commands.get(commandId)
 			return command
@@ -64,7 +33,7 @@ export function subscribeMarkdownFormatCommands(listener: () => void): () => voi
 
 export function getSlashCommandItems(): SlashCommandItem[] {
 	const commands = getMarkdownFormatCommands()
-	return markdownFormatCommandIds.flatMap((commandId) => {
+	return markdownToolbarCommandIds.flatMap((commandId) => {
 		const command = commands.get(commandId)
 		return command ? [toSlashCommandItem(command)] : []
 	})

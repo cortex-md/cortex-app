@@ -14,13 +14,7 @@ export {
 	resolveCalloutType,
 	subscribeCalloutTypes,
 } from "./callouts"
-export {
-	type FrontmatterField,
-	type ParsedFrontmatter,
-	parseFrontmatter,
-	parseFrontmatterFields,
-} from "./frontmatter"
-export { createRenderer, getSharedRenderer } from "./pipeline"
+export { type FrontmatterField, parseFrontmatterFields } from "./frontmatter"
 export {
 	getMarkdownInlineRegistrations,
 	getMarkdownPreprocessorEntries,
@@ -30,6 +24,7 @@ export {
 	getMarkdownRegistryVersion,
 	getMarkdownSemanticRegistrations,
 	getMarkdownTextTransforms,
+	hasMarkdownTextRegistrations,
 	type MarkdownDiagnostic,
 	type MarkdownInlineRegistration,
 	type MarkdownInlineReplacement,

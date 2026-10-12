@@ -1,0 +1,18 @@
+{
+	"name": "@cortex/sync-api",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"typecheck": "tsc -b --pretty false"
+	},
+	"dependencies": {
+		"@cortex/platform": "workspace:*"
+	},
+	"devDependencies": {
+		"typescript": "~5.8.3"
+	}
+}

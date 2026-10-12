@@ -5,7 +5,7 @@ export {
 	getCalloutRegistryVersion,
 	getCalloutTypes,
 	subscribeCalloutTypes,
-} from "@cortex/renderer"
+} from "@cortex/renderer/callouts"
 export { type ClipboardImageHandler, clipboardImageExtension } from "./clipboardImage"
 export {
 	type CodeBlockEmbedDefinition,
@@ -18,12 +18,14 @@ export {
 	type ParsedCodeBlockEmbed,
 	parseFencedCodeBlocks,
 } from "./codeBlockEmbeds"
-export { EditorView } from "./EditorView"
+export { EditorView, evictEditorDocument } from "./EditorView"
+export { createEditorConfig, type EditorConfigSettings } from "./editorConfig"
 export {
 	type BaseExtensionsOptions,
 	baseExtensions,
 	DEFAULT_EDITOR_CONFIG,
 	type PluginEditorContributions,
+	pluginEditorRuntime,
 	readonlyExtension,
 	reconfigureEditor,
 	reconfigurePluginExtensions,
@@ -101,8 +103,12 @@ export {
 	type MarkdownFormatCommandDefinition,
 	type MarkdownFormatCommandId,
 	type MarkdownFormatCommandRunner,
+	type MarkdownToolbarCommandId,
 	markdownFormatCommandDefinitions,
 	markdownFormatCommandIds,
+	markdownToolbarCommandIds,
+	markdownToolbarLayout,
+	markdownToolbarShortLabels,
 } from "./markdownFormatCommands"
 export {
 	defaultMarkdownKeymapExtension,
@@ -111,6 +117,7 @@ export {
 	type MarkdownCommandExecutor,
 	reconfigureMarkdownKeymap,
 } from "./markdownKeymap"
+export { type NoteAssetPath, resolveNoteAssetPath } from "./noteAssets"
 export { ReadingView } from "./ReadingView"
 export { loadCodeMirrorCommunityPluginExternals, loadEditorRuntime } from "./runtime"
 export { SideBySideView } from "./SideBySideView"

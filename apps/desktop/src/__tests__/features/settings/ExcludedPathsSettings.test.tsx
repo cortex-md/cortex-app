@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 const toggleExcludedPath = vi.fn()
 
-vi.mock("@cortex/core", () => ({
+vi.mock("@cortex/core", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@cortex/core")>()),
 	isSyncImagePath: () => false,
 	shouldIgnoreSyncPath: () => false,
 	useSyncStore: (selector: (state: unknown) => unknown) =>
@@ -55,7 +56,7 @@ describe("ExcludedPathsSettings", () => {
 	it("adds custom patterns through the shared picker", async () => {
 		render(<ExcludedPathsSettings />)
 		const input = screen.getByRole("combobox", {
-			name: "Search files, folders, or add a pattern...",
+			name: "Add a folder, file or pattern",
 		})
 
 		await userEvent.type(input, "*.log")
@@ -67,7 +68,7 @@ describe("ExcludedPathsSettings", () => {
 	it("reserves space for options inside the clipped settings group", async () => {
 		render(<ExcludedPathsSettings />)
 		const input = screen.getByRole("combobox", {
-			name: "Search files, folders, or add a pattern...",
+			name: "Add a folder, file or pattern",
 		})
 
 		await userEvent.click(input)

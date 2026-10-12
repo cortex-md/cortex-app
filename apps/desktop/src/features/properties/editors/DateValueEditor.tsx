@@ -1,23 +1,13 @@
 import { parsePropertyDate, serializePropertyDate } from "@cortex/properties"
-import { Button, Calendar, Input, Separator } from "@cortex/ui"
+import { Button, Calendar, Input } from "@cortex/ui"
 import { useCallback, useState } from "react"
+import { formatShortDate } from "@/utils/format"
 import type { PropertyValueEditorProps } from "../types"
 import { usePropertyDraftCommit } from "../usePropertyDraftCommit"
 
-const propertyDateFormatter = new Intl.DateTimeFormat(undefined, {
-	month: "short",
-	day: "numeric",
-	year: "numeric",
-})
-
-const propertyMonthFormatter = new Intl.DateTimeFormat(undefined, {
-	month: "short",
-	year: "numeric",
-})
-
 function formatDate(value: unknown): string {
 	const date = parsePropertyDate(value)
-	return date ? propertyDateFormatter.format(date) : String(value ?? "")
+	return date ? formatShortDate(date) : String(value ?? "")
 }
 
 export function DateValueEditor({
@@ -77,12 +67,6 @@ export function DateValueEditor({
 				}}
 			/>
 			{error && <output className="note-properties-error">{error}</output>}
-			<div className="note-property-calendar-header">
-				<strong>{propertyMonthFormatter.format(month)}</strong>
-				<Button variant="ghost" size="xs" onClick={handleSelectToday}>
-					Today
-				</Button>
-			</div>
 			<Calendar
 				mode="single"
 				month={month}
@@ -96,17 +80,21 @@ export function DateValueEditor({
 					void onSetValue(serialized)
 				}}
 			/>
-			<Separator />
-			<Button
-				variant="ghost"
-				size="xs"
-				className="note-property-clear"
-				onClick={() => {
-					void onRemoveValue().then(onClose)
-				}}
-			>
-				Clear
-			</Button>
+			<div className="note-property-popover-footer">
+				<Button variant="ghost" size="xs" onClick={handleSelectToday}>
+					Today
+				</Button>
+				<Button
+					variant="ghost"
+					size="xs"
+					disabled={!selected}
+					onClick={() => {
+						void onRemoveValue().then(onClose)
+					}}
+				>
+					Clear
+				</Button>
+			</div>
 		</div>
 	)
 }

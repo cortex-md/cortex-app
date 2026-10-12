@@ -1,8 +1,9 @@
 # Community Plugins
 
-Community plugins extend Cortex through the public `@cortex.md/api` package. The host creates a
-plugin instance, injects `this.manifest` and `this.api`, calls `onload()`, and disposes tracked
-registrations when the plugin unloads.
+Community plugins extend Cortex through the public `@cortex.md/api` package. A plugin is one
+default-exported `definePlugin({...})` object: a manifest, a settings schema, and declared
+contributions. Cortex registers the contributions without running plugin code, runs `activate` or
+`load` on first use, and disposes everything together when the plugin is disabled.
 
 ## Install Location
 
@@ -10,9 +11,9 @@ During development, place or symlink a plugin directory here:
 
 ```text
 <vault>/.cortex/plugins/<plugin-id>/
-  manifest.json
-  dist/index.js
-  styles.css        # optional, Markdown-surface styles only
+  manifest.json     # { "id", "main" }
+  dist/index.js     # default export: definePlugin({...})
+  styles.css        # optional, requires contributes.markdown
 ```
 
 Cortex watches the vault plugin directory and reloads enabled community plugins when plugin files
@@ -21,7 +22,7 @@ change.
 ## Start Here
 
 - [Getting started](getting-started.md)
-- [Manifest and capabilities](manifest-and-capabilities.md)
+- [Manifest and permissions](manifest-and-capabilities.md)
 - [Lifecycle and bundling](lifecycle-and-bundling.md)
 - [Commands and hotkeys](commands-and-hotkeys.md)
 - [Vault, editor, and workspace](vault-editor-workspace.md)
@@ -34,9 +35,8 @@ change.
 ## Rules of Thumb
 
 - Import only from `@cortex.md/api` and your own bundled code.
-- Declare every required capability in `manifest.json`.
+- Declare contributions as data; keep handlers small or move them behind `load()`.
+- List only the runtime `permissions` your handlers actually call.
 - Use vault-relative paths with forward slashes.
-- Use declarative views instead of React or DOM APIs.
-- Keep view state serializable and update it through actions and reducers.
-- Dispose manual timers, external subscriptions, and caches in `onunload()`.
-
+- Use declarative views instead of React or DOM APIs; keep view state serializable.
+- Return a cleanup function from `activate` for timers or external resources.

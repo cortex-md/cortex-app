@@ -1,99 +1,103 @@
-import { app, BrowserWindow, nativeTheme, systemPreferences } from "electron"
-import { existsSync, readFileSync } from "node:fs"
-import { settingsPath } from "./paths"
+import { readFileSync } from "node:fs"
+import type { NativeAppearanceSnapshot } from "@cortex/platform"
+import {
+	BrowserWindow,
+	type BrowserWindowConstructorOptions,
+	nativeTheme,
+	shell,
+	systemPreferences,
+} from "electron"
+import { appSettingsPath } from "./paths"
+import { assertExternalUrl, isTrustedUrl } from "./security"
+import { stopWatchersFor } from "./services/watcher"
 
-export interface NativeAppearanceSnapshot {
-	platform: "macos" | "windows" | "linux"
-	colorScheme: "light" | "dark"
-	reducedMotion: boolean
-	highContrast: boolean
-	accentColor: string | null
-	scrollbarStyle: "overlay" | "thin" | "classic"
-}
+type DesktopPlatform = "macos" | "windows" | "linux"
 
-const DEFAULT_NATIVE_WINDOW_EFFECTS = true
+const SCROLLBAR_STYLES = {
+	macos: "overlay",
+	windows: "thin",
+	linux: "classic",
+} as const satisfies Record<DesktopPlatform, NativeAppearanceSnapshot["scrollbarStyle"]>
 
-function detectPlatform(): NativeAppearanceSnapshot["platform"] {
+function detectPlatform(): DesktopPlatform {
 	if (process.platform === "darwin") return "macos"
 	if (process.platform === "win32") return "windows"
 	return "linux"
 }
 
-function scrollbarStyleFor(
-	platform: NativeAppearanceSnapshot["platform"],
-): NativeAppearanceSnapshot["scrollbarStyle"] {
-	if (platform === "macos") return "overlay"
-	if (platform === "windows") return "thin"
-	return "classic"
+function readAccentColor(platform: DesktopPlatform): string | null {
+	if (platform !== "macos") return null
+	try {
+		const accent = systemPreferences.getAccentColor()
+		return accent ? `#${accent}` : null
+	} catch {
+		return null
+	}
 }
 
 export function getAppearanceSnapshot(): Partial<NativeAppearanceSnapshot> {
 	const platform = detectPlatform()
-	let accentColor: string | null = null
-	if (platform === "macos") {
-		try {
-			accentColor = systemPreferences.getAccentColor?.()
-				? `#${systemPreferences.getAccentColor()}`
-				: null
-		} catch {
-			accentColor = null
-		}
-	}
 	return {
 		platform,
 		colorScheme: nativeTheme.shouldUseDarkColors ? "dark" : "light",
-		reducedMotion: false,
 		highContrast: nativeTheme.shouldUseHighContrastColors,
-		accentColor,
-		scrollbarStyle: scrollbarStyleFor(platform),
+		accentColor: readAccentColor(platform),
+		scrollbarStyle: SCROLLBAR_STYLES[platform],
 	}
 }
 
-export function readNativeWindowEffectsEnabled(): boolean {
-	const path = settingsPath()
-	if (!existsSync(path)) return DEFAULT_NATIVE_WINDOW_EFFECTS
+function readNativeWindowEffectsEnabled(): boolean {
 	try {
-		const content = JSON.parse(readFileSync(path, "utf8")) as {
-			appearance?: { nativeWindowEffects?: boolean; nativeContentSurface?: boolean }
+		const settings = JSON.parse(readFileSync(appSettingsPath(), "utf8")) as {
+			appearance?: { nativeWindowEffects?: boolean }
 		}
-		const appearance = content.appearance
-		if (typeof appearance?.nativeWindowEffects === "boolean") {
-			return appearance.nativeWindowEffects
-		}
-		if (typeof appearance?.nativeContentSurface === "boolean") {
-			return appearance.nativeContentSurface
-		}
+		return settings.appearance?.nativeWindowEffects ?? true
 	} catch {
-		// Fall through.
+		return true
 	}
-	return DEFAULT_NATIVE_WINDOW_EFFECTS
 }
 
-export function createMainWindow(loadUrl: string, preloadPath: string): BrowserWindow {
-	const effectsEnabled = readNativeWindowEffectsEnabled()
-	const platform = detectPlatform()
+function openExternal(url: string): void {
+	try {
+		void shell.openExternal(assertExternalUrl(url))
+	} catch (error) {
+		console.warn("[window] blocked external navigation:", error)
+	}
+}
 
-	const window = new BrowserWindow({
-		width: 1280,
-		height: 840,
-		minWidth: 800,
-		minHeight: 500,
+function guardNavigation(window: BrowserWindow): void {
+	const ownerId = window.webContents.id
+	window.webContents.setWindowOpenHandler(({ url }) => {
+		openExternal(url)
+		return { action: "deny" }
+	})
+	window.webContents.on("will-navigate", (event, url) => {
+		if (isTrustedUrl(url)) return
+		event.preventDefault()
+		openExternal(url)
+	})
+	window.webContents.on("did-start-navigation", (details) => {
+		if (details.isMainFrame && !details.isSameDocument) void stopWatchersFor(ownerId)
+	})
+	window.on("closed", () => void stopWatchersFor(ownerId))
+}
+
+function windowBackgroundColor(effectsEnabled: boolean): string | undefined {
+	if (effectsEnabled && detectPlatform() !== "linux") return undefined
+	return nativeTheme.shouldUseDarkColors ? "#1c1c1e" : "#f5f5f4"
+}
+
+function sharedWindowOptions(preloadPath: string): BrowserWindowConstructorOptions {
+	const effectsEnabled = readNativeWindowEffectsEnabled()
+	return {
 		show: false,
-		title: "Cortex",
-		...(platform === "macos"
-			? {
-					titleBarStyle: "hiddenInset" as const,
-					trafficLightPosition: { x: 14, y: 12 },
-					vibrancy: effectsEnabled ? ("sidebar" as const) : undefined,
-					visualEffectState: effectsEnabled ? ("active" as const) : undefined,
-				}
-			: {}),
-		...(platform === "windows"
-			? {
-					backgroundMaterial: effectsEnabled ? ("mica" as const) : undefined,
-					titleBarOverlay: true,
-				}
-			: {}),
+		backgroundColor: windowBackgroundColor(effectsEnabled),
+		...(detectPlatform() === "macos" && {
+			titleBarStyle: "hiddenInset",
+			trafficLightPosition: { x: 14, y: 12 },
+			vibrancy: effectsEnabled ? "sidebar" : undefined,
+			visualEffectState: "followWindow",
+		}),
 		webPreferences: {
 			preload: preloadPath,
 			contextIsolation: true,
@@ -101,30 +105,65 @@ export function createMainWindow(loadUrl: string, preloadPath: string): BrowserW
 			sandbox: true,
 			spellcheck: true,
 		},
+	}
+}
+
+const DEV_SERVER_RETRY_MS = 1000
+const DEV_SERVER_MAX_RETRIES = 60
+
+function loadRenderer(window: BrowserWindow, url: string, attempt = 0): void {
+	window.loadURL(url).catch((error: unknown) => {
+		if (window.isDestroyed()) return
+		const devServer = !url.startsWith("file:")
+		if (devServer && attempt < DEV_SERVER_MAX_RETRIES) {
+			if (attempt === 0) console.warn(`[window] dev server unavailable, retrying ${url}`)
+			setTimeout(() => loadRenderer(window, url, attempt + 1), DEV_SERVER_RETRY_MS)
+			return
+		}
+		console.error(`[window] failed to load ${url}:`, error)
+	})
+}
+
+export function createMainWindow(
+	loadUrl: string,
+	preloadPath: string,
+	bounds?: Electron.Rectangle,
+): BrowserWindow {
+	const effectsEnabled = readNativeWindowEffectsEnabled()
+	const shared = sharedWindowOptions(preloadPath)
+	const window = new BrowserWindow({
+		...shared,
+		width: bounds?.width ?? 1280,
+		height: bounds?.height ?? 840,
+		...(bounds && { x: bounds.x, y: bounds.y }),
+		minWidth: 800,
+		minHeight: 500,
+		title: "Cortex",
+		...(detectPlatform() === "windows" && {
+			backgroundMaterial: effectsEnabled ? "mica" : undefined,
+			titleBarOverlay: true,
+		}),
 	})
 
-	void window.loadURL(loadUrl)
-	window.once("ready-to-show", () => {
-		window.show()
-	})
+	guardNavigation(window)
+	window.once("ready-to-show", () => window.show())
+	loadRenderer(window, loadUrl)
 	return window
 }
 
-export function closeCurrentWindow(): void {
-	const focused = BrowserWindow.getFocusedWindow()
-	focused?.close()
-}
+export function createSettingsWindow(loadUrl: string, preloadPath: string): BrowserWindow {
+	const window = new BrowserWindow({
+		...sharedWindowOptions(preloadPath),
+		width: 880,
+		height: 640,
+		minWidth: 680,
+		minHeight: 480,
+		title: "Settings",
+		fullscreenable: false,
+		maximizable: false,
+	})
 
-export function focusMainWindow(): void {
-	const windows = BrowserWindow.getAllWindows()
-	const main = windows[0]
-	if (!main) return
-	if (main.isMinimized()) main.restore()
-	main.show()
-	main.focus()
-}
-
-export function restartApp(): void {
-	app.relaunch()
-	app.exit(0)
+	guardNavigation(window)
+	loadRenderer(window, loadUrl)
+	return window
 }

@@ -9,17 +9,26 @@ const appUpdateMocks = vi.hoisted(() => ({
 	useAppUpdateSnapshot: vi.fn(),
 }))
 const openMarketplaceView = vi.hoisted(() => vi.fn())
-const pluginHostCoreMocks = vi.hoisted(() => ({
+const runInMainWindow = vi.hoisted(() => vi.fn())
+const pluginHostMocks = vi.hoisted(() => ({
 	disablePlugin: vi.fn().mockResolvedValue(undefined),
 	enablePlugin: vi.fn().mockResolvedValue(undefined),
-	getPluginInstance: vi.fn(),
+	getCommunityPluginsDir: vi.fn(() => "/vault/.cortex/plugins"),
 	saveEnabledPlugins: vi.fn().mockResolvedValue(undefined),
+	setPluginSetting: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock("@cortex/core", () => ({
+	SELF_HOSTED_ENVIRONMENT_GROUPS: [],
+	useTemplateStore: vi.fn((selector: (state: { templates: [] }) => unknown) =>
+		selector({ templates: [] }),
+	),
 	noteCache: {
 		flushAll: vi.fn().mockResolvedValue(undefined),
 	},
+	useAccountStore: vi.fn((selector: (state: { profile: null }) => unknown) =>
+		selector({ profile: null }),
+	),
 	useAuthStore: vi.fn(),
 	useEditorStore: vi.fn(() => ({
 		flushActive: vi.fn().mockResolvedValue(undefined),
@@ -34,30 +43,40 @@ vi.mock("../../../features/marketplace/openMarketplaceView", () => ({
 	openMarketplaceView,
 }))
 
-vi.mock("@cortex/plugin-host-core", () => pluginHostCoreMocks)
+vi.mock("../../../bootstrap/pluginHost", () => ({ pluginHost: pluginHostMocks }))
 
-vi.mock("@cortex/plugin-host-web", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("@cortex/plugin-host-web")>()
-	return {
-		...actual,
-		getCommunityPluginsDir: vi.fn(() => "/vault/.cortex/plugins"),
-		usePluginStore: vi.fn(),
-	}
-})
+vi.mock("../../../windows/runInMainWindow", () => ({ runInMainWindow }))
+
+vi.mock("../../../features/settings/coreSettingsPageRegistry", () => ({
+	get CORE_SETTINGS_PAGES() {
+		return coreSettingsPages
+	},
+}))
+
+vi.mock("../../../features/settings/desktopSettingsControls", () => ({
+	desktopSettingsControls: testSettingsControls,
+}))
+
+vi.mock("@cortex/plugin-host-core", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@cortex/plugin-host-core")>()),
+	usePluginStore: vi.fn(),
+}))
 
 import { useAuthStore, useUIStore, useVaultStore } from "@cortex/core"
-import { setSettingsControls, usePluginStore } from "@cortex/plugin-host-web"
-import type { EditorSettings, GeneralSettings } from "@cortex/settings"
+import { type RegisteredSettingsPage, usePluginStore } from "@cortex/plugin-host-core"
+import { type EditorSettings, type GeneralSettings, useSettingsStore } from "@cortex/settings"
+import type { ComponentProps } from "react"
+import type { SettingsControlComponents } from "../../../features/plugins/rendering/PluginSettingsRenderer"
 import { EditorSection } from "../../../features/settings/EditorSettings"
 import { GeneralSection } from "../../../features/settings/GeneralSettings"
 import { PluginsSection } from "../../../features/settings/PluginsSettings"
-import { SettingsContent, SettingsModal } from "../../../features/settings/SettingsModal"
 import {
 	SettingsField,
 	SettingsGroup,
 	SettingsPage,
 	SettingsSection,
 } from "../../../features/settings/SettingsPrimitives"
+import { SettingsView } from "../../../features/settings/SettingsView"
 
 const onUpdate = vi.fn()
 const openAuth = vi.fn()
@@ -92,67 +111,86 @@ const editorSettings: EditorSettings = {
 	imageStorageCustomPath: "",
 }
 
-function installTestSettingsControls() {
-	setSettingsControls({
-		Group: ({ children }) => <div>{children}</div>,
-		Field: ({ label, description, children }) => (
-			<div>
-				<span>{label}</span>
-				{description && <small>{description}</small>}
-				{children}
-			</div>
-		),
-		Switch: ({ checked, onCheckedChange }) => (
-			<button
-				type="button"
-				role="switch"
-				aria-checked={checked}
-				onClick={() => onCheckedChange(!checked)}
-			>
-				Toggle
-			</button>
-		),
-		TextInput: ({ value, onChange }) => (
-			<input value={value} onChange={(event) => onChange(event.target.value)} />
-		),
-		NumberInput: ({ value, onChange }) => (
-			<input
-				type="number"
-				value={value}
-				onChange={(event) => onChange(Number(event.target.value))}
-			/>
-		),
-		Select: ({ value, onChange, options }) => (
-			<select value={value} onChange={(event) => onChange(event.target.value)}>
-				{options.map((option) => (
-					<option key={option.value} value={option.value}>
-						{option.label}
-					</option>
-				))}
-			</select>
-		),
-		Slider: ({ value, onChange }) => (
-			<button type="button" onClick={() => onChange(8)}>
-				Task limit {value}
-			</button>
-		),
-		ColorPicker: ({ value, onChange }) => (
-			<input type="color" value={value} onChange={(event) => onChange(event.target.value)} />
-		),
-		Label: ({ children }) => <span>{children}</span>,
-		Description: ({ children }) => <p>{children}</p>,
-	})
+const testSettingsControls: SettingsControlComponents = vi.hoisted(() => ({
+	Group: ({ children }) => <div>{children}</div>,
+	Field: ({ label, description, children }) => (
+		<div>
+			<span>{label}</span>
+			{description && <small>{description}</small>}
+			{children}
+		</div>
+	),
+	Switch: ({ checked, onCheckedChange }) => (
+		<button
+			type="button"
+			role="switch"
+			aria-checked={checked}
+			onClick={() => onCheckedChange(!checked)}
+		>
+			Toggle
+		</button>
+	),
+	TextInput: ({ value, onChange }) => (
+		<input value={value} onChange={(event) => onChange(event.target.value)} />
+	),
+	NumberInput: ({ value, onChange }) => (
+		<input type="number" value={value} onChange={(event) => onChange(Number(event.target.value))} />
+	),
+	Select: ({ value, onChange, options }) => (
+		<select value={value} onChange={(event) => onChange(event.target.value)}>
+			{options.map((option) => (
+				<option key={option.value} value={option.value}>
+					{option.label}
+				</option>
+			))}
+		</select>
+	),
+	Slider: ({ value, onChange }) => (
+		<button type="button" onClick={() => onChange(8)}>
+			Task limit {value}
+		</button>
+	),
+	ColorPicker: ({ value, onChange }) => (
+		<input type="color" value={value} onChange={(event) => onChange(event.target.value)} />
+	),
+	Label: ({ children }) => <span>{children}</span>,
+	Description: ({ children }) => <p>{children}</p>,
+}))
+
+function corePage(
+	id: string,
+	title: string,
+	component: RegisteredSettingsPage["component"],
+): RegisteredSettingsPage {
+	return {
+		owner: "core",
+		key: id,
+		id,
+		label: title,
+		title,
+		description: "",
+		group: "Cortex",
+		icon: "settings",
+		component,
+	}
 }
 
-function setupCoreStores({
-	authenticated = false,
-	settingsInitialSection = null,
-}: {
-	authenticated?: boolean
-	settingsInitialSection?: string | null
-} = {}) {
+const coreSettingsPages = [
+	corePage("general", "General", () => null),
+	corePage(
+		"plugins",
+		"Plugins",
+		({
+			onOpenMarketplace,
+		}: {
+			onOpenMarketplace: ComponentProps<typeof PluginsSection>["onBrowseMarketplace"]
+		}) => <PluginsSection onBrowseMarketplace={onOpenMarketplace} />,
+	),
+]
+
+function setupCoreStores({ authenticated = false }: { authenticated?: boolean } = {}) {
 	vi.mocked(useUIStore).mockImplementation(((selector?: (state: unknown) => unknown) => {
-		const state = { openAuth, settingsInitialSection }
+		const state = { openAuth }
 		return selector ? selector(state) : state
 	}) as never)
 
@@ -187,8 +225,8 @@ function setupCoreStores({
 	vi.mocked(usePluginStore).mockImplementation(((selector?: (state: unknown) => unknown) => {
 		const state = {
 			plugins: {},
-			settingsTabs: [],
-			settingsSchemas: {},
+			settingsPages: [],
+			settingsValues: {},
 		}
 		return selector ? selector(state) : state
 	}) as never)
@@ -196,7 +234,9 @@ function setupCoreStores({
 
 beforeEach(() => {
 	appUpdateMocks.useAppUpdateSnapshot.mockReturnValue(idleUpdateStatus)
-	pluginHostCoreMocks.getPluginInstance.mockReset()
+	useSettingsStore.setState((state) => ({
+		settings: { ...state.settings, plugins: { allowCommunity: true } },
+	}))
 })
 
 afterEach(() => {
@@ -273,7 +313,7 @@ describe("settings sections", () => {
 		render(<GeneralSection settings={generalSettings} onUpdate={onUpdate} />)
 
 		expect(screen.getByText("Installing update")).toBeInTheDocument()
-		expect(screen.getByText("512 B of 1 KB")).toBeInTheDocument()
+		expect(screen.getByText("512 B of 1.0 KB")).toBeInTheDocument()
 	})
 
 	it("shows update errors in General settings", () => {
@@ -320,15 +360,15 @@ describe("settings sections", () => {
 		expect(screen.getByRole("switch", { name: "Use spaces instead of tabs" })).toBeInTheDocument()
 		expect(screen.getByText("Editor behavior")).toBeInTheDocument()
 		expect(screen.getByRole("switch", { name: "Slash commands" })).toBeInTheDocument()
-		expect(screen.getByRole("switch", { name: "Markdown toolbar" })).toBeInTheDocument()
+		expect(screen.getByRole("switch", { name: "Formatting toolbar" })).toBeInTheDocument()
 		expect(screen.getByRole("switch", { name: "Vim mode" })).toBeInTheDocument()
 		expect(screen.getByText("Images")).toBeInTheDocument()
 	})
 
-	it("updates the Markdown toolbar setting", async () => {
+	it("updates the formatting toolbar setting", async () => {
 		render(<EditorSection settings={editorSettings} onUpdate={onUpdate} />)
 
-		await userEvent.click(screen.getByRole("switch", { name: "Markdown toolbar" }))
+		await userEvent.click(screen.getByRole("switch", { name: "Formatting toolbar" }))
 
 		expect(onUpdate).toHaveBeenCalledWith("editor", "markdownToolbar", true)
 	})
@@ -340,6 +380,7 @@ describe("settings sections", () => {
 				plugins: {
 					core: {
 						status: "enabled",
+						community: false,
 						manifest: {
 							id: "core",
 							name: "Core plugin",
@@ -351,6 +392,7 @@ describe("settings sections", () => {
 					},
 					community: {
 						status: "disabled",
+						community: true,
 						manifest: {
 							id: "community",
 							name: "Community plugin",
@@ -365,7 +407,7 @@ describe("settings sections", () => {
 			return selector ? selector(state) : state
 		}) as never)
 
-		render(<PluginsSection />)
+		render(<PluginsSection onBrowseMarketplace={openMarketplaceView} />)
 
 		expect(screen.getByText("Core plugins")).toBeInTheDocument()
 		expect(screen.getByText("Community plugins")).toBeInTheDocument()
@@ -376,7 +418,7 @@ describe("settings sections", () => {
 	it("opens the workspace Marketplace from Plugins settings", async () => {
 		setupCoreStores()
 
-		render(<PluginsSection />)
+		render(<PluginsSection onBrowseMarketplace={openMarketplaceView} />)
 
 		await userEvent.click(screen.getByRole("button", { name: "Browse" }))
 
@@ -390,6 +432,7 @@ describe("settings sections", () => {
 				plugins: {
 					community: {
 						status: "disabled",
+						community: true,
 						manifest: {
 							id: "community",
 							name: "Community plugin",
@@ -404,7 +447,7 @@ describe("settings sections", () => {
 			return selector ? selector(state) : state
 		}) as never)
 
-		render(<PluginsSection />)
+		render(<PluginsSection onBrowseMarketplace={openMarketplaceView} />)
 
 		await userEvent.click(
 			screen.getByRole("button", { name: "Open Community plugin in Marketplace" }),
@@ -415,43 +458,23 @@ describe("settings sections", () => {
 		})
 	})
 
-	it("closes the Settings modal before opening Marketplace", async () => {
-		setupCoreStores({ settingsInitialSection: "plugins" })
-		const onOpenChange = vi.fn()
-
-		render(<SettingsModal open onOpenChange={onOpenChange} />)
-
-		await userEvent.click(screen.getByRole("button", { name: "Browse" }))
-
-		expect(onOpenChange).toHaveBeenCalledWith(false)
-		expect(openMarketplaceView).toHaveBeenCalledWith("plugins")
-	})
-
-	it("updates plugin slider settings optimistically and persists through the plugin API", async () => {
+	it("renders plugin slider settings from the store and persists through the plugin host", async () => {
 		setupCoreStores()
-		installTestSettingsControls()
-		const setPluginSetting = vi.fn().mockResolvedValue(undefined)
-		pluginHostCoreMocks.getPluginInstance.mockReturnValue({
-			api: {
-				settings: {
-					getAll: () => ({ reportTaskLimit: 3 }),
-					set: setPluginSetting,
-				},
-			},
-		})
 		vi.mocked(usePluginStore).mockImplementation(((selector?: (state: unknown) => unknown) => {
 			const state = {
 				plugins: {},
-				settingsTabs: [
+				settingsPages: [
 					{
-						pluginId: "note-pulse",
-						registrationKey: "note-pulse:note-pulse",
-						id: "note-pulse",
+						owner: "note-pulse",
+						key: "note-pulse:settings",
+						id: "settings",
 						label: "Note Pulse",
+						title: "Note Pulse",
+						description: "Configure this plugin for the current vault.",
+						group: "Plugin settings",
 						icon: "activity",
-						settings: [
-							{
-								key: "reportTaskLimit",
+						schema: {
+							reportTaskLimit: {
 								label: "Task limit",
 								description: "Maximum number of open tasks included in generated reports.",
 								type: "slider",
@@ -460,28 +483,41 @@ describe("settings sections", () => {
 								max: 10,
 								step: 1,
 							},
-						],
+						},
 					},
 				],
-				settingsSchemas: {},
+				settingsValues: { "note-pulse": { reportTaskLimit: 3 } },
 			}
 			return selector ? selector(state) : state
 		}) as never)
 
-		render(<SettingsContent initialSection="note-pulse:note-pulse" />)
-
-		expect(screen.getByRole("button", { name: "Task limit 3" })).toBeInTheDocument()
+		render(
+			<SettingsView
+				target={{ section: "note-pulse:settings", focus: false, nonce: 0 }}
+				onNavigate={vi.fn()}
+				onOpenMarketplace={openMarketplaceView}
+			/>,
+		)
 
 		await userEvent.click(screen.getByRole("button", { name: "Task limit 3" }))
 
-		expect(setPluginSetting).toHaveBeenCalledWith("reportTaskLimit", 8)
-		expect(screen.getByRole("button", { name: "Task limit 8" })).toBeInTheDocument()
+		expect(runInMainWindow).toHaveBeenCalledWith("setPluginSetting", {
+			pluginId: "note-pulse",
+			key: "reportTaskLimit",
+			value: 8,
+		})
 	})
 
 	it("keeps Marketplace out of Settings navigation", () => {
 		setupCoreStores()
 
-		render(<SettingsContent initialSection="marketplace" />)
+		render(
+			<SettingsView
+				target={{ section: "marketplace", focus: false, nonce: 0 }}
+				onNavigate={vi.fn()}
+				onOpenMarketplace={openMarketplaceView}
+			/>,
+		)
 
 		expect(screen.queryByRole("button", { name: "Marketplace" })).not.toBeInTheDocument()
 		expect(screen.getByRole("heading", { name: "General" })).toBeInTheDocument()
@@ -510,6 +546,6 @@ describe("settings sections", () => {
 		const group = container.querySelector('[data-slot="settings-group"]')
 		const field = container.querySelector('[data-slot="field"]')
 		expect(group?.contains(section?.querySelector("h2") ?? null)).toBe(false)
-		expect(field).toHaveClass("min-h-14")
+		expect(field).toHaveClass("settings-field")
 	})
 })

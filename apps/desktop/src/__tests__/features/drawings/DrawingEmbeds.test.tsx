@@ -3,9 +3,10 @@ import { commandRegistry } from "@cortex/commands"
 import type { ParsedCodeBlockEmbed } from "@cortex/editor/code-block-embeds"
 import { parseFencedCodeBlocks } from "@cortex/editor/code-block-embeds"
 import type { EditorRuntimeView } from "@cortex/editor/types"
-import { cleanup, render, renderHook, screen } from "@testing-library/react"
+import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { registerAppCommands } from "../../../bootstrap/appCommands"
 import { DrawingEmbedCard } from "../../../features/drawings/DrawingEmbedCard"
 import { insertDrawingBlock } from "../../../features/drawings/drawingCommands"
 import {
@@ -14,18 +15,14 @@ import {
 	parseDrawingDocument,
 	serializeDrawingDocument,
 } from "../../../features/drawings/drawingDocument"
-import { useAppCommands } from "../../../hooks/useAppCommands"
 
 const openDrawingModal = vi.hoisted(() => vi.fn())
 const openDrawingBoardTab = vi.hoisted(() => vi.fn())
 const openMarketplaceView = vi.hoisted(() => vi.fn())
 
-vi.mock("../../../features/drawings/drawingModalStore", () => ({
-	openDrawingModal,
-}))
-
 vi.mock("../../../features/drawings/drawingWorkspace", () => ({
 	openDrawingBoardTab,
+	openDrawingModal,
 }))
 
 vi.mock("../../../features/marketplace/openMarketplaceView", () => ({
@@ -125,7 +122,7 @@ describe("drawing embeds", () => {
 	})
 
 	it("registers the drawing command for command surfaces", () => {
-		renderHook(() => useAppCommands())
+		registerAppCommands()
 
 		const command = commandRegistry.get("format.drawing")
 

@@ -15,5 +15,6 @@
 		"outDir": "dist",
 		"types": ["node"]
 	},
-	"include": ["src"]
+	"include": ["src"],
+	"references": [{ "path": "../platform" }, { "path": "../sync-api" }]
 }

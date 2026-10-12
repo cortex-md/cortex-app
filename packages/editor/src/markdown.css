@@ -1,8 +1,8 @@
 .markdown-surface {
 	--markdown-task-size: 16px;
-	--markdown-task-radius: 3px;
-	--markdown-task-border: color-mix(in srgb, var(--text-muted) 72%, transparent);
-	--markdown-task-bg: transparent;
+	--markdown-task-radius: 4px;
+	--markdown-task-border: var(--border-strong);
+	--markdown-task-bg: var(--input-bg);
 	--markdown-task-check-color: var(--accent);
 	--markdown-task-check-stroke-width: 2.3;
 	font-family: var(
@@ -148,6 +148,20 @@
 .markdown-surface .cm-wiki-link {
 	color: var(--accent-text);
 	cursor: pointer;
+}
+
+.markdown-surface span[data-mention],
+.markdown-surface .cm-mention {
+	padding: 0 6px;
+	border-radius: 999px;
+	background: var(--accent-subtle);
+	color: var(--accent-text);
+	font-weight: 500;
+}
+
+.markdown-surface span[data-mention]::before,
+.markdown-surface .cm-mention::before {
+	content: "@";
 }
 
 .markdown-surface code,
@@ -342,7 +356,7 @@
 	margin: 0 0.55em 0 0;
 	vertical-align: -0.14em;
 	place-items: center;
-	border: 1.35px solid var(--markdown-task-border);
+	border: 1px solid var(--markdown-task-border);
 	border-radius: var(--markdown-task-radius);
 	background: var(--markdown-task-bg);
 	color: var(--markdown-task-check-color);
@@ -354,8 +368,9 @@
 }
 
 .markdown-task-checkbox[data-state="checked"] {
-	border-color: color-mix(in srgb, var(--markdown-task-check-color) 78%, var(--border));
-	background: color-mix(in srgb, var(--markdown-task-check-color) 13%, transparent);
+	border-color: var(--accent);
+	background: var(--accent);
+	color: var(--text-on-accent);
 }
 
 .markdown-task-checkbox-icon {
@@ -594,4 +609,66 @@
 .markdown-surface .hljs-property,
 .markdown-surface .hljs-attribute {
 	color: var(--syntax-property);
+}
+
+.reading-view {
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 0;
+	height: 100%;
+	overflow-y: auto;
+	padding: 24px 0;
+}
+
+.reading-view-content {
+	box-sizing: border-box;
+	width: 100%;
+	max-width: var(--markdown-content-width, 720px);
+	margin-inline: auto;
+	padding-inline: var(--markdown-content-gutter, 40px);
+}
+
+.reading-view-parent-scroll {
+	height: auto;
+	overflow: visible;
+	padding: 8px 0 24px;
+}
+
+.reading-view-embed-content {
+	margin-block: 0 var(--markdown-block-spacing, 1em);
+}
+
+.side-by-side-view {
+	display: flex;
+	height: 100%;
+	overflow: hidden;
+}
+
+.side-by-side-view-parent-scroll {
+	height: auto;
+	min-height: 100%;
+	overflow: visible;
+	align-items: stretch;
+}
+
+.side-by-side-editor {
+	flex: 1;
+	overflow: hidden;
+	border-right: 1px solid var(--border-subtle);
+}
+
+.side-by-side-preview {
+	flex: 1;
+	overflow-y: auto;
+}
+
+.side-by-side-preview .reading-view {
+	height: auto;
+	min-height: 100%;
+	overflow: visible;
+}
+
+.side-by-side-view-parent-scroll .side-by-side-editor,
+.side-by-side-view-parent-scroll .side-by-side-preview {
+	overflow: visible;
 }

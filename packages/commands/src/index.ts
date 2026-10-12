@@ -26,6 +26,10 @@ export function registerCommand(command: CommandEntry): () => void {
 	return commandRegistry.register(command)
 }
 
+export function registerCommands(commands: readonly CommandEntry[]): () => void {
+	return commandRegistry.registerMany(commands)
+}
+
 export function getCommands(): CommandEntry[] {
 	return commandRegistry.getAll()
 }

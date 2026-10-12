@@ -1,75 +1,111 @@
+import { commandRegistry } from "@cortex/commands"
 import { getPlatform } from "@cortex/platform"
-import { CortexPlugin, type PluginManifest } from "@cortex.md/api"
+import { resetCustomPropertyTypes } from "@cortex/properties"
+import type { PluginDefinition } from "@cortex.md/api"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import {
-	loadEnabledPlugins,
-	registerCommunityPlugin,
-	unregisterCommunityPlugin,
-} from "./PluginLifecycle"
-import { pluginStore } from "./pluginStore"
+import { createCodeMirrorActiveEditor } from "./activeEditor"
+import { setEditorViewRef } from "./editorViews"
+import { type PluginHostServices, resetNotificationRateLimits } from "./pluginContext"
+import { createPluginHost } from "./pluginHost"
+import { resetPluginStore, usePluginStore } from "./pluginStore"
 
 vi.mock("@cortex/platform", () => ({
 	getPlatform: vi.fn(),
 }))
 
-const readFile = vi.fn()
-const writeFile = vi.fn()
+const platform = {
+	capabilities: ["notifications"],
+	notifications: {
+		getPermission: vi.fn(async () => "granted"),
+		send: vi.fn(async () => ({ delivered: true })),
+	},
+	fs: {
+		readFile: vi.fn(),
+		writeFile: vi.fn(),
+		createDir: vi.fn(),
+		deleteFile: vi.fn(),
+	},
+}
 
-function createManifest(id: string): PluginManifest {
+function createServices(overrides: Partial<PluginHostServices> = {}): PluginHostServices {
 	return {
-		id,
-		name: id,
-		version: "0.1.0",
-		minAppVersion: "0.1.0",
-		author: "Cortex",
-		description: "Test plugin",
-		icon: "plug",
-		main: "index.js",
-		capabilities: [],
+		getVaultPath: () => "/vault",
+		workspace: {
+			openFile: vi.fn(),
+			openView: vi.fn(),
+			openMarkdownTab: vi.fn(),
+			getOpenFiles: () => [],
+			subscribeActiveFile: () => () => {},
+		},
+		activeEditor: createCodeMirrorActiveEditor({ getFilePath: () => null }),
+		editorRuntime: { reconfigure: vi.fn() },
+		bookmarks: {
+			list: () => [],
+			add: vi.fn(),
+			remove: vi.fn(),
+			toggle: vi.fn(),
+			isBookmarked: () => false,
+			subscribe: () => () => {},
+		},
+		metadata: { parseFrontmatter: () => null, extractTags: () => [], getAllTags: () => [] },
+		theme: { getActiveThemeName: () => "ink", subscribe: () => () => {} },
+		community: null,
+		...overrides,
 	}
 }
 
-describe("loadEnabledPlugins", () => {
-	beforeEach(() => {
-		readFile.mockReset()
-		writeFile.mockReset()
-		vi.mocked(getPlatform).mockReturnValue({
-			fs: {
-				readFile,
-				writeFile,
-			},
-		} as never)
-		pluginStore.getState().reset()
-	})
+function createPlugin(
+	id: string,
+	definition: Omit<PluginDefinition, "manifest"> & { permissions?: string[] } = {},
+): PluginDefinition {
+	const { permissions, ...rest } = definition
+	return {
+		...rest,
+		manifest: {
+			id,
+			name: id,
+			version: "0.1.0",
+			minAppVersion: "0.1.0",
+			author: "Cortex",
+			description: "Test plugin",
+			icon: "plug",
+			permissions: permissions as PluginDefinition["manifest"]["permissions"],
+		},
+	}
+}
 
-	afterEach(() => {
-		unregisterCommunityPlugin("invalid-json-plugin")
-		pluginStore.getState().reset()
-		vi.restoreAllMocks()
-	})
+beforeEach(() => {
+	vi.mocked(getPlatform).mockReturnValue(platform as never)
+	platform.fs.readFile.mockReset()
+	platform.fs.writeFile.mockReset()
+	platform.fs.createDir.mockReset()
+	platform.notifications.send.mockClear()
+	resetNotificationRateLimits()
+})
 
+afterEach(() => {
+	resetPluginStore()
+	commandRegistry.clear()
+	resetCustomPropertyTypes()
+	setEditorViewRef(null)
+	vi.restoreAllMocks()
+})
+
+describe("plugin host lifecycle", () => {
 	it("does not enable every plugin when plugins.json is invalid", async () => {
-		const onload = vi.fn()
-		class TestPlugin extends CortexPlugin {
-			async onload() {
-				onload()
-			}
-		}
-		registerCommunityPlugin(
-			createManifest("invalid-json-plugin"),
-			{ default: TestPlugin },
-			{
-				dirPath: "/vault/.cortex/plugins/invalid-json-plugin",
-			},
-		)
-		readFile.mockResolvedValue("{")
+		const activate = vi.fn()
+		const host = createPluginHost(createServices())
+		host.registerBundledPlugins([
+			createPlugin("invalid-json-plugin", { activation: "startup", activate }),
+		])
+		platform.fs.readFile.mockResolvedValue("{")
 		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
 
-		await loadEnabledPlugins("/vault", () => "/vault")
+		await host.loadEnabledPlugins()
 
-		expect(onload).not.toHaveBeenCalled()
-		expect(writeFile).not.toHaveBeenCalled()
-		expect(pluginStore.getState().plugins["invalid-json-plugin"]?.status).toBe("loaded")
+		expect(activate).not.toHaveBeenCalled()
+		expect(platform.fs.writeFile).not.toHaveBeenCalled()
+		expect(usePluginStore.getState().plugins["invalid-json-plugin"]?.status).toBe("loaded")
 		expect(errorSpy).toHaveBeenCalledWith(
 			"[Plugin operation failed]",
 			expect.objectContaining({ operation: "read-enabled", pluginId: "registry" }),

@@ -1,38 +1,46 @@
-import { describe, expect, it, vi } from "vitest"
 import {
-	buildNoteMenuItems,
-	type NoteMenuActions,
-} from "../../../features/file-explorer/NativeMenuActions"
+	createDefaultSyncConfig,
+	useBookmarksStore,
+	useRemoteVaultStore,
+	useVaultStore,
+} from "@cortex/core"
+import { afterEach, describe, expect, it, vi } from "vitest"
+import { buildFileMenuItems } from "../../../features/file-explorer/fileMenu"
 
-function createActions(): NoteMenuActions {
-	return {
-		openInNewTab: vi.fn(),
-		openInRightSplit: vi.fn(),
-		duplicate: vi.fn(),
-		exportNote: vi.fn(),
-		copyRelativePath: vi.fn(),
-		copyAbsolutePath: vi.fn(),
-		reveal: vi.fn(),
-		showVersionHistory: vi.fn(),
-		toggleBookmark: vi.fn(),
-		toggleSyncIgnore: vi.fn(),
-		rename: vi.fn(),
-		delete: vi.fn(),
-	}
+interface NoteMenuState {
+	path: string
+	bookmarked: boolean
+	showVersionHistory: boolean
+	hasVault: boolean
 }
+
+function buildNoteMenuItems({ path, bookmarked, showVersionHistory, hasVault }: NoteMenuState) {
+	useVaultStore.setState({
+		vault: hasVault ? { uuid: "vault", path: "/vault", name: "Vault", fileCount: 1 } : null,
+	})
+	useRemoteVaultStore.setState({
+		syncConfig: {
+			...createDefaultSyncConfig(),
+			enabled: showVersionHistory,
+			remoteVaultId: showVersionHistory ? "remote" : null,
+		},
+	})
+	vi.spyOn(useBookmarksStore.getState(), "isBookmarked").mockReturnValue(bookmarked)
+	return buildFileMenuItems({ filePath: path, isDirectory: false })
+}
+
+afterEach(() => {
+	vi.restoreAllMocks()
+})
 
 describe("note menu actions", () => {
 	it("keeps the shared action order and copy path submenu", () => {
-		const items = buildNoteMenuItems(
-			{
-				path: "/vault/note.md",
-				bookmarked: false,
-				syncIgnored: false,
-				showVersionHistory: true,
-				canToggleSync: true,
-			},
-			createActions(),
-		)
+		const items = buildNoteMenuItems({
+			path: "/vault/note.md",
+			bookmarked: false,
+			showVersionHistory: true,
+			hasVault: true,
+		})
 
 		expect(items.map((item) => (item.type === "separator" ? "separator" : item.id))).toEqual([
 			"open-new-tab",
@@ -44,6 +52,7 @@ describe("note menu actions", () => {
 			"reveal",
 			"add-bookmark",
 			"separator",
+			"share-note",
 			"version-history",
 			"exclude-from-sync",
 			"separator",
@@ -60,16 +69,12 @@ describe("note menu actions", () => {
 	})
 
 	it("omits sync-only actions and marks delete as destructive", () => {
-		const items = buildNoteMenuItems(
-			{
-				path: "/vault/note.md",
-				bookmarked: false,
-				syncIgnored: false,
-				showVersionHistory: false,
-				canToggleSync: false,
-			},
-			createActions(),
-		)
+		const items = buildNoteMenuItems({
+			path: "/vault/note.md",
+			bookmarked: false,
+			showVersionHistory: false,
+			hasVault: false,
+		})
 
 		expect(items.some((item) => item.type !== "separator" && item.id === "version-history")).toBe(
 			false,
@@ -80,16 +85,12 @@ describe("note menu actions", () => {
 	})
 
 	it("uses the remove bookmark action when the note is already bookmarked", () => {
-		const items = buildNoteMenuItems(
-			{
-				path: "/vault/note.md",
-				bookmarked: true,
-				syncIgnored: false,
-				showVersionHistory: false,
-				canToggleSync: false,
-			},
-			createActions(),
-		)
+		const items = buildNoteMenuItems({
+			path: "/vault/note.md",
+			bookmarked: true,
+			showVersionHistory: false,
+			hasVault: true,
+		})
 
 		expect(
 			items.find((item) => item.type !== "separator" && item.id === "remove-bookmark"),
@@ -97,17 +98,12 @@ describe("note menu actions", () => {
 	})
 
 	it("omits Markdown-only actions for PDF files", () => {
-		const items = buildNoteMenuItems(
-			{
-				path: "/vault/source.pdf",
-				bookmarked: false,
-				syncIgnored: false,
-				showVersionHistory: true,
-				canToggleSync: true,
-				supportsNoteActions: false,
-			},
-			createActions(),
-		)
+		const items = buildNoteMenuItems({
+			path: "/vault/source.pdf",
+			bookmarked: false,
+			showVersionHistory: true,
+			hasVault: true,
+		})
 
 		expect(items.map((item) => (item.type === "separator" ? "separator" : item.id))).toEqual([
 			"open-new-tab",

@@ -1,53 +1,106 @@
-import { useVaultStore, useWorkspaceStore } from "@cortex/core"
-import { useHotkeysStore } from "@cortex/hotkeys"
-import { usePluginStore } from "@cortex/plugin-host-web"
-import { useSettingsStore } from "@cortex/settings"
-import { Button } from "@cortex/ui"
-import { FilePlusIcon, FolderPlusIcon } from "lucide-react"
-import { useCallback, useMemo, useRef, useState } from "react"
-import { NoteHistoryPanel } from "../sync/NoteHistoryPanel"
-import { FileSidebarTree } from "./FileSidebarTree"
+import { executeCommand } from "@cortex/commands"
 import {
-	createFileExplorerHotkeyBindings,
-	useFileExplorerCommandListener,
-} from "./fileExplorerKeyboard"
-import { useFileSidebarActions } from "./useFileSidebarActions"
+	selectActiveTabFilePath,
+	useCanWriteVaultPath,
+	useVaultStore,
+	useWorkspaceStore,
+} from "@cortex/core"
+import { useHotkeysStore } from "@cortex/hotkeys"
+import { useSettingsStore } from "@cortex/settings"
+import {
+	Button,
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuShortcut,
+	DropdownMenuTrigger,
+} from "@cortex/ui"
+import { FilePlusIcon, FolderPlusIcon, PlusIcon, RepeatIcon, Table2Icon } from "lucide-react"
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
+import { useCommandHotkey } from "../../hooks/useCommandHotkey"
+import { useContextMenu } from "../context-menu/useContextMenu"
+import { FileSidebarTree } from "./FileSidebarTree"
+import { type FileExplorerCommandId, setFileExplorerCommandHandler } from "./fileExplorerCommands"
+import { createFileExplorerHotkeyBindings } from "./fileExplorerKeyboard"
+import { type FileCreateType, useFileSidebarActions } from "./useFileSidebarActions"
 import { useFileSidebarTreeModel } from "./useFileSidebarTreeModel"
 
 interface FileSidebarHeaderProps {
 	vaultPath: string
-	onNewFile: (parentPath: string) => void
-	onNewFolder: (parentPath: string) => void
+	onCreate: (parentPath: string, createType: FileCreateType) => void
 }
 
-function FileSidebarHeader({ vaultPath, onNewFile, onNewFolder }: FileSidebarHeaderProps) {
+function FileSidebarHeader({ vaultPath, onCreate }: FileSidebarHeaderProps) {
+	const canCreateAtRoot = useCanWriteVaultPath(vaultPath, true)
+	const newNoteKeys = useCommandHotkey("file.new")
+	const newDatabaseKeys = useCommandHotkey("database.new")
+	const pendingCreateRef = useRef<(() => void) | null>(null)
 	return (
 		<div className="file-sidebar-header flex items-center justify-between flex-shrink-0">
 			<span className="file-sidebar-title">Files</span>
-			<div className="flex items-center gap-1">
-				<Button
-					type="button"
-					variant="ghost"
-					size="icon"
-					onClick={() => onNewFile(vaultPath)}
-					className="sidebar-action-button text-text-muted hover:text-text-primary hover:bg-bg-hover"
-					title="New Note"
-					aria-label="New Note"
-				>
-					<FilePlusIcon size={16} />
-				</Button>
-				<Button
-					type="button"
-					variant="ghost"
-					size="icon"
-					onClick={() => onNewFolder(vaultPath)}
-					className="sidebar-action-button text-text-muted hover:text-text-primary hover:bg-bg-hover"
-					title="New Folder"
-					aria-label="New Folder"
-				>
-					<FolderPlusIcon size={16} />
-				</Button>
-			</div>
+			{canCreateAtRoot && (
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							className="sidebar-action-button text-text-muted hover:text-text-primary hover:bg-bg-hover"
+							title="Create"
+							aria-label="Create"
+						>
+							<PlusIcon size={16} />
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent
+						align="end"
+						onCloseAutoFocus={(event) => {
+							const action = pendingCreateRef.current
+							pendingCreateRef.current = null
+							if (!action) return
+							event.preventDefault()
+							action()
+						}}
+					>
+						<DropdownMenuItem
+							onSelect={() => {
+								pendingCreateRef.current = () => onCreate(vaultPath, "file")
+							}}
+						>
+							<FilePlusIcon />
+							Note
+							{newNoteKeys && <DropdownMenuShortcut>{newNoteKeys}</DropdownMenuShortcut>}
+						</DropdownMenuItem>
+						<DropdownMenuItem
+							onSelect={() => {
+								pendingCreateRef.current = () => executeCommand("database.new")
+							}}
+						>
+							<Table2Icon />
+							Database
+							{newDatabaseKeys && <DropdownMenuShortcut>{newDatabaseKeys}</DropdownMenuShortcut>}
+						</DropdownMenuItem>
+						<DropdownMenuItem
+							onSelect={() => {
+								pendingCreateRef.current = () => onCreate(vaultPath, "folder")
+							}}
+						>
+							<FolderPlusIcon />
+							Folder
+						</DropdownMenuItem>
+						<DropdownMenuSeparator />
+						<DropdownMenuItem
+							onSelect={() => {
+								pendingCreateRef.current = () => executeCommand("database.convert-folder")
+							}}
+						>
+							<RepeatIcon />
+							Turn a folder into a database
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
+			)}
 		</div>
 	)
 }
@@ -55,23 +108,11 @@ function FileSidebarHeader({ vaultPath, onNewFile, onNewFolder }: FileSidebarHea
 export function FileSidebar() {
 	const vault = useVaultStore((s) => s.vault)
 	const files = useVaultStore((s) => s.files)
-	const createFile = useVaultStore((s) => s.createFile)
-	const createFolder = useVaultStore((s) => s.createFolder)
-	const deleteFile = useVaultStore((s) => s.deleteFile)
-	const renameFile = useVaultStore((s) => s.renameFile)
-	const duplicateFile = useVaultStore((s) => s.duplicateFile)
-	const openTab = useWorkspaceStore((s) => s.openTab)
-	const closeTabsByPath = useWorkspaceStore((s) => s.closeTabsByPath)
-	const activeFilePath = useWorkspaceStore((s) => {
-		const activePane = s.panes[s.activePaneId]
-		const activeTab = activePane?.tabs.find((tab) => tab.id === activePane.activeTabId)
-		return activeTab?.filePath
-	})
-	const [expanded, setExpanded] = useState<Set<string>>(new Set())
+	const activeFilePath = useWorkspaceStore(selectActiveTabFilePath)
+	const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
 	const [focusedPathOverride, setFocusedPathOverride] = useState<string | null>(null)
 	const vimMode = useSettingsStore((state) => state.settings.editor.vimMode)
 	const hotkeyBindings = useHotkeysStore((state) => state.bindings)
-	const pluginContextMenuItems = usePluginStore((state) => state.contextMenuItems)
 
 	const treeScrollRef = useRef<HTMLDivElement>(null)
 	const vaultPath = vault?.path ?? ""
@@ -98,40 +139,18 @@ export function FileSidebar() {
 		})
 	}, [])
 
-	const {
-		uiState,
-		handleCancelCreate,
-		handleCancelRename,
-		handleConfirmCreate,
-		handleConfirmRename,
-		handleCopyPath,
-		handleDelete,
-		handleDropError,
-		handleDuplicate,
-		handleHistoryOpenChange,
-		handleNewFile,
-		handleNewFolder,
-		handleOpenContextMenu,
-		handleOpenFile,
-		handleReveal,
-		handleRootContextMenu,
-		handleStartRename,
-		handleViewHistory,
-	} = useFileSidebarActions({
-		closeTabsByPath,
-		createFile,
-		createFolder,
-		deleteFile,
-		duplicateFile,
-		ensureExpanded,
-		openTab,
-		renameFile,
-		treeScrollRef,
+	const { showMenu, menu } = useContextMenu()
+	const { uiState, actions } = useFileSidebarActions({
 		vaultPath,
+		treeScrollRef,
+		toggle: handleToggle,
+		ensureExpanded,
+		focusPath: setFocusedPathOverride,
+		showMenu,
 	})
-	const { renamingPath, creatingIn, creatingType, historyFilePath } = uiState
+	const { renamingPath, creatingIn, creatingType } = uiState
 
-	const { tree, rows, nodeRows, nodeRowIndexByPath, focusedPath, focusedNode, rowVirtualizer } =
+	const { tree, rows, nodeRows, nodeRowIndexByPath, nodeByPath, focusedPath, rowVirtualizer } =
 		useFileSidebarTreeModel({
 			files,
 			vaultPath,
@@ -143,33 +162,28 @@ export function FileSidebar() {
 			focusedPathOverride,
 			treeScrollRef,
 		})
-	useFileExplorerCommandListener({
-		treeScrollRef,
-		focusedNode,
-		onOpenContextMenu: handleOpenContextMenu,
-		onStartRename: handleStartRename,
-		onDelete: handleDelete,
-	})
+
+	const handleExplorerCommand = useEffectEvent(
+		(commandId: FileExplorerCommandId, filePath: string | null) => {
+			const node = nodeByPath.get(filePath ?? focusedPath ?? "")
+			if (node) actions.runCommand(commandId, node)
+		},
+	)
+	useEffect(() => setFileExplorerCommandHandler(handleExplorerCommand), [])
 
 	if (!vault) {
 		return
 	}
 
-	const isCreatingAtRoot = creatingIn === vault.path
-
 	return (
 		<div className="file-sidebar flex flex-col h-full px-1.5 overflow-hidden">
-			<FileSidebarHeader
-				vaultPath={vault.path}
-				onNewFile={handleNewFile}
-				onNewFolder={handleNewFolder}
-			/>
+			<FileSidebarHeader vaultPath={vault.path} onCreate={actions.startCreate} />
 			<FileSidebarTree
 				tree={tree}
 				rows={rows}
 				nodeRows={nodeRows}
 				nodeRowIndexByPath={nodeRowIndexByPath}
-				isCreatingAtRoot={isCreatingAtRoot}
+				isCreatingAtRoot={creatingIn === vault.path}
 				activeFilePath={activeFilePath}
 				focusedPath={focusedPath}
 				vaultPath={vault.path}
@@ -179,33 +193,9 @@ export function FileSidebar() {
 				treeScrollRef={treeScrollRef}
 				rowVirtualizer={rowVirtualizer}
 				fileExplorerBindings={fileExplorerBindings}
-				onRootContextMenu={handleRootContextMenu}
-				onFocusPath={setFocusedPathOverride}
-				onFocusedPathChange={setFocusedPathOverride}
-				onConfirmCreate={handleConfirmCreate}
-				onCancelCreate={handleCancelCreate}
-				onToggle={handleToggle}
-				onEnsureExpanded={ensureExpanded}
-				onOpenFile={handleOpenFile}
-				onStartRename={handleStartRename}
-				onConfirmRename={handleConfirmRename}
-				onCancelRename={handleCancelRename}
-				onOpenContextMenu={handleOpenContextMenu}
-				onDelete={handleDelete}
-				onDuplicate={handleDuplicate}
-				onReveal={handleReveal}
-				onCopyPath={handleCopyPath}
-				onNewFile={handleNewFile}
-				onNewFolder={handleNewFolder}
-				onViewHistory={handleViewHistory}
-				onDropError={handleDropError}
-				pluginContextMenuItems={pluginContextMenuItems}
+				actions={actions}
 			/>
-			<NoteHistoryPanel
-				filePath={historyFilePath ?? ""}
-				open={historyFilePath !== null}
-				onOpenChange={handleHistoryOpenChange}
-			/>
+			{menu}
 		</div>
 	)
 }

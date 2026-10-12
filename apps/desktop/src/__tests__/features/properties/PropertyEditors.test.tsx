@@ -129,7 +129,7 @@ describe("Property value editors", () => {
 			},
 			"---\nproject: Cortex\n---\nBody",
 		)
-		const writeNote = vi.spyOn(runtime.propertiesRuntime.notes, "writeNote")
+		const updateNote = vi.spyOn(runtime.propertiesRuntime.notes, "updateNote")
 		await noteCache.read(notePath)
 		const { container } = render(<NotePropertiesPanel filePath={notePath} />)
 
@@ -142,7 +142,7 @@ describe("Property value editors", () => {
 		await waitFor(() => {
 			expect(parseFrontmatter(runtime.files.get(notePath) ?? "").meta.project).toBe("Atlas")
 		})
-		expect(writeNote).toHaveBeenCalledTimes(1)
+		expect(updateNote).toHaveBeenCalledTimes(1)
 	})
 
 	it("saves simple property edits on blur", async () => {
@@ -190,7 +190,7 @@ describe("Property value editors", () => {
 			},
 			"---\nproject: Cortex\n---\nBody",
 		)
-		const writeNote = vi.spyOn(runtime.propertiesRuntime.notes, "writeNote")
+		const updateNote = vi.spyOn(runtime.propertiesRuntime.notes, "updateNote")
 		await noteCache.read(notePath)
 		const { container } = render(<NotePropertiesPanel filePath={notePath} />)
 
@@ -201,7 +201,7 @@ describe("Property value editors", () => {
 		await userEvent.type(input, "Atlas{Escape}")
 
 		expect(parseFrontmatter(runtime.files.get(notePath) ?? "").meta.project).toBe("Cortex")
-		expect(writeNote).not.toHaveBeenCalled()
+		expect(updateNote).not.toHaveBeenCalled()
 		expect(await screen.findByText("Cortex")).toBeInTheDocument()
 	})
 
@@ -221,7 +221,7 @@ describe("Property value editors", () => {
 			},
 			"---\nemail: ada@example.com\n---\nBody",
 		)
-		const writeNote = vi.spyOn(runtime.propertiesRuntime.notes, "writeNote")
+		const updateNote = vi.spyOn(runtime.propertiesRuntime.notes, "updateNote")
 		await noteCache.read(notePath)
 		const { container } = render(<NotePropertiesPanel filePath={notePath} />)
 
@@ -233,7 +233,7 @@ describe("Property value editors", () => {
 
 		expect(await screen.findByText(/invalid/i)).toBeInTheDocument()
 		expect(parseFrontmatter(runtime.files.get(notePath) ?? "").meta.email).toBe("ada@example.com")
-		expect(writeNote).not.toHaveBeenCalled()
+		expect(updateNote).not.toHaveBeenCalled()
 		expect(screen.getByRole("textbox", { name: "Email" })).toBeInTheDocument()
 	})
 
@@ -340,10 +340,7 @@ describe("Property value editors", () => {
 		await userEvent.click(await screen.findByText("Role"))
 		await screen.findByText("Empty")
 		await userEvent.click(container.querySelector<HTMLButtonElement>(".note-property-value")!)
-		await userEvent.type(
-			await screen.findByPlaceholderText("Select an option or create one"),
-			"Reviewer",
-		)
+		await userEvent.type(await screen.findByPlaceholderText("Create an option"), "Reviewer")
 		await userEvent.click(screen.getByText("Create “Reviewer”"))
 
 		await waitFor(() => {

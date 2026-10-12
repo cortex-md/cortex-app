@@ -1,3 +1,11 @@
+import {
+	ensureMarkdownExtension,
+	getBaseName,
+	isMarkdownPath,
+	stripMarkdownExtension,
+	toVaultRelativePath,
+} from "@cortex/platform/utils"
+
 const portableInvalidCharacters = /[<>:"/\\|?*]/
 const windowsReservedName = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i
 
@@ -15,16 +23,10 @@ export function getNotePathPresentation(
 	filePath: string,
 	vaultPath?: string,
 ): NotePathPresentation {
-	const normalizedFilePath = filePath.replaceAll("\\", "/")
-	const normalizedVaultPath = vaultPath?.replaceAll("\\", "/").replace(/\/+$/, "")
-	const vaultPrefix = normalizedVaultPath ? `${normalizedVaultPath}/` : null
 	const relativePath =
-		vaultPrefix && normalizedFilePath.startsWith(vaultPrefix)
-			? normalizedFilePath.slice(vaultPrefix.length)
-			: (normalizedFilePath.split("/").pop() ?? normalizedFilePath)
+		(vaultPath ? toVaultRelativePath(filePath, vaultPath) : null) || getBaseName(filePath)
 	const segments = relativePath.split("/").filter(Boolean)
-	const fileName = segments.at(-1) ?? ""
-	const title = fileName.replace(/\.md$/i, "")
+	const title = stripMarkdownExtension(segments.at(-1) ?? "")
 
 	if (segments.length > 0) segments[segments.length - 1] = title
 
@@ -35,6 +37,10 @@ export function getNotePathPresentation(
 			label,
 		})),
 	}
+}
+
+export function getNoteFolderSegments(filePath: string, vaultPath?: string): NotePathSegment[] {
+	return getNotePathPresentation(filePath, vaultPath).segments.slice(0, -1)
 }
 
 export function getPortableFileNameError(fileName: string): string | null {
@@ -55,4 +61,29 @@ export function getNoteTitleError(title: string): string | null {
 	const normalizedTitle = title.trim()
 	if (!normalizedTitle) return "File name cannot be empty"
 	return getPortableFileNameError(`${normalizedTitle}.md`)
+}
+
+export type EntryNameKind = "note" | "folder" | "file"
+
+export interface NamedEntry {
+	name: string
+	isDir: boolean
+}
+
+export function getEntryNameKind(entry: NamedEntry): EntryNameKind {
+	if (entry.isDir) return "folder"
+	return isMarkdownPath(entry.name) ? "note" : "file"
+}
+
+export function getEditableEntryName(entry: NamedEntry): string {
+	return getEntryNameKind(entry) === "note" ? stripMarkdownExtension(entry.name) : entry.name
+}
+
+export function toEntryFileName(kind: EntryNameKind, value: string): string {
+	const name = value.trim()
+	return kind === "note" ? ensureMarkdownExtension(name) : name
+}
+
+export function validateEntryName(kind: EntryNameKind, value: string): string | null {
+	return kind === "note" ? getNoteTitleError(value) : getPortableFileNameError(value.trim())
 }

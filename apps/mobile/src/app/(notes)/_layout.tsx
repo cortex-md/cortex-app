@@ -1,6 +1,6 @@
 import { Stack } from "expo-router"
 
-import { SidebarToggleButton } from "@/components/mobile-sidebar"
+import { SidebarToggleButton } from "@/features/sidebar/SidebarToggleButton"
 
 export default function NotesLayout() {
 	return (
@@ -20,6 +20,7 @@ export default function NotesLayout() {
 					title: "Note",
 				}}
 			/>
+			<Stack.Screen name="plugin-view" options={{ title: "Plugin" }} />
 			<Stack.Screen
 				name="folder"
 				options={{

@@ -47,7 +47,7 @@ describe("import/export service", () => {
 
 	it("imports CSV files into unique Markdown table notes", async () => {
 		const { written } = createPlatform({
-			"/imports/Existing.csv": "Name,Value\nA,\"B, C\"",
+			"/imports/Existing.csv": 'Name,Value\nA,"B, C"',
 		})
 
 		const result = await importFiles({
@@ -61,7 +61,10 @@ describe("import/export service", () => {
 	})
 
 	it("imports PDFs by extracting text into Markdown notes", async () => {
-		const { platform, written, writtenBinary } = createPlatform({}, { "/imports/Spec.pdf": [1, 2, 3] })
+		const { platform, written, writtenBinary } = createPlatform(
+			{},
+			{ "/imports/Spec.pdf": [1, 2, 3] },
+		)
 
 		const result = await importFiles({
 			vaultPath: "/vault",
@@ -69,7 +72,9 @@ describe("import/export service", () => {
 		})
 
 		expect(result.importedCount).toBe(1)
-		expect(platform.documentImport?.extractPdfText).toHaveBeenCalledWith({ path: "/imports/Spec.pdf" })
+		expect(platform.documentImport?.extractPdfText).toHaveBeenCalledWith({
+			path: "/imports/Spec.pdf",
+		})
 		expect(writtenBinary["/vault/attachments/imports/Spec.pdf"]).toBeUndefined()
 		expect(written["/vault/Spec.md"]).toContain("# Spec")
 		expect(written["/vault/Spec.md"]).toContain("## Page 1\n\nFirst page text")

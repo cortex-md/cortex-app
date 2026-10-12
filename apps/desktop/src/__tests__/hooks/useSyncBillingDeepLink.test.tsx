@@ -13,9 +13,9 @@ import {
 
 vi.mock("@cortex/core", () => ({
 	DEFAULT_CLOUD_SYNC_SERVER_URL: "https://sync.example.com",
-	useSubscriptionStore: vi.fn(),
-	useVaultStore: vi.fn(),
-	useWorkspaceStore: vi.fn(),
+	useSubscriptionStore: { getState: vi.fn() },
+	useVaultStore: { getState: vi.fn() },
+	useWorkspaceStore: { getState: vi.fn() },
 }))
 
 import { useSubscriptionStore, useVaultStore, useWorkspaceStore } from "@cortex/core"
@@ -51,34 +51,14 @@ function setupStores(options: { entitled?: boolean; vault?: typeof mockVault | n
 		},
 	} as never)
 
-	vi.mocked(useVaultStore).mockImplementation(((
-		selector?: (state: { vault: unknown }) => unknown,
-	) => {
-		const state = { vault }
-		return selector ? selector(state) : state
-	}) as never)
-
-	vi.mocked(useWorkspaceStore).mockImplementation(((
-		selector?: (state: { openViewTab: typeof openViewTab }) => unknown,
-	) => {
-		const state = { openViewTab }
-		return selector ? selector(state) : state
-	}) as never)
-
-	vi.mocked(useSubscriptionStore).mockImplementation(((
-		selector?: (state: {
-			refreshStatus: typeof refreshStatus
-			clearBlock: typeof clearBlock
-		}) => unknown,
-	) => {
-		const state = { refreshStatus, clearBlock }
-		return selector ? selector(state) : state
-	}) as never)
+	vi.mocked(useVaultStore.getState).mockReturnValue({ vault } as never)
+	vi.mocked(useWorkspaceStore.getState).mockReturnValue({ openViewTab } as never)
+	vi.mocked(useSubscriptionStore.getState).mockReturnValue({ refreshStatus, clearBlock } as never)
 }
 
 beforeEach(() => {
 	deepLinkListener = null
-	onDeepLinkOpen.mockImplementation(async (listener: (urls: string[]) => void) => {
+	onDeepLinkOpen.mockImplementation((listener: (urls: string[]) => void) => {
 		deepLinkListener = listener
 		return unlisten
 	})

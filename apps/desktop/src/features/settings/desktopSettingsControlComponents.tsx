@@ -75,7 +75,7 @@ export function DesktopSelect({
 }: {
 	value: string
 	onChange: (value: string) => void
-	options: { value: string; label: string }[]
+	options: readonly { value: string; label: string }[]
 }) {
 	return (
 		<NativeSelect value={value} onChange={(e) => onChange(e.target.value)}>
@@ -172,16 +172,18 @@ export function DesktopGroup({ children }: { children: ReactNode }) {
 }
 
 export function DesktopField({
+	fieldId,
 	label,
 	description,
 	children,
 }: {
+	fieldId?: string
 	label: ReactNode
 	description?: ReactNode
 	children: ReactNode
 }) {
 	return (
-		<SettingsField label={label} description={description}>
+		<SettingsField fieldId={fieldId} label={label} description={description}>
 			{children}
 		</SettingsField>
 	)

@@ -1,9 +1,7 @@
 import { useAppStore, useAuthStore, useUIStore, useVaultStore } from "@cortex/core"
-import { getPlatform } from "@cortex/platform"
-import { Badge, Button, isValidLucideIconName, LucideIcon } from "@cortex/ui"
+import { Badge, Button, Item, isValidLucideIconName, LucideIcon } from "@cortex/ui"
 import { FileText, FolderOpen, FolderPlus, User, Vault } from "lucide-react"
-import { useState } from "react"
-import { CreateVaultModal } from "../vault/CreateVaultModal"
+import { openRecentVault, pickVaultFolder } from "../vault/createVaultModalStore"
 
 function AccountBadge() {
 	const authenticated = useAuthStore((s) => s.authenticated)
@@ -13,71 +11,50 @@ function AccountBadge() {
 
 	if (authenticated && user) {
 		return (
-			<button
-				type="button"
-				className="absolute top-3 right-4 flex items-center gap-2 text-xs text-text-muted hover:text-text-primary transition-colors"
+			<Button
+				variant="ghost"
+				size="xs"
+				className="absolute top-3 right-4 h-auto gap-2 px-0 text-xs text-text-muted transition-colors hover:bg-transparent hover:text-text-primary active:scale-100"
 				onClick={() => openSettings("sync")}
 			>
 				<div className="w-5 h-5 rounded-full bg-accent/20 flex items-center justify-center">
 					<User size={10} className="text-accent" />
 				</div>
 				<span className="truncate max-w-[160px]">{user.email}</span>
-			</button>
+			</Button>
 		)
 	}
 
 	return (
-		<button
-			type="button"
-			className="absolute top-3 right-4 flex items-center gap-2 text-[11px] text-text-disabled hover:text-text-muted transition-colors"
+		<Button
+			variant="ghost"
+			size="xs"
+			className="absolute top-3 right-4 h-auto gap-2 px-0 text-[11px] text-text-disabled transition-colors hover:bg-transparent hover:text-text-muted active:scale-100"
 			onClick={() => openAuth("login")}
 		>
 			<span>Sign in</span>
-		</button>
+		</Button>
 	)
+}
+
+function createVaultFromPicker() {
+	void pickVaultFolder("create")
+}
+
+function openVaultFromPicker() {
+	void pickVaultFolder("open")
 }
 
 export function EmptyVaultLayout() {
 	const recentVaults = useVaultStore((s) => s.recentVaults)
-	const openVault = useVaultStore((s) => s.openVault)
 	const firstRunOnboardingSeen = useAppStore((s) => s.firstRunOnboardingSeen)
 	const version = useAppStore((s) => s.version)
 
-	const [isCreateVaultOpen, setIsCreateVaultOpen] = useState(false)
-	const [selectedFolderPath, setSelectedFolderPath] = useState("")
 	const showFirstRunGuidance = recentVaults.length === 0 && firstRunOnboardingSeen === false
-
-	const handleOpenVault = async () => {
-		const folderPath = await getPlatform().dialog.pickFolder()
-		if (!folderPath) return
-
-		const existingVault = recentVaults.find((vault) => vault.path === folderPath)
-
-		if (existingVault) {
-			await openVault(folderPath)
-			return
-		}
-
-		setSelectedFolderPath(folderPath)
-		setIsCreateVaultOpen(true)
-	}
-
-	const handleCreateVault = async () => {
-		const folderPath = await getPlatform().dialog.pickFolder()
-		if (!folderPath) return
-
-		setSelectedFolderPath(folderPath)
-		setIsCreateVaultOpen(true)
-	}
 
 	return (
 		<div className="relative flex-1 flex flex-col items-center justify-center gap-2.5 px-6 text-text-muted text-sm">
 			<AccountBadge />
-			<CreateVaultModal
-				open={isCreateVaultOpen}
-				folderPath={selectedFolderPath}
-				onOpenChange={setIsCreateVaultOpen}
-			/>
 			<div className="flex w-full max-w-[520px] flex-col items-center gap-3 text-center">
 				<div className="flex items-center gap-2">
 					<h1 className="text-2xl font-bold text-text-primary">Cortex</h1>
@@ -108,11 +85,11 @@ export function EmptyVaultLayout() {
 					<p className="pt-2.5">Open an existing folder or create a new vault</p>
 				)}
 				<div className="flex flex-wrap justify-center gap-2 pt-1 pb-2.5">
-					<Button onClick={handleCreateVault}>
+					<Button onClick={createVaultFromPicker}>
 						<FolderPlus size={16} />
 						Create new vault
 					</Button>
-					<Button variant="outline" onClick={handleOpenVault}>
+					<Button variant="outline" onClick={openVaultFromPicker}>
 						<FolderOpen size={16} />
 						Open folder
 					</Button>
@@ -126,31 +103,27 @@ export function EmptyVaultLayout() {
 					<ul className="space-y-0.5">
 						{recentVaults.map((vault) => (
 							<li className="list-none" key={vault.path}>
-								<button
-									type="button"
-									className="flex w-full items-center gap-2.5 rounded px-3 py-2 text-left hover:bg-bg-secondary"
-									onClick={() => openVault(vault.path)}
+								<Item
+									asChild
+									size="sm"
+									className="w-full flex-nowrap rounded border-0 text-left text-sm hover:bg-bg-secondary"
 								>
-									<span className="flex items-center gap-1.5 shrink-0">
-										{vault.color && (
-											<span
-												className="w-2.5 h-2.5 rounded-full shrink-0"
-												style={{ backgroundColor: vault.color }}
-											/>
-										)}
-										{vault.icon && isValidLucideIconName(vault.icon) ? (
-											<LucideIcon name={vault.icon} size={16} />
-										) : (
-											<Vault size={16} />
-										)}
-									</span>
-									<span className="flex flex-col min-w-0 flex-1">
-										<span className="font-medium text-text-primary truncate">{vault.name}</span>
-										<span className="text-[11px] text-text-muted truncate">
-											{vault.displayPath ?? vault.path}
+									<button type="button" onClick={() => void openRecentVault(vault)}>
+										<span className="flex items-center shrink-0">
+											{vault.icon && isValidLucideIconName(vault.icon) ? (
+												<LucideIcon name={vault.icon} size={16} />
+											) : (
+												<Vault size={16} />
+											)}
 										</span>
-									</span>
-								</button>
+										<span className="flex flex-col min-w-0 flex-1">
+											<span className="font-medium text-text-primary truncate">{vault.name}</span>
+											<span className="text-[11px] text-text-muted truncate">
+												{vault.displayPath ?? vault.path}
+											</span>
+										</span>
+									</button>
+								</Item>
 							</li>
 						))}
 					</ul>

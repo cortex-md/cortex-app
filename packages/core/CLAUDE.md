@@ -183,7 +183,7 @@ export interface VaultState {
   error: string | null
   stopWatcher: (() => void) | null   // Function to stop file watcher
 
-  openVault: (path: string, options?: { icon?: string; color?: string; name: string }) => Promise<void>
+  openVault: (path: string, options?: { icon?: string; name: string }) => Promise<void>
   closeVault: () => Promise<void>
   refreshFiles: () => Promise<void>
   loadRecentVaults: () => Promise<void>  // Also refreshes macOS menu recents
@@ -245,13 +245,11 @@ export interface UIState {
   leftSidebarCollapsed: boolean
   leftSidebarWidth: number
   leftSidebarView: "files" | "search" | "bookmarks" | "tags"
-  settingsOpen: boolean
-  settingsInitialSection: string | null
 
   toggleLeftSidebar: () => void
   setLeftSidebarWidth: (width: number) => void
   setLeftSidebarView: (view: string) => void
-  openSettings: (section?: string) => void
+  openSettings: (section?: string) => void  // opens the native Settings window via getPlatform().window
 }
 ```
 
@@ -272,12 +270,12 @@ export interface SyncState {
 
   startSync: (vaultId, vaultPath, serverUrl) => Promise<void>
   stopSync: () => Promise<void>
-  subscribeEvents: () => Promise<void>   // Listens to Tauri events from Rust engine
+  subscribeEvents: () => Promise<void>   // Listens to sync engine events forwarded by the main process
   unsubscribeEvents: () => void
 }
 ```
 
-`subscribeEvents()` bridges Rust engine events to Zustand state. It also listens for `sync-log` events from Rust and pipes them into `syncLogStore`. The `onVaultAccessDenied` listener auto-unlinks the vault when a 403 is received.
+`subscribeEvents()` bridges sync engine events to Zustand state. It also listens for `sync-log` events from the engine and pipes them into `syncLogStore`. The `onVaultAccessDenied` listener auto-unlinks the vault when a 403 is received.
 
 **Usage**: `const { engineState, startSync, stopSync } = useSyncStore()`
 
@@ -293,9 +291,9 @@ export interface SyncLogState {
 ```
 
 **Logging responsibility split**:
-- **Rust** emits `sync-log` events for all engine-originated logs (state changes, sync errors, conflicts, initial sync). These are bridged to this store via `syncStore.subscribeEvents()`.
+- **The sync engine** emits `sync-log` events for all engine-originated logs (state changes, sync errors, conflicts, initial sync). These are bridged to this store via `syncStore.subscribeEvents()`.
 - **Frontend** calls `useSyncLogStore.getState().log()` directly only for events it originates (lifecycle start/stop in `useSyncLifecycle.ts`, access denied handling).
-- Never duplicate: if Rust already emits a log for an event, the frontend must NOT add its own log call for the same event.
+- Never duplicate: if the engine already emits a log for an event, the frontend must NOT add its own log call for the same event.
 
 **Usage**: `const { entries, clear } = useSyncLogStore()`
 
@@ -407,10 +405,10 @@ uiStore (UI chrome)
   └─ no dependencies
 
 syncStore (sync engine state)
-  ├─ uses getPlatform().sync → Tauri sync commands + event listeners
-  ├─ imports syncLogStore → bridges Rust sync-log events
+  ├─ uses getPlatform().sync → sync IPC methods + event listeners
+  ├─ imports syncLogStore → bridges engine sync-log events
   ├─ dynamic imports vaultStore, remoteVaultStore → auto-unlink on access denied
-  └─ subscribes to 8 Tauri events (state, file, progress, conflict, complete, vek, log, denied)
+  └─ subscribes to 8 sync events (state, file, progress, conflict, complete, vek, log, denied)
 
 syncLogStore (sync log buffer)
   └─ no dependencies (pure in-memory store, platform-independent)
@@ -420,7 +418,8 @@ authStore (auth state)
   └─ dynamic imports syncStore, vaultStore, remoteVaultStore → stopSync + unlinkVault on logout
 
 remoteVaultStore (vault linking)
-  └─ uses getPlatform().remoteVault → reads/writes sync-config.json
+  ├─ uses sync/syncConfig.ts over getPlatform().fs → reads/writes sync-config.json
+  └─ uses getPlatform().remoteVault → remote vault HTTP only
 
 tagsStore (tag management)
   ├─ uses getPlatform() → file I/O

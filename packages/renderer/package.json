@@ -5,9 +5,12 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
-		"./math": "./src/math.ts"
+		"./callouts": "./src/callouts/index.ts",
+		"./math": "./src/math.ts",
+		"./pipeline": "./src/pipeline.ts"
 	},
 	"dependencies": {
+		"@cortex/properties": "workspace:*",
 		"hast-util-from-html": "^2.0.3",
 		"katex": "^0.17.0",
 		"rehype-highlight": "^7.0.2",
@@ -19,8 +22,7 @@
 		"remark-parse": "^11.0.0",
 		"remark-rehype": "^11.1.2",
 		"unified": "^11.0.5",
-		"unist-util-visit": "^5.1.0",
-		"yaml": "^2.4.2"
+		"unist-util-visit": "^5.1.0"
 	},
 	"devDependencies": {
 		"typescript": "~5.8.3"

@@ -1,15 +1,31 @@
-import { formatLastSyncedAt, SYNC_STATUS_PRESENTATION, useRemoteVaultStore } from "@cortex/core"
-import type { SyncEngineState } from "@cortex/platform"
-import { Button, Switch } from "@cortex/ui"
-import { Cloud, CloudOff, Link } from "lucide-react"
-import { useState } from "react"
 import {
-	SettingsField,
-	SettingsGroup,
-	SettingsGroupContent,
-	SettingsPage,
-	SettingsSection,
-} from "../SettingsPrimitives"
+	formatLastSyncedAt,
+	formatRelativeTime,
+	SYNC_STATUS_PRESENTATION,
+	useDevicesStore,
+	useEditorStore,
+	useRemoteVaultStore,
+	useUIStore,
+} from "@cortex/core"
+import type { SyncEngineState } from "@cortex/platform"
+import { getPlatform } from "@cortex/platform"
+import { Button, Switch } from "@cortex/ui"
+import {
+	ChevronRightIcon,
+	Cloud,
+	CloudCheck,
+	CloudOff,
+	HistoryIcon,
+	LaptopIcon,
+	Link,
+	ScrollTextIcon,
+	ServerIcon,
+	SmartphoneIcon,
+	Trash2Icon,
+} from "lucide-react"
+import { useState } from "react"
+import { runInMainWindow } from "../../../windows/runInMainWindow"
+import { SettingsField, SettingsGroup, SettingsPage, SettingsSection } from "../SettingsPrimitives"
 import { SignedOutNotice } from "./SignedOutNotice"
 import { SubscriptionRequiredNotice } from "./SubscriptionRequiredNotice"
 
@@ -30,6 +46,7 @@ interface SyncOverviewProps {
 	linkedVaultId: string | null
 	noteCount: number
 	remoteVaultRole?: string
+	serverLabel: string
 	vaultName: string
 	vaultPath?: string
 	syncEnabled: boolean
@@ -44,18 +61,18 @@ function SyncToggleSection({
 	const setSyncEnabled = useRemoteVaultStore((state) => state.setSyncEnabled)
 	const [toggleError, setToggleError] = useState<string | null>(null)
 	return (
-		<SettingsSection
-			title="Sync"
-			description="Enable or disable sync for this vault without changing its remote link."
-		>
+		<section className="settings-section">
 			<SettingsGroup>
 				<SettingsField
-					label="Enable sync for this vault"
+					fieldId="sync.enabled"
 					htmlFor="sync-enabled"
-					description={!authenticated ? "Sign in to enable sync" : undefined}
+					description={
+						authenticated ? "Pause without unlinking the remote vault." : "Sign in to enable sync"
+					}
 				>
 					<Switch
 						id="sync-enabled"
+						size="sm"
 						checked={syncEnabled}
 						disabled={!authenticated}
 						onCheckedChange={(checked) => {
@@ -68,103 +85,261 @@ function SyncToggleSection({
 					/>
 				</SettingsField>
 			</SettingsGroup>
-			{toggleError && <p className="m-0 px-1 text-sm text-destructive">{toggleError}</p>}
-		</SettingsSection>
+			{toggleError && <p className="settings-section-error">{toggleError}</p>}
+		</section>
+	)
+}
+
+function SyncStatusHero({
+	vaultName,
+	serverLabel,
+	remoteVaultRole,
+	engineState,
+	lastSyncedAt,
+	connectedDeviceCount,
+	devicesLoading,
+	noteCount,
+}: Pick<
+	SyncOverviewProps,
+	| "vaultName"
+	| "serverLabel"
+	| "remoteVaultRole"
+	| "engineState"
+	| "lastSyncedAt"
+	| "connectedDeviceCount"
+	| "devicesLoading"
+	| "noteCount"
+>) {
+	const status = SYNC_STATUS_PRESENTATION[engineState]
+	const syncing = engineState === "syncing" || engineState === "connecting"
+	const title = engineState === "live" ? `${vaultName} is up to date` : vaultName
+	const lastSynced = formatLastSyncedAt(lastSyncedAt)
+	return (
+		<div className="settings-sync-hero" data-tone={status.tone}>
+			<span className="settings-sync-hero-icon">
+				{status.tone === "success" ? <CloudCheck /> : <Cloud />}
+			</span>
+			<div className="settings-sync-hero-copy">
+				<b title={vaultName}>{title}</b>
+				<span>
+					<span className={`settings-sync-dot ${statusToneClassNames[status.tone]}`} />
+					<span>
+						{status.label} {lastSynced.charAt(0).toLowerCase() + lastSynced.slice(1)}
+					</span>
+					<span aria-hidden="true">·</span>
+					<span>{serverLabel}</span>
+				</span>
+			</div>
+			<Button
+				variant="secondary"
+				size="sm"
+				disabled={syncing}
+				onClick={() => runInMainWindow("restartSync")}
+			>
+				{syncing ? "Syncing..." : "Sync now"}
+			</Button>
+			<div className="settings-sync-stats">
+				<div>
+					<b>{noteCount.toLocaleString()}</b>
+					<span>Notes synced</span>
+				</div>
+				<div>
+					<b>{devicesLoading ? "–" : connectedDeviceCount}</b>
+					<span>Devices</span>
+				</div>
+				<div>
+					<b className="capitalize">{remoteVaultRole ?? "Member"}</b>
+					<span>Your access</span>
+				</div>
+			</div>
+		</div>
 	)
 }
 
 export function VaultLinkSection({
 	linkedVaultId,
 	vaultName,
-	remoteVaultRole,
-	engineState,
-	lastSyncedAt,
-	connectedDeviceCount,
+	serverLabel,
 	devicesError,
-	devicesLoading,
-	noteCount,
 	onOpenLink,
-}: Omit<SyncOverviewProps, "authenticated" | "syncEnabled" | "vaultPath">) {
-	const status = SYNC_STATUS_PRESENTATION[engineState]
+}: Pick<SyncOverviewProps, "linkedVaultId" | "vaultName" | "devicesError" | "onOpenLink"> & {
+	serverLabel?: string
+}) {
 	return (
 		<SettingsSection
+			fieldId="sync.remote-vault"
 			title="Remote vault"
-			description="The remote vault linked to this local vault."
+			footer={devicesError ?? undefined}
 		>
 			<SettingsGroup>
 				{linkedVaultId ? (
-					<>
-						<div className="flex items-center gap-3 px-4 py-4">
-							<div className="flex size-9 shrink-0 items-center justify-center rounded-[8px] bg-muted text-muted-foreground">
-								<Cloud className="size-4" />
-							</div>
-							<div className="min-w-0 flex-1">
-								<p
-									className="m-0 truncate text-[13px] font-semibold text-foreground"
-									title={vaultName}
-								>
-									{vaultName}
-								</p>
-								<div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-									<span className={`size-1.5 rounded-full ${statusToneClassNames[status.tone]}`} />
-									<span>{status.label}</span>
-									{remoteVaultRole && (
-										<>
-											<span aria-hidden="true">·</span>
-											<span className="capitalize">{remoteVaultRole} access</span>
-										</>
-									)}
-								</div>
-							</div>
-							<Button variant="ghost" size="xs" onClick={onOpenLink}>
-								Change
-							</Button>
-						</div>
-						<SettingsField label="Last synced">
-							<span className="text-[13px] text-muted-foreground">
-								{formatLastSyncedAt(lastSyncedAt)}
-							</span>
-						</SettingsField>
-						<SettingsField
-							label="Connected devices"
-							description={devicesError ? devicesError : undefined}
-						>
-							<span className="text-[13px] text-muted-foreground">
-								{devicesLoading
-									? "Loading"
-									: `${connectedDeviceCount} ${connectedDeviceCount === 1 ? "device" : "devices"}`}
-							</span>
-						</SettingsField>
-						<SettingsField label="Synced notes">
-							<span className="text-[13px] text-muted-foreground">
-								{noteCount} {noteCount === 1 ? "note" : "notes"}
-							</span>
-						</SettingsField>
-					</>
+					<SettingsField
+						icon={<Cloud />}
+						label={<span title={vaultName}>{vaultName}</span>}
+						description="Linked remote vault"
+					>
+						<Button variant="ghost" size="xs" onClick={onOpenLink}>
+							Change
+						</Button>
+					</SettingsField>
 				) : (
-					<SettingsGroupContent className="p-0">
-						<div className="flex items-center gap-3 px-4 py-4">
-							<div className="flex size-9 shrink-0 items-center justify-center rounded-[8px] bg-muted text-muted-foreground">
-								<CloudOff className="size-4" />
-							</div>
-							<span className="flex-1 text-muted-foreground">
-								Link or create a remote vault to start syncing.
-							</span>
-							<Button variant="default" size="sm" onClick={onOpenLink}>
-								<Link />
-								Link vault
-							</Button>
-						</div>
-					</SettingsGroupContent>
+					<SettingsField
+						icon={<CloudOff />}
+						label="Link or create a remote vault to start syncing."
+					>
+						<Button variant="default" size="sm" onClick={onOpenLink}>
+							<Link />
+							Link vault
+						</Button>
+					</SettingsField>
+				)}
+				{linkedVaultId && serverLabel && (
+					<SettingsField icon={<ServerIcon />} label="Server">
+						<span className="settings-field-value">{serverLabel}</span>
+						<Button
+							variant="ghost"
+							size="icon-xs"
+							aria-label="Server settings"
+							onClick={() => useUIStore.getState().openSettings("sync-self-host")}
+						>
+							<ChevronRightIcon />
+						</Button>
+					</SettingsField>
 				)}
 			</SettingsGroup>
 		</SettingsSection>
 	)
 }
 
+function describeDeviceType(deviceType: string): string {
+	if (/ios|iphone|ipad/i.test(deviceType)) return "Cortex for iOS"
+	if (/android/i.test(deviceType)) return "Cortex for Android"
+	if (/mac|darwin/i.test(deviceType)) return "Cortex for macOS"
+	if (/win/i.test(deviceType)) return "Cortex for Windows"
+	if (/linux/i.test(deviceType)) return "Cortex for Linux"
+	return "Cortex desktop"
+}
+
+function DevicesSection() {
+	const devices = useDevicesStore((state) => state.deviceEntries)
+	const activeDevices = devices.filter((device) => !device.revoked)
+	if (activeDevices.length === 0) return null
+	const revoke = async (deviceId: string, deviceName: string) => {
+		const confirmed = await getPlatform().dialog.showConfirm({
+			title: "Revoke device",
+			message: `Sign ${deviceName} out of this vault?`,
+			destructive: true,
+			confirmLabel: "Revoke",
+		})
+		if (confirmed) await useDevicesStore.getState().revokeDevice(deviceId)
+	}
+	return (
+		<SettingsSection
+			fieldId="sync.devices"
+			title="Devices"
+			footer="Devices appear here after signing in to this vault."
+		>
+			<SettingsGroup>
+				{activeDevices.map((device) => {
+					const Icon = /phone|ios|android|mobile/i.test(device.deviceType)
+						? SmartphoneIcon
+						: LaptopIcon
+					const lastSeen = device.lastSeenAt ? Date.parse(device.lastSeenAt) : null
+					const lastSeenLabel = lastSeen ? formatRelativeTime(lastSeen) : "Not synced yet"
+					return (
+						<SettingsField
+							key={device.id}
+							icon={<Icon />}
+							label={device.deviceName}
+							description={
+								device.isCurrent ? `Synced ${lastSeenLabel}` : describeDeviceType(device.deviceType)
+							}
+						>
+							{device.isCurrent ? (
+								<span className="settings-pill">This device</span>
+							) : (
+								<>
+									<span className="settings-field-value">{lastSeenLabel}</span>
+									<Button
+										variant="ghost"
+										size="xs"
+										className="settings-device-revoke"
+										onClick={() => void revoke(device.id, device.deviceName)}
+									>
+										Revoke
+									</Button>
+								</>
+							)}
+						</SettingsField>
+					)
+				})}
+			</SettingsGroup>
+		</SettingsSection>
+	)
+}
+
+function HistorySection() {
+	const activeFilePath = useEditorStore((state) => state.activeFilePath)
+	const rows = [
+		{
+			icon: ScrollTextIcon,
+			fieldId: "sync.logs",
+			label: "Sync logs",
+			description: "Every upload, download and conflict",
+			disabled: false,
+			open: () => runInMainWindow("openSyncLogs"),
+		},
+		{
+			icon: HistoryIcon,
+			fieldId: "sync.version-history",
+			label: "Version history",
+			description: activeFilePath
+				? "Restore earlier versions of the open note"
+				: "Open a note to see its versions",
+			disabled: !activeFilePath,
+			open: () => runInMainWindow("openNoteHistory"),
+		},
+		{
+			icon: Trash2Icon,
+			fieldId: "sync.deleted-notes",
+			label: "Deleted notes",
+			description: "Bring back notes removed on any device",
+			disabled: false,
+			open: () => runInMainWindow("openDeletedNotes"),
+		},
+	]
+	return (
+		<SettingsSection title="History & recovery">
+			<SettingsGroup>
+				{rows.map(({ fieldId, icon: Icon, label, description, disabled, open }) => (
+					<SettingsField
+						key={fieldId}
+						fieldId={fieldId}
+						icon={<Icon />}
+						label={label}
+						description={description}
+					>
+						<Button
+							variant="ghost"
+							size="icon-xs"
+							aria-label={`Open ${label.toLowerCase()}`}
+							disabled={disabled}
+							onClick={open}
+						>
+							<ChevronRightIcon />
+						</Button>
+					</SettingsField>
+				))}
+			</SettingsGroup>
+		</SettingsSection>
+	)
+}
+
 export function SyncOverviewPage(props: SyncOverviewProps) {
+	const showLink = props.syncEnabled && props.authenticated
 	return (
 		<SettingsPage>
+			{showLink && props.linkedVaultId && <SyncStatusHero {...props} />}
 			<SyncToggleSection
 				authenticated={props.authenticated}
 				syncEnabled={props.syncEnabled}
@@ -172,7 +347,9 @@ export function SyncOverviewPage(props: SyncOverviewProps) {
 			/>
 			{!props.authenticated && <SignedOutNotice />}
 			{props.authenticated && <SubscriptionRequiredNotice />}
-			{props.syncEnabled && props.authenticated && <VaultLinkSection {...props} />}
+			{showLink && <VaultLinkSection {...props} />}
+			{showLink && props.linkedVaultId && <DevicesSection />}
+			{showLink && props.linkedVaultId && <HistorySection />}
 		</SettingsPage>
 	)
 }

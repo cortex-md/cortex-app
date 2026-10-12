@@ -1,7 +1,9 @@
-import { useWorkspaceStore } from "@cortex/core"
+import {
+	openPluginMarkdownTab,
+	PLUGIN_MARKDOWN_NOTE_VIEW_ID,
+	useWorkspaceStore,
+} from "@cortex/core"
 import { beforeEach, describe, expect, it } from "vitest"
-import { openPluginMarkdownTab } from "../../bootstrap/workspaceBridge"
-import { PLUGIN_MARKDOWN_NOTE_VIEW_ID } from "../../features/plugins/pluginMarkdownNote"
 
 function getOpenTabs() {
 	return Object.values(useWorkspaceStore.getState().panes).flatMap((pane) => pane.tabs)

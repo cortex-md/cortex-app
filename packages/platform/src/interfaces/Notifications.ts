@@ -21,6 +21,8 @@ export interface NativeNotificationCapabilities {
 	icons: boolean
 	sounds: boolean
 	actions: boolean
+	schedule?: boolean
+	reply?: boolean
 }
 
 export interface NativeNotificationRequest {
@@ -36,6 +38,8 @@ export interface NativeNotificationRequest {
 	source: NativeNotificationSource
 	pluginId?: string
 	metadata?: Record<string, string | number | boolean | null>
+	activationScope?: string
+	reply?: { placeholder: string }
 }
 
 export type NativeNotificationFailureReason =
@@ -49,9 +53,37 @@ export interface NativeNotificationResult {
 	reason?: NativeNotificationFailureReason
 }
 
+export type NotificationPayload = Record<string, string | number | boolean | null>
+
+export interface NativeNotificationAction {
+	id: string
+	label: string
+}
+
+export interface ScheduledNotificationRequest {
+	id: string
+	fireAt: number
+	title: string
+	body?: string
+	silent?: boolean
+	actions?: NativeNotificationAction[]
+	payload?: NotificationPayload
+}
+
+export interface NotificationActivation {
+	scope: string
+	notificationId: string
+	actionId: string | null
+	payload?: NotificationPayload
+	reply?: string
+}
+
 export interface Notifications {
 	getCapabilities(): NativeNotificationCapabilities
 	getPermission(): Promise<NativeNotificationPermissionState>
 	requestPermission(): Promise<NativeNotificationPermissionState>
 	send(notification: NativeNotificationRequest): Promise<NativeNotificationResult>
+	schedule?(scope: string, notifications: ScheduledNotificationRequest[]): Promise<void>
+	onActivation?(listener: (activation: NotificationActivation) => void): () => void
+	openSystemSettings?(): Promise<void>
 }

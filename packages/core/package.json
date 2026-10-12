@@ -4,15 +4,25 @@
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.ts",
+		"./bookmark-paths": "./src/utils/bookmarkPaths.ts",
+		"./frontmatter": "./src/utils/frontmatter.ts"
 	},
 	"dependencies": {
+		"@cortex/collab": "workspace:*",
+		"@cortex/commands": "workspace:*",
+		"@cortex/comments": "workspace:*",
 		"@cortex/platform": "workspace:*",
 		"@cortex/properties": "workspace:*",
+		"@cortex/search": "workspace:*",
 		"@cortex/settings": "workspace:*",
+		"@cortex/tasks": "workspace:*",
 		"@cortex/templates": "workspace:*",
 		"immer": "^10.1.1",
 		"zustand": "^5.0.0"
+	},
+	"peerDependencies": {
+		"react": ">=19"
 	},
 	"devDependencies": {
 		"typescript": "~5.8.3"

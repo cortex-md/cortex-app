@@ -1,6 +1,6 @@
 import { ReadingView } from "@cortex/editor/reading-view"
 import { getPlatform } from "@cortex/platform"
-import type { CoreViewProps } from "../split-view/coreViewRegistry"
+import type { CoreViewProps } from "../split-view/coreViewProps"
 import { SYNC_WELCOME_MARKDOWN } from "./syncWelcome"
 
 function readString(value: unknown): string | null {

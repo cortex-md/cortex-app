@@ -6,8 +6,7 @@
   public community theme contract.
 - Keep theme decisions independent from React and desktop feature state.
 - Export lightweight JSON validation through `parseCommunityThemeManifest`.
-- Keep community stylesheet contents opaque. This package must not depend on CSS AST parsers or
-  `@cortex/theme-mobile`.
+- Keep community stylesheet contents opaque. This package must not depend on CSS AST parsers.
 
 ## Community Themes
 
@@ -25,18 +24,20 @@
   explicit non-default user preferences; explicit user overrides may remain stronger than theme CSS.
 - Community family placeholder themes use the matching built-in light/dark tokens as generator
   fallbacks. Do not register community themes with partial or cast-empty `ThemeTokens`.
-- Portable token extraction belongs exclusively to `@cortex/theme-mobile`.
+- `paperTheme` and `inkTheme` are the single palette source for desktop CSS and mobile native
+  fallback colors; keep token objects importable without DOM or React Native runtime.
 - Built-in and custom accents must provide at least 4.5:1 contrast for text and 3:1 for focus
   indicators. Use the exported contrast resolvers instead of fixed light foregrounds.
 
 ## Token Rules
 
-- Built-in primitive token objects keep the legacy `stone`, `ink`, `amber`, and `amberDark` keys for
-  package compatibility, while `cssGenerator` emits `mist`, `slate`, `rose`, and `rose-d` aliases
-  for the design-system palette.
+- Built-in primitive token objects keep the legacy `ink`, `amber`, and `amberDark` keys for package
+  compatibility, while `cssGenerator` emits `slate`, `rose`, and `rose-d` aliases for the
+  design-system palette. `stone` is the warm Stone neutral scale that Paper builds on; the optional
+  `mist` key keeps the previous cool scale emitted as `--mist-*` for community themes.
 - `cssGenerator` emits `--brand*` as public aliases of `semantic.accent.*`. Do not create a separate
   brand palette; desktop CSS and `@cortex/ui` should read the same accent source.
-- Built-in light backgrounds should stay cool-neutral and low-chroma. Built-in dark backgrounds
+- Built-in light backgrounds should stay on the warm Stone neutrals and low-chroma. Built-in dark backgrounds
   should stay graphite-neutral, close to Minimal-style `#1e1e1e`, `#282828`, and `#373737`
   surfaces, without blue or purple drift. `rose` is the accent family for actions, selection,
   focus, and explicit accent states, not the general app surface.

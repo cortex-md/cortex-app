@@ -1,13 +1,26 @@
 import { type FileEntry, getPlatform } from "@cortex/platform"
+import {
+	type FileFingerprint,
+	getFileEntryFingerprint,
+	getVaultFilePath,
+	hasSameFingerprint,
+	isMarkdownPath,
+	isPathOrDescendant,
+	mapWithConcurrency,
+	VAULT_FILES,
+} from "@cortex/platform/utils"
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
-import { noteCache } from "../noteCache"
+import { mutateNote } from "../notes/mutateNote"
 import {
 	addTagToFrontmatter,
 	extractAllTags,
 	removeTagFromFrontmatter,
+	renameTagInContent,
 	setTagsInFrontmatter,
 } from "../utils/frontmatter"
+import { isTagOrDescendant } from "../utils/tagHierarchy"
+import { assertVaultPathWritable, canWriteVaultPath } from "./accessStore"
 
 export interface TagColor {
 	tag: string
@@ -26,9 +39,8 @@ export interface TagsState {
 	fileTags: Record<string, string[]>
 	activeTagFilter: string | null
 
-	buildIndex: (vaultPath: string, filePaths: string[]) => Promise<void>
 	buildIndexFromFiles: (vaultPath: string, files: FileEntry[]) => Promise<void>
-	updateFileInIndex: (filePath: string, rawContent: string) => void
+	updateFileInIndex: (filePath: string, rawContent: string, fingerprint?: FileFingerprint) => void
 	removeFileFromIndex: (filePath: string) => void
 	setActiveTagFilter: (tag: string | null) => void
 	getAllTags: () => TagEntry[]
@@ -40,21 +52,15 @@ export interface TagsState {
 	addTagToFile: (filePath: string, tag: string) => Promise<void>
 	removeTagFromFile: (filePath: string, tag: string) => Promise<void>
 	setTagsForFile: (filePath: string, tags: string[]) => Promise<void>
+	renameTag: (vaultPath: string, oldTag: string, newTag: string) => Promise<number>
 	cancelIndexing: () => void
 	reset: () => void
 }
 
-const TAG_COLORS_FILE = ".cortex/tags.json"
-const TAG_INDEX_FILE = ".cortex/tags-index.json"
 const TAG_INDEX_VERSION = 1
 const TAG_INDEX_READ_CONCURRENCY = 4
 
-interface TagFileFingerprint {
-	mtime: number
-	size: number
-}
-
-interface PersistedTagFile extends TagFileFingerprint {
+interface PersistedTagFile extends FileFingerprint {
 	tags: string[]
 }
 
@@ -65,35 +71,36 @@ interface PersistedTagIndex {
 
 let tagIndexSerializeTimer: ReturnType<typeof setTimeout> | null = null
 let tagIndexGeneration = 0
+let indexedVaultPath: string | null = null
+let indexedTagFiles = new Map<string, PersistedTagFile>()
+let sortedTagsCache: {
+	tagIndex: Record<string, string[]>
+	tagColors: Record<string, string>
+	entries: TagEntry[]
+} | null = null
 
-async function mapWithConcurrency<T, R>(
-	items: T[],
-	concurrency: number,
-	worker: (item: T) => Promise<R>,
-): Promise<R[]> {
-	const results = new Array<R>(items.length)
-	let nextIndex = 0
-	const workerCount = Math.min(concurrency, items.length)
-	const runNext = async (): Promise<void> => {
-		const index = nextIndex
-		nextIndex++
-		if (index >= items.length) return
-		results[index] = await worker(items[index])
-		return runNext()
+export function selectSortedTags(state: Pick<TagsState, "tagIndex" | "tagColors">): TagEntry[] {
+	if (
+		sortedTagsCache?.tagIndex === state.tagIndex &&
+		sortedTagsCache.tagColors === state.tagColors
+	) {
+		return sortedTagsCache.entries
 	}
-	await Promise.all(Array.from({ length: workerCount }, () => runNext()))
-	return results
+	const entries = Object.entries(state.tagIndex)
+		.map(([tag, filePaths]) => ({ tag, color: state.tagColors[tag] ?? null, filePaths }))
+		.sort((a, b) => b.filePaths.length - a.filePaths.length || a.tag.localeCompare(b.tag))
+	sortedTagsCache = { tagIndex: state.tagIndex, tagColors: state.tagColors, entries }
+	return entries
 }
 
 async function loadTagColorsFromDisk(vaultPath: string): Promise<Record<string, string>> {
 	try {
-		const platform = getPlatform()
-		const raw = await platform.fs.readFile(`${vaultPath}/${TAG_COLORS_FILE}`)
+		const raw = await getPlatform().fs.readFile(getVaultFilePath(vaultPath, VAULT_FILES.tagColors))
 		const parsed = JSON.parse(raw)
 		if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
 			return parsed as Record<string, string>
 		}
-	} catch (_e) {}
+	} catch {}
 	return {}
 }
 
@@ -102,26 +109,11 @@ async function saveTagColorsToDisk(
 	colors: Record<string, string>,
 ): Promise<void> {
 	try {
-		const platform = getPlatform()
-		await platform.fs.writeFile(
-			`${vaultPath}/${TAG_COLORS_FILE}`,
+		await getPlatform().fs.writeFile(
+			getVaultFilePath(vaultPath, VAULT_FILES.tagColors),
 			JSON.stringify(colors, null, "\t"),
 		)
-	} catch (_e) {}
-}
-
-function getFileFingerprint(file: FileEntry): TagFileFingerprint {
-	return {
-		mtime: file.mtime ?? 0,
-		size: file.size ?? 0,
-	}
-}
-
-function hasSameFingerprint(
-	left: TagFileFingerprint | undefined,
-	right: TagFileFingerprint,
-): boolean {
-	return Boolean(left && left.mtime === right.mtime && left.size === right.size)
+	} catch {}
 }
 
 function isPersistedTagIndex(value: unknown): value is PersistedTagIndex {
@@ -137,15 +129,13 @@ function isPersistedTagIndex(value: unknown): value is PersistedTagIndex {
 
 async function loadPersistedTagIndex(vaultPath: string): Promise<Map<string, PersistedTagFile>> {
 	try {
-		const raw = await getPlatform().fs.readFile(`${vaultPath}/${TAG_INDEX_FILE}`)
+		const raw = await getPlatform().fs.readFile(getVaultFilePath(vaultPath, VAULT_FILES.tagIndex))
 		const parsed = JSON.parse(raw) as unknown
 		if (!isPersistedTagIndex(parsed)) return new Map()
 		const files = new Map<string, PersistedTagFile>()
 		for (const [filePath, entry] of Object.entries(parsed.files)) {
 			if (
-				entry &&
-				typeof entry === "object" &&
-				typeof entry.mtime === "number" &&
+				typeof entry?.mtime === "number" &&
 				typeof entry.size === "number" &&
 				Array.isArray(entry.tags)
 			) {
@@ -157,38 +147,54 @@ async function loadPersistedTagIndex(vaultPath: string): Promise<Map<string, Per
 			}
 		}
 		return files
-	} catch (_e) {
+	} catch {
 		return new Map()
 	}
 }
 
-function addTagsForFile(
-	tagIndex: Record<string, string[]>,
-	fileTags: Record<string, string[]>,
-	filePath: string,
-	tags: string[],
-): void {
-	fileTags[filePath] = tags
-	for (const tag of tags) {
-		if (!tagIndex[tag]) tagIndex[tag] = []
-		tagIndex[tag].push(filePath)
-	}
+function scheduleTagIndexSerialize(vaultPath: string): void {
+	if (tagIndexSerializeTimer) clearTimeout(tagIndexSerializeTimer)
+	tagIndexSerializeTimer = setTimeout(() => {
+		tagIndexSerializeTimer = null
+		if (indexedVaultPath !== vaultPath) return
+		const persisted: PersistedTagIndex = {
+			version: TAG_INDEX_VERSION,
+			files: Object.fromEntries(indexedTagFiles),
+		}
+		void getPlatform()
+			.fs.writeFile(getVaultFilePath(vaultPath, VAULT_FILES.tagIndex), JSON.stringify(persisted))
+			.catch(() => {})
+	}, 5000)
 }
 
-function scheduleTagIndexSerialize(
-	vaultPath: string,
-	files: Record<string, PersistedTagFile>,
-): void {
-	if (tagIndexSerializeTimer) clearTimeout(tagIndexSerializeTimer)
-	tagIndexSerializeTimer = setTimeout(async () => {
-		try {
-			const persisted: PersistedTagIndex = {
-				version: TAG_INDEX_VERSION,
-				files,
-			}
-			await getPlatform().fs.writeFile(`${vaultPath}/${TAG_INDEX_FILE}`, JSON.stringify(persisted))
-		} catch (_e) {}
-	}, 5000)
+function buildTagIndex(files: ReadonlyMap<string, PersistedTagFile>): {
+	tagIndex: Record<string, string[]>
+	fileTags: Record<string, string[]>
+} {
+	const tagIndex: Record<string, string[]> = {}
+	const fileTags: Record<string, string[]> = {}
+	for (const [filePath, file] of files) {
+		fileTags[filePath] = file.tags
+		for (const tag of file.tags) {
+			if (!tagIndex[tag]) tagIndex[tag] = []
+			tagIndex[tag].push(filePath)
+		}
+	}
+	return { tagIndex, fileTags }
+}
+
+function withoutFileTags(
+	tagIndex: Record<string, string[]>,
+	filePath: string,
+	tags: readonly string[],
+): Record<string, string[]> {
+	const nextIndex = { ...tagIndex }
+	for (const tag of tags) {
+		const paths = nextIndex[tag]?.filter((path) => path !== filePath)
+		if (paths && paths.length > 0) nextIndex[tag] = paths
+		else delete nextIndex[tag]
+	}
+	return nextIndex
 }
 
 export const useTagsStore = create<TagsState>()(
@@ -199,36 +205,21 @@ export const useTagsStore = create<TagsState>()(
 			fileTags: {},
 			activeTagFilter: null,
 
-			buildIndex: async (vaultPath, filePaths) => {
-				await get().buildIndexFromFiles(
-					vaultPath,
-					filePaths.map((path) => ({
-						path,
-						name: path.split("/").pop() ?? path,
-						isDir: false,
-					})),
-				)
-			},
-
 			buildIndexFromFiles: async (vaultPath, files) => {
 				const generation = ++tagIndexGeneration
 				const platform = getPlatform()
-				const newTagIndex: Record<string, string[]> = {}
-				const fileTags: Record<string, string[]> = {}
-				const persistedFiles = await loadPersistedTagIndex(vaultPath)
-				const nextPersistedFiles: Record<string, PersistedTagFile> = {}
-
-				const mdFiles = files.filter((file) => !file.isDir && file.path.endsWith(".md"))
+				const cachedFiles =
+					indexedVaultPath === vaultPath ? indexedTagFiles : await loadPersistedTagIndex(vaultPath)
+				const nextFiles = new Map<string, PersistedTagFile>()
 				const changedFiles: FileEntry[] = []
-				for (const file of mdFiles) {
-					const fingerprint = getFileFingerprint(file)
-					const cached = persistedFiles.get(file.path)
-					if (cached && hasSameFingerprint(cached, fingerprint)) {
-						addTagsForFile(newTagIndex, fileTags, file.path, cached.tags)
-						nextPersistedFiles[file.path] = cached
-						continue
+				for (const file of files) {
+					if (file.isDir || !isMarkdownPath(file.path)) continue
+					const cached = cachedFiles.get(file.path)
+					if (cached && hasSameFingerprint(cached, getFileEntryFingerprint(file))) {
+						nextFiles.set(file.path, cached)
+					} else {
+						changedFiles.push(file)
 					}
-					changedFiles.push(file)
 				}
 				const indexedFiles = await mapWithConcurrency(
 					changedFiles,
@@ -236,89 +227,74 @@ export const useTagsStore = create<TagsState>()(
 					async (file) => {
 						try {
 							const content = await platform.fs.readFile(file.path)
-							return {
-								filePath: file.path,
-								fingerprint: getFileFingerprint(file),
-								tags: extractAllTags(content),
-							}
+							return { file, tags: extractAllTags(content) }
 						} catch {
 							return null
 						}
 					},
 				)
-
+				if (generation !== tagIndexGeneration) return
 				for (const indexedFile of indexedFiles) {
 					if (!indexedFile) continue
-					addTagsForFile(newTagIndex, fileTags, indexedFile.filePath, indexedFile.tags)
-					nextPersistedFiles[indexedFile.filePath] = {
-						...indexedFile.fingerprint,
+					nextFiles.set(indexedFile.file.path, {
+						...getFileEntryFingerprint(indexedFile.file),
 						tags: indexedFile.tags,
-					}
+					})
 				}
 
-				if (generation !== tagIndexGeneration) return
-				set({ tagIndex: newTagIndex, fileTags })
-				scheduleTagIndexSerialize(vaultPath, nextPersistedFiles)
+				indexedVaultPath = vaultPath
+				indexedTagFiles = nextFiles
+				set(buildTagIndex(nextFiles))
+				if (changedFiles.length > 0 || cachedFiles.size !== nextFiles.size) {
+					scheduleTagIndexSerialize(vaultPath)
+				}
 			},
 
-			updateFileInIndex: (filePath, rawContent) => {
-				const previousTags = get().fileTags[filePath] ?? []
-				const updatedTags = extractAllTags(rawContent)
-
+			updateFileInIndex: (filePath, rawContent, fingerprint) => {
+				let updatedTags: string[]
+				try {
+					updatedTags = extractAllTags(rawContent)
+				} catch {
+					return
+				}
 				const { fileTags, tagIndex } = get()
-				const newIndex = { ...tagIndex }
-
-				for (const tag of previousTags) {
-					if (newIndex[tag]) {
-						newIndex[tag] = newIndex[tag].filter((p) => p !== filePath)
-						if (newIndex[tag].length === 0) delete newIndex[tag]
-					}
-				}
-
+				const nextIndex = withoutFileTags(tagIndex, filePath, fileTags[filePath] ?? [])
 				for (const tag of updatedTags) {
-					const indexedPaths = new Set(newIndex[tag] ?? [])
-					if (!indexedPaths.has(filePath)) indexedPaths.add(filePath)
-					newIndex[tag] = Array.from(indexedPaths)
+					nextIndex[tag] = [...(nextIndex[tag] ?? []), filePath]
 				}
+				set({ tagIndex: nextIndex, fileTags: { ...fileTags, [filePath]: updatedTags } })
 
-				set({
-					tagIndex: newIndex,
-					fileTags: { ...fileTags, [filePath]: updatedTags },
+				if (!indexedVaultPath) return
+				const previous = indexedTagFiles.get(filePath)
+				indexedTagFiles.set(filePath, {
+					...(fingerprint ?? { mtime: previous?.mtime ?? 0, size: previous?.size ?? 0 }),
+					tags: updatedTags,
 				})
+				scheduleTagIndexSerialize(indexedVaultPath)
 			},
 
 			removeFileFromIndex: (filePath) => {
 				const { fileTags, tagIndex } = get()
-				const previousTags = fileTags[filePath] ?? []
+				const removedPaths = Object.keys(fileTags).filter((path) =>
+					isPathOrDescendant(path, filePath),
+				)
+				if (removedPaths.length === 0) return
+				let nextIndex = tagIndex
 				const nextFileTags = { ...fileTags }
-				delete nextFileTags[filePath]
-
-				const newIndex = { ...tagIndex }
-
-				for (const tag of previousTags) {
-					if (newIndex[tag]) {
-						newIndex[tag] = newIndex[tag].filter((p) => p !== filePath)
-						if (newIndex[tag].length === 0) delete newIndex[tag]
-					}
+				for (const path of removedPaths) {
+					nextIndex = withoutFileTags(nextIndex, path, fileTags[path] ?? [])
+					delete nextFileTags[path]
+					indexedTagFiles.delete(path)
 				}
-
-				set({ tagIndex: newIndex, fileTags: nextFileTags })
+				set({ tagIndex: nextIndex, fileTags: nextFileTags })
+				if (indexedVaultPath) scheduleTagIndexSerialize(indexedVaultPath)
 			},
 
 			setActiveTagFilter: (tag) => {
 				set({ activeTagFilter: tag })
 			},
 
-			getAllTags: () => {
-				const { tagIndex, tagColors } = get()
-				return Object.entries(tagIndex)
-					.map(([tag, filePaths]) => ({
-						tag,
-						color: tagColors[tag] ?? null,
-						filePaths,
-					}))
-					.sort((a, b) => b.filePaths.length - a.filePaths.length || a.tag.localeCompare(b.tag))
-			},
+			getAllTags: () => selectSortedTags(get()),
 
 			getTagsForFile: (filePath) => {
 				return get().fileTags[filePath] ?? []
@@ -351,48 +327,52 @@ export const useTagsStore = create<TagsState>()(
 			},
 
 			addTagToFile: async (filePath, tag) => {
-				const entry = noteCache.getEntry(filePath)
-				const platform = getPlatform()
-				const content = entry ? entry.content : await platform.fs.readFile(filePath)
-				const updated = addTagToFrontmatter(content, tag)
-				if (updated === content) return
-
-				if (entry) {
-					noteCache.writeExternal(filePath, updated)
-				} else {
-					await platform.fs.writeFile(filePath, updated)
-				}
-				get().updateFileInIndex(filePath, updated)
+				assertVaultPathWritable(filePath)
+				const mutation = await mutateNote(filePath, (content) => addTagToFrontmatter(content, tag))
+				if (mutation) get().updateFileInIndex(filePath, mutation.next)
 			},
 
 			removeTagFromFile: async (filePath, tag) => {
-				const entry = noteCache.getEntry(filePath)
-				const platform = getPlatform()
-				const content = entry ? entry.content : await platform.fs.readFile(filePath)
-				const updated = removeTagFromFrontmatter(content, tag)
-				if (updated === content) return
-
-				if (entry) {
-					noteCache.writeExternal(filePath, updated)
-				} else {
-					await platform.fs.writeFile(filePath, updated)
-				}
-				get().updateFileInIndex(filePath, updated)
+				assertVaultPathWritable(filePath)
+				const mutation = await mutateNote(filePath, (content) =>
+					removeTagFromFrontmatter(content, tag),
+				)
+				if (mutation) get().updateFileInIndex(filePath, mutation.next)
 			},
 
 			setTagsForFile: async (filePath, tags) => {
-				const entry = noteCache.getEntry(filePath)
-				const platform = getPlatform()
-				const content = entry ? entry.content : await platform.fs.readFile(filePath)
-				const updated = setTagsInFrontmatter(content, tags)
-				if (updated === content) return
+				assertVaultPathWritable(filePath)
+				const mutation = await mutateNote(filePath, (content) =>
+					setTagsInFrontmatter(content, tags),
+				)
+				if (mutation) get().updateFileInIndex(filePath, mutation.next)
+			},
 
-				if (entry) {
-					noteCache.writeExternal(filePath, updated)
-				} else {
-					await platform.fs.writeFile(filePath, updated)
+			renameTag: async (vaultPath, oldTag, newTag) => {
+				const from = oldTag.trim().replace(/^#/, "").toLowerCase()
+				const to = newTag.trim().replace(/^#/, "")
+				if (!from || !to || from === to.toLowerCase()) return 0
+				const { tagIndex, tagColors } = get()
+				const filePaths = new Set<string>()
+				for (const [tag, paths] of Object.entries(tagIndex)) {
+					if (isTagOrDescendant(tag, from)) for (const path of paths) filePaths.add(path)
 				}
-				get().updateFileInIndex(filePath, updated)
+				let renamed = 0
+				await mapWithConcurrency([...filePaths], TAG_INDEX_READ_CONCURRENCY, async (filePath) => {
+					if (!canWriteVaultPath(filePath)) return
+					const mutation = await mutateNote(filePath, (content) =>
+						renameTagInContent(content, from, to),
+					)
+					if (!mutation) return
+					get().updateFileInIndex(filePath, mutation.next)
+					renamed++
+				})
+				for (const [tag, color] of Object.entries(tagColors)) {
+					if (!isTagOrDescendant(tag, from)) continue
+					await get().setTagColor(vaultPath, `${to.toLowerCase()}${tag.slice(from.length)}`, color)
+					await get().setTagColor(vaultPath, tag, null)
+				}
+				return renamed
 			},
 
 			cancelIndexing: () => {
@@ -403,6 +383,8 @@ export const useTagsStore = create<TagsState>()(
 				tagIndexGeneration++
 				if (tagIndexSerializeTimer) clearTimeout(tagIndexSerializeTimer)
 				tagIndexSerializeTimer = null
+				indexedVaultPath = null
+				indexedTagFiles = new Map()
 				set({ tagIndex: {}, fileTags: {}, activeTagFilter: null })
 			},
 		}),

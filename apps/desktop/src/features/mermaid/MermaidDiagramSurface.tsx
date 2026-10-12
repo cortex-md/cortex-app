@@ -1,3 +1,4 @@
+import { Button } from "@cortex/ui"
 import { TriangleAlertIcon } from "lucide-react"
 import { useMermaidDiagram } from "./useMermaidDiagram"
 
@@ -43,14 +44,14 @@ export function MermaidDiagramSurface({
 
 	if (onOpen) {
 		return (
-			<button
-				type="button"
-				className={surfaceClassName}
+			<Button
+				variant="ghost"
+				className={`${surfaceClassName} h-auto whitespace-normal active:scale-100 active:brightness-100`}
 				onClick={onOpen}
 				aria-label={`Open ${title}`}
 			>
 				<MermaidDiagramSurfaceContent source={source} />
-			</button>
+			</Button>
 		)
 	}
 

@@ -4,9 +4,10 @@ import {
 	getPropertyType,
 	getSortedPropertyOptions,
 	type PropertyDefinition,
+	supportsMultipleValues,
 	type VaultSchema,
 } from "@cortex/properties"
-import { Button, Input, Separator } from "@cortex/ui"
+import { Button, Input, Separator, Switch } from "@cortex/ui"
 import { ArrowDownAZIcon, ChevronRightIcon, CopyIcon, PlusIcon, Trash2Icon } from "lucide-react"
 import { useRef, useState } from "react"
 import { PropertyOptionValue } from "../PropertyOptionValue"
@@ -101,6 +102,32 @@ export function PropertySettings({
 						<ChevronRightIcon />
 					</Button>
 				)}
+			</div>
+			<div className="note-property-switches">
+				{supportsMultipleValues(definition.type) && (
+					<div className="note-property-switch-row">
+						<span id={`${definition.id}-multiple`}>Allow multiple values</span>
+						<Switch
+							size="sm"
+							aria-labelledby={`${definition.id}-multiple`}
+							checked={definition.multiple === true}
+							onCheckedChange={(checked) =>
+								void onUpdateDefinition({ ...definition, multiple: checked || undefined })
+							}
+						/>
+					</div>
+				)}
+				<div className="note-property-switch-row">
+					<span id={`${definition.id}-hide-empty`}>Hide when empty</span>
+					<Switch
+						size="sm"
+						aria-labelledby={`${definition.id}-hide-empty`}
+						checked={definition.hideWhenEmpty === true}
+						onCheckedChange={(checked) =>
+							void onUpdateDefinition({ ...definition, hideWhenEmpty: checked || undefined })
+						}
+					/>
+				</div>
 			</div>
 			{optionBased && (
 				<>

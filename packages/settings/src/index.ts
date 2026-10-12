@@ -5,11 +5,23 @@ export {
 	DEFAULT_EDITOR_SETTINGS,
 	DEFAULT_FILES_SETTINGS,
 	DEFAULT_GENERAL_SETTINGS,
-	DEFAULT_HOTKEYS_SETTINGS,
+	DEFAULT_PLUGINS_SETTINGS,
+	DEFAULT_TASKS_SETTINGS,
 	SYSTEM_FONT_FAMILY,
 	SYSTEM_FONT_STACK,
 } from "./defaults"
+export { FONT_SIZE_LIMITS, type FontScaleStep, stepFontSizes } from "./fontScale"
+export { filterSettingsPages, type SearchableSettingsPage } from "./pageSearch"
 export { getSettingsManager, initSettingsManager, SettingsManager } from "./SettingsManager"
+export { getSettingsField, SETTINGS_FIELDS, type SettingsFieldEntry } from "./settingsFields"
+export {
+	normalizeSearchText,
+	type SettingsSearchItem,
+	type SettingsSearchItemKind,
+	type SettingsSearchRange,
+	type SettingsSearchResult,
+	searchSettings,
+} from "./settingsSearch"
 export { useSettingsStore } from "./store"
 export type {
 	AppearanceSettings,
@@ -18,8 +30,9 @@ export type {
 	FilesSettings,
 	GeneralSettings,
 	GlobalAppSettings,
-	HotkeysSettings,
+	PluginsSettings,
 	SettingsChangeEvent,
+	TasksSettings,
 } from "./types"
 export {
 	AppearanceSettingsSchema,
@@ -28,5 +41,6 @@ export {
 	FilesSettingsSchema,
 	GeneralSettingsSchema,
 	GlobalAppSettingsSchema,
-	HotkeysSettingsSchema,
+	PluginsSettingsSchema,
+	TasksSettingsSchema,
 } from "./types"

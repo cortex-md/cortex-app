@@ -1,4 +1,7 @@
 import {
+	canReadVaultPath,
+	resolveSyncIndicatorStatus,
+	type SyncIndicatorKind,
 	useAuthStore,
 	useEditorStore,
 	useRemoteVaultStore,
@@ -7,7 +10,9 @@ import {
 	useUIStore,
 	useVaultStore,
 } from "@cortex/core"
+import { getPlatform } from "@cortex/platform"
 import {
+	Button,
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
@@ -26,16 +31,39 @@ import {
 	RefreshCwIcon,
 	ScrollTextIcon,
 	Trash2Icon,
+	UnlinkIcon,
 } from "lucide-react"
-import { useState } from "react"
-import { DeletedNotesPanel } from "./DeletedNotesPanel"
-import { NoteHistoryPanel } from "./NoteHistoryPanel"
-import { SyncLogsModal } from "./SyncLogsModal"
-import { VaultLinkModal } from "./VaultLinkModal"
+import { Suspense, useState } from "react"
+import { useHasOpened } from "../../hooks/useHasOpened"
+import { LazyVaultLinkModal } from "./LazyVaultLinkModal"
+import { noteHistoryModal } from "./noteHistoryModal"
+import { deletedNotesModal, syncLogsModal } from "./syncDialogStores"
+
+const STATUS_BUTTON_CLASS =
+	"statusbar-item gap-1.5 text-[11px] leading-[inherit] tracking-normal hover:bg-transparent active:scale-100 active:brightness-100"
+
+function countActiveSyncFiles(syncingFiles: Record<string, string>): number {
+	let count = 0
+	for (const status of Object.values(syncingFiles)) {
+		if (!status.startsWith("error:")) count++
+	}
+	return count
+}
+
+async function confirmUnlinkVault(vaultPath: string): Promise<void> {
+	const confirmed = await getPlatform().dialog.showConfirm({
+		title: "Unlink this vault?",
+		message:
+			"You no longer have access to the remote vault. Unlinking stops sync and keeps your local notes.",
+		confirmLabel: "Unlink",
+		destructive: true,
+	})
+	if (confirmed) await useRemoteVaultStore.getState().unlinkVault(vaultPath)
+}
 
 export function SyncIndicator() {
 	const engineState = useSyncStore((s) => s.engineState)
-	const syncingFiles = useSyncStore((s) => s.syncingFiles)
+	const activeSyncCount = useSyncStore((s) => countActiveSyncFiles(s.syncingFiles))
 	const initialSyncProgress = useSyncStore((s) => s.initialSyncProgress)
 	const initialSyncComplete = useSyncStore((s) => s.initialSyncComplete)
 	const vekRequired = useSyncStore((s) => s.vekRequired)
@@ -48,46 +76,53 @@ export function SyncIndicator() {
 	const subscriptionBlock = useSubscriptionStore((s) => s.block)
 	const openSettings = useUIStore((s) => s.openSettings)
 	const activeFilePath = useEditorStore((s) => s.activeFilePath)
-	const activeSyncCount = Object.values(syncingFiles).filter((s) => !s.startsWith("error:")).length
 	const [unlockModalOpen, setUnlockModalOpen] = useState(false)
-	const [logsOpen, setLogsOpen] = useState(false)
-	const [deletedNotesOpen, setDeletedNotesOpen] = useState(false)
-	const [historyFilePath, setHistoryFilePath] = useState<string | null>(null)
+	const unlockModalMounted = useHasOpened(unlockModalOpen)
 
 	const isSyncActive = engineState !== "idle" && linkedVaultId
 
 	if (vekRequired) {
 		return (
 			<>
-				<button
-					type="button"
-					className="statusbar-item flex items-center gap-1.5 text-status-warning hover:underline"
+				<Button
+					variant="ghost"
+					size="xs"
+					className={`${STATUS_BUTTON_CLASS} text-status-warning hover:text-status-warning hover:underline`}
 					onClick={() => setUnlockModalOpen(true)}
 				>
 					<LockIcon className="w-3 h-3" />
-					<span>Unlock Required</span>
-				</button>
-				<VaultLinkModal open={unlockModalOpen} onOpenChange={setUnlockModalOpen} unlockMode />
+					<span>Waiting for access</span>
+				</Button>
+				{unlockModalMounted && (
+					<Suspense fallback={null}>
+						<LazyVaultLinkModal
+							open={unlockModalOpen}
+							onOpenChange={setUnlockModalOpen}
+							unlockMode
+						/>
+					</Suspense>
+				)}
 			</>
 		)
 	}
 
 	if (engineState === "idle" && syncEnabled && vault && (!authenticated || !linkedVaultId)) {
 		return (
-			<button
-				type="button"
-				className="statusbar-item flex items-center gap-1.5 text-text-muted hover:text-text-primary"
+			<Button
+				variant="ghost"
+				size="xs"
+				className={`${STATUS_BUTTON_CLASS} text-text-muted hover:text-text-primary`}
 				onClick={() => openSettings("sync")}
 			>
 				<LinkIcon className="w-3 h-3" />
 				<span>Set up sync</span>
-			</button>
+			</Button>
 		)
 	}
 
 	if (engineState === "idle") return null
 
-	const statusContent = buildStatusContent({
+	const status = resolveSyncIndicatorStatus({
 		engineState,
 		error,
 		planBlocked: subscriptionBlock !== null,
@@ -97,159 +132,91 @@ export function SyncIndicator() {
 		lastSyncedAt,
 	})
 
-	if (!statusContent) return null
+	if (!status) return null
 
 	return (
-		<>
-			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
-					<button
-						type="button"
-						className={`statusbar-item flex items-center gap-1.5 hover:underline ${statusContent.className ?? ""}`}
-					>
-						{statusContent.content}
-					</button>
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end" side="top" className="min-w-[180px]">
-					<DropdownMenuItem onSelect={() => setLogsOpen(true)} className="gap-2 text-xs">
-						<ScrollTextIcon className="w-3.5 h-3.5" />
-						Sync Logs
-					</DropdownMenuItem>
-					{isSyncActive && (
-						<>
-							<DropdownMenuSeparator />
-							{activeFilePath && (
-								<DropdownMenuItem
-									onSelect={() => setHistoryFilePath(activeFilePath)}
-									className="gap-2 text-xs"
-								>
-									<HistoryIcon className="w-3.5 h-3.5" />
-									Version History
-								</DropdownMenuItem>
-							)}
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button
+					variant="ghost"
+					size="xs"
+					className={`${STATUS_BUTTON_CLASS} hover:underline ${status.tone === "error" ? "text-destructive hover:text-destructive" : ""}`}
+				>
+					<SyncStatusIcon kind={status.kind} />
+					<span>{status.label}</span>
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end" side="top" className="min-w-[180px]">
+				{status.kind === "denied" && !subscriptionBlock && vault && (
+					<>
+						<DropdownMenuItem
+							onSelect={() => void useSyncStore.getState().restartSync()}
+							className="gap-2 text-xs"
+						>
+							<RefreshCwIcon className="w-3.5 h-3.5" />
+							Retry
+						</DropdownMenuItem>
+						<DropdownMenuItem
+							onSelect={() => void confirmUnlinkVault(vault.path)}
+							className="gap-2 text-xs"
+							variant="destructive"
+						>
+							<UnlinkIcon className="w-3.5 h-3.5" />
+							Unlink Vault…
+						</DropdownMenuItem>
+						<DropdownMenuSeparator />
+					</>
+				)}
+				<DropdownMenuItem onSelect={() => syncLogsModal.open(true)} className="gap-2 text-xs">
+					<ScrollTextIcon className="w-3.5 h-3.5" />
+					Sync Logs
+				</DropdownMenuItem>
+				{isSyncActive && (
+					<>
+						<DropdownMenuSeparator />
+						{activeFilePath && canReadVaultPath(activeFilePath) && (
 							<DropdownMenuItem
-								onSelect={() => setDeletedNotesOpen(true)}
+								onSelect={() => noteHistoryModal.open({ filePath: activeFilePath })}
 								className="gap-2 text-xs"
 							>
-								<Trash2Icon className="w-3.5 h-3.5" />
-								Deleted Notes
+								<HistoryIcon className="w-3.5 h-3.5" />
+								Version History
 							</DropdownMenuItem>
-						</>
-					)}
-				</DropdownMenuContent>
-			</DropdownMenu>
-
-			<SyncLogsModal open={logsOpen} onOpenChange={setLogsOpen} />
-			<DeletedNotesPanel open={deletedNotesOpen} onOpenChange={setDeletedNotesOpen} />
-			<NoteHistoryPanel
-				filePath={historyFilePath ?? ""}
-				open={historyFilePath !== null}
-				onOpenChange={(open) => {
-					if (!open) setHistoryFilePath(null)
-				}}
-			/>
-		</>
+						)}
+						<DropdownMenuItem
+							onSelect={() => deletedNotesModal.open(true)}
+							className="gap-2 text-xs"
+						>
+							<Trash2Icon className="w-3.5 h-3.5" />
+							Deleted Notes
+						</DropdownMenuItem>
+					</>
+				)}
+			</DropdownMenuContent>
+		</DropdownMenu>
 	)
 }
 
-interface StatusContentResult {
-	content: React.ReactNode
-	className?: string
-}
-
-function buildStatusContent(params: {
-	engineState: string
-	error: string | null
-	planBlocked: boolean
-	initialSyncProgress: { total: number; completed: number } | null
-	initialSyncComplete: boolean
-	activeSyncCount: number
-	lastSyncedAt: number | null
-}): StatusContentResult | null {
-	const {
-		engineState,
-		error,
-		planBlocked,
-		initialSyncProgress,
-		initialSyncComplete,
-		activeSyncCount,
-		lastSyncedAt,
-	} = params
-
-	if (engineState === "denied") {
-		return {
-			className: "text-destructive",
-			content: (
-				<>
-					<AlertTriangleIcon className="w-3 h-3" />
-					<span>{planBlocked ? "Plan Required" : "Access Denied"}</span>
-				</>
-			),
-		}
-	}
-
-	if (error && engineState !== "live" && engineState !== "idle") {
-		return {
-			className: "text-destructive",
-			content: (
-				<>
-					<AlertTriangleIcon className="w-3 h-3" />
-					<span>Sync Error</span>
-				</>
-			),
-		}
-	}
-
-	if (initialSyncProgress && !initialSyncComplete) {
-		const { total, completed } = initialSyncProgress
-		const label = total > 0 ? `Syncing ${completed}/${total} files...` : "Syncing..."
-		return {
-			content: (
+function SyncStatusIcon({ kind }: { kind: SyncIndicatorKind }) {
+	switch (kind) {
+		case "denied":
+		case "error":
+			return <AlertTriangleIcon className="w-3 h-3" />
+		case "initial-sync":
+			return (
 				<>
 					<CloudIcon className="w-3.5 h-3.5" />
 					<LoaderIcon className="w-3 h-3 animate-spin" />
-					<span>{label}</span>
 				</>
-			),
-		}
-	}
-
-	if (activeSyncCount > 0) {
-		return {
-			content: (
-				<>
-					<LoaderIcon className="w-3 h-3 animate-spin" />
-					<span>Syncing {activeSyncCount} file(s)...</span>
-				</>
-			),
-		}
-	}
-
-	const isPollingActive = engineState === "offline" && lastSyncedAt !== null
-
-	const stateConfig = {
-		connecting: { icon: RefreshCwIcon, label: "Connecting...", iconClass: "animate-spin" },
-		authenticating: { icon: RefreshCwIcon, label: "Authenticating...", iconClass: "animate-spin" },
-		syncing: { icon: LoaderIcon, label: "Syncing...", iconClass: "animate-spin" },
-		live: { icon: CheckCircleIcon, label: "Synced", iconClass: "" },
-		offline: {
-			icon: isPollingActive ? CheckCircleIcon : CloudOffIcon,
-			label: isPollingActive ? "Synced" : "Offline",
-			iconClass: "",
-		},
-		recovering: { icon: RefreshCwIcon, label: "Recovering...", iconClass: "animate-spin" },
-	} as const
-
-	const config = stateConfig[engineState as keyof typeof stateConfig]
-	if (!config) return null
-
-	const Icon = config.icon
-	return {
-		content: (
-			<>
-				<Icon className={`w-3 h-3 ${config.iconClass}`} />
-				<span>{config.label}</span>
-			</>
-		),
+			)
+		case "transfers":
+		case "syncing":
+			return <LoaderIcon className="w-3 h-3 animate-spin" />
+		case "connecting":
+			return <RefreshCwIcon className="w-3 h-3 animate-spin" />
+		case "synced":
+			return <CheckCircleIcon className="w-3 h-3 text-status-success" />
+		case "offline":
+			return <CloudOffIcon className="w-3 h-3" />
 	}
 }

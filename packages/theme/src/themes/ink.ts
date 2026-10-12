@@ -17,6 +17,20 @@ const mist = {
 	900: "#1f222c",
 	950: "#11131a",
 }
+const stone = {
+	50: "#fcfcfb",
+	100: "#f6f5f3",
+	150: "#eeece9",
+	200: "#e8e5e1",
+	300: "#dcd8d2",
+	400: "#b8b2ab",
+	500: "#8a847d",
+	600: "#57534e",
+	700: "#44403c",
+	800: "#1c1917",
+	900: "#141210",
+	950: "#0c0a09",
+}
 const slate = {
 	50: "#f3f3f3",
 	100: "#dcdcdc",
@@ -70,7 +84,8 @@ export const inkTheme: Theme = {
 	isDark: true,
 	tokens: {
 		primitive: {
-			stone: mist,
+			stone,
+			mist,
 			ink: slate,
 			amber: rose,
 			amberDark: roseDark,
@@ -186,9 +201,9 @@ export const inkTheme: Theme = {
 			sidebarBg: slate[700],
 			sidebarBorder: slate[600],
 			sidebarGuide: slate[600],
-			settingsGroupBg: slate[700],
-			settingsGroupBorder: slate[600],
-			settingsGroupDivider: slate[600],
+			settingsGroupBg: "rgba(243, 243, 243, 0.06)",
+			settingsGroupBorder: "rgba(243, 243, 243, 0)",
+			settingsGroupDivider: "rgba(243, 243, 243, 0.1)",
 			tabBg: slate[700],
 			tabActiveBg: slate[800],
 			tabAccent: roseDark[400],

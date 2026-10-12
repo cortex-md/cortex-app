@@ -5,27 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 const openTab = vi.fn()
 const removeBookmark = vi.fn().mockResolvedValue(undefined)
 
-vi.mock("@cortex/core", () => ({
-	getNotePathPresentation: (filePath: string, vaultPath?: string) => {
-		const normalizedFilePath = filePath.replaceAll("\\", "/")
-		const normalizedVaultPath = vaultPath?.replaceAll("\\", "/").replace(/\/+$/, "")
-		const vaultPrefix = normalizedVaultPath ? `${normalizedVaultPath}/` : null
-		const relativePath =
-			vaultPrefix && normalizedFilePath.startsWith(vaultPrefix)
-				? normalizedFilePath.slice(vaultPrefix.length)
-				: normalizedFilePath
-		const segments = relativePath.split("/").filter(Boolean)
-		const fileName = segments.at(-1) ?? ""
-		const title = fileName.replace(/\.md$/i, "")
-		if (segments.length > 0) segments[segments.length - 1] = title
-		return {
-			title,
-			segments: segments.map((label, index) => ({
-				id: segments.slice(0, index + 1).join("/"),
-				label,
-			})),
-		}
-	},
+vi.mock("@cortex/core", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@cortex/core")>()),
 	resolveBookmarkPath: (vaultPath: string, bookmarkPath: string) => `${vaultPath}/${bookmarkPath}`,
 	useBookmarksStore: vi.fn(),
 	useVaultStore: vi.fn(),
@@ -119,7 +100,7 @@ describe("BookmarksSidebar", () => {
 		setupBookmarksSidebar()
 		render(<BookmarksSidebar />)
 
-		expect(screen.getByText("Not found")).toBeInTheDocument()
+		expect(screen.getByText("Moved or deleted")).toBeInTheDocument()
 		expect(
 			screen.getByRole("button", { name: "Open Plan" }).closest(".sidebar-bookmark-row"),
 		).toHaveClass("active")

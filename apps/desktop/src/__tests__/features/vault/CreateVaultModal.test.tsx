@@ -2,14 +2,14 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-const openVault = vi.fn().mockResolvedValue(undefined)
-const saveSyncPreferences = vi.fn().mockResolvedValue(undefined)
+const createVaultFromFolder = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const scanVault = vi.fn().mockResolvedValue([
 	{ path: "/vault/notes", name: "notes", isDir: true, size: 0, mtime: 1 },
 	{ path: "/vault/attachments/photo.png", name: "photo.png", isDir: false, size: 10, mtime: 1 },
 ])
 
-vi.mock("@cortex/core", () => ({
+vi.mock("@cortex/core", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@cortex/core")>()),
 	createDefaultSyncPreferences: () => ({
 		syncSettings: false,
 		syncHotkeys: false,
@@ -24,11 +24,7 @@ vi.mock("@cortex/core", () => ({
 	normalizeSyncPathPattern: (pattern: string) => pattern.replaceAll("\\", "/").trim(),
 	shouldIgnoreSyncPath: (path: string, preferences: { excludedPaths: string[] }) =>
 		preferences.excludedPaths.includes(path),
-	useSyncStore: vi.fn((selector) => selector({ saveSyncPreferences })),
-	useVaultStore: vi.fn((selector?: (state: unknown) => unknown) => {
-		const state = { openVault }
-		return selector ? selector(state) : state
-	}),
+	createVaultFromFolder,
 }))
 
 vi.mock("@cortex/platform", () => ({
@@ -39,7 +35,8 @@ vi.mock("@cortex/platform", () => ({
 	})),
 }))
 
-import { CreateVaultModal } from "../../../features/vault/CreateVaultModal"
+import { CreateVaultModalHost } from "../../../features/vault/CreateVaultModal"
+import { createVaultModal } from "../../../features/vault/createVaultModalStore"
 
 afterEach(() => {
 	cleanup()
@@ -48,8 +45,8 @@ afterEach(() => {
 
 describe("CreateVaultModal", () => {
 	it("requires sync preferences before closing a new vault", async () => {
-		const onOpenChange = vi.fn()
-		render(<CreateVaultModal open folderPath="/vault" onOpenChange={onOpenChange} />)
+		createVaultModal.open({ folderPath: "/vault", defaultName: "vault" })
+		render(<CreateVaultModalHost />)
 
 		await userEvent.click(screen.getByRole("button", { name: "Continue" }))
 		await userEvent.click(screen.getByRole("switch", { name: "Ignore images" }))
@@ -62,21 +59,16 @@ describe("CreateVaultModal", () => {
 		await userEvent.click(screen.getByRole("button", { name: "Create vault" }))
 
 		await waitFor(() => {
-			expect(openVault).toHaveBeenCalledWith("/vault", {
+			expect(createVaultFromFolder).toHaveBeenCalledWith("/vault", {
 				icon: undefined,
-				color: "#fb7185",
 				name: "vault",
-				createOnboardingNote: true,
+				syncPreferences: expect.objectContaining({
+					ignoreImages: true,
+					syncBookmarks: true,
+					excludedPaths: ["node_modules/"],
+				}),
 			})
 		})
-		expect(saveSyncPreferences).toHaveBeenCalledWith(
-			"/vault",
-			expect.objectContaining({
-				ignoreImages: true,
-				syncBookmarks: true,
-				excludedPaths: ["node_modules/"],
-			}),
-		)
-		expect(onOpenChange).toHaveBeenCalledWith(false)
+		expect(createVaultModal.getTarget()).toBeNull()
 	})
 })

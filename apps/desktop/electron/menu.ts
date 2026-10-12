@@ -1,158 +1,585 @@
+import type { NativeMenuCommand, NativeMenuState } from "@cortex/platform"
+import { sortRecentVaults } from "@cortex/platform/vault"
 import { app, Menu, type MenuItemConstructorOptions } from "electron"
-import { emitToRenderer } from "./events"
+import type { MainApi } from "./contract"
+import { setupDockMenu } from "./dock"
+import { getInvokeSender } from "./ipc/sender"
 import { readVaultRegistry } from "./services/registry"
+import { toAccelerator } from "./utils/accelerator"
+import {
+	emitToTargetWindow,
+	listMainWindows,
+	openNewWindow,
+	openSettingsWindow,
+	openVaultWindow,
+	resolveMainWindowId,
+} from "./windows"
 
-const RECENTS_SUBMENU_ID = "recents-submenu"
+type Requirement = "vault" | "note" | "editor"
 
-function buildRecentsSubmenu(): MenuItemConstructorOptions {
-	const entries = readVaultRegistry()
-	if (entries.length === 0) {
-		return {
-			id: RECENTS_SUBMENU_ID,
-			label: "Recents",
-			submenu: [{ label: "No Recent Vaults", enabled: false }],
-		}
-	}
+interface CommandItemOptions {
+	label?: string
+	payload?: Record<string, unknown>
+	requires?: Requirement
+	checked?: string
+	type?: "checkbox" | "radio"
+	showShortcut?: boolean
+}
+
+interface MenuContext {
+	state: NativeMenuState | null
+	commands: Map<string, NativeMenuCommand>
+	isMac: boolean
+}
+
+const REBUILD_DELAY_MS = 40
+const MAX_RECENTS = 12
+const EDITOR_MODES = [
+	["source", "Source"],
+	["live-preview", "Live Preview"],
+	["reading", "Reading"],
+	["side-by-side", "Side by Side"],
+] as const
+const EDITOR_TOGGLES = [
+	["wordWrap", "Word Wrap"],
+	["showLineNumbers", "Line Numbers"],
+	["vimMode", "Vim Mode"],
+] as const
+const COLOR_SCHEMES = [
+	["light", "Light"],
+	["dark", "Dark"],
+	["system", "System"],
+] as const
+
+const menuStates = new Map<number, NativeMenuState>()
+let rebuildTimer: NodeJS.Timeout | null = null
+
+function focusedMenuState(): NativeMenuState | null {
+	const focused = listMainWindows().find((entry) => entry.focused)
+	return focused ? (menuStates.get(focused.contentsId) ?? null) : null
+}
+
+function isEnabled(context: MenuContext, id: string, requires?: Requirement): boolean {
+	const { state } = context
+	if (!state) return !requires
+	if (state.enabled[id] === false) return false
+	return requires ? state.enabled[requires] === true : true
+}
+
+function commandItem(
+	context: MenuContext,
+	id: string,
+	options: CommandItemOptions = {},
+): MenuItemConstructorOptions {
+	const command = context.commands.get(id)
+	const showShortcut = options.showShortcut ?? !options.payload
+	const accelerator = showShortcut ? toAccelerator(command?.keys) : undefined
 	return {
-		id: RECENTS_SUBMENU_ID,
-		label: "Recents",
-		submenu: entries.map((entry) => ({
-			id: `recent-vault:${entry.path}`,
-			label: entry.name,
-			click: () => emitToRenderer("menu-recent-vault", entry.path),
-		})),
+		label: options.label ?? command?.label ?? id,
+		accelerator,
+		registerAccelerator: context.isMac,
+		enabled: isEnabled(context, id, options.requires),
+		...(options.type && {
+			type: options.type,
+			checked: options.checked ? context.state?.checked[options.checked] === true : false,
+		}),
+		click: () =>
+			emitToTargetWindow("menu-command", {
+				id,
+				...(options.payload && { payload: options.payload }),
+			}),
 	}
 }
 
-export function buildApplicationMenu(): Menu {
-	const isMac = process.platform === "darwin"
-	const template: MenuItemConstructorOptions[] = []
+function separator(): MenuItemConstructorOptions {
+	return { type: "separator" }
+}
 
-	if (isMac) {
-		template.push({
-			label: app.name,
-			submenu: [
-				{ role: "about" },
-				{ type: "separator" },
-				{
-					id: "menu-open-settings",
-					label: "Settings...",
-					accelerator: "CmdOrCtrl+,",
-					click: () => emitToRenderer("menu-open-settings"),
-				},
-				{ type: "separator" },
-				{ role: "services" },
-				{ type: "separator" },
-				{ role: "hide" },
-				{ role: "hideOthers" },
-				{ role: "unhide" },
-				{ type: "separator" },
-				{ role: "quit" },
-			],
-		})
+function recentsSubmenu(): MenuItemConstructorOptions {
+	const entries = sortRecentVaults(readVaultRegistry()).slice(0, MAX_RECENTS)
+	return {
+		label: "Open Recent",
+		submenu:
+			entries.length === 0
+				? [{ label: "No Recent Vaults", enabled: false }]
+				: entries.map((entry) => ({
+						label: entry.name,
+						toolTip: entry.path,
+						click: () => openVaultWindow(entry.path),
+					})),
 	}
+}
 
-	template.push({
+function appMenu(context: MenuContext): MenuItemConstructorOptions {
+	return {
+		label: app.name,
+		submenu: [
+			{ role: "about" },
+			commandItem(context, "app.check-updates", { label: "Check for Updates…" }),
+			separator(),
+			{
+				label: "Settings…",
+				accelerator: "CmdOrCtrl+,",
+				click: () => openSettingsWindow(),
+			},
+			separator(),
+			{ role: "services" },
+			separator(),
+			{ role: "hide" },
+			{ role: "hideOthers" },
+			{ role: "unhide" },
+			separator(),
+			{ role: "quit" },
+		],
+	}
+}
+
+function fileMenu(context: MenuContext): MenuItemConstructorOptions {
+	return {
 		label: "File",
 		submenu: [
+			commandItem(context, "file.new", { label: "New Note", requires: "vault" }),
+			commandItem(context, "templates.create-note", {
+				label: "New Note from Template…",
+				requires: "vault",
+			}),
+			commandItem(context, "database.new", { label: "New Database…", requires: "vault" }),
+			commandItem(context, "tabs.new", { label: "New Tab", requires: "vault" }),
 			{
-				id: "menu-new-note",
-				label: "New Note",
-				accelerator: "CmdOrCtrl+N",
-				click: () => emitToRenderer("menu-new-note"),
+				label: "New Window",
+				accelerator: toAccelerator(context.commands.get("window.new")?.keys) ?? "CmdOrCtrl+Shift+N",
+				registerAccelerator: context.isMac,
+				click: () => openNewWindow(),
 			},
-			{ type: "separator" },
+			separator(),
+			commandItem(context, "vault.open", { label: "Open Vault…" }),
+			recentsSubmenu(),
+			commandItem(context, "navigate.quick-finder", { label: "Quick Open…", requires: "vault" }),
+			separator(),
+			commandItem(context, "file.close-tab", { label: "Close Tab", requires: "vault" }),
+			{ role: "close", label: "Close Window", accelerator: "CmdOrCtrl+Shift+W" },
+			commandItem(context, "file.reopen-closed", {
+				label: "Reopen Closed Tab",
+				requires: "vault",
+			}),
+			separator(),
+			commandItem(context, "file.duplicate", { label: "Duplicate", requires: "note" }),
+			commandItem(context, "file.delete", { label: "Delete Note", requires: "note" }),
+			separator(),
+			commandItem(context, "file.reveal", {
+				label: process.platform === "darwin" ? "Reveal in Finder" : "Show in Folder",
+				requires: "note",
+			}),
 			{
-				id: "menu-open-vault",
-				label: "Open Vault...",
-				accelerator: "CmdOrCtrl+O",
-				click: () => emitToRenderer("menu-open-vault"),
+				label: "Copy Path",
+				submenu: [
+					commandItem(context, "file.copy-relative-path", {
+						label: "Relative Path",
+						requires: "note",
+					}),
+					commandItem(context, "file.copy-absolute-path", {
+						label: "Absolute Path",
+						requires: "note",
+					}),
+				],
 			},
-			buildRecentsSubmenu(),
-			{ type: "separator" },
+			separator(),
+			commandItem(context, "import.files", { label: "Import…", requires: "vault" }),
 			{
-				id: "menu-close-vault",
-				label: "Close Vault",
-				click: () => emitToRenderer("menu-close-vault"),
+				label: "Export",
+				submenu: [
+					commandItem(context, "export.active-html", { label: "HTML…", requires: "note" }),
+					commandItem(context, "export.active-pdf", { label: "PDF…", requires: "note" }),
+					commandItem(context, "export.active-csv", { label: "CSV…", requires: "note" }),
+				],
 			},
-			...(!isMac
+			separator(),
+			commandItem(context, "vault.close", { label: "Close Vault", requires: "vault" }),
+			...(!context.isMac
 				? [
-						{ type: "separator" as const },
+						separator(),
 						{
-							id: "menu-open-settings",
-							label: "Settings...",
+							label: "Settings…",
 							accelerator: "CmdOrCtrl+,",
-							click: () => emitToRenderer("menu-open-settings"),
+							registerAccelerator: false,
+							click: () => openSettingsWindow(),
 						},
+						separator(),
+						{ role: "quit" as const },
 					]
 				: []),
 		],
-	})
+	}
+}
 
-	template.push({
+function editMenu(context: MenuContext): MenuItemConstructorOptions {
+	return {
 		label: "Edit",
 		submenu: [
 			{ role: "undo" },
 			{ role: "redo" },
-			{ type: "separator" },
+			separator(),
 			{ role: "cut" },
 			{ role: "copy" },
 			{ role: "paste" },
+			{ role: "pasteAndMatchStyle" },
 			{ role: "selectAll" },
+			separator(),
+			commandItem(context, "editor.find", { label: "Find in Note", requires: "editor" }),
+			commandItem(context, "view.search", { label: "Search in Vault", requires: "vault" }),
+			separator(),
+			commandItem(context, "editor.copy-line", { label: "Copy Line", requires: "editor" }),
+			commandItem(context, "editor.duplicate-line", {
+				label: "Duplicate Line",
+				requires: "editor",
+			}),
+			...(context.isMac
+				? [separator(), { role: "startSpeaking" as const }, { role: "stopSpeaking" as const }]
+				: []),
 		],
-	})
+	}
+}
 
-	template.push({
-		label: "Navigate",
+function formatMenu(context: MenuContext): MenuItemConstructorOptions {
+	const editor = (id: string, label?: string) =>
+		commandItem(context, id, { label, requires: "editor" })
+	return {
+		label: "Format",
 		submenu: [
+			editor("format.bold", "Bold"),
+			editor("format.italic", "Italic"),
+			editor("format.strikethrough", "Strikethrough"),
+			editor("format.inline-code", "Inline Code"),
+			editor("format.link", "Link"),
+			separator(),
 			{
-				id: "menu-command-palette",
-				label: "Command Palette",
-				accelerator: "CmdOrCtrl+Shift+P",
-				click: () => emitToRenderer("menu-command-palette"),
+				label: "Heading",
+				submenu: [
+					editor("editor.turn-into-text", "Normal Text"),
+					editor("format.heading-1", "Heading 1"),
+					editor("format.heading-2", "Heading 2"),
+					editor("format.heading-3", "Heading 3"),
+				],
 			},
-			{ type: "separator" },
 			{
-				id: "menu-search-vault",
-				label: "Search in Vault",
-				accelerator: "CmdOrCtrl+F",
-				click: () => emitToRenderer("menu-search-vault"),
+				label: "List",
+				submenu: [
+					editor("format.unordered-list", "Bulleted List"),
+					editor("format.ordered-list", "Numbered List"),
+					editor("format.task-list", "Task List"),
+				],
 			},
+			separator(),
+			editor("format.blockquote", "Quote"),
+			editor("format.code-block", "Code Block"),
+			editor("format.callout", "Callout"),
+			editor("format.math-block", "Math Block"),
+			editor("format.inline-math", "Inline Math"),
+			separator(),
+			editor("format.table", "Insert Table"),
+			{
+				label: "Table",
+				submenu: [
+					editor("table.add-row-above", "Add Row Above"),
+					editor("table.add-row-below", "Add Row Below"),
+					editor("table.add-column-left", "Add Column Left"),
+					editor("table.add-column-right", "Add Column Right"),
+					separator(),
+					editor("table.delete-row", "Delete Row"),
+					editor("table.delete-column", "Delete Column"),
+				],
+			},
+			editor("format.image", "Insert Image"),
+			editor("format.drawing", "Insert Drawing"),
+			separator(),
+			editor("comments.add", "Add Comment"),
 		],
-	})
+	}
+}
 
-	template.push({
+function viewMenu(context: MenuContext): MenuItemConstructorOptions {
+	const sidebarView = (id: string, label: string, key: string) =>
+		commandItem(context, id, { label, requires: "vault", type: "radio", checked: key })
+	return {
 		label: "View",
 		submenu: [
+			commandItem(context, "view.toggle-sidebar", {
+				label: "Left Sidebar",
+				requires: "vault",
+				type: "checkbox",
+				checked: "leftSidebar",
+			}),
+			commandItem(context, "view.toggle-right-sidebar", {
+				label: "Right Sidebar",
+				requires: "vault",
+				type: "checkbox",
+				checked: "rightSidebar",
+			}),
+			separator(),
+			sidebarView("view.files", "Files", "sidebar:files"),
+			sidebarView("view.search", "Search", "sidebar:search"),
+			sidebarView("view.bookmarks", "Bookmarks", "sidebar:bookmarks"),
+			sidebarView("view.tags", "Tags", "sidebar:tags"),
+			separator(),
+			commandItem(context, "view.comments", { label: "Comments", requires: "vault" }),
+			commandItem(context, "view.outline", { label: "Outline", requires: "vault" }),
+			commandItem(context, "view.backlinks", { label: "Backlinks", requires: "vault" }),
+			separator(),
 			{
-				id: "menu-toggle-sidebar",
-				label: "Toggle Sidebar",
-				accelerator: "CmdOrCtrl+B",
-				click: () => emitToRenderer("menu-toggle-sidebar"),
+				label: "Editor Mode",
+				submenu: [
+					...EDITOR_MODES.map(([mode, label]) =>
+						commandItem(context, "editor.set-mode", {
+							label,
+							payload: { mode },
+							requires: "note",
+							type: "radio",
+							checked: `mode:${mode}`,
+						}),
+					),
+					separator(),
+					commandItem(context, "editor.toggle-mode", { label: "Next Mode", requires: "note" }),
+				],
 			},
+			...EDITOR_TOGGLES.map(([key, label]) =>
+				commandItem(context, "editor.toggle-setting", {
+					label,
+					payload: { key },
+					requires: "vault",
+					type: "checkbox",
+					checked: `setting:${key}`,
+				}),
+			),
 			{
-				id: "menu-toggle-theme",
-				label: "Toggle Colorscheme",
-				accelerator: "CmdOrCtrl+Shift+L",
-				click: () => emitToRenderer("menu-toggle-theme"),
+				label: "Folding",
+				submenu: [
+					commandItem(context, "editor.toggle-fold", { label: "Toggle Fold", requires: "editor" }),
+					commandItem(context, "editor.fold-all", { label: "Fold All", requires: "editor" }),
+					commandItem(context, "editor.unfold-all", { label: "Unfold All", requires: "editor" }),
+				],
 			},
-			{ type: "separator" },
+			separator(),
+			{
+				label: "Appearance",
+				submenu: [
+					...COLOR_SCHEMES.map(([scheme, label]) =>
+						commandItem(context, "appearance.set-colorscheme", {
+							label,
+							payload: { scheme },
+							requires: "vault",
+							type: "radio",
+							checked: `colorscheme:${scheme}`,
+						}),
+					),
+					separator(),
+					commandItem(context, "view.toggle-theme", {
+						label: "Toggle Light/Dark",
+						requires: "vault",
+					}),
+				],
+			},
+			commandItem(context, "view.zoom-in", { label: "Zoom In", requires: "vault" }),
+			commandItem(context, "view.zoom-out", { label: "Zoom Out", requires: "vault" }),
+			commandItem(context, "view.zoom-reset", { label: "Actual Size", requires: "vault" }),
+			separator(),
 			{ role: "togglefullscreen" },
+			...(app.isPackaged
+				? []
+				: [
+						separator(),
+						{ role: "reload" as const },
+						{ role: "forceReload" as const },
+						{ role: "toggleDevTools" as const },
+					]),
 		],
-	})
+	}
+}
 
-	template.push({
+function goMenu(context: MenuContext): MenuItemConstructorOptions {
+	return {
+		label: "Go",
+		submenu: [
+			commandItem(context, "navigate.back", { label: "Back", requires: "vault" }),
+			commandItem(context, "navigate.forward", { label: "Forward", requires: "vault" }),
+			separator(),
+			commandItem(context, "navigate.quick-finder", { label: "Quick Finder…", requires: "vault" }),
+			commandItem(context, "navigate.command-palette", {
+				label: "Command Palette…",
+				requires: "vault",
+			}),
+			commandItem(context, "navigate.daily-note", { label: "Daily Note", requires: "vault" }),
+			separator(),
+			commandItem(context, "navigate.mru-next", { label: "Next Tab", requires: "vault" }),
+			commandItem(context, "navigate.mru-prev", { label: "Previous Tab", requires: "vault" }),
+			{
+				label: "Go to Tab",
+				submenu: Array.from({ length: 9 }, (_, index) =>
+					commandItem(context, `navigate.tab-${index + 1}`, {
+						label: `Tab ${index + 1}`,
+						requires: "vault",
+					}),
+				),
+			},
+			separator(),
+			commandItem(context, "marketplace.open", { label: "Marketplace", requires: "vault" }),
+		],
+	}
+}
+
+function noteMenu(context: MenuContext): MenuItemConstructorOptions {
+	const note = (id: string, options: CommandItemOptions = {}) =>
+		commandItem(context, id, { requires: "note", ...options })
+	return {
+		label: "Note",
+		submenu: [
+			note("bookmarks.toggle", { label: "Bookmark", type: "checkbox", checked: "bookmarked" }),
+			note("tags.toggle-picker", { label: "Add Tag…" }),
+			separator(),
+			note("file.open-in-new-tab", { label: "Open in New Tab" }),
+			note("file.open-in-right-split", { label: "Open in Right Split" }),
+			note("tabs.toggle-pin", { label: "Pin Tab" }),
+			note("tabs.close-others", { label: "Close Other Tabs" }),
+			separator(),
+			note("sync.show-version-history", { label: "Version History…" }),
+			note("sync.share-note", { label: "Share Note…" }),
+			note("sync.manage-access", { label: "Manage Access…" }),
+			note("sync.toggle-excluded", {
+				label: "Exclude from Sync",
+				type: "checkbox",
+				checked: "syncExcluded",
+			}),
+		],
+	}
+}
+
+function syncMenu(context: MenuContext): MenuItemConstructorOptions {
+	return {
+		label: "Sync",
+		submenu: [
+			commandItem(context, "sync.now", { label: "Sync Now", requires: "vault" }),
+			separator(),
+			commandItem(context, "sync.open-logs", { label: "Sync Logs…", requires: "vault" }),
+			commandItem(context, "sync.open-deleted", { label: "Deleted Notes…", requires: "vault" }),
+			separator(),
+			commandItem(context, "sync.settings", { label: "Sync Settings…" }),
+		],
+	}
+}
+
+function pluginsMenu(context: MenuContext): MenuItemConstructorOptions {
+	const pluginCommands = [...context.commands.values()].filter((command) =>
+		command.id.includes(":"),
+	)
+	const byPlugin = new Map<string, NativeMenuCommand[]>()
+	for (const command of pluginCommands) {
+		const pluginId = command.id.slice(0, command.id.indexOf(":"))
+		byPlugin.set(pluginId, [...(byPlugin.get(pluginId) ?? []), command])
+	}
+	const pluginSubmenus: MenuItemConstructorOptions[] = [...byPlugin].map(
+		([pluginId, commands]) => ({
+			label: commands[0]?.category || pluginId,
+			submenu: commands.map((command) =>
+				commandItem(context, command.id, { label: command.label, requires: "vault" }),
+			),
+		}),
+	)
+	return {
+		label: "Plugins",
+		submenu: [
+			...pluginSubmenus,
+			...(pluginSubmenus.length > 0 ? [separator()] : []),
+			{ label: "Manage Plugins…", click: () => openSettingsWindow("plugins") },
+			commandItem(context, "marketplace.open-plugins", {
+				label: "Browse Plugins…",
+				requires: "vault",
+			}),
+			commandItem(context, "marketplace.open-themes", {
+				label: "Browse Themes…",
+				requires: "vault",
+			}),
+		],
+	}
+}
+
+function windowMenu(context: MenuContext): MenuItemConstructorOptions {
+	return {
 		label: "Window",
-		submenu: [{ role: "minimize" }, { type: "separator" }, { role: "close" }],
-	})
+		role: "windowMenu",
+		submenu: [
+			{ role: "minimize" },
+			{ role: "zoom" },
+			separator(),
+			{ label: "New Window", click: () => openNewWindow() },
+			...(context.isMac ? [separator(), { role: "front" as const }] : []),
+		],
+	}
+}
 
-	return Menu.buildFromTemplate(template)
+function helpMenu(context: MenuContext): MenuItemConstructorOptions {
+	return {
+		label: "Help",
+		role: "help",
+		submenu: [
+			commandItem(context, "help.open-docs", { label: "Cortex Help" }),
+			commandItem(context, "app.whats-new", { label: "What's New", requires: "vault" }),
+			{ label: "Keyboard Shortcuts", click: () => openSettingsWindow("hotkeys") },
+			separator(),
+			commandItem(context, "help.report-issue", { label: "Report an Issue…" }),
+			...(!context.isMac
+				? [
+						separator(),
+						commandItem(context, "app.check-updates", { label: "Check for Updates…" }),
+						{ role: "about" as const },
+					]
+				: []),
+		],
+	}
+}
+
+function buildApplicationMenu(): Menu {
+	const state = focusedMenuState()
+	const context: MenuContext = {
+		state,
+		commands: new Map((state?.commands ?? []).map((command) => [command.id, command])),
+		isMac: process.platform === "darwin",
+	}
+	return Menu.buildFromTemplate([
+		...(context.isMac ? [appMenu(context)] : []),
+		fileMenu(context),
+		editMenu(context),
+		formatMenu(context),
+		viewMenu(context),
+		goMenu(context),
+		noteMenu(context),
+		syncMenu(context),
+		pluginsMenu(context),
+		windowMenu(context),
+		helpMenu(context),
+	])
 }
 
 export function setupApplicationMenu(): void {
+	if (rebuildTimer) clearTimeout(rebuildTimer)
+	rebuildTimer = null
 	Menu.setApplicationMenu(buildApplicationMenu())
+	setupDockMenu()
 }
 
-export function refreshMenuRecents(): void {
-	setupApplicationMenu()
+function scheduleMenuRebuild(): void {
+	if (rebuildTimer) clearTimeout(rebuildTimer)
+	rebuildTimer = setTimeout(setupApplicationMenu, REBUILD_DELAY_MS)
 }
+
+export function forgetMenuState(contentsId: number): void {
+	menuStates.delete(contentsId)
+}
+
+export const menuApi = {
+	setState: async (state) => {
+		const sender = getInvokeSender()
+		const contentsId = sender ? resolveMainWindowId(sender.id) : null
+		if (contentsId === null || contentsId !== sender?.id) return
+		menuStates.set(contentsId, state)
+		scheduleMenuRebuild()
+	},
+} satisfies MainApi["menu"]

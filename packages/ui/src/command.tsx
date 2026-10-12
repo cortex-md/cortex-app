@@ -63,11 +63,12 @@ function CommandDialog({
 
 function CommandInput({
 	className,
+	trailing,
 	...props
-}: React.ComponentProps<typeof CommandPrimitive.Input>) {
+}: React.ComponentProps<typeof CommandPrimitive.Input> & { trailing?: React.ReactNode }) {
 	return (
 		<div data-slot="command-input-wrapper" className="flex h-10 items-center gap-3 border-b px-4">
-			<SearchIcon className="size-5 shrink-0 opacity-55" />
+			<SearchIcon data-slot="command-input-icon" className="size-5 shrink-0 opacity-55" />
 			<CommandPrimitive.Input
 				data-slot="command-input"
 				className={cn(
@@ -76,6 +77,7 @@ function CommandInput({
 				)}
 				{...props}
 			/>
+			{trailing}
 		</div>
 	)
 }
@@ -185,11 +187,36 @@ function CommandFooterKey({ className, ...props }: React.ComponentProps<"kbd">) 
 	)
 }
 
+interface CommandFooterHintItem {
+	keys: readonly string[]
+	label: string
+}
+
+function CommandFooterHints({
+	hints,
+	...props
+}: React.ComponentProps<"div"> & { hints: readonly CommandFooterHintItem[] }) {
+	return (
+		<CommandFooter {...props}>
+			{hints.map((hint) => (
+				<CommandFooterHint key={`${hint.keys.join("-")}-${hint.label}`}>
+					{hint.keys.map((key) => (
+						<CommandFooterKey key={key}>{key}</CommandFooterKey>
+					))}
+					{hint.label}
+				</CommandFooterHint>
+			))}
+		</CommandFooter>
+	)
+}
+
+export type { CommandFooterHintItem }
 export {
 	Command,
 	CommandDialog,
 	CommandFooter,
 	CommandFooterHint,
+	CommandFooterHints,
 	CommandFooterKey,
 	CommandInput,
 	CommandList,

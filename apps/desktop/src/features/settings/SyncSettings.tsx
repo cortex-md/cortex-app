@@ -1,5 +1,6 @@
-import { type ReactNode, useState } from "react"
-import { VaultLinkModal } from "../sync/VaultLinkModal"
+import { type ReactNode, Suspense, useState } from "react"
+import { useHasOpened } from "../../hooks/useHasOpened"
+import { LazyVaultLinkModal } from "../sync/LazyVaultLinkModal"
 import { SelfHostedPage } from "./sync/SelfHostedPage"
 import { SyncMembersPage } from "./sync/SyncMembers"
 import { SyncOverviewPage } from "./sync/SyncOverview"
@@ -16,6 +17,7 @@ interface SyncSectionProps {
 export function SyncSection({ view = "overview" }: SyncSectionProps) {
 	const overview = useSyncOverview(view)
 	const [linkModalOpen, setLinkModalOpen] = useState(false)
+	const linkModalMounted = useHasOpened(linkModalOpen)
 	const openLink = () => setLinkModalOpen(true)
 
 	let content: ReactNode
@@ -32,6 +34,7 @@ export function SyncSection({ view = "overview" }: SyncSectionProps) {
 					linkedVaultId={overview.linkedVaultId}
 					noteCount={overview.noteCount}
 					remoteVaultRole={overview.linkedVault?.role}
+					serverLabel={overview.serverLabel}
 					vaultName={overview.linkedVault?.name ?? overview.vault?.name ?? "Remote vault"}
 					vaultPath={overview.vault?.path}
 					syncEnabled={overview.syncConfig.enabled}
@@ -66,7 +69,11 @@ export function SyncSection({ view = "overview" }: SyncSectionProps) {
 	return (
 		<>
 			{content}
-			<VaultLinkModal open={linkModalOpen} onOpenChange={setLinkModalOpen} />
+			{linkModalMounted && (
+				<Suspense fallback={null}>
+					<LazyVaultLinkModal open={linkModalOpen} onOpenChange={setLinkModalOpen} />
+				</Suspense>
+			)}
 		</>
 	)
 }

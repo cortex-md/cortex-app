@@ -1,4 +1,5 @@
 import { useTagsStore } from "@cortex/core"
+import { Button } from "@cortex/ui"
 import { XIcon } from "lucide-react"
 import { getTagBadgeStyle } from "./tagsValue"
 
@@ -31,8 +32,9 @@ export function TagChipList({
 						style={getTagBadgeStyle(color)}
 					>
 						{colorEditable && (
-							<button
-								type="button"
+							<Button
+								variant="ghost"
+								size="icon-xs"
 								className="note-property-tag-color-trigger"
 								aria-label={`Change color for ${tag}`}
 								onClick={(event) => {
@@ -41,12 +43,13 @@ export function TagChipList({
 								}}
 							>
 								<span className="note-property-tag-color-dot" />
-							</button>
+							</Button>
 						)}
 						<span className="note-property-tag-label">{tag}</span>
 						{onRemoveTag && (
-							<button
-								type="button"
+							<Button
+								variant="ghost"
+								size="icon-xs"
 								className="note-property-tag-remove"
 								aria-label={`Remove ${tag}`}
 								onClick={(event) => {
@@ -55,7 +58,7 @@ export function TagChipList({
 								}}
 							>
 								<XIcon />
-							</button>
+							</Button>
 						)}
 					</span>
 				)

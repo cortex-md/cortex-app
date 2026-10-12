@@ -41,6 +41,10 @@ Full Apple-kit → primitive mapping lives in `CLAUDE.md`.
 
 ## Components
 
+- `message.tsx` comes from the shadcn chat components (`shadcn add message`): `MessageGroup`,
+  `Message`, `MessageAvatar`, `MessageContent`, `MessageHeader`, `MessageFooter`. Bubble and Message
+  Scroller are intentionally not installed; comment threads render flat messages.
+
 - Components remain pure primitives with class names and forwarded native props.
 - Dialog primitives own shared modal chrome; use `DialogBody` for padded body regions when
   `DialogContent` is rendered with `p-0` and feature code needs flush headers or footers.
@@ -59,8 +63,8 @@ Full Apple-kit → primitive mapping lives in `CLAUDE.md`.
   community themes can restyle overlays without component forks.
 - High-use primitive geometry and typography should use public CSS variables with fallbacks instead
   of fixed arbitrary values when the rendered default can stay unchanged.
-- Command surfaces expose `CommandFooter`, `CommandFooterHint`, and `CommandFooterKey` for compact
-  keyboard hints. Keep them generic and presentational; feature-specific command behavior stays in
+- Command surfaces expose `CommandFooterHints` (a `{ keys, label }[]` list) on top of
+  `CommandFooter`, `CommandFooterHint`, and `CommandFooterKey` for compact keyboard hints. Keep them generic and presentational; feature-specific command behavior stays in
   desktop feature modules.
 - Combobox-style primitives keep `aria-expanded` and `aria-controls` wired to their popup state.
 - Prefer native semantic containers for listbox/list-like primitives. Do not add default generic
@@ -77,6 +81,8 @@ Full Apple-kit → primitive mapping lives in `CLAUDE.md`.
   Settings group so its inline option list remains visible.
 - `FolderPicker` keeps its custom popup options as real buttons until it implements the full
   keyboard contract for ARIA listbox/combobox semantics.
+- `SidebarNav`, `SidebarNavGroup`, and `SidebarNavItem` are a static grouped navigation list for
+  Settings-style layouts; they have no collapse state, cookies, or global shortcuts.
 - Settings composition remains desktop-owned. `@cortex/ui` provides `Field`, `Item`, `Separator`,
   and `NativeSelect` rather than a Settings-specific primitive.
 - Exported variant helpers such as `buttonVariants` live in sibling non-component files
@@ -98,3 +104,17 @@ Full Apple-kit → primitive mapping lives in `CLAUDE.md`.
   `useSyncExternalStore` with a server snapshot instead of initializing state in an effect.
 - Do not keep heavy optional visualization wrappers in the root barrel when the desktop app does not
   use them. Add them back as a deliberate package/API decision, preferably behind a narrow subpath.
+
+## Sheet
+
+- `SheetContent` has two variants. `overlay` (default) is the shadcn modal drawer. `docked` renders
+  without an overlay into a `container` element, so the panel sits in the layout (for example the
+  database peek). Pair `docked` with `<Sheet modal={false}>` and prevent `onInteractOutside` when
+  clicks elsewhere in the view should keep it open.
+
+## StatusBadge
+
+- `StatusBadge` is the single pill for colored status-like values (select options, database
+  groups, board columns): 22px, dot plus label, tinted background from the option color
+  (`gray | blue | green | red | amber | purple | pink | teal`, matching property option colors).
+  Do not recreate option pills with feature CSS; pass `dot={false}` when the dot is not wanted.

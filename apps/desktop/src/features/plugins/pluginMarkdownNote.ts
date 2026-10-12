@@ -1,1 +1,1 @@
-export const PLUGIN_MARKDOWN_NOTE_VIEW_ID = "plugin-markdown-note"
+export { PLUGIN_MARKDOWN_NOTE_VIEW_ID } from "@cortex/core"

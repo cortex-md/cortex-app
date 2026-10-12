@@ -25,12 +25,9 @@ const mermaidRender = vi.hoisted(() =>
 )
 const dompurifySanitize = vi.hoisted(() => vi.fn((svg: string) => svg))
 
-vi.mock("../../../features/mermaid/mermaidModalStore", () => ({
-	openMermaidModal,
-}))
-
 vi.mock("../../../features/mermaid/mermaidWorkspace", () => ({
 	openMermaidDiagramTab,
+	openMermaidModal,
 }))
 
 vi.mock("mermaid", () => ({

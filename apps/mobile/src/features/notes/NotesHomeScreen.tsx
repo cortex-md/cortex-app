@@ -1,78 +1,37 @@
+import { executeCommand } from "@cortex/commands"
 import {
-	getNotePathPresentation,
+	consumePendingOnboardingNote,
+	FILE_COMMAND_IDS,
+	getFileTreeNodeTitle,
 	useEditorStore,
 	useVaultStore,
-	useWorkspaceStore,
 } from "@cortex/core"
-import { getPlatform } from "@cortex/platform"
-import { Stack, useRouter } from "expo-router"
+import { Stack } from "expo-router"
 import { FilePlus, FileText } from "lucide-react-native"
-import { useEffect, useEffectEvent } from "react"
-import {
-	ActivityIndicator,
-	Pressable,
-	StyleSheet,
-	Text,
-	useColorScheme,
-	View,
-} from "react-native"
+import { useEffect } from "react"
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native"
 
-import { getMobileColorScheme, mobileColors, mobileIconColors } from "@/theme/colors"
+import { openMobileNote } from "@/bootstrap/appCommands"
+import { useMobileColors } from "@/hooks/useMobileColors"
 
-function formatError(error: unknown): string {
-	return error instanceof Error ? error.message : String(error)
+function createRootNote(): void {
+	executeCommand(FILE_COMMAND_IDS.newNote, { source: "menu" })
 }
 
 export default function NotesHomeScreen() {
-	const router = useRouter()
-	const scheme = getMobileColorScheme(useColorScheme())
-	const colors = mobileColors[scheme]
-	const iconColors = mobileIconColors[scheme]
+	const { colors, iconColors } = useMobileColors()
 	const vault = useVaultStore((state) => state.vault)
 	const files = useVaultStore((state) => state.files)
 	const loading = useVaultStore((state) => state.loading)
 	const error = useVaultStore((state) => state.error)
 	const pendingOnboardingNotePath = useVaultStore((state) => state.pendingOnboardingNotePath)
-	const clearPendingOnboardingNotePath = useVaultStore(
-		(state) => state.clearPendingOnboardingNotePath,
-	)
-	const createFile = useVaultStore((state) => state.createFile)
-	const openTab = useWorkspaceStore((state) => state.openTab)
 	const activeFilePath = useEditorStore((state) => state.activeFilePath)
-	const setActiveFile = useEditorStore((state) => state.setActiveFile)
 	const activeEntry = files.find((file) => file.path === activeFilePath && !file.isDir) ?? null
-	const activeTitle = activeEntry
-		? getNotePathPresentation(activeEntry.path, vault?.path).title || activeEntry.name
-		: null
-
-	function openNote(filePath: string): void {
-		openTab(filePath, { reuseActive: true })
-		setActiveFile(filePath)
-		router.push({
-			params: { filePath },
-			pathname: "/(notes)/note" as never,
-		})
-	}
-
-	async function createRootNote(): Promise<void> {
-		if (!vault) return
-		try {
-			const filePath = await createFile(vault.path, "Untitled")
-			openNote(filePath)
-		} catch (createError) {
-			await alertCreateError(createError)
-		}
-	}
-
-	const openPendingOnboardingNote = useEffectEvent((filePath: string) => {
-		openNote(filePath)
-	})
+	const activeTitle = activeEntry ? getFileTreeNodeTitle(activeEntry) : null
 
 	useEffect(() => {
-		if (!pendingOnboardingNotePath) return
-		openPendingOnboardingNote(pendingOnboardingNotePath)
-		clearPendingOnboardingNotePath()
-	}, [clearPendingOnboardingNotePath, pendingOnboardingNotePath])
+		if (pendingOnboardingNotePath) consumePendingOnboardingNote(openMobileNote)
+	}, [pendingOnboardingNotePath])
 
 	return (
 		<View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -83,9 +42,7 @@ export default function NotesHomeScreen() {
 						<Pressable
 							accessibilityLabel="New note"
 							hitSlop={8}
-							onPress={() => {
-								void createRootNote()
-							}}
+							onPress={createRootNote}
 							style={({ pressed }) => [styles.headerButton, { opacity: pressed ? 0.52 : 1 }]}
 						>
 							<FilePlus color={iconColors.tint} size={22} strokeWidth={2.35} />
@@ -105,7 +62,7 @@ export default function NotesHomeScreen() {
 					{loading
 						? "Loading vault"
 						: activeTitle
-							? vault?.displayPath ?? vault?.path
+							? (vault?.displayPath ?? vault?.path)
 							: "No note selected"}
 				</Text>
 				{loading ? <ActivityIndicator color={colors.tint} /> : null}
@@ -116,7 +73,7 @@ export default function NotesHomeScreen() {
 				) : null}
 				{activeEntry ? (
 					<Pressable
-						onPress={() => openNote(activeEntry.path)}
+						onPress={() => openMobileNote(activeEntry.path)}
 						style={({ pressed }) => [
 							styles.primaryButton,
 							{
@@ -131,13 +88,6 @@ export default function NotesHomeScreen() {
 			</View>
 		</View>
 	)
-}
-
-async function alertCreateError(error: unknown): Promise<void> {
-	await getPlatform().dialog.showAlert({
-		message: formatError(error),
-		title: "Could not create note",
-	})
 }
 
 const styles = StyleSheet.create({

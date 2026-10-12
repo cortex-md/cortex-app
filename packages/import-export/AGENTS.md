@@ -8,7 +8,7 @@ desktop and mobile can compose through `@cortex/platform`.
 
 ## Boundaries
 
-- Keep this package free of React, DOM, Tauri, Node filesystem APIs, and app stores.
+- Keep this package free of React, DOM, Electron, Node filesystem APIs, and app stores.
 - Use `@cortex/platform` contracts for reads, writes, dialogs, PDF bridges, and future native
   adapters.
 - PDF export should save to a user-selected `.pdf` path through the native document export bridge.
@@ -21,3 +21,5 @@ desktop and mobile can compose through `@cortex/platform`.
   flows.
 - Batch import/export should reserve output paths before parallel work starts, then run with a
   bounded worker pool and per-file result reporting.
+- Path helpers come from `@cortex/platform/utils`; `src/path.ts` only keeps transfer-specific
+  `sanitizeFileStem` and `reserveUniquePath`.

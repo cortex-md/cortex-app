@@ -1,4 +1,4 @@
-import type { CoreViewProps } from "../split-view/coreViewRegistry"
+import type { CoreViewProps } from "../split-view/coreViewProps"
 import { MarketplaceSection } from "./MarketplaceSection"
 import {
 	getMarketplaceViewStateSelectedEntryId,

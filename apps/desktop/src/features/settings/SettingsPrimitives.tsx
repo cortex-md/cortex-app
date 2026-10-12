@@ -1,3 +1,4 @@
+import { getSettingsField } from "@cortex/settings"
 import { cn, Field, FieldContent, FieldDescription, FieldLabel } from "@cortex/ui"
 import type { ComponentProps, ReactNode } from "react"
 
@@ -12,8 +13,10 @@ interface SettingsPageHeaderProps extends ComponentProps<"header"> {
 
 interface SettingsSectionProps extends ComponentProps<"section"> {
 	title: string
+	fieldId?: string
 	description?: string
 	action?: ReactNode
+	footer?: ReactNode
 	children: ReactNode
 }
 
@@ -26,8 +29,10 @@ interface SettingsGroupContentProps extends ComponentProps<"div"> {
 }
 
 interface SettingsFieldProps extends ComponentProps<typeof Field> {
-	label: ReactNode
+	fieldId?: string
+	label?: ReactNode
 	description?: ReactNode
+	icon?: ReactNode
 	htmlFor?: string
 	controlClassName?: string
 	children: ReactNode
@@ -47,11 +52,7 @@ interface SettingsEmptyStateProps extends ComponentProps<"p"> {
 
 export function SettingsPage({ className, children, ...props }: SettingsPageProps) {
 	return (
-		<section
-			data-slot="settings-page"
-			className={cn("flex w-full flex-col gap-7", className)}
-			{...props}
-		>
+		<section data-slot="settings-page" className={cn("settings-page", className)} {...props}>
 			{children}
 		</section>
 	)
@@ -66,21 +67,21 @@ export function SettingsPageHeader({
 	return (
 		<header
 			data-slot="settings-page-header"
-			className={cn("flex flex-col gap-1.5", className)}
+			className={cn("settings-page-header", className)}
 			{...props}
 		>
-			<h1 className="m-0 text-[22px] leading-7 font-semibold tracking-[-0.02em] text-foreground">
-				{title}
-			</h1>
-			<p className="m-0 max-w-2xl text-[13px] leading-5 text-muted-foreground">{description}</p>
+			<h1 className="settings-page-title">{title}</h1>
+			{description && <p className="settings-page-lead">{description}</p>}
 		</header>
 	)
 }
 
 export function SettingsSection({
 	title,
+	fieldId,
 	description,
 	action,
+	footer,
 	children,
 	className,
 	...props
@@ -88,19 +89,18 @@ export function SettingsSection({
 	return (
 		<section
 			data-slot="settings-section"
-			className={cn("flex flex-col gap-2.5", className)}
+			data-settings-field={fieldId}
+			className={cn("settings-section", className)}
 			{...props}
 		>
-			<div className="flex min-h-8 items-end justify-between gap-4 px-0.5">
-				<div className="min-w-0">
-					<h2 className="m-0 text-[15px] leading-5 font-semibold text-foreground">{title}</h2>
-					{description && (
-						<p className="m-0 mt-0.5 text-xs leading-[18px] text-muted-foreground">{description}</p>
-					)}
-				</div>
-				{action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
+			<div className="settings-section-header">
+				<h2 className="settings-section-title">{title}</h2>
+				{action && <div className="settings-section-action">{action}</div>}
 			</div>
 			{children}
+			{(footer ?? description) && (
+				<p className="settings-section-footer">{footer ?? description}</p>
+			)}
 		</section>
 	)
 }
@@ -109,10 +109,7 @@ export function SettingsGroup({ className, children, ...props }: SettingsGroupPr
 	return (
 		<div
 			data-slot="settings-group"
-			className={cn(
-				"group/field-group @container/field-group overflow-hidden rounded-[10px] border border-settings-group-border bg-settings-group divide-y divide-settings-group-divider",
-				className,
-			)}
+			className={cn("settings-group group/field-group @container/field-group", className)}
 			{...props}
 		>
 			{children}
@@ -122,36 +119,46 @@ export function SettingsGroup({ className, children, ...props }: SettingsGroupPr
 
 export function SettingsGroupContent({ className, children, ...props }: SettingsGroupContentProps) {
 	return (
-		<div data-slot="settings-group-content" className={cn("p-4", className)} {...props}>
+		<div
+			data-slot="settings-group-content"
+			className={cn("settings-group-content", className)}
+			{...props}
+		>
 			{children}
 		</div>
 	)
 }
 
 export function SettingsField({
+	fieldId,
 	label,
 	description,
+	icon,
 	htmlFor,
 	controlClassName,
 	className,
 	children,
 	...props
 }: SettingsFieldProps) {
+	const catalogEntry = fieldId ? getSettingsField(fieldId) : undefined
 	return (
 		<Field
 			orientation="responsive"
-			className={cn(
-				"min-h-14 justify-between gap-3 px-4 py-3 @md/field-group:items-center",
-				className,
-			)}
+			data-settings-row=""
+			data-settings-field={fieldId}
+			data-has-icon={icon ? "true" : undefined}
+			className={cn("settings-field justify-between @md/field-group:items-center", className)}
 			{...props}
 		>
-			<FieldContent className="min-w-0 gap-0.5">
-				<FieldLabel htmlFor={htmlFor} className="w-auto max-w-full text-[13px] font-medium">
-					{label}
+			{icon && <SettingsIconTile>{icon}</SettingsIconTile>}
+			<FieldContent className="settings-field-copy">
+				<FieldLabel htmlFor={htmlFor} className="settings-field-label">
+					{label ?? catalogEntry?.label}
 				</FieldLabel>
-				{description && (
-					<FieldDescription className="text-xs leading-[18px]">{description}</FieldDescription>
+				{(description ?? catalogEntry?.description) && (
+					<FieldDescription className="settings-field-description">
+						{description ?? catalogEntry?.description}
+					</FieldDescription>
 				)}
 			</FieldContent>
 			<div
@@ -168,11 +175,7 @@ export function SettingsField({
 
 export function SettingsList({ className, children, ...props }: SettingsListProps) {
 	return (
-		<div
-			data-slot="settings-list"
-			className={cn("flex flex-col divide-y divide-settings-group-divider", className)}
-			{...props}
-		>
+		<div data-slot="settings-list" className={cn("settings-list", className)} {...props}>
 			{children}
 		</div>
 	)
@@ -180,7 +183,7 @@ export function SettingsList({ className, children, ...props }: SettingsListProp
 
 export function SettingsListItem({ className, children, ...props }: SettingsListItemProps) {
 	return (
-		<div className={cn("group flex min-h-14 items-center gap-3 px-4 py-3", className)} {...props}>
+		<div data-settings-row="" className={cn("settings-list-item group", className)} {...props}>
 			{children}
 		</div>
 	)
@@ -188,8 +191,16 @@ export function SettingsListItem({ className, children, ...props }: SettingsList
 
 export function SettingsEmptyState({ className, children, ...props }: SettingsEmptyStateProps) {
 	return (
-		<p className={cn("m-0 px-4 py-3 text-[13px] text-muted-foreground", className)} {...props}>
+		<p className={cn("settings-empty-state", className)} {...props}>
 			{children}
 		</p>
+	)
+}
+
+export function SettingsIconTile({ className, children, ...props }: ComponentProps<"span">) {
+	return (
+		<span className={cn("settings-icon-tile", className)} aria-hidden="true" {...props}>
+			{children}
+		</span>
 	)
 }

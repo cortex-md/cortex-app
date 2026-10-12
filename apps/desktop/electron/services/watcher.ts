@@ -1,81 +1,67 @@
-import { watch, type FSWatcher } from "chokidar"
-import { basename } from "node:path"
-import { emitToRenderer } from "../events"
-import { normalizePath } from "../paths"
+import { relative } from "node:path"
+import type { WatchEvent, WatchOptions } from "@cortex/platform"
+import { normalizePath } from "@cortex/platform/utils"
+import { isHiddenVaultPath } from "@cortex/platform/vault"
+import { type FSWatcher, watch } from "chokidar"
+import { webContents } from "electron"
+import { EVENT_CHANNEL_PREFIX } from "../contract"
+import { getInvokeSender } from "../ipc/sender"
+import { notifyLocalFileChange } from "./syncBridge"
 
-interface WatcherRecord {
-	watcher: FSWatcher
-	includeHidden: boolean
+const EVENT_KINDS: Record<string, WatchEvent["kind"]> = {
+	add: "created",
+	addDir: "created",
+	change: "modified",
+	unlink: "deleted",
+	unlinkDir: "deleted",
 }
 
-const watchers = new Map<string, WatcherRecord>()
-let nextId = 1
+const watchers = new Map<string, { watcher: FSWatcher; ownerId: number | null }>()
+let nextWatcherId = 1
 
-const IGNORED_NAMES = new Set([".DS_Store", "Thumbs.db", "desktop.ini"])
-
-function isHiddenPath(path: string): boolean {
-	return path.split(/[/\\]/).some((part) => part.startsWith("."))
-}
-
-function eventKind(event: string): string | null {
-	switch (event) {
-		case "add":
-		case "addDir":
-			return "created"
-		case "change":
-			return "modified"
-		case "unlink":
-		case "unlinkDir":
-			return "deleted"
-		default:
-			return null
-	}
-}
-
-export async function startWatching(
-	path: string,
-	includeHidden = false,
-	followSymlinks = false,
-): Promise<string> {
-	const watcherId = `watcher-${nextId}`
-	nextId += 1
-
-	const watcher = watch(path, {
+export function startWatching(root: string, options: WatchOptions): string {
+	const watcherId = `watcher-${nextWatcherId++}`
+	const ownerId = getInvokeSender()?.id ?? null
+	const includeHidden = options.includeHidden ?? false
+	const watcher = watch(root, {
 		ignoreInitial: true,
-		persistent: true,
-		followSymlinks,
-		awaitWriteFinish: {
-			stabilityThreshold: 100,
-			pollInterval: 50,
-		},
+		followSymlinks: options.followSymlinks ?? false,
+		ignored: (path) => isHiddenVaultPath(relative(root, path), { includeHidden: true }),
+		awaitWriteFinish: { stabilityThreshold: 100, pollInterval: 50 },
 	})
 
-	const emitChange = (eventName: string, changedPath: string) => {
-		const kind = eventKind(eventName)
+	watcher.on("all", (eventName, changedPath) => {
+		const kind = EVENT_KINDS[eventName]
 		if (!kind) return
-		const filename = basename(changedPath)
-		if (IGNORED_NAMES.has(filename)) return
-		if (!includeHidden && isHiddenPath(changedPath)) return
-		emitToRenderer("vault-file-changed", {
-			path: normalizePath(changedPath),
-			kind,
-			watcherId,
-		})
-	}
+		if (!isHiddenVaultPath(relative(root, changedPath), { includeHidden })) {
+			const owner = ownerId === null ? null : webContents.fromId(ownerId)
+			owner?.send(`${EVENT_CHANNEL_PREFIX}vault-file-changed`, {
+				path: normalizePath(changedPath),
+				kind,
+				watcherId,
+			})
+		}
+		if (eventName === "add" || eventName === "change" || eventName === "unlink") {
+			notifyLocalFileChange(changedPath, kind)
+		}
+	})
 
-	watcher.on("add", (changedPath) => emitChange("add", changedPath))
-	watcher.on("addDir", (changedPath) => emitChange("addDir", changedPath))
-	watcher.on("change", (changedPath) => emitChange("change", changedPath))
-	watcher.on("unlink", (changedPath) => emitChange("unlink", changedPath))
-	watcher.on("unlinkDir", (changedPath) => emitChange("unlinkDir", changedPath))
+	watcher.on("error", (error) => {
+		console.warn(`[watcher] ${root}:`, error)
+	})
 
-	watchers.set(watcherId, { watcher, includeHidden })
+	watchers.set(watcherId, { watcher, ownerId })
 	return watcherId
 }
 
 export async function stopWatching(watcherId: string): Promise<void> {
-	const record = watchers.get(watcherId)
-	if (!record) return
-	await record.watcher.close()
+	const entry = watchers.get(watcherId)
+	if (!entry) return
 	watchers.delete(watcherId)
+	await entry.watcher.close()
+}
+
+export async function stopWatchersFor(ownerId: number): Promise<void> {
+	const owned = [...watchers].filter(([, entry]) => entry.ownerId === ownerId)
+	await Promise.all(owned.map(([watcherId]) => stopWatching(watcherId)))
 }

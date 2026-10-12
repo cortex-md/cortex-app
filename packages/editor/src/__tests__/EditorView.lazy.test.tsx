@@ -135,6 +135,7 @@ vi.mock("../extensions", () => ({
 		vimMode: false,
 	},
 	baseExtensions: harness.baseExtensions,
+	detachCollabCompartmentEffects: () => [],
 	reconfigureEditor: harness.reconfigureEditor,
 }))
 

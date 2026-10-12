@@ -1,3 +1,4 @@
+import { getPlatform } from "@cortex/platform"
 import type { AppearanceSettings } from "@cortex/settings"
 import {
 	DEFAULT_ACCENT_COLOR,
@@ -89,11 +90,9 @@ export function buildAppearanceOverrides(appearance: AppearanceSettings): Record
 	return overrides
 }
 
-function resolveColorscheme(colorscheme: "light" | "dark" | "system"): "light" | "dark" {
-	if (colorscheme === "system") {
-		return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
-	}
-	return colorscheme
+async function getSystemColorscheme(): Promise<"light" | "dark"> {
+	const snapshot = await getPlatform().appearance.getSnapshot()
+	return snapshot.colorScheme
 }
 
 let appearanceApplySequence = 0
@@ -101,7 +100,9 @@ let appearanceApplySequence = 0
 export async function applyAppearanceSettings(appearance: AppearanceSettings): Promise<void> {
 	const sequence = ++appearanceApplySequence
 	const themeManager = getThemeManager()
-	const resolved = resolveColorscheme(appearance.colorscheme)
+	await getPlatform().window.setColorScheme(appearance.colorscheme)
+	const resolved =
+		appearance.colorscheme === "system" ? await getSystemColorscheme() : appearance.colorscheme
 	const themeName = themeManager.resolveTheme(appearance.theme, resolved)
 
 	await ensureCommunityThemeCssLoaded(themeName)

@@ -13,6 +13,10 @@ Element.prototype.scrollTo = vi.fn()
 
 vi.mock("@cortex/platform", () => ({
 	getPlatform: vi.fn(() => ({
+		clipboard: {
+			writeText: vi.fn((text: string) => navigator.clipboard.writeText(text)),
+			readText: vi.fn(() => navigator.clipboard.readText()),
+		},
 		fs: {
 			readFile: vi.fn().mockResolvedValue(""),
 			readFileSnapshot: vi.fn().mockResolvedValue({
@@ -27,7 +31,6 @@ vi.mock("@cortex/platform", () => ({
 		},
 		storage: {
 			getAppDataDir: vi.fn().mockResolvedValue("/mock"),
-			getVaultConfigDir: vi.fn().mockResolvedValue("/mock/.cortex"),
 		},
 		notifications: {
 			getCapabilities: vi.fn(() => ({

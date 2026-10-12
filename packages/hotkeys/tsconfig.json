@@ -20,5 +20,5 @@
 		}
 	},
 	"include": ["src"],
-	"references": [{ "path": "../platform" }]
+	"references": [{ "path": "../commands" }, { "path": "../platform" }]
 }

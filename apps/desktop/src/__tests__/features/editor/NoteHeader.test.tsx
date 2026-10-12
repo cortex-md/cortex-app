@@ -58,7 +58,7 @@ describe("NoteHeader", () => {
 
 		expect(screen.queryByText("My Vault")).not.toBeInTheDocument()
 		expect(screen.getByText("folder")).toBeInTheDocument()
-		expect(screen.getByText("Current")).toBeInTheDocument()
+		expect(screen.queryByText("Current")).not.toBeInTheDocument()
 		expect(screen.queryByText("Current.md")).not.toBeInTheDocument()
 		expect(screen.getByRole("textbox", { name: "Note title" })).toHaveValue("Current")
 		expect(screen.getByRole("button", { name: "Note actions" })).toBeInTheDocument()

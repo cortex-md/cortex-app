@@ -7,5 +7,4 @@ export type {
 	HotkeyScope,
 	ParsedHotkey,
 } from "./types"
-export { useHotkey } from "./useHotkey"
 export { useHotkeyListener } from "./useHotkeyListener"

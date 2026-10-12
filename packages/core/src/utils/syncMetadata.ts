@@ -1,4 +1,5 @@
 import { getPlatform } from "@cortex/platform"
+import { getVaultFilePath, VAULT_FILES } from "@cortex/platform/utils"
 import type {
 	SyncPluginEntry,
 	SyncPluginsManifest,
@@ -19,7 +20,7 @@ export async function writeSyncPluginMetadata(
 	manifest: SyncPluginsManifest,
 ): Promise<void> {
 	const platform = getPlatform()
-	const filePath = `${vaultPath}/.cortex/sync-plugins.json`
+	const filePath = getVaultFilePath(vaultPath, VAULT_FILES.syncPlugins)
 	await platform.fs.writeFile(filePath, JSON.stringify(manifest, null, "\t"))
 }
 
@@ -28,7 +29,7 @@ export async function writeSyncThemeMetadata(
 	manifest: SyncThemesManifest,
 ): Promise<void> {
 	const platform = getPlatform()
-	const filePath = `${vaultPath}/.cortex/sync-themes.json`
+	const filePath = getVaultFilePath(vaultPath, VAULT_FILES.syncThemes)
 	await platform.fs.writeFile(filePath, JSON.stringify(manifest, null, "\t"))
 }
 
@@ -36,7 +37,7 @@ export async function readSyncPluginMetadata(
 	vaultPath: string,
 ): Promise<SyncPluginsManifest | null> {
 	const platform = getPlatform()
-	const filePath = `${vaultPath}/.cortex/sync-plugins.json`
+	const filePath = getVaultFilePath(vaultPath, VAULT_FILES.syncPlugins)
 	try {
 		const content = await platform.fs.readFile(filePath)
 		return JSON.parse(content) as SyncPluginsManifest
@@ -47,7 +48,7 @@ export async function readSyncPluginMetadata(
 
 export async function readSyncThemeMetadata(vaultPath: string): Promise<SyncThemesManifest | null> {
 	const platform = getPlatform()
-	const filePath = `${vaultPath}/.cortex/sync-themes.json`
+	const filePath = getVaultFilePath(vaultPath, VAULT_FILES.syncThemes)
 	try {
 		const content = await platform.fs.readFile(filePath)
 		return JSON.parse(content) as SyncThemesManifest

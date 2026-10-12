@@ -1,3 +1,4 @@
+import { getPlatform } from "@cortex/platform"
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
@@ -10,11 +11,27 @@ export interface LeftSidebarLayout {
 	width: number
 }
 
+export type RightSidebarPanel = "comments" | "outline" | "backlinks"
+
+const RIGHT_SIDEBAR_PANELS: readonly RightSidebarPanel[] = ["comments", "outline", "backlinks"]
+
+export interface RightSidebarLayout {
+	collapsed: boolean
+	panel: RightSidebarPanel
+}
+
+export type QuickFinderRequest =
+	| { kind: "open" }
+	| { kind: "relink-bookmark"; bookmarkPath: string; query: string }
+
+const DEFAULT_QUICK_FINDER_REQUEST: QuickFinderRequest = { kind: "open" }
+
 export interface UIState {
 	leftSidebarCollapsed: boolean
 	leftSidebarWidth: number
 	leftSidebarView: LeftSidebarView
 	rightSidebarCollapsed: boolean
+	rightSidebarPanel: RightSidebarPanel
 
 	toggleLeftSidebar: () => void
 	setLeftSidebarCollapsed: (collapsed: boolean) => void
@@ -23,9 +40,14 @@ export interface UIState {
 	resetLeftSidebarLayout: () => void
 	setLeftSidebarView: (view: LeftSidebarView) => void
 	toggleRightSidebar: () => void
+	setRightSidebarLayout: (layout: Partial<RightSidebarLayout>) => void
 
 	quickFinderOpen: boolean
+	quickFinderRequest: QuickFinderRequest
+	quickFinderPreview: boolean
 	toggleQuickFinder: () => void
+	openQuickFinder: (request?: QuickFinderRequest) => void
+	setQuickFinderPreview: (preview: boolean) => void
 
 	commandPaletteOpen: boolean
 	toggleCommandPalette: () => void
@@ -37,10 +59,7 @@ export interface UIState {
 	openCreateFromTemplate: () => void
 	closeCreateFromTemplate: () => void
 
-	settingsOpen: boolean
-	settingsInitialSection: string | null
-	openSettings: (section?: string) => void
-	closeSettings: () => void
+	openSettings: (section?: string, fieldId?: string) => void
 
 	authOpen: boolean
 	authInitialView: AuthView
@@ -50,13 +69,13 @@ export interface UIState {
 }
 
 export const LEFT_SIDEBAR_WIDTH_BOUNDS = {
-	min: 180,
-	max: 400,
+	min: 228,
+	max: 448,
 }
 
 const DEFAULT_LEFT_SIDEBAR_LAYOUT: LeftSidebarLayout = {
 	collapsed: false,
-	width: 240,
+	width: 292,
 }
 
 export function clampLeftSidebarWidth(width: number): number {
@@ -70,6 +89,7 @@ export const useUIStore = create<UIState>()(
 			leftSidebarWidth: DEFAULT_LEFT_SIDEBAR_LAYOUT.width,
 			leftSidebarView: "files",
 			rightSidebarCollapsed: true,
+			rightSidebarPanel: "outline" as RightSidebarPanel,
 
 			toggleLeftSidebar: () =>
 				set((s) => {
@@ -112,11 +132,33 @@ export const useUIStore = create<UIState>()(
 					s.rightSidebarCollapsed = !s.rightSidebarCollapsed
 				}),
 
+			setRightSidebarLayout: (layout) =>
+				set((s) => {
+					if (typeof layout.collapsed === "boolean") s.rightSidebarCollapsed = layout.collapsed
+					if (layout.panel && RIGHT_SIDEBAR_PANELS.includes(layout.panel)) {
+						s.rightSidebarPanel = layout.panel
+					}
+				}),
+
 			quickFinderOpen: false,
+			quickFinderRequest: DEFAULT_QUICK_FINDER_REQUEST,
+			quickFinderPreview: false,
 
 			toggleQuickFinder: () =>
 				set((s) => {
 					s.quickFinderOpen = !s.quickFinderOpen
+					s.quickFinderRequest = DEFAULT_QUICK_FINDER_REQUEST
+				}),
+
+			openQuickFinder: (request = DEFAULT_QUICK_FINDER_REQUEST) =>
+				set((s) => {
+					s.quickFinderOpen = true
+					s.quickFinderRequest = request
+				}),
+
+			setQuickFinderPreview: (preview) =>
+				set((s) => {
+					s.quickFinderPreview = preview
 				}),
 
 			commandPaletteOpen: false,
@@ -145,20 +187,9 @@ export const useUIStore = create<UIState>()(
 					s.createFromTemplateOpen = false
 				}),
 
-			settingsOpen: false,
-			settingsInitialSection: null,
-
-			openSettings: (section) =>
-				set((s) => {
-					s.settingsOpen = true
-					s.settingsInitialSection = section ?? null
-				}),
-
-			closeSettings: () =>
-				set((s) => {
-					s.settingsOpen = false
-					s.settingsInitialSection = null
-				}),
+			openSettings: (section, fieldId) => {
+				void getPlatform().window.openSettings(section ?? null, fieldId ?? null)
+			},
 
 			authOpen: false,
 			authInitialView: "login" as AuthView,

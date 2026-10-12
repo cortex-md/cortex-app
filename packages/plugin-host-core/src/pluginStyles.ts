@@ -26,8 +26,6 @@ type SelectorNode = {
 	}
 }
 
-let pluginMarkdownStyleHost: PluginMarkdownStyleHost | null = null
-
 function isMarkdownSurfaceClass(node: SelectorNode): boolean {
 	return node.type === "ClassSelector" && node.name === "markdown-surface"
 }
@@ -97,16 +95,4 @@ export function scopePluginMarkdownStyles(source: string): string {
 	})
 
 	return generate(stylesheet)
-}
-
-export function setPluginMarkdownStyleHost(host: PluginMarkdownStyleHost | null): void {
-	pluginMarkdownStyleHost = host
-}
-
-export function installPluginMarkdownStyles(pluginId: string, css: string | null): void {
-	pluginMarkdownStyleHost?.install(pluginId, css)
-}
-
-export function removePluginMarkdownStyles(pluginId: string): void {
-	pluginMarkdownStyleHost?.remove(pluginId)
 }

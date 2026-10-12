@@ -5,7 +5,9 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
-		"./codemirror": "./src/codemirror.ts"
+		"./codemirror": "./src/codemirror.ts",
+		"./database": "./src/database/index.ts",
+		"./frontmatter": "./src/frontmatter.ts"
 	},
 	"dependencies": {
 		"@codemirror/state": "^6.5.2",

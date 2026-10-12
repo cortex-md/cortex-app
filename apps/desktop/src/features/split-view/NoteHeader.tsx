@@ -1,25 +1,28 @@
 import { executeCommand } from "@cortex/commands"
 import {
 	formatNoteEditedAt,
+	getNoteFolderSegments,
 	getNotePathPresentation,
 	getNoteTitleError,
-	isSyncImagePath,
+	getParentPath,
 	loadNoteSyncAttribution,
 	type NoteSyncAttribution,
-	shouldIgnoreSyncPath,
+	toVaultRelativePath,
+	useAccountStore,
 	useAuthStore,
 	useBookmarksStore,
+	useCanReadVaultPath,
+	useCanWriteVaultPath,
+	useCollabNoteState,
+	useDatabaseStore,
 	useMembersStore,
 	useRemoteVaultStore,
 	useSyncStore,
 	useVaultStore,
-	useWorkspaceStore,
 } from "@cortex/core"
+import type { CollabPeer, VaultMember } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
-import { usePluginStore } from "@cortex/plugin-host-web"
 import {
-	Avatar,
-	AvatarFallback,
 	Breadcrumb,
 	BreadcrumbItem,
 	BreadcrumbList,
@@ -31,26 +34,19 @@ import {
 	DropdownMenuTrigger,
 	Input,
 } from "@cortex/ui"
-import { MoreHorizontal } from "lucide-react"
-import { Fragment, type Ref, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { NativeMenuActions } from "@/utils/context-menu"
-import { sendCoreNotification } from "@/utils/nativeNotifications"
-import { reportAppError } from "@/utils/reportAppError"
-import { buildNoteMenuItems } from "../file-explorer/NativeMenuActions"
-import { NoteDropdownMenuItems } from "../file-explorer/NoteMenuItems"
-import { exportNoteFromDialog } from "../import-export/importExportActions"
-import { createPluginContextMenuItems } from "../plugins/pluginContextMenu"
+import { BookmarkIcon, LockIcon, MoreHorizontal, Table2Icon } from "lucide-react"
+import { Fragment, memo, type Ref, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useMinuteNow } from "@/hooks/useMinuteNow"
+import type { MenuItem } from "@/utils/context-menu"
+import { MenuItemList } from "../context-menu/useContextMenu"
+import { openDatabaseView } from "../databases/databaseWorkspace"
+import { buildFileMenuItems } from "../file-explorer/fileMenu"
+import { memberDisplayName, useMemberDirectory } from "../sync/memberDirectory"
+import { type FacepileUser, UserAvatar, UserFacepile } from "../sync/UserAvatar"
 
 interface Props {
 	filePath: string
 	paneId?: string
-	onViewHistory?: (filePath: string) => void
-}
-
-interface NoteTitleDraft {
-	noteTitle: string
-	title: string
-	error: string | null
 }
 
 interface NoteAttributionDraft {
@@ -58,26 +54,12 @@ interface NoteAttributionDraft {
 	attribution: NoteSyncAttribution | null
 }
 
-const nativeMenu = new NativeMenuActions()
-
-function hasNativeMenu(): boolean {
-	return getPlatform().capabilities.includes("menu")
-}
-
-function getInitials(name: string): string {
-	const words = name.trim().split(/\s+/).filter(Boolean)
-	if (words.length === 0) return "?"
-	return words
-		.slice(0, 2)
-		.map((word) => word.charAt(0).toLocaleUpperCase())
-		.join("")
-}
-
 interface NoteHeaderBreadcrumbProps {
 	segments: ReturnType<typeof getNotePathPresentation>["segments"]
 }
 
 function NoteHeaderBreadcrumb({ segments }: NoteHeaderBreadcrumbProps) {
+	if (segments.length === 0) return null
 	return (
 		<Breadcrumb className="note-header-breadcrumb">
 			<BreadcrumbList className="flex-nowrap overflow-hidden">
@@ -98,10 +80,13 @@ function NoteHeaderBreadcrumb({ segments }: NoteHeaderBreadcrumbProps) {
 
 interface NoteHeaderAttributionProps {
 	attribution: NoteSyncAttribution
-	currentTime: number
 }
 
-function NoteHeaderAttribution({ attribution, currentTime }: NoteHeaderAttributionProps) {
+function NoteHeaderAttribution({ attribution }: NoteHeaderAttributionProps) {
+	const currentTime = useMinuteNow()
+	const ownAvatarUrl = useAccountStore((state) =>
+		state.profile?.userId === attribution.actorId ? state.profile.avatarUrl : null,
+	)
 	return (
 		<div
 			className="note-header-attribution"
@@ -111,9 +96,12 @@ function NoteHeaderAttribution({ attribution, currentTime }: NoteHeaderAttributi
 					: attribution.displayName
 			}
 		>
-			<Avatar size="sm" className="note-header-avatar">
-				<AvatarFallback>{getInitials(attribution.displayName)}</AvatarFallback>
-			</Avatar>
+			<UserAvatar
+				size="sm"
+				name={attribution.displayName}
+				avatarUrl={attribution.avatarUrl ?? ownAvatarUrl}
+				className="note-header-avatar"
+			/>
 			<span className="note-header-attribution-text">
 				Edited {formatNoteEditedAt(attribution.editedAt, () => currentTime)} by{" "}
 				<strong>{attribution.displayName}</strong>
@@ -122,82 +110,194 @@ function NoteHeaderAttribution({ attribution, currentTime }: NoteHeaderAttributi
 	)
 }
 
-interface NoteHeaderActionsProps {
-	menuItems: ReturnType<typeof buildNoteMenuItems>
+function DatabaseViewNoteAction({ filePath }: { filePath: string }) {
+	const isViewNote = useDatabaseStore((state) => state.viewNotePaths.includes(filePath))
+	if (!isViewNote) return null
+	return (
+		<Button
+			variant="ghost"
+			size="xs"
+			className="note-header-actions-button"
+			onClick={() => openDatabaseView(getParentPath(filePath))}
+		>
+			<Table2Icon />
+			Open database
+		</Button>
+	)
 }
 
-function NoteHeaderActions({ menuItems }: NoteHeaderActionsProps) {
-	if (hasNativeMenu()) {
-		return (
-			<Button
-				type="button"
-				variant="ghost"
-				size="icon"
-				className="note-header-actions-button"
-				aria-label="Note actions"
-				title="Note actions"
-				onClick={(event) => {
-					const rect = event.currentTarget.getBoundingClientRect()
-					void nativeMenu.showContextMenu({
-						items: menuItems,
-						position: { x: rect.right, y: rect.bottom },
-					})
-				}}
-			>
-				<MoreHorizontal className="size-[15px]" />
-			</Button>
-		)
-	}
-
+function NoteReadOnlyBadge({ noAccess }: { noAccess: boolean }) {
 	return (
-		<DropdownMenu>
-			<DropdownMenuTrigger asChild>
-				<Button
-					type="button"
-					variant="ghost"
-					size="icon"
-					className="note-header-actions-button"
-					aria-label="Note actions"
-					title="Note actions"
-				>
-					<MoreHorizontal className="size-[15px]" />
-				</Button>
-			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end" className="w-56">
-				<NoteDropdownMenuItems items={menuItems} />
-			</DropdownMenuContent>
-		</DropdownMenu>
+		<span
+			className="note-header-read-only"
+			title={
+				noAccess
+					? "This folder is restricted to other members. Changes here stay on this device and are not synced."
+					: "You can view this note but not change it. Ask a vault admin for edit access."
+			}
+		>
+			<LockIcon className="size-[11px]" />
+			{noAccess ? "No access · not synced" : "Read only"}
+		</span>
+	)
+}
+
+function toLiveFacepileUsers(
+	peers: readonly CollabPeer[],
+	currentUserId: string | null,
+	members: ReadonlyMap<string, VaultMember>,
+): FacepileUser[] {
+	const seen = new Set<string>()
+	const users: FacepileUser[] = []
+	for (const peer of peers) {
+		if (peer.userId === currentUserId || seen.has(peer.userId)) continue
+		seen.add(peer.userId)
+		const member = members.get(peer.userId)
+		users.push({
+			userId: peer.userId,
+			name: member ? memberDisplayName(member) : peer.displayName,
+			avatarUrl: member?.avatarUrl ?? peer.avatarUrl,
+		})
+	}
+	return users
+}
+
+interface NotePresenceProps {
+	relativePath: string
+	livePeers: readonly CollabPeer[] | null
+}
+
+function NotePresence({ relativePath, livePeers }: NotePresenceProps) {
+	const presence = useMembersStore((state) => state.presence)
+	const members = useMemberDirectory()
+	const currentUserId = useAuthStore((state) => state.user?.userId ?? null)
+	const viewers = useMemo<FacepileUser[]>(() => {
+		if (livePeers) return toLiveFacepileUsers(livePeers, currentUserId, members)
+		const seen = new Set<string>()
+		const users: FacepileUser[] = []
+		for (const peer of presence) {
+			if (peer.filePath !== relativePath || peer.userId === currentUserId) continue
+			if (seen.has(peer.userId)) continue
+			seen.add(peer.userId)
+			const member = members.get(peer.userId)
+			users.push({
+				userId: peer.userId,
+				name: member ? memberDisplayName(member) : "Vault member",
+				avatarUrl: member?.avatarUrl ?? null,
+			})
+		}
+		return users
+	}, [currentUserId, livePeers, members, presence, relativePath])
+	if (viewers.length === 0) return null
+	return (
+		<UserFacepile
+			users={viewers}
+			className="note-header-presence"
+			label={`${livePeers ? "Editing live" : "Also here"}: ${viewers.map((viewer) => viewer.name).join(", ")}`}
+		/>
+	)
+}
+
+interface NoteCollaboratorsProps {
+	filePath: string
+	relativePath: string
+	syncLinked: boolean
+}
+
+function NoteCollaborators({ filePath, relativePath, syncLinked }: NoteCollaboratorsProps) {
+	const snapshot = useCollabNoteState(filePath)?.snapshot ?? null
+	const livePeers = snapshot?.status === "live" ? snapshot.present : null
+	return <>{syncLinked && <NotePresence relativePath={relativePath} livePeers={livePeers} />}</>
+}
+
+interface NoteHeaderActionsProps {
+	filePath: string
+	paneId?: string
+	onRename: () => void
+}
+
+function NoteBookmarkButton({ filePath }: { filePath: string }) {
+	const vaultPath = useVaultStore((state) => state.vault?.path)
+	const bookmarked = useBookmarksStore((state) =>
+		vaultPath ? state.isBookmarked(vaultPath, filePath) : false,
+	)
+	const label = bookmarked ? "Remove bookmark" : "Add bookmark"
+	return (
+		<Button
+			type="button"
+			variant="ghost"
+			size="icon"
+			className="note-header-actions-button"
+			data-active={bookmarked || undefined}
+			aria-label={label}
+			aria-pressed={bookmarked}
+			title={label}
+			onClick={() => executeCommand("bookmarks.toggle", { source: "menu", payload: { filePath } })}
+		>
+			<BookmarkIcon />
+		</Button>
+	)
+}
+
+function NoteHeaderActions({ filePath, paneId, onRename }: NoteHeaderActionsProps) {
+	const [items, setItems] = useState<MenuItem[] | null>(null)
+	return (
+		<>
+			<NoteBookmarkButton filePath={filePath} />
+			<DropdownMenu
+				modal={false}
+				open={items !== null}
+				onOpenChange={(open) =>
+					setItems(
+						open
+							? buildFileMenuItems({ filePath, isDirectory: false }, { paneId, onRename })
+							: null,
+					)
+				}
+			>
+				<DropdownMenuTrigger asChild>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						className="note-header-actions-button"
+						aria-label="Note actions"
+						title="Note actions"
+					>
+						<MoreHorizontal className="size-[15px]" />
+					</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end" sideOffset={4} className="w-56">
+					{items && <MenuItemList items={items} />}
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</>
 	)
 }
 
 interface NoteTitleInputProps {
 	titleInputRef: Ref<HTMLInputElement>
-	title: string
-	error: string | null
-	onTitleChange: (value: string) => void
-	onCommit: () => void
-	onReset: () => void
+	noteTitle: string
+	readOnly: boolean
+	onCommit: (title: string) => Promise<string | null>
 }
 
-function NoteTitleInput({
-	titleInputRef,
-	title,
-	error,
-	onTitleChange,
-	onCommit,
-	onReset,
-}: NoteTitleInputProps) {
+function NoteTitleInput({ titleInputRef, noteTitle, readOnly, onCommit }: NoteTitleInputProps) {
+	const [error, setError] = useState<string | null>(null)
 	return (
 		<div className="note-header-title-group">
 			<Input
 				ref={titleInputRef}
-				value={title}
+				defaultValue={noteTitle}
 				aria-label="Note title"
 				aria-invalid={Boolean(error)}
+				readOnly={readOnly}
 				spellCheck={false}
 				className="note-header-title"
-				onChange={(event) => onTitleChange(event.target.value)}
-				onBlur={() => void onCommit()}
+				onChange={(event) => setError(getNoteTitleError(event.target.value))}
+				onBlur={(event) => {
+					void onCommit(event.currentTarget.value).then(setError)
+				}}
 				onKeyDown={(event) => {
 					if (event.key === "Enter") {
 						event.preventDefault()
@@ -205,7 +305,8 @@ function NoteTitleInput({
 					}
 					if (event.key === "Escape") {
 						event.preventDefault()
-						onReset()
+						event.currentTarget.value = noteTitle
+						setError(null)
 						event.currentTarget.blur()
 					}
 				}}
@@ -215,39 +316,28 @@ function NoteTitleInput({
 	)
 }
 
-export function NoteHeader({ filePath, paneId, onViewHistory }: Props) {
+function NoteHeaderView({ filePath, paneId }: Props) {
 	const vault = useVaultStore((state) => state.vault)
 	const renameFile = useVaultStore((state) => state.renameFile)
-	const deleteFile = useVaultStore((state) => state.deleteFile)
-	const duplicateFile = useVaultStore((state) => state.duplicateFile)
 	const currentUser = useAuthStore((state) => state.user)
 	const ensureMembers = useMembersStore((state) => state.ensureMembers)
 	const syncConfig = useRemoteVaultStore((state) => state.syncConfig)
-	const syncPreferences = useSyncStore((state) => state.syncPreferences)
-	const bookmarked = useBookmarksStore((state) =>
-		vault?.path ? state.isBookmarked(vault.path, filePath) : false,
-	)
-	const pluginContextMenuItems = usePluginStore((state) => state.contextMenuItems)
+	const readOnly = !useCanWriteVaultPath(filePath)
+	const noAccess = !useCanReadVaultPath(filePath)
 	const notePath = getNotePathPresentation(filePath, vault?.path)
 	const noteTitle = notePath.title
-	const relativePath = vault?.path ? filePath.replace(`${vault.path}/`, "") : filePath
+	const relativePath = vault?.path
+		? (toVaultRelativePath(filePath, vault.path) ?? filePath)
+		: filePath
 	const noteMetadataRevision = useSyncStore(
 		(state) => state.noteMetadataRevisions[relativePath] ?? 0,
 	)
-	const [titleDraft, setTitleDraft] = useState<NoteTitleDraft>(() => ({
-		noteTitle,
-		title: noteTitle,
-		error: null,
-	}))
 	const [attributionDraft, setAttributionDraft] = useState<NoteAttributionDraft>({
 		key: "",
 		attribution: null,
 	})
-	const [currentTime, setCurrentTime] = useState(() => Date.now())
 	const committingRef = useRef(false)
 	const titleInputRef = useRef<HTMLInputElement>(null)
-	const title = titleDraft.noteTitle === noteTitle ? titleDraft.title : noteTitle
-	const error = titleDraft.noteTitle === noteTitle ? titleDraft.error : null
 	const attributionKey = [
 		syncConfig.enabled ? "sync" : "local",
 		syncConfig.remoteVaultId ?? "",
@@ -299,51 +389,24 @@ export function NoteHeader({ filePath, paneId, onViewHistory }: Props) {
 		vault?.path,
 	])
 
-	useEffect(() => {
-		if (!attribution) return
-		const timer = window.setInterval(() => setCurrentTime(Date.now()), 60000)
-		return () => window.clearInterval(timer)
-	}, [attribution])
-
-	const handleTitleChange = useCallback(
-		(value: string) => {
-			setTitleDraft({
-				noteTitle,
-				title: value,
-				error: getNoteTitleError(value),
-			})
+	const handleCommit = useCallback(
+		async (value: string): Promise<string | null> => {
+			const nextTitle = value.trim()
+			const validationError = getNoteTitleError(nextTitle)
+			if (validationError) return validationError
+			if (nextTitle === noteTitle || committingRef.current || readOnly) return null
+			committingRef.current = true
+			try {
+				await renameFile(filePath, `${nextTitle}.md`)
+				return null
+			} catch (renameError) {
+				return renameError instanceof Error ? renameError.message : String(renameError)
+			} finally {
+				committingRef.current = false
+			}
 		},
-		[noteTitle],
+		[filePath, noteTitle, readOnly, renameFile],
 	)
-
-	const handleCommit = useCallback(async () => {
-		if (committingRef.current) return
-		const nextTitle = title.trim()
-		const nextName = `${nextTitle}.md`
-		const validationError = getNoteTitleError(nextTitle)
-		if (validationError) {
-			setTitleDraft({ noteTitle, title, error: validationError })
-			return
-		}
-		if (nextTitle === noteTitle) {
-			setTitleDraft({ noteTitle, title: noteTitle, error: null })
-			return
-		}
-
-		committingRef.current = true
-		try {
-			await renameFile(filePath, nextName)
-			setTitleDraft({ noteTitle, title, error: null })
-		} catch (renameError) {
-			setTitleDraft({
-				noteTitle,
-				title,
-				error: renameError instanceof Error ? renameError.message : String(renameError),
-			})
-		} finally {
-			committingRef.current = false
-		}
-	}, [filePath, noteTitle, renameFile, title])
 
 	const handleRename = useCallback(() => {
 		requestAnimationFrame(() => {
@@ -352,144 +415,31 @@ export function NoteHeader({ filePath, paneId, onViewHistory }: Props) {
 		})
 	}, [])
 
-	const handleDuplicate = useCallback(
-		async (path: string) => {
-			try {
-				const newPath = await duplicateFile(path)
-				useWorkspaceStore.getState().openTab(newPath)
-			} catch (duplicateError) {
-				await reportAppError({
-					operation: "duplicate-note",
-					source: "note-header",
-					cause: duplicateError,
-					userMessage: "The note could not be duplicated.",
-					context: { filePath: path },
-				})
-			}
-		},
-		[duplicateFile],
-	)
-
-	const handleDelete = useCallback(
-		async (path: string) => {
-			const fileName = path.split("/").pop() ?? path
-			const confirmed = await getPlatform().dialog.showConfirm(
-				"Delete",
-				`Are you sure you want to delete "${fileName}"?`,
-			)
-			if (!confirmed) return
-
-			useWorkspaceStore.getState().closeTabsByPath(path)
-			try {
-				await deleteFile(path)
-			} catch (deleteError) {
-				await reportAppError({
-					operation: "delete-note",
-					source: "note-header",
-					cause: deleteError,
-					userMessage: `"${fileName}" could not be deleted.`,
-					context: { filePath: path },
-				})
-			}
-		},
-		[deleteFile],
-	)
-
-	const syncIgnored = shouldIgnoreSyncPath(relativePath, syncPreferences)
-	const canToggleSync = !(syncPreferences.ignoreImages && isSyncImagePath(relativePath))
-	const pluginFileMenuItems = useMemo(
-		() =>
-			createPluginContextMenuItems(pluginContextMenuItems, "file", {
-				location: "file",
-				filePath,
-			}),
-		[pluginContextMenuItems, filePath],
-	)
-	const menuItems = useMemo(
-		() => [
-			...buildNoteMenuItems(
-				{
-					path: filePath,
-					bookmarked,
-					syncIgnored,
-					showVersionHistory: attribution !== null,
-					canToggleSync: Boolean(vault?.path) && canToggleSync,
-				},
-				{
-					openInNewTab: (path) => useWorkspaceStore.getState().openTab(path, { forceNew: true }),
-					openInRightSplit: (path) => {
-						const workspace = useWorkspaceStore.getState()
-						workspace.openInSplit(path, paneId ?? workspace.activePaneId, "horizontal")
-					},
-					duplicate: (path) => void handleDuplicate(path),
-					exportNote: (path, format) => void exportNoteFromDialog(path, format, "context-menu"),
-					copyRelativePath: (path) => {
-						const value = vault?.path ? path.replace(`${vault.path}/`, "") : path
-						void navigator.clipboard.writeText(value)
-						void sendCoreNotification({ title: "Path copied", body: value })
-					},
-					copyAbsolutePath: (path) => {
-						void navigator.clipboard.writeText(path)
-						void sendCoreNotification({ title: "Path copied", body: path })
-					},
-					reveal: (path) => void getPlatform().dialog.revealFolder(path),
-					showVersionHistory: (path) => onViewHistory?.(path),
-					toggleBookmark: (path) => {
-						executeCommand("bookmarks.toggle", {
-							source: "menu",
-							payload: { filePath: path },
-						})
-					},
-					toggleSyncIgnore: (path, ignored) => {
-						if (!vault?.path) return
-						const value = path.replace(`${vault.path}/`, "")
-						void useSyncStore.getState().toggleExcludedPath(value, ignored)
-					},
-					rename: handleRename,
-					delete: (path) => void handleDelete(path),
-				},
-			),
-			...pluginFileMenuItems,
-		],
-		[
-			attribution,
-			bookmarked,
-			canToggleSync,
-			filePath,
-			handleDelete,
-			handleDuplicate,
-			handleRename,
-			onViewHistory,
-			paneId,
-			pluginFileMenuItems,
-			syncIgnored,
-			vault?.path,
-		],
-	)
-
-	const handleResetTitle = useCallback(() => {
-		setTitleDraft({ noteTitle, title: noteTitle, error: null })
-	}, [noteTitle])
-
 	return (
 		<header className="note-header">
 			<div className="note-header-meta-row">
-				<NoteHeaderBreadcrumb segments={notePath.segments} />
+				<NoteHeaderBreadcrumb segments={getNoteFolderSegments(filePath, vault?.path)} />
 				<div className="note-header-meta-actions">
-					{attribution && (
-						<NoteHeaderAttribution attribution={attribution} currentTime={currentTime} />
-					)}
-					<NoteHeaderActions menuItems={menuItems} />
+					<NoteCollaborators
+						filePath={filePath}
+						relativePath={relativePath}
+						syncLinked={Boolean(syncConfig.enabled && syncConfig.remoteVaultId)}
+					/>
+					{readOnly && <NoteReadOnlyBadge noAccess={noAccess} />}
+					<DatabaseViewNoteAction filePath={filePath} />
+					<NoteHeaderActions filePath={filePath} paneId={paneId} onRename={handleRename} />
 				</div>
 			</div>
 			<NoteTitleInput
+				key={noteTitle}
 				titleInputRef={titleInputRef}
-				title={title}
-				error={error}
-				onTitleChange={handleTitleChange}
+				noteTitle={noteTitle}
+				readOnly={readOnly}
 				onCommit={handleCommit}
-				onReset={handleResetTitle}
 			/>
+			{attribution && <NoteHeaderAttribution attribution={attribution} />}
 		</header>
 	)
 }
+
+export const NoteHeader = memo(NoteHeaderView)

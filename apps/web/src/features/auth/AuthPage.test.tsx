@@ -1,6 +1,16 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-import { AuthPage } from "./AuthPage"
+import { type AuthCredentials, AuthPage } from "./AuthPage"
+
+const testCredentials: AuthCredentials = {
+	loginPassword: async (_email, password) => ({ ok: true, password }),
+	signupKeys: async (password) => ({
+		authKey: `derived:${password}`,
+		kdfSalt: "salt",
+		publicKey: "public-key",
+		encryptedPrivateKey: "wrapped-private-key",
+	}),
+}
 
 function setAuthLocation(path: string) {
 	window.history.replaceState({}, "", path)
@@ -66,7 +76,14 @@ describe("AuthPage", () => {
 		})
 		const redirectTo = vi.fn()
 
-		render(<AuthPage mode="login" loginAction={loginAction} redirectTo={redirectTo} />)
+		render(
+			<AuthPage
+				mode="login"
+				credentials={testCredentials}
+				loginAction={loginAction}
+				redirectTo={redirectTo}
+			/>,
+		)
 
 		fireEvent.change(screen.getByLabelText("Email"), {
 			target: { value: "writer@example.com" },
@@ -105,7 +122,14 @@ describe("AuthPage", () => {
 		)
 		const redirectTo = vi.fn()
 
-		render(<AuthPage mode="login" loginAction={loginAction} redirectTo={redirectTo} />)
+		render(
+			<AuthPage
+				mode="login"
+				credentials={testCredentials}
+				loginAction={loginAction}
+				redirectTo={redirectTo}
+			/>,
+		)
 
 		fireEvent.change(screen.getByLabelText("Email"), {
 			target: { value: "writer@example.com" },
@@ -118,7 +142,7 @@ describe("AuthPage", () => {
 		fireEvent.submit(form)
 		fireEvent.submit(form)
 
-		expect(loginAction).toHaveBeenCalledTimes(1)
+		await waitFor(() => expect(loginAction).toHaveBeenCalledTimes(1))
 		expect(screen.getByRole("button", { name: /Signing in/i }).hasAttribute("disabled")).toBe(true)
 
 		resolveLogin?.({
@@ -149,7 +173,14 @@ describe("AuthPage", () => {
 		})
 		const redirectTo = vi.fn()
 
-		render(<AuthPage mode="signup" signupAction={signupAction} redirectTo={redirectTo} />)
+		render(
+			<AuthPage
+				mode="signup"
+				credentials={testCredentials}
+				signupAction={signupAction}
+				redirectTo={redirectTo}
+			/>,
+		)
 
 		fireEvent.change(screen.getByLabelText("Name"), {
 			target: { value: "Writer" },
@@ -169,7 +200,10 @@ describe("AuthPage", () => {
 				data: {
 					displayName: "Writer",
 					email: "writer@example.com",
-					password: "correct-password",
+					password: "derived:correct-password",
+					kdfSalt: "salt",
+					publicKey: "public-key",
+					encryptedPrivateKey: "wrapped-private-key",
 					redirectTo: "/account",
 				},
 			})

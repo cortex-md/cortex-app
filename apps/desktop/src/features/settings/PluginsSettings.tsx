@@ -1,21 +1,16 @@
-import { useVaultStore } from "@cortex/core"
-import { getPlatform } from "@cortex/platform"
-import {
-	disablePlugin,
-	enablePlugin,
-	type PluginRecord,
-	saveEnabledPlugins,
-} from "@cortex/plugin-host-core"
-import { getCommunityPluginsDir, usePluginStore } from "@cortex/plugin-host-web"
-import { Button, LucideIcon, Switch } from "@cortex/ui"
+import { COMMUNITY_PLUGINS_WARNING } from "@cortex/marketplace"
+import { type PluginRecord, usePluginStore } from "@cortex/plugin-host-core"
+import { Button, Item, LucideIcon, Switch } from "@cortex/ui"
 import { ExternalLink, FolderOpen, Store } from "lucide-react"
-import { useCallback } from "react"
+import { runInMainWindow } from "../../windows/runInMainWindow"
+import type { OpenMarketplaceHandler } from "../marketplace/openMarketplaceView"
 import {
-	type OpenMarketplaceHandler,
-	openMarketplaceView,
-} from "../marketplace/openMarketplaceView"
+	setCommunityPluginsAllowed,
+	useCommunityPluginsAllowed,
+} from "../plugins/communityPluginsSetting"
 import {
 	SettingsEmptyState,
+	SettingsField,
 	SettingsGroup,
 	SettingsList,
 	SettingsListItem,
@@ -23,24 +18,8 @@ import {
 	SettingsSection,
 } from "./SettingsPrimitives"
 
-async function openCommunityPluginsFolder() {
-	const dir = getCommunityPluginsDir()
-	const platform = getPlatform()
-	try {
-		await platform.fs.createDir(dir)
-	} catch {}
-	try {
-		await platform.dialog.revealFolder(dir)
-	} catch {
-		await platform.dialog.showAlert(
-			"Plugins Folder",
-			`Community plugins directory: ${dir}\n\nCreate this folder to install community plugins.`,
-		)
-	}
-}
-
 interface PluginsSectionProps {
-	onBrowseMarketplace?: OpenMarketplaceHandler
+	onBrowseMarketplace: OpenMarketplaceHandler
 }
 
 function PluginRow({
@@ -50,79 +29,91 @@ function PluginRow({
 	record: PluginRecord
 	onOpenMarketplace?: (pluginId: string) => void
 }) {
-	const vault = useVaultStore((s) => s.vault)
 	const isEnabled = record.status === "enabled"
 	const hasError = record.status === "error"
 	const marketplaceLabel = `Open ${record.manifest.name} in Marketplace`
 
-	const handleToggle = useCallback(
-		async (checked: boolean) => {
-			if (checked) {
-				await enablePlugin(record.manifest.id, () => vault?.path ?? null)
-			} else {
-				await disablePlugin(record.manifest.id)
-			}
-			if (vault?.path) {
-				await saveEnabledPlugins(vault.path)
-			}
-		},
-		[record.manifest.id, vault],
-	)
-
 	return (
-		<SettingsListItem>
-			<button
-				type="button"
-				className="settings-plugin-marketplace-link"
-				aria-label={marketplaceLabel}
-				disabled={!onOpenMarketplace}
-				onClick={() => onOpenMarketplace?.(record.manifest.id)}
+		<SettingsListItem data-settings-field={`plugins.${record.manifest.id}`}>
+			<Item
+				asChild
+				className="settings-plugin-marketplace-link flex-nowrap rounded-none border-0 p-0 text-[length:inherit]"
 			>
-				<div className="settings-plugin-icon">
-					<LucideIcon name={record.manifest.icon} size={16} className="text-text-muted" />
-				</div>
-				<div className="flex min-w-0 flex-1 flex-col">
-					<div className="flex items-center gap-2">
-						<span
-							className="truncate text-sm font-medium text-foreground"
-							title={record.manifest.name}
-						>
-							{record.manifest.name}
-						</span>
-						<span className="text-xs text-muted-foreground">v{record.manifest.version}</span>
-						<span className="text-xs text-muted-foreground">by {record.manifest.author}</span>
+				<button
+					type="button"
+					aria-label={marketplaceLabel}
+					disabled={!onOpenMarketplace}
+					onClick={() => onOpenMarketplace?.(record.manifest.id)}
+				>
+					<div className="settings-plugin-icon">
+						<LucideIcon name={record.manifest.icon} size={16} className="text-text-muted" />
 					</div>
-					<span
-						className="truncate text-xs text-muted-foreground"
-						title={record.manifest.description}
-					>
-						{record.manifest.description}
-					</span>
-					{hasError && record.error && (
-						<span className="truncate text-xs text-status-error-foreground" title={record.error}>
-							{record.error}
+					<div className="flex min-w-0 flex-1 flex-col">
+						<div className="flex items-center gap-2">
+							<span
+								className="truncate text-sm font-medium text-foreground"
+								title={record.manifest.name}
+							>
+								{record.manifest.name}
+							</span>
+							<span className="text-xs text-muted-foreground">v{record.manifest.version}</span>
+							<span className="text-xs text-muted-foreground">by {record.manifest.author}</span>
+						</div>
+						<span
+							className="truncate text-xs text-muted-foreground"
+							title={record.manifest.description}
+						>
+							{record.manifest.description}
 						</span>
+						{hasError && record.error && (
+							<span className="truncate text-xs text-status-error-foreground" title={record.error}>
+								{record.error}
+							</span>
+						)}
+					</div>
+					{onOpenMarketplace && (
+						<ExternalLink size={13} className="settings-plugin-marketplace-icon" aria-hidden />
 					)}
-				</div>
-				{onOpenMarketplace && (
-					<ExternalLink size={13} className="settings-plugin-marketplace-icon" aria-hidden />
-				)}
-			</button>
-			<Switch checked={isEnabled} onCheckedChange={handleToggle} />
+				</button>
+			</Item>
+			<Switch
+				checked={isEnabled}
+				onCheckedChange={(enabled) =>
+					runInMainWindow("setPluginEnabled", { pluginId: record.manifest.id, enabled })
+				}
+			/>
 		</SettingsListItem>
 	)
 }
 
-export function PluginsSection({ onBrowseMarketplace = openMarketplaceView }: PluginsSectionProps) {
+export function PluginsSection({ onBrowseMarketplace }: PluginsSectionProps) {
 	const plugins = usePluginStore((s) => s.plugins)
+	const allowCommunity = useCommunityPluginsAllowed()
 
 	const pluginRecords = Object.values(plugins)
-	const corePlugins = pluginRecords.filter((p) => p.manifest.author === "Cortex")
-	const communityPlugins = pluginRecords.filter((p) => p.manifest.author !== "Cortex")
+	const corePlugins = pluginRecords.filter((p) => !p.community)
+	const communityPlugins = pluginRecords.filter((p) => p.community)
 
 	return (
 		<SettingsPage>
+			<SettingsSection title="Restricted mode">
+				<SettingsGroup>
+					<SettingsField
+						fieldId="plugins.allow-community"
+						description={COMMUNITY_PLUGINS_WARNING}
+						htmlFor="allow-community-plugins"
+					>
+						<Switch
+							id="allow-community-plugins"
+							checked={allowCommunity}
+							onCheckedChange={(checked) => void setCommunityPluginsAllowed(checked)}
+						/>
+					</SettingsField>
+				</SettingsGroup>
+			</SettingsSection>
+
 			<SettingsSection
+				fieldId="plugins.core"
 				title="Core plugins"
 				description="Built-in plugin modules shipped with Cortex."
 			>
@@ -140,6 +131,7 @@ export function PluginsSection({ onBrowseMarketplace = openMarketplaceView }: Pl
 			</SettingsSection>
 
 			<SettingsSection
+				fieldId="plugins.community"
 				title="Community plugins"
 				description="Vault-scoped plugins installed in this workspace."
 				action={
@@ -148,7 +140,11 @@ export function PluginsSection({ onBrowseMarketplace = openMarketplaceView }: Pl
 							<Store size={12} />
 							Browse
 						</Button>
-						<Button variant="ghost" size="sm" onClick={openCommunityPluginsFolder}>
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={() => runInMainWindow("openCommunityPluginsFolder")}
+						>
 							<FolderOpen size={12} />
 							Open folder
 						</Button>
@@ -156,7 +152,11 @@ export function PluginsSection({ onBrowseMarketplace = openMarketplaceView }: Pl
 				}
 			>
 				<SettingsGroup>
-					{communityPlugins.length === 0 ? (
+					{!allowCommunity ? (
+						<SettingsEmptyState>
+							Community plugins are turned off. Allow them above to load plugins from this vault.
+						</SettingsEmptyState>
+					) : communityPlugins.length === 0 ? (
 						<SettingsEmptyState>
 							No community plugins installed. Place plugins in vault/.cortex/plugins/ to get
 							started.

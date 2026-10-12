@@ -1,44 +1,15 @@
-import { useMembersStore } from "@cortex/core"
-import { getPlatform } from "@cortex/platform"
-import {
-	Avatar,
-	AvatarFallback,
-	Badge,
-	Button,
-	Input,
-	NativeSelect,
-	NativeSelectOption,
-	Spinner,
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@cortex/ui"
-import { MailPlus, Trash2, UserMinus } from "lucide-react"
-import { type ChangeEvent, type KeyboardEvent, useEffect, useState } from "react"
+import { useAccountStore, useMembersStore, useServerCapabilities, useSyncStore } from "@cortex/core"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@cortex/ui"
+import { useEffect, useState } from "react"
+import { useSettingsRevealTarget } from "../settings/settingsReveal"
+import { GroupsTab } from "./GroupsTab"
+import { KeyTrustBanner } from "./KeyTrustBanner"
+import { isVaultAdminRole } from "./memberDirectory"
+import { TEAM_ROLES } from "./memberRoles"
+import { PeopleTab } from "./PeopleTab"
+import { VaultAccessSettings } from "./VaultAccessSettings"
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const inviteDateFormatter = new Intl.DateTimeFormat(undefined, {
-	month: "short",
-	day: "numeric",
-	year: "numeric",
-})
-
-function formatInviteDate(value: string): string {
-	return inviteDateFormatter.format(new Date(value))
-}
-
-function getMemberInitials(displayName: string): string {
-	const names = displayName.trim().split(/\s+/).filter(Boolean)
-	if (names.length === 0) return "?"
-	return names
-		.slice(0, 2)
-		.map((name) => name.charAt(0))
-		.join("")
-		.toUpperCase()
-}
+type MembersTab = "people" | "groups" | "settings"
 
 interface MembersPanelProps {
 	vaultId: string
@@ -47,314 +18,79 @@ interface MembersPanelProps {
 
 export function MembersPanel({ vaultId, currentUserRole }: MembersPanelProps) {
 	const members = useMembersStore((state) => state.members)
-	const invites = useMembersStore((state) => state.invites)
-	const loading = useMembersStore((state) => state.loading)
+	const overviewVault = useMembersStore((state) => state.overviewVault)
 	const error = useMembersStore((state) => state.error)
-	const fetchMembers = useMembersStore((state) => state.fetchMembers)
-	const updateMemberRole = useMembersStore((state) => state.updateMemberRole)
-	const removeMember = useMembersStore((state) => state.removeMember)
-	const fetchInvites = useMembersStore((state) => state.fetchInvites)
-	const createInvite = useMembersStore((state) => state.createInvite)
-	const deleteInvite = useMembersStore((state) => state.deleteInvite)
-	const clearError = useMembersStore((state) => state.clearError)
+	const fetchOverview = useMembersStore((state) => state.fetchOverview)
+	const ensureCapabilities = useAccountStore((state) => state.ensureCapabilities)
+	const loadKeyTrustIssues = useSyncStore((state) => state.loadKeyTrustIssues)
+	const capabilities = useServerCapabilities()
+	const [tab, setTab] = useState<MembersTab>("people")
+	const revealTarget = useSettingsRevealTarget()
+	const [handledRevealNonce, setHandledRevealNonce] = useState<number | null>(null)
+	if (revealTarget && revealTarget.nonce !== handledRevealNonce) {
+		setHandledRevealNonce(revealTarget.nonce)
+		if (revealTarget.fieldId?.startsWith("sync-members.")) setTab("people")
+	}
 
-	const [inviteEmail, setInviteEmail] = useState("")
-	const [inviteRole, setInviteRole] = useState("editor")
-	const [inviting, setInviting] = useState(false)
+	const canManage = isVaultAdminRole(currentUserRole)
+	const guestsAvailable =
+		capabilities?.features.guests !== false && overviewVault?.allowGuests !== false
+	const inviteRoles = guestsAvailable ? [...TEAM_ROLES, "guest"] : TEAM_ROLES
+	const memberRoles = currentUserRole === "owner" ? ["owner", ...inviteRoles] : inviteRoles
+	const activeTab = tab === "settings" && !canManage ? "people" : tab
 
-	const isValidEmail = EMAIL_REGEX.test(inviteEmail.trim())
-	// oxlint-disable react-doctor/no-event-handler -- members and invites load follows the selected vault and user permissions
-	const canManage = currentUserRole === "owner" || currentUserRole === "admin"
-	const pendingInvites = invites.filter((invite) => !invite.accepted)
+	// oxlint-disable react-doctor/no-event-handler -- members, invites and server features load for the selected vault
+	useEffect(() => {
+		if (currentUserRole) void fetchOverview(vaultId)
+	}, [vaultId, fetchOverview, currentUserRole])
 
 	useEffect(() => {
-		if (currentUserRole) {
-			fetchMembers(vaultId)
-		}
-	}, [vaultId, fetchMembers, currentUserRole])
+		void loadKeyTrustIssues(vaultId)
+	}, [vaultId, loadKeyTrustIssues])
 
 	useEffect(() => {
-		if (canManage) {
-			fetchInvites(vaultId)
-		}
-	}, [vaultId, fetchInvites, canManage])
+		void ensureCapabilities()
+	}, [ensureCapabilities])
 	// oxlint-enable react-doctor/no-event-handler
 
-	const handleInvite = async () => {
-		if (!isValidEmail) return
-		clearError()
-		setInviting(true)
-		try {
-			await createInvite(vaultId, inviteEmail.trim(), inviteRole, "")
-			setInviteEmail("")
-		} catch {
-			// Failure is surfaced through membersStore.error, rendered below.
-		} finally {
-			setInviting(false)
-		}
-	}
-
-	const handleRemoveMember = async (userId: string, displayName: string) => {
-		const confirmed = await getPlatform().dialog.showConfirm({
-			title: "Remove member",
-			message: `Are you sure you want to remove ${displayName} from this vault?`,
-			destructive: true,
-			confirmLabel: "Remove",
-		})
-		if (!confirmed) return
-		clearError()
-		await removeMember(vaultId, userId)
-	}
-
-	const handleChangeRole = async (userId: string, newRole: string) => {
-		clearError()
-		await updateMemberRole(vaultId, userId, newRole)
-	}
-
-	const handleDeleteInvite = async (inviteId: string, inviteeEmail: string) => {
-		const confirmed = await getPlatform().dialog.showConfirm({
-			title: "Cancel invite",
-			message: `Are you sure you want to cancel the invite for ${inviteeEmail}?`,
-			destructive: true,
-			confirmLabel: "Cancel invite",
-		})
-		if (!confirmed) return
-		clearError()
-		await deleteInvite(vaultId, inviteId)
-	}
-
 	return (
-		<div className="flex flex-col gap-5">
-			{canManage && (
-				<section className="rounded-[8px] border border-border bg-muted/30 p-4">
-					<div className="mb-3 flex items-start gap-3">
-						<div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-subtle text-brand-text">
-							<MailPlus className="size-4" />
-						</div>
-						<div>
-							<h3 className="m-0 text-sm font-semibold text-foreground">Invite a member</h3>
-							<p className="m-0 mt-0.5 text-xs leading-[18px] text-muted-foreground">
-								Send access to this vault with an initial role.
-							</p>
-						</div>
-					</div>
-					<div className="flex items-center gap-2">
-						<Input
-							className="min-w-0 flex-1"
-							type="email"
-							aria-label="Invite email"
-							placeholder="name@example.com"
-							value={inviteEmail}
-							onChange={(event: ChangeEvent<HTMLInputElement>) =>
-								setInviteEmail(event.target.value)
-							}
-							onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
-								if (event.key === "Enter") void handleInvite()
-							}}
-						/>
-						<NativeSelect
-							aria-label="Invite role"
-							value={inviteRole}
-							onChange={(event) => setInviteRole(event.target.value)}
-							className="w-32"
-						>
-							<NativeSelectOption value="admin">Admin</NativeSelectOption>
-							<NativeSelectOption value="editor">Editor</NativeSelectOption>
-							<NativeSelectOption value="viewer">Viewer</NativeSelectOption>
-						</NativeSelect>
-						<Button
-							size="sm"
-							onClick={handleInvite}
-							disabled={inviting || !isValidEmail}
-							className="shrink-0"
-						>
-							{inviting ? <Spinner className="size-3" /> : <MailPlus />}
-							Send invite
-						</Button>
-					</div>
-				</section>
-			)}
-
-			<section>
-				<div className="mb-2 flex items-end justify-between px-0.5">
-					<div>
-						<h3 className="m-0 text-sm font-semibold text-foreground">Vault members</h3>
-						<p className="m-0 mt-0.5 text-xs text-muted-foreground">
-							People with current access to this vault.
-						</p>
-					</div>
-					{members.length > 0 && (
-						<Badge variant="secondary">
-							{members.length} {members.length === 1 ? "member" : "members"}
-						</Badge>
-					)}
-				</div>
-				<div className="overflow-hidden rounded-[8px] border border-border bg-background">
-					{loading && members.length === 0 ? (
-						<div className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
-							<Spinner className="size-4" />
-							Loading members
-						</div>
-					) : members.length === 0 ? (
-						<div className="p-8 text-center">
-							<p className="m-0 text-sm font-medium text-foreground">No members found</p>
-							<p className="m-0 mt-1 text-xs text-muted-foreground">
-								Invite someone to begin collaborating.
-							</p>
-						</div>
-					) : (
-						<Table>
-							<TableHeader>
-								<TableRow className="hover:bg-transparent">
-									<TableHead>Member</TableHead>
-									<TableHead>Role</TableHead>
-									<TableHead>Joined</TableHead>
-									<TableHead className="w-12 text-right">Actions</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{members.map((member) => (
-									<TableRow key={member.userId}>
-										<TableCell>
-											<div className="flex min-w-0 items-center gap-3">
-												<Avatar>
-													<AvatarFallback className="bg-brand-subtle font-medium text-brand-text">
-														{getMemberInitials(member.displayName)}
-													</AvatarFallback>
-												</Avatar>
-												<div className="min-w-0">
-													<div
-														className="truncate text-[13px] font-medium text-foreground"
-														title={member.displayName}
-													>
-														{member.displayName}
-													</div>
-													<div
-														className="truncate text-xs text-muted-foreground"
-														title={member.email}
-													>
-														{member.email}
-													</div>
-												</div>
-											</div>
-										</TableCell>
-										<TableCell>
-											{canManage ? (
-												<NativeSelect
-													size="sm"
-													aria-label={`Role for ${member.displayName}`}
-													value={member.role}
-													onChange={(event) => handleChangeRole(member.userId, event.target.value)}
-													className="w-28 capitalize"
-												>
-													{currentUserRole === "owner" && (
-														<NativeSelectOption value="owner">Owner</NativeSelectOption>
-													)}
-													<NativeSelectOption value="admin">Admin</NativeSelectOption>
-													<NativeSelectOption value="editor">Editor</NativeSelectOption>
-													<NativeSelectOption value="viewer">Viewer</NativeSelectOption>
-												</NativeSelect>
-											) : (
-												<Badge variant="outline" className="capitalize">
-													{member.role}
-												</Badge>
-											)}
-										</TableCell>
-										<TableCell className="text-muted-foreground">
-											{formatInviteDate(member.joinedAt)}
-										</TableCell>
-										<TableCell className="text-right">
-											{canManage && member.role !== "owner" && (
-												<Button
-													variant="ghost"
-													size="icon-xs"
-													onClick={() => handleRemoveMember(member.userId, member.displayName)}
-													aria-label={`Remove ${member.displayName}`}
-													className="h-7 w-7 text-muted-foreground hover:text-status-error-foreground"
-												>
-													<UserMinus />
-												</Button>
-											)}
-										</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					)}
-				</div>
-			</section>
-
-			{canManage && pendingInvites.length > 0 && (
-				<section>
-					<div className="mb-2 flex items-end justify-between px-0.5">
-						<div>
-							<h3 className="m-0 text-sm font-semibold text-foreground">Pending invitations</h3>
-							<p className="m-0 mt-0.5 text-xs text-muted-foreground">
-								Invitations that have not been accepted yet.
-							</p>
-						</div>
-						<Badge variant="secondary">{pendingInvites.length}</Badge>
-					</div>
-					<div className="overflow-hidden rounded-[8px] border border-border bg-background">
-						<Table>
-							<TableHeader>
-								<TableRow className="hover:bg-transparent">
-									<TableHead>Invitee</TableHead>
-									<TableHead>Role</TableHead>
-									<TableHead>Expires</TableHead>
-									<TableHead className="w-12 text-right">Actions</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{pendingInvites.map((invite) => (
-									<TableRow key={invite.id}>
-										<TableCell>
-											<div className="flex items-center gap-3">
-												<Avatar>
-													<AvatarFallback>
-														{invite.inviteeEmail.charAt(0).toUpperCase()}
-													</AvatarFallback>
-												</Avatar>
-												<div>
-													<p className="m-0 text-[13px] font-medium text-foreground">
-														{invite.inviteeEmail}
-													</p>
-													<p className="m-0 text-xs text-muted-foreground">Awaiting response</p>
-												</div>
-											</div>
-										</TableCell>
-										<TableCell>
-											<Badge variant="outline" className="capitalize">
-												{invite.role}
-											</Badge>
-										</TableCell>
-										<TableCell className="text-muted-foreground">
-											{formatInviteDate(invite.expiresAt)}
-										</TableCell>
-										<TableCell className="text-right">
-											<Button
-												variant="ghost"
-												size="icon-xs"
-												onClick={() => handleDeleteInvite(invite.id, invite.inviteeEmail)}
-												aria-label={`Cancel invite for ${invite.inviteeEmail}`}
-												className="text-muted-foreground hover:text-status-error-foreground"
-											>
-												<Trash2 />
-											</Button>
-										</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					</div>
-				</section>
-			)}
-
-			{error && (
-				<p className="m-0 rounded-[6px] border border-status-error-border bg-status-error-background p-3 text-xs text-status-error-foreground">
-					{error}
-				</p>
-			)}
-		</div>
+		<>
+			<KeyTrustBanner vaultId={vaultId} canManage={canManage} members={members} />
+			<Tabs
+				value={activeTab}
+				onValueChange={(value) => setTab(value as MembersTab)}
+				className="members-tabs"
+			>
+				<TabsList className="members-tabs-list" aria-label="Members">
+					<TabsTrigger value="people">People</TabsTrigger>
+					<TabsTrigger value="groups">Groups</TabsTrigger>
+					{canManage && <TabsTrigger value="settings">Settings</TabsTrigger>}
+				</TabsList>
+				<TabsContent value="people" className="members-tab-content">
+					<PeopleTab
+						vaultId={vaultId}
+						canManage={canManage}
+						inviteRoles={inviteRoles}
+						memberRoles={memberRoles}
+					/>
+				</TabsContent>
+				<TabsContent value="groups" className="members-tab-content">
+					<GroupsTab vaultId={vaultId} canManage={canManage} />
+				</TabsContent>
+				{canManage && (
+					<TabsContent value="settings" className="members-tab-content">
+						{overviewVault ? (
+							<VaultAccessSettings
+								vault={overviewVault}
+								onSaved={(vault) => useMembersStore.setState({ overviewVault: vault })}
+							/>
+						) : (
+							<p className="share-muted">Loading vault settings…</p>
+						)}
+					</TabsContent>
+				)}
+			</Tabs>
+			{error && <p className="settings-section-error">{error}</p>}
+		</>
 	)
 }

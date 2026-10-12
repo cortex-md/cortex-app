@@ -1,44 +1,26 @@
-import type { RemoteVaultInfo, SyncConfig } from "@cortex/platform"
+import type { RemoteVaultInfo, RemoteVaultSettings, SyncConfig } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
 import {
-	DEFAULT_SELF_HOSTED_SYNC_SERVER_URL,
 	normalizeServerUrl,
 	requiresCloudEntitlement,
 	resolveSyncServerUrl,
 } from "../sync/serverConfig"
+import {
+	createDefaultSyncConfig,
+	linkRemoteVault,
+	readSyncConfig,
+	unlinkRemoteVault,
+	updateSyncConfig,
+} from "../sync/syncConfig"
+import { useAccessStore } from "./accessStore"
 import { refreshAuthStatus } from "./authSession"
 import { useSubscriptionStore } from "./subscriptionStore"
 
 export { DEFAULT_SYNC_SERVER_URL } from "../sync/serverConfig"
-
-export function createDefaultSyncConfig(): SyncConfig {
-	return {
-		enabled: false,
-		remoteVaultId: null,
-		selfHosted: false,
-		serverUrl: DEFAULT_SELF_HOSTED_SYNC_SERVER_URL,
-		offlineMode: false,
-		selfHostedEnvironment: {},
-	}
-}
-
-export function normalizeSyncConfig(config: Partial<SyncConfig>): SyncConfig {
-	return {
-		...createDefaultSyncConfig(),
-		enabled: config.enabled ?? false,
-		remoteVaultId: config.remoteVaultId ?? null,
-		selfHosted: config.selfHosted ?? false,
-		serverUrl: config.serverUrl?.trim() || DEFAULT_SELF_HOSTED_SYNC_SERVER_URL,
-		offlineMode: config.offlineMode ?? false,
-		selfHostedEnvironment:
-			config.selfHostedEnvironment && typeof config.selfHostedEnvironment === "object"
-				? config.selfHostedEnvironment
-				: {},
-	}
-}
+export { createDefaultSyncConfig, normalizeSyncConfig } from "../sync/syncConfig"
 
 export interface RemoteVaultState {
 	remoteVaults: RemoteVaultInfo[]
@@ -54,6 +36,7 @@ export interface RemoteVaultState {
 		name: string | null,
 		description: string | null,
 	) => Promise<void>
+	updateVaultSettings: (vaultId: string, settings: RemoteVaultSettings) => Promise<RemoteVaultInfo>
 	deleteRemoteVault: (vaultId: string) => Promise<void>
 	linkVault: (vaultPath: string, remoteVaultId: string) => Promise<void>
 	unlinkVault: (vaultPath: string) => Promise<void>
@@ -132,6 +115,16 @@ export const useRemoteVaultStore = create<RemoteVaultState>()(
 				return vault
 			},
 
+			updateVaultSettings: async (vaultId, settings) => {
+				await prepareRemoteMutation(get().syncConfig)
+				const updated = await getPlatform().remoteVault.updateSettings(vaultId, settings)
+				set((state) => {
+					const index = state.remoteVaults.findIndex((v) => v.id === vaultId)
+					if (index !== -1) state.remoteVaults[index] = updated
+				})
+				return updated
+			},
+
 			updateRemoteVault: async (vaultId, name, description) => {
 				const platform = getPlatform()
 				const syncConfig = get().syncConfig
@@ -160,9 +153,8 @@ export const useRemoteVaultStore = create<RemoteVaultState>()(
 			},
 
 			linkVault: async (vaultPath, remoteVaultId) => {
-				const platform = getPlatform()
 				await ensureRemoteMutationAllowed(get().syncConfig)
-				await platform.remoteVault.link(vaultPath, remoteVaultId)
+				await linkRemoteVault(vaultPath, remoteVaultId)
 				set((state) => {
 					state.linkedVaultId = remoteVaultId
 					state.syncConfig.remoteVaultId = remoteVaultId
@@ -170,8 +162,8 @@ export const useRemoteVaultStore = create<RemoteVaultState>()(
 			},
 
 			unlinkVault: async (vaultPath) => {
-				const platform = getPlatform()
-				await platform.remoteVault.unlink(vaultPath)
+				await unlinkRemoteVault(vaultPath)
+				useAccessStore.getState().resetAccess()
 				set((state) => {
 					state.linkedVaultId = null
 					state.syncConfig.remoteVaultId = null
@@ -187,8 +179,7 @@ export const useRemoteVaultStore = create<RemoteVaultState>()(
 					return
 				}
 				try {
-					const platform = getPlatform()
-					const config = normalizeSyncConfig(await platform.remoteVault.readSyncConfig(vaultPath))
+					const config = await readSyncConfig(vaultPath)
 					set((state) => {
 						state.syncConfig = config
 						state.linkedVaultId = config.remoteVaultId
@@ -204,8 +195,7 @@ export const useRemoteVaultStore = create<RemoteVaultState>()(
 			},
 
 			updateSyncConfigValue: async (vaultPath, key, value) => {
-				const platform = getPlatform()
-				await platform.remoteVault.updateSyncConfig(vaultPath, key, value)
+				await updateSyncConfig(vaultPath, { [key]: value })
 				set((state) => {
 					;(state.syncConfig as Record<string, unknown>)[key] = value
 					if (key === "remoteVaultId") {

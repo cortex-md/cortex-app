@@ -4,39 +4,146 @@ export type MergeResult =
 	| { kind: "clean"; content: string }
 	| { kind: "conflicts"; content: string }
 
+interface Hunk {
+	start: number
+	end: number
+	lines: string[]
+	side: "local" | "remote"
+}
+
+const LOCAL_MARKER = "<<<<<<< LOCAL\n"
+const SEPARATOR_MARKER = "=======\n"
+const REMOTE_MARKER = ">>>>>>> REMOTE\n"
+
+const dmp = new DiffMatchPatch()
+
+function splitLines(text: string): string[] {
+	const lines: string[] = []
+	let start = 0
+	let newline = text.indexOf("\n")
+	while (newline >= 0) {
+		lines.push(text.slice(start, newline + 1))
+		start = newline + 1
+		newline = text.indexOf("\n", start)
+	}
+	if (start < text.length) lines.push(text.slice(start))
+	return lines
+}
+
+function diffHunks(ancestor: string, changed: string, side: Hunk["side"]): Hunk[] {
+	const { chars1, chars2, lineArray } = dmp.diff_linesToChars_(ancestor, changed)
+	const hunks: Hunk[] = []
+	let position = 0
+	let current: Hunk | null = null
+	for (const [operation, chars] of dmp.diff_main(chars1, chars2, false)) {
+		if (operation === DiffMatchPatch.DIFF_EQUAL) {
+			if (current) hunks.push(current)
+			current = null
+			position += chars.length
+			continue
+		}
+		current ??= { start: position, end: position, lines: [], side }
+		if (operation === DiffMatchPatch.DIFF_DELETE) {
+			position += chars.length
+			current.end = position
+		} else {
+			for (let offset = 0; offset < chars.length; offset += 1) {
+				current.lines.push(lineArray[chars.charCodeAt(offset)] ?? "")
+			}
+		}
+	}
+	if (current) hunks.push(current)
+	return hunks
+}
+
+function overlaps(hunk: Hunk, start: number, end: number): boolean {
+	if (hunk.start < end && start < hunk.end) return true
+	return hunk.start === hunk.end && start === end && hunk.start === start
+}
+
+function applyHunks(base: string[], start: number, end: number, hunks: Hunk[]): string {
+	let position = start
+	let text = ""
+	for (const hunk of hunks) {
+		text += base.slice(position, hunk.start).join("") + hunk.lines.join("")
+		position = hunk.end
+	}
+	return text + base.slice(position, end).join("")
+}
+
+function withTrailingNewline(text: string): string {
+	return text === "" || text.endsWith("\n") ? text : `${text}\n`
+}
+
+export function conflictMarkers(local: string, remote: string): string {
+	return `${LOCAL_MARKER}${withTrailingNewline(local)}${SEPARATOR_MARKER}${withTrailingNewline(remote)}${REMOTE_MARKER}`
+}
+
 export function mergeMarkdown(ancestor: string, local: string, remote: string): MergeResult {
-	if (local === remote) return { kind: "clean", content: local }
+	if (local === remote || remote === ancestor) return { kind: "clean", content: local }
 	if (local === ancestor) return { kind: "clean", content: remote }
-	if (remote === ancestor) return { kind: "clean", content: local }
 
-	const dmp = new DiffMatchPatch()
-	const localPatches = dmp.patch_make(ancestor, local)
-	const [mergedLocal, localResults] = dmp.patch_apply(localPatches, ancestor)
-	if (localResults.some((applied) => !applied)) {
-		return { kind: "conflicts", content: conflictMarkers(local, remote) }
+	const base = splitLines(ancestor)
+	const hunks = [...diffHunks(ancestor, local, "local"), ...diffHunks(ancestor, remote, "remote")]
+	hunks.sort((left, right) => left.start - right.start || left.end - right.end)
+
+	let content = ""
+	let position = 0
+	let conflicted = false
+	let index = 0
+	while (index < hunks.length) {
+		const first = hunks[index] as Hunk
+		const group = [first]
+		let end = first.end
+		index += 1
+		while (index < hunks.length && overlaps(hunks[index] as Hunk, first.start, end)) {
+			const next = hunks[index] as Hunk
+			group.push(next)
+			end = Math.max(end, next.end)
+			index += 1
+		}
+
+		content += base.slice(position, first.start).join("")
+		position = end
+		const localHunks = group.filter((hunk) => hunk.side === "local")
+		const remoteHunks = group.filter((hunk) => hunk.side === "remote")
+		const localText = applyHunks(base, first.start, end, localHunks)
+		if (localHunks.length === 0 || remoteHunks.length === 0) {
+			content +=
+				localHunks.length === 0 ? applyHunks(base, first.start, end, remoteHunks) : localText
+			continue
+		}
+		const remoteText = applyHunks(base, first.start, end, remoteHunks)
+		if (localText === remoteText) {
+			content += localText
+			continue
+		}
+		conflicted = true
+		content = withTrailingNewline(content) + conflictMarkers(localText, remoteText)
 	}
-
-	const remotePatches = dmp.patch_make(ancestor, remote)
-	const [merged, remoteResults] = dmp.patch_apply(remotePatches, mergedLocal)
-	if (remoteResults.some((applied) => !applied)) {
-		return { kind: "conflicts", content: conflictMarkers(local, remote) }
-	}
-
-	return { kind: "clean", content: merged }
+	content += base.slice(position).join("")
+	return { kind: conflicted ? "conflicts" : "clean", content }
 }
 
-function conflictMarkers(local: string, remote: string): string {
-	return `<<<<<<< LOCAL\n${local}\n=======\n${remote}\n>>>>>>> REMOTE\n`
+export type ConflictSide = "local" | "remote"
+
+export function hasConflictMarkers(text: string): boolean {
+	return splitLines(text).some(
+		(line) => (line.endsWith("\n") ? line : `${line}\n`) === LOCAL_MARKER,
+	)
 }
 
-export type BinaryWinner = "local" | "remote"
-
-export function mergeBinary(localMtime: number | null, remoteMtime: number | null): BinaryWinner {
-	if (localMtime !== null && remoteMtime !== null) {
-		return localMtime >= remoteMtime ? "local" : "remote"
+export function takeConflictSide(text: string, side: ConflictSide): string {
+	let result = ""
+	let section: "outside" | ConflictSide = "outside"
+	for (const line of splitLines(text)) {
+		const marker = line.endsWith("\n") ? line : `${line}\n`
+		if (section === "outside" && marker === LOCAL_MARKER) section = "local"
+		else if (section === "local" && marker === SEPARATOR_MARKER) section = "remote"
+		else if (section === "remote" && marker === REMOTE_MARKER) section = "outside"
+		else if (section === "outside" || section === side) result += line
 	}
-	if (localMtime !== null) return "local"
-	return "remote"
+	return section === "outside" ? result : text
 }
 
 export function mergeJson(ancestor: string, local: string, remote: string): MergeResult {
@@ -85,6 +192,6 @@ export function isJsonConfig(path: string): boolean {
 	return path.startsWith(".cortex/") && path.endsWith(".json")
 }
 
-export function isBinary(path: string): boolean {
-	return !isMarkdown(path) && !isJsonConfig(path)
+export function isMergeableText(path: string): boolean {
+	return isMarkdown(path) || isJsonConfig(path)
 }

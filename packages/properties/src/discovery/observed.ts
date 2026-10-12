@@ -1,6 +1,11 @@
 import type { PrimitivePropertyType, PropertyDefinition, PropertyMap, VaultSchema } from "../types"
 
-export const EXCLUDED_OBSERVED_PROPERTY_KEYS = new Set(["tags", "aliases", "cortex-tags"])
+export const EXCLUDED_OBSERVED_PROPERTY_KEYS = new Set([
+	"tags",
+	"aliases",
+	"cortex-tags",
+	"database",
+])
 
 export function isObservablePropertyValue(value: unknown): boolean {
 	return (

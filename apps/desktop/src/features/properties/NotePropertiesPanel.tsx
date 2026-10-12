@@ -1,58 +1,24 @@
 import {
-	isEmptyPropertyValue,
-	type PropertyDefinition,
+	getHiddenPropertyDefinitions,
+	getVisiblePropertyDefinitions,
 	type RawNoteProjection,
+	TAGS_PROPERTY_DEFINITION,
 } from "@cortex/properties"
 import { Button } from "@cortex/ui"
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react"
-import { useCallback, useMemo, useState } from "react"
+import { memo, useCallback, useMemo, useState } from "react"
 import { AddPropertyPopover } from "./AddPropertyPopover"
 import { PropertyRow } from "./PropertyRow"
 import { useNotePropertiesPanel } from "./useNotePropertiesPanel"
 
 interface NotePropertiesPanelProps {
 	filePath: string
-	rawContent?: string
 	projection?: RawNoteProjection
+	readOnly?: boolean
 }
 
-const tagsPropertyDefinition: PropertyDefinition = {
-	id: "00000000-0000-4000-8000-000000000001",
-	key: "tags",
-	name: "tags",
-	type: "tags",
-	createdAt: "1970-01-01T00:00:00.000Z",
-}
-
-function isVisiblePropertyDefinition(
-	definition: PropertyDefinition,
-	persistedMeta: Record<string, unknown>,
-	resolvedMeta: Record<string, unknown>,
-	revealedDefinitionIds: Set<string>,
-): boolean {
-	const hasPersistedValue = Object.hasOwn(persistedMeta, definition.key)
-	const persistedValue = persistedMeta[definition.key]
-	const resolvedValue = resolvedMeta[definition.key]
-	if (revealedDefinitionIds.has(definition.id)) return true
-	if (definition.type === "created_time") return !isEmptyPropertyValue(resolvedValue)
-	if (
-		definition.type === "id" ||
-		definition.type === "created_by" ||
-		definition.type === "last_edited_time" ||
-		definition.type === "last_edited_by"
-	) {
-		return hasPersistedValue && !isEmptyPropertyValue(persistedValue)
-	}
-	if (definition.defaultOptionId && isEmptyPropertyValue(persistedValue)) return false
-	return hasPersistedValue
-}
-
-export function NotePropertiesPanel({
-	filePath,
-	rawContent,
-	projection,
-}: NotePropertiesPanelProps) {
-	const panel = useNotePropertiesPanel(filePath, { rawContent, projection })
+function NotePropertiesPanelView({ filePath, projection, readOnly }: NotePropertiesPanelProps) {
+	const panel = useNotePropertiesPanel(filePath, { projection })
 	const [revealedState, setRevealedState] = useState<{
 		filePath: string
 		definitionIds: Set<string>
@@ -74,41 +40,19 @@ export function NotePropertiesPanel({
 		},
 		[filePath],
 	)
-	const visibleDefinitions = useMemo(() => {
-		const schemaDefinitions = panel.schema.properties.filter((definition) =>
-			isVisiblePropertyDefinition(
-				definition,
-				panel.persistedMeta,
-				panel.meta,
+	const visibleDefinitions = useMemo(
+		() =>
+			getVisiblePropertyDefinitions({
+				properties: panel.schema.properties,
+				persistedMeta: panel.persistedMeta,
+				resolvedMeta: panel.meta,
 				revealedDefinitionIds,
-			),
-		)
-		const schemaTagsDefinition = panel.schema.properties.find(
-			(definition) => definition.key === "tags",
-		)
-		const visibleSchemaTagsDefinition = schemaDefinitions.find(
-			(definition) => definition.id === schemaTagsDefinition?.id,
-		)
-		const hasYamlTags = Object.hasOwn(panel.persistedMeta, "tags")
-		const showVirtualTags =
-			!schemaTagsDefinition && (hasYamlTags || revealedDefinitionIds.has(tagsPropertyDefinition.id))
-		const orderedDefinitions = visibleSchemaTagsDefinition
-			? [
-					visibleSchemaTagsDefinition,
-					...schemaDefinitions.filter(
-						(definition) => definition.id !== visibleSchemaTagsDefinition.id,
-					),
-				]
-			: schemaDefinitions
-		return showVirtualTags ? [tagsPropertyDefinition, ...orderedDefinitions] : orderedDefinitions
-	}, [panel.meta, panel.persistedMeta, panel.schema.properties, revealedDefinitionIds])
+			}),
+		[panel.meta, panel.persistedMeta, panel.schema.properties, revealedDefinitionIds],
+	)
 	const tagsPropertyVisible = visibleDefinitions.some((definition) => definition.key === "tags")
 	const hiddenDefinitions = useMemo(
-		() =>
-			panel.schema.properties.filter(
-				(definition) =>
-					!visibleDefinitions.some((visibleDefinition) => visibleDefinition.id === definition.id),
-			),
+		() => getHiddenPropertyDefinitions(panel.schema.properties, visibleDefinitions),
 		[panel.schema.properties, visibleDefinitions],
 	)
 	if (!panel.vaultPath) return null
@@ -122,7 +66,11 @@ export function NotePropertiesPanel({
 				</Button>
 			</div>
 			{panel.expanded && (
-				<div className="note-properties-content" aria-disabled={Boolean(panel.frontmatterError)}>
+				<div
+					className="note-properties-content"
+					aria-disabled={Boolean(panel.frontmatterError)}
+					data-read-only={readOnly || undefined}
+				>
 					{visibleDefinitions.length > 0 ? (
 						<div className="note-properties-card">
 							{visibleDefinitions.map((definition) => (
@@ -133,7 +81,7 @@ export function NotePropertiesPanel({
 									value={panel.meta[definition.key]}
 									schema={panel.schema}
 									authorConfig={panel.authorConfig}
-									definitionConfigurable={definition.id !== tagsPropertyDefinition.id}
+									definitionConfigurable={definition.id !== TAGS_PROPERTY_DEFINITION.id}
 									onSetValue={panel.setValue}
 									onRemoveValue={panel.removeValue}
 									onUpdateDefinition={panel.updateDefinition}
@@ -149,16 +97,18 @@ export function NotePropertiesPanel({
 							</p>
 						)
 					)}
-					<AddPropertyPopover
-						vaultPath={panel.vaultPath}
-						schema={panel.schema}
-						observedProperties={panel.observedProperties}
-						hiddenProperties={hiddenDefinitions}
-						tagsPropertyVisible={tagsPropertyVisible}
-						onRegister={panel.registerProperty}
-						onReveal={(definition) => revealDefinition(definition.id)}
-						onRevealTags={() => revealDefinition(tagsPropertyDefinition.id)}
-					/>
+					{!readOnly && (
+						<AddPropertyPopover
+							vaultPath={panel.vaultPath}
+							schema={panel.schema}
+							observedProperties={panel.observedProperties}
+							hiddenProperties={hiddenDefinitions}
+							tagsPropertyVisible={tagsPropertyVisible}
+							onRegister={panel.registerProperty}
+							onReveal={(definition) => revealDefinition(definition.id)}
+							onRevealTags={() => revealDefinition(TAGS_PROPERTY_DEFINITION.id)}
+						/>
+					)}
 					{panel.frontmatterError && (
 						<output className="note-properties-error">
 							Properties are read-only until the YAML frontmatter is fixed: {panel.frontmatterError}
@@ -170,3 +120,5 @@ export function NotePropertiesPanel({
 		</section>
 	)
 }
+
+export const NotePropertiesPanel = memo(NotePropertiesPanelView)

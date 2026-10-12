@@ -6,16 +6,26 @@ const listDeletedFiles = vi.fn()
 const restoreDeletedFile = vi.fn()
 const downloadVersion = vi.fn()
 
-vi.mock("@cortex/core", () => ({
-	useRemoteVaultStore: () => ({ linkedVaultId: "remote-vault-id" }),
-	useSyncStore: () => ({
-		listDeletedFiles,
-		restoreDeletedFile,
-		downloadVersion,
-	}),
-	useVaultStore: () => ({
-		vault: { path: "/vault", name: "Writing", uuid: "vault-id", fileCount: 1 },
-	}),
+const syncState = { listDeletedFiles, restoreDeletedFile, downloadVersion }
+
+vi.mock("@cortex/core", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@cortex/core")>()),
+	useRemoteVaultStore: (selector: (state: { linkedVaultId: string }) => unknown) =>
+		selector({ linkedVaultId: "remote-vault-id" }),
+	useSyncStore: Object.assign(
+		(selector: (state: Record<string, unknown>) => unknown) => selector(syncState),
+		{ getState: () => syncState },
+	),
+	useVaultStore: (selector?: (state: unknown) => unknown) => {
+		const state = { vault: { path: "/vault", name: "Writing", uuid: "vault-id", fileCount: 1 } }
+		return selector ? selector(state) : state
+	},
+}))
+
+vi.mock("@cortex/editor/reading-view", () => ({
+	ReadingView: ({ content }: { content: string }) => (
+		<div data-testid="reading-view">{content}</div>
+	),
 }))
 
 import { DeletedNotesPanel } from "../../../features/sync/DeletedNotesPanel"
@@ -45,14 +55,11 @@ describe("DeletedNotesPanel", () => {
 
 		render(<DeletedNotesPanel open onOpenChange={vi.fn()} />)
 
-		await userEvent.click(await screen.findByRole("button", { name: /^Plan\.md/ }))
+		await userEvent.click(await screen.findByRole("button", { name: /^Plan/ }))
 
-		expect(await screen.findByText("# Recovered plan")).toBeInTheDocument()
+		expect(await screen.findByTestId("reading-view")).toHaveTextContent("# Recovered plan")
 		expect(downloadVersion).toHaveBeenCalledWith("remote-vault-id", "/vault", "Notes/Plan.md", "0")
-		expect(document.querySelector('[data-slot="deleted-note-preview"]')).toHaveClass(
-			"min-h-0",
-			"overflow-auto",
-		)
+		expect(screen.getByText("Restores to")).toHaveTextContent("Restores to Notes")
 	})
 
 	it("restores the selected note and removes it from the recovery list", async () => {
@@ -62,14 +69,14 @@ describe("DeletedNotesPanel", () => {
 
 		render(<DeletedNotesPanel open onOpenChange={vi.fn()} />)
 
-		await userEvent.click(await screen.findByRole("button", { name: /^Plan\.md/ }))
-		await screen.findByText("# Recovered plan")
+		await userEvent.click(await screen.findByRole("button", { name: /^Plan/ }))
+		await screen.findByTestId("reading-view")
 		await userEvent.click(screen.getByRole("button", { name: "Restore note" }))
 
 		await waitFor(() => {
 			expect(restoreDeletedFile).toHaveBeenCalledWith("remote-vault-id", "/vault", "Notes/Plan.md")
 		})
-		expect(screen.queryByRole("button", { name: /^Plan\.md/ })).not.toBeInTheDocument()
-		expect(screen.getByText("No preview selected")).toBeInTheDocument()
+		expect(screen.queryByRole("button", { name: /^Plan/ })).not.toBeInTheDocument()
+		expect(screen.getByText("No deleted notes")).toBeInTheDocument()
 	})
 })

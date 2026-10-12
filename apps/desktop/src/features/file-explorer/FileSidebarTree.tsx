@@ -1,75 +1,27 @@
-import { executeCommand } from "@cortex/commands"
-import {
-	isSyncImagePath,
-	shouldIgnoreSyncPath,
-	useBookmarksStore,
-	useDragStore,
-	useRemoteVaultStore,
-	useSyncStore,
-	useVaultStore,
-	useWorkspaceStore,
-} from "@cortex/core"
-import { getPlatform } from "@cortex/platform"
-import {
-	Button,
-	ContextMenu,
-	ContextMenuContent,
-	ContextMenuItem,
-	ContextMenuSeparator,
-	ContextMenuShortcut,
-	ContextMenuSub,
-	ContextMenuSubContent,
-	ContextMenuSubTrigger,
-	ContextMenuTrigger,
-	Input,
-} from "@cortex/ui"
-import type { ContextMenuItemRegistration } from "@cortex.md/api"
+import type { FileTreeNode, FileTreeRow, FileTreeVisibleNodeRow } from "@cortex/core"
+import { getFileTreeNodeTitle, getParentPath, useDragStore } from "@cortex/core"
+import { Button, Input } from "@cortex/ui"
 import type { Virtualizer } from "@tanstack/react-virtual"
 import {
 	ChevronRightIcon,
-	ClipboardCopyIcon,
-	CloudOffIcon,
 	FilePlusIcon,
 	FolderIcon,
 	FolderPlusIcon,
-	PencilIcon,
-	TrashIcon,
+	Table2Icon,
 } from "lucide-react"
-import { type MouseEvent, memo, type RefObject, useEffect, useMemo, useRef } from "react"
-import { NativeMenuActions } from "@/utils/context-menu"
-import { exportNoteFromDialog } from "../import-export/importExportActions"
-import { createPluginContextMenuItems } from "../plugins/pluginContextMenu"
+import { type MouseEvent, memo, type RefObject, useEffect, useRef } from "react"
+import {
+	DatabaseRowDot,
+	DatabaseTreeRetainer,
+	useIsDatabaseFolder,
+} from "../databases/DatabaseTreeDecorations"
 import { useInternalDragSource } from "../split-view/useInternalDragSource"
 import { type FileExplorerHotkeyBinding, useFileExplorerKeyboard } from "./fileExplorerKeyboard"
-import type { FileTreeNode, FileTreeRow, FileTreeVisibleNodeRow } from "./fileTree"
 import { getFileTreeItemId } from "./fileTreeDom"
 import { getFileTreeDepthStyle } from "./fileTreeLayout"
-import { buildFileContextMenuItems, buildNoteMenuItems } from "./NativeMenuActions"
-import { NoteContextMenuItems } from "./NoteMenuItems"
+import type { FileTreeActions } from "./useFileSidebarActions"
 
 const fileTreeAutoExpandDelayMs = 480
-
-function isMarkdownPath(path: string): boolean {
-	return path.toLocaleLowerCase().endsWith(".md")
-}
-
-export type FileOpenMode = "reuse-active" | "new-tab"
-
-export interface FileOpenRequest {
-	mode: FileOpenMode
-}
-
-interface FileActions {
-	onOpenFile: (path: string, request: FileOpenRequest) => void
-	onNewFile: (parentPath: string) => void
-	onNewFolder: (parentPath: string) => void
-	onStartRename: (path: string) => void
-	onDelete: (path: string, isDir: boolean) => void
-	onDuplicate: (path: string) => void
-	onReveal: (path: string) => void
-	onCopyPath: (path: string, kind: "relative" | "absolute") => void
-	onViewHistory: (path: string) => void
-}
 
 interface TreeNodeVisualState {
 	active: boolean
@@ -91,76 +43,8 @@ interface TreeNodeRowProps {
 	visualState: TreeNodeVisualState
 	parentPath: string
 	dropPosition: string | null
-	onToggle: (path: string) => void
-	onOpenFile: (path: string, request: FileOpenRequest) => void
-	onFocusPath: (path: string) => void
-	onConfirmRename: (oldPath: string, newName: string) => void
-	onCancelRename: () => void
-	onDropError: (error: unknown) => void
+	actions: FileTreeActions
 }
-
-interface TreeNodeProps {
-	node: FileTreeNode
-	depth: number
-	visualState: TreeNodeVisualState
-	parentPath: string
-	dropPosition: string | null
-	onOpenFile: (path: string, request: FileOpenRequest) => void
-	onToggle: (path: string) => void
-	onFocusPath: (path: string) => void
-	onStartRename: (path: string) => void
-	onConfirmRename: (oldPath: string, newName: string) => void
-	onCancelRename: () => void
-	onDropError: (error: unknown) => void
-	onDelete: (path: string, isDir: boolean) => void
-	onDuplicate: (path: string) => void
-	onReveal: (path: string) => void
-	onCopyPath: (path: string, kind: "relative" | "absolute") => void
-	onNewFile: (parentPath: string) => void
-	onNewFolder: (parentPath: string) => void
-	onViewHistory: (path: string) => void
-	pluginContextMenuItems: ContextMenuItemRegistration[]
-}
-
-export interface FileSidebarTreeProps {
-	tree: FileTreeNode[]
-	rows: FileTreeRow[]
-	nodeRows: FileTreeVisibleNodeRow[]
-	nodeRowIndexByPath: Map<string, number>
-	isCreatingAtRoot: boolean
-	activeFilePath: string | undefined
-	focusedPath: string | null
-	vaultPath: string
-	expanded: Set<string>
-	renamingPath: string | null
-	vimMode: boolean
-	treeScrollRef: RefObject<HTMLDivElement | null>
-	rowVirtualizer: Virtualizer<HTMLDivElement, Element>
-	fileExplorerBindings: FileExplorerHotkeyBinding[]
-	onRootContextMenu: (event: MouseEvent<HTMLDivElement>) => void
-	onFocusPath: (path: string) => void
-	onFocusedPathChange: (path: string) => void
-	onConfirmCreate: (parentPath: string, name: string) => void
-	onCancelCreate: () => void
-	onToggle: (path: string) => void
-	onEnsureExpanded: (path: string) => void
-	onOpenFile: (path: string, request: FileOpenRequest) => void
-	onStartRename: (path: string) => void
-	onConfirmRename: (oldPath: string, newName: string) => void
-	onCancelRename: () => void
-	onOpenContextMenu: (node: FileTreeNode) => void
-	onDelete: (path: string, isDir: boolean) => void
-	onDuplicate: (path: string) => void
-	onReveal: (path: string) => void
-	onCopyPath: (path: string, kind: "relative" | "absolute") => void
-	onNewFile: (parentPath: string) => void
-	onNewFolder: (parentPath: string) => void
-	onViewHistory: (path: string) => void
-	onDropError: (error: unknown) => void
-	pluginContextMenuItems: ContextMenuItemRegistration[]
-}
-
-type FileTreeDropTarget = ReturnType<typeof useDragStore.getState>["dropTarget"]
 
 interface FileSidebarTreeRowsProps {
 	rows: FileTreeRow[]
@@ -170,28 +54,21 @@ interface FileSidebarTreeRowsProps {
 	renamingPath: string | null
 	rowVirtualizer: Virtualizer<HTMLDivElement, Element>
 	dropTarget: FileTreeDropTarget
-	onFocusPath: (path: string) => void
-	onConfirmCreate: (parentPath: string, name: string) => void
-	onCancelCreate: () => void
-	onToggle: (path: string) => void
-	onOpenFile: (path: string, request: FileOpenRequest) => void
-	onStartRename: (path: string) => void
-	onConfirmRename: (oldPath: string, newName: string) => void
-	onCancelRename: () => void
-	onDelete: (path: string, isDir: boolean) => void
-	onDuplicate: (path: string) => void
-	onReveal: (path: string) => void
-	onCopyPath: (path: string, kind: "relative" | "absolute") => void
-	onNewFile: (parentPath: string) => void
-	onNewFolder: (parentPath: string) => void
-	onViewHistory: (path: string) => void
-	onDropError: (error: unknown) => void
-	pluginContextMenuItems: ContextMenuItemRegistration[]
+	actions: FileTreeActions
 }
 
-const hasNativeMenu = () => getPlatform().capabilities.includes("menu")
+export interface FileSidebarTreeProps extends Omit<FileSidebarTreeRowsProps, "dropTarget"> {
+	tree: FileTreeNode[]
+	nodeRows: FileTreeVisibleNodeRow[]
+	nodeRowIndexByPath: Map<string, number>
+	isCreatingAtRoot: boolean
+	vaultPath: string
+	vimMode: boolean
+	treeScrollRef: RefObject<HTMLDivElement | null>
+	fileExplorerBindings: FileExplorerHotkeyBinding[]
+}
 
-const nativeMenu = new NativeMenuActions()
+type FileTreeDropTarget = ReturnType<typeof useDragStore.getState>["dropTarget"]
 
 const treeNodeVisualStates = Array.from(
 	{ length: 16 },
@@ -203,43 +80,36 @@ const treeNodeVisualStates = Array.from(
 	}),
 )
 
+function countNotes(node: FileTreeNode): number {
+	return node.children.filter((child) => !child.isDir).length
+}
+
+function isChevronTarget(target: EventTarget | null): boolean {
+	return target instanceof Element && Boolean(target.closest("[data-file-tree-chevron]"))
+}
+
+function isFileTreeItemContextTarget(target: EventTarget | null): boolean {
+	if (!(target instanceof Element)) return false
+	return Boolean(
+		target.closest(
+			"[data-file-tree-path], .file-tree-create-row, input, textarea, [contenteditable='true']",
+		),
+	)
+}
+
 export function FileSidebarTree({
 	tree,
-	rows,
 	nodeRows,
 	nodeRowIndexByPath,
 	isCreatingAtRoot,
-	activeFilePath,
-	focusedPath,
 	vaultPath,
-	expanded,
-	renamingPath,
 	vimMode,
 	treeScrollRef,
-	rowVirtualizer,
 	fileExplorerBindings,
-	onRootContextMenu,
-	onFocusPath,
-	onFocusedPathChange,
-	onConfirmCreate,
-	onCancelCreate,
-	onToggle,
-	onEnsureExpanded,
-	onOpenFile,
-	onStartRename,
-	onConfirmRename,
-	onCancelRename,
-	onOpenContextMenu,
-	onDelete,
-	onDuplicate,
-	onReveal,
-	onCopyPath,
-	onNewFile,
-	onNewFolder,
-	onViewHistory,
-	onDropError,
-	pluginContextMenuItems,
+	actions,
+	...rowsProps
 }: FileSidebarTreeProps) {
+	const { expanded, focusedPath, activeFilePath, rowVirtualizer } = rowsProps
 	const dropTarget = useDragStore((state) => state.dropTarget)
 	const autoExpandTimerRef = useRef<number | null>(null)
 	const autoExpandPath =
@@ -256,13 +126,7 @@ export function FileSidebarTree({
 		rowVirtualizer,
 		treeScrollRef,
 		vimMode,
-		onDelete,
-		onEnsureExpanded,
-		onFocusedPathChange,
-		onOpenContextMenu,
-		onOpenFile: (path) => onOpenFile(path, { mode: "reuse-active" }),
-		onStartRename,
-		onToggle,
+		actions,
 	})
 
 	useEffect(
@@ -281,11 +145,17 @@ export function FileSidebarTree({
 
 		autoExpandTimerRef.current = window.setTimeout(() => {
 			autoExpandTimerRef.current = null
-			onEnsureExpanded(autoExpandPath)
+			actions.ensureExpanded(autoExpandPath)
 		}, fileTreeAutoExpandDelayMs)
-	}, [autoExpandPath, expanded, onEnsureExpanded])
+	}, [actions, autoExpandPath, expanded])
 
 	const rootDropActive = dropTarget?.type === "file-tree" && dropTarget.fileTreePosition === "root"
+
+	const handleRootContextMenu = (event: MouseEvent<HTMLDivElement>) => {
+		if (isFileTreeItemContextTarget(event.target)) return
+		event.preventDefault()
+		actions.showRootMenu({ x: event.clientX, y: event.clientY })
+	}
 
 	return (
 		<div
@@ -296,7 +166,7 @@ export function FileSidebarTree({
 			aria-activedescendant={focusedPath ? getFileTreeItemId(focusedPath) : undefined}
 			data-file-tree-root-drop-target=""
 			data-file-tree-root-path={vaultPath}
-			onContextMenu={onRootContextMenu}
+			onContextMenu={handleRootContextMenu}
 			onFocus={handleFocus}
 			onKeyDown={handleKeyDown}
 		>
@@ -305,43 +175,26 @@ export function FileSidebarTree({
 					<FolderIcon className="size-6 text-text-muted" />
 					<p className="m-0 text-xs text-text-muted">No files yet</p>
 					<div className="flex items-center gap-2">
-						<Button variant="secondary" size="sm" onClick={() => onNewFile(vaultPath)}>
+						<Button
+							variant="secondary"
+							size="sm"
+							onClick={() => actions.startCreate(vaultPath, "file")}
+						>
 							<FilePlusIcon className="size-3.5" />
 							New note
 						</Button>
-						<Button variant="secondary" size="sm" onClick={() => onNewFolder(vaultPath)}>
+						<Button
+							variant="secondary"
+							size="sm"
+							onClick={() => actions.startCreate(vaultPath, "folder")}
+						>
 							<FolderPlusIcon className="size-3.5" />
 							New folder
 						</Button>
 					</div>
 				</div>
 			) : (
-				<FileSidebarTreeRows
-					rows={rows}
-					activeFilePath={activeFilePath}
-					focusedPath={focusedPath}
-					expanded={expanded}
-					renamingPath={renamingPath}
-					rowVirtualizer={rowVirtualizer}
-					dropTarget={dropTarget}
-					onFocusPath={onFocusPath}
-					onConfirmCreate={onConfirmCreate}
-					onCancelCreate={onCancelCreate}
-					onToggle={onToggle}
-					onOpenFile={onOpenFile}
-					onStartRename={onStartRename}
-					onConfirmRename={onConfirmRename}
-					onCancelRename={onCancelRename}
-					onDelete={onDelete}
-					onDuplicate={onDuplicate}
-					onReveal={onReveal}
-					onCopyPath={onCopyPath}
-					onNewFile={onNewFile}
-					onNewFolder={onNewFolder}
-					onViewHistory={onViewHistory}
-					onDropError={onDropError}
-					pluginContextMenuItems={pluginContextMenuItems}
-				/>
+				<FileSidebarTreeRows {...rowsProps} actions={actions} dropTarget={dropTarget} />
 			)}
 		</div>
 	)
@@ -355,23 +208,7 @@ function FileSidebarTreeRows({
 	renamingPath,
 	rowVirtualizer,
 	dropTarget,
-	onFocusPath,
-	onConfirmCreate,
-	onCancelCreate,
-	onToggle,
-	onOpenFile,
-	onStartRename,
-	onConfirmRename,
-	onCancelRename,
-	onDelete,
-	onDuplicate,
-	onReveal,
-	onCopyPath,
-	onNewFile,
-	onNewFolder,
-	onViewHistory,
-	onDropError,
-	pluginContextMenuItems,
+	actions,
 }: FileSidebarTreeRowsProps) {
 	return (
 		<div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
@@ -402,13 +239,15 @@ function FileSidebarTreeRows({
 								)}
 								<InlineInput
 									defaultValue={row.createType === "folder" ? "New Folder" : "Untitled"}
-									onConfirm={(name) => onConfirmCreate(row.parentPath, name)}
-									onCancel={onCancelCreate}
+									onConfirm={(name) =>
+										void actions.confirmCreate(row.parentPath, name, row.createType)
+									}
+									onCancel={actions.cancelCreate}
 									selectBaseName={row.createType === "file"}
 								/>
 							</div>
 						) : (
-							<MemoizedTreeNodeView
+							<MemoizedTreeNodeRow
 								node={row.node}
 								depth={row.depth}
 								visualState={getTreeNodeVisualState(
@@ -423,21 +262,7 @@ function FileSidebarTreeRows({
 										? (dropTarget.fileTreePosition ?? null)
 										: null
 								}
-								onToggle={onToggle}
-								onOpenFile={onOpenFile}
-								onFocusPath={onFocusPath}
-								onStartRename={onStartRename}
-								onConfirmRename={onConfirmRename}
-								onCancelRename={onCancelRename}
-								onDropError={onDropError}
-								onDelete={onDelete}
-								onDuplicate={onDuplicate}
-								onReveal={onReveal}
-								onCopyPath={onCopyPath}
-								onNewFile={onNewFile}
-								onNewFolder={onNewFolder}
-								onViewHistory={onViewHistory}
-								pluginContextMenuItems={pluginContextMenuItems}
+								actions={actions}
 							/>
 						)}
 					</div>
@@ -447,242 +272,15 @@ function FileSidebarTreeRows({
 	)
 }
 
-function TreeNodeView({
-	node,
-	depth,
-	visualState,
-	parentPath,
-	dropPosition,
-	onOpenFile,
-	onToggle,
-	onFocusPath,
-	onStartRename,
-	onConfirmRename,
-	onCancelRename,
-	onDropError,
-	onDelete,
-	onDuplicate,
-	onReveal,
-	onCopyPath,
-	onNewFile,
-	onNewFolder,
-	onViewHistory,
-	pluginContextMenuItems,
-}: TreeNodeProps) {
-	const vaultPath = useVaultStore((state) => state.vault?.path)
-	const syncPreferences = useSyncStore((state) => state.syncPreferences)
-	const syncEnabled = useRemoteVaultStore((state) => state.syncConfig.enabled)
-	const remoteVaultId = useRemoteVaultStore((state) => state.syncConfig.remoteVaultId)
-	const bookmarked = useBookmarksStore((state) =>
-		vaultPath ? state.isBookmarked(vaultPath, node.path) : false,
-	)
-	const pluginFileMenuItems = useMemo(
-		() =>
-			createPluginContextMenuItems(pluginContextMenuItems, "file", {
-				location: "file",
-				filePath: node.path,
-			}),
-		[pluginContextMenuItems, node.path],
-	)
-
-	const rowProps = {
-		node,
-		depth,
-		visualState,
-		parentPath,
-		dropPosition,
-		onToggle,
-		onOpenFile,
-		onFocusPath,
-		onConfirmRename,
-		onCancelRename,
-		onDropError,
-	}
-
-	const fileActions: FileActions = {
-		onOpenFile,
-		onNewFile,
-		onNewFolder,
-		onStartRename,
-		onDelete,
-		onDuplicate,
-		onReveal,
-		onCopyPath,
-		onViewHistory,
-	}
-	const relativePath = vaultPath ? node.path.replace(`${vaultPath}/`, "") : node.path
-	const syncIgnored = shouldIgnoreSyncPath(relativePath, syncPreferences)
-	const supportsNoteActions = !node.isDir && isMarkdownPath(node.path)
-	const canToggleSync = !(
-		syncPreferences.ignoreImages &&
-		!node.isDir &&
-		isSyncImagePath(relativePath)
-	)
-	const noteMenuItems = useMemo(
-		() => [
-			...buildNoteMenuItems(
-				{
-					path: node.path,
-					bookmarked,
-					syncIgnored,
-					showVersionHistory: supportsNoteActions && syncEnabled && remoteVaultId !== null,
-					canToggleSync: Boolean(vaultPath) && canToggleSync,
-					supportsNoteActions,
-				},
-				{
-					openInNewTab: (path) => useWorkspaceStore.getState().openTab(path),
-					openInRightSplit: (path) => {
-						const workspace = useWorkspaceStore.getState()
-						if (workspace.activePaneId) {
-							workspace.openInSplit(path, workspace.activePaneId, "horizontal")
-						}
-					},
-					duplicate: onDuplicate,
-					exportNote: (path, format) => void exportNoteFromDialog(path, format, "context-menu"),
-					copyRelativePath: (path) => onCopyPath(path, "relative"),
-					copyAbsolutePath: (path) => onCopyPath(path, "absolute"),
-					reveal: onReveal,
-					showVersionHistory: onViewHistory,
-					toggleBookmark: (path) => {
-						executeCommand("bookmarks.toggle", {
-							source: "menu",
-							payload: { filePath: path },
-						})
-					},
-					toggleSyncIgnore: (path, ignored) => {
-						if (!vaultPath) return
-						const relative = path.replace(`${vaultPath}/`, "")
-						void useSyncStore.getState().toggleExcludedPath(relative, ignored)
-					},
-					rename: onStartRename,
-					delete: (path) => onDelete(path, false),
-				},
-			),
-			...pluginFileMenuItems,
-		],
-		[
-			canToggleSync,
-			bookmarked,
-			node.path,
-			onCopyPath,
-			onDelete,
-			onDuplicate,
-			onReveal,
-			onStartRename,
-			onViewHistory,
-			remoteVaultId,
-			supportsNoteActions,
-			syncEnabled,
-			syncIgnored,
-			pluginFileMenuItems,
-			vaultPath,
-		],
-	)
-
-	return (
-		<>
-			{hasNativeMenu() ? (
-				// biome-ignore lint/a11y/noStaticElementInteractions: wrapper for native context menu
-				<div
-					onContextMenu={(e) => {
-						e.preventDefault()
-						e.stopPropagation()
-						if (node.isDir) {
-							showNativeFileContextMenu(
-								node,
-								{ x: e.clientX, y: e.clientY },
-								fileActions,
-								pluginFileMenuItems,
-							)
-						} else {
-							nativeMenu.showContextMenu({
-								items: noteMenuItems,
-								position: { x: e.clientX, y: e.clientY },
-							})
-						}
-					}}
-				>
-					<MemoizedTreeNodeRow {...rowProps} />
-				</div>
-			) : (
-				<ContextMenu>
-					<ContextMenuTrigger asChild>
-						<MemoizedTreeNodeRow {...rowProps} />
-					</ContextMenuTrigger>
-					<ContextMenuContent>
-						{node.isDir ? (
-							<>
-								<ContextMenuItem onSelect={() => onNewFile(node.path)}>
-									<FilePlusIcon />
-									New Note
-								</ContextMenuItem>
-								<ContextMenuItem onSelect={() => onNewFolder(node.path)}>
-									<FolderPlusIcon />
-									New Folder
-								</ContextMenuItem>
-								<ContextMenuSeparator />
-							</>
-						) : (
-							<NoteContextMenuItems items={noteMenuItems} />
-						)}
-						{node.isDir && (
-							<>
-								<ContextMenuSub>
-									<ContextMenuSubTrigger>
-										<ClipboardCopyIcon />
-										Copy path
-									</ContextMenuSubTrigger>
-									<ContextMenuSubContent>
-										<ContextMenuItem onSelect={() => onCopyPath(node.path, "relative")}>
-											Relative path
-										</ContextMenuItem>
-										<ContextMenuItem onSelect={() => onCopyPath(node.path, "absolute")}>
-											Absolute path
-										</ContextMenuItem>
-									</ContextMenuSubContent>
-								</ContextMenuSub>
-								<ContextMenuSeparator />
-								<ContextMenuItem onSelect={() => onReveal(node.path)}>
-									<FolderIcon />
-									Reveal in Finder
-								</ContextMenuItem>
-								<ContextMenuSeparator />
-								<ContextMenuItem onSelect={() => onStartRename(node.path)}>
-									<PencilIcon />
-									Rename
-									<ContextMenuShortcut>F2</ContextMenuShortcut>
-								</ContextMenuItem>
-								<ContextMenuItem
-									variant="destructive"
-									onSelect={() => onDelete(node.path, node.isDir)}
-								>
-									<TrashIcon />
-									Delete
-								</ContextMenuItem>
-								<SyncExcludeMenuItem node={node} />
-								<NoteContextMenuItems items={pluginFileMenuItems} />
-							</>
-						)}
-					</ContextMenuContent>
-				</ContextMenu>
-			)}
-		</>
-	)
-}
-
 function TreeNodeRow({
 	node,
 	depth,
 	visualState,
 	parentPath,
 	dropPosition,
-	onToggle,
-	onOpenFile,
-	onFocusPath,
-	onConfirmRename,
-	onCancelRename,
-	onDropError,
+	actions,
 }: TreeNodeRowProps) {
+	const parentIsDatabase = useIsDatabaseFolder(parentPath)
 	const canDragEntry = !visualState.renaming
 	const dragProps = useInternalDragSource(
 		() => ({
@@ -690,7 +288,7 @@ function TreeNodeRow({
 			filePath: node.path,
 			isDirectory: node.isDir,
 		}),
-		{ disabled: !canDragEntry, onDropError },
+		{ disabled: !canDragEntry, onDropError: actions.reportDropError },
 	)
 
 	return (
@@ -713,39 +311,63 @@ function TreeNodeRow({
 			{...dragProps}
 			onClick={(event) => {
 				if (visualState.renaming) return
+				if (node.isDatabase && !isChevronTarget(event.target)) {
+					actions.openDatabase(
+						node.path,
+						event.metaKey || event.ctrlKey ? "new-tab" : "reuse-active",
+					)
+					actions.focusPath(node.path)
+					if (!visualState.expanded) actions.toggle(node.path)
+					return
+				}
 				if (node.isDir) {
-					onFocusPath(node.path)
-					onToggle(node.path)
+					actions.focusPath(node.path)
+					actions.toggle(node.path)
 					return
 				}
 
-				onOpenFile(node.path, {
-					mode: event.metaKey || event.ctrlKey ? "new-tab" : "reuse-active",
-				})
-				onFocusPath(node.path)
+				actions.openFile(node.path, event.metaKey || event.ctrlKey ? "new-tab" : "reuse-active")
+				actions.focusPath(node.path)
 			}}
-			onFocus={() => onFocusPath(node.path)}
+			onContextMenu={(event) => {
+				event.preventDefault()
+				event.stopPropagation()
+				actions.showEntryMenu(node, { x: event.clientX, y: event.clientY })
+			}}
+			onFocus={() => actions.focusPath(node.path)}
 		>
 			{node.isDir && (
-				<ChevronRightIcon
-					size={15}
-					strokeWidth={2.5}
-					className={`text-text-muted flex-shrink-0 transition-transform duration-100 ${
-						visualState.expanded ? "rotate-90" : ""
-					}`}
-				/>
+				<span className="file-tree-chevron-hit" data-file-tree-chevron="">
+					<ChevronRightIcon
+						size={15}
+						strokeWidth={2.5}
+						className={`text-text-muted flex-shrink-0 transition-transform duration-100 ${
+							visualState.expanded ? "rotate-90" : ""
+						}`}
+					/>
+				</span>
+			)}
+			{node.isDatabase && (
+				<Table2Icon size={14} className="text-brand-text flex-shrink-0" aria-hidden="true" />
+			)}
+			{node.isDatabase && visualState.expanded && <DatabaseTreeRetainer folderPath={node.path} />}
+			{parentIsDatabase && !node.isDir && (
+				<DatabaseRowDot folderPath={parentPath} path={node.path} />
 			)}
 			{visualState.renaming ? (
 				<InlineInput
 					defaultValue={node.name}
-					onConfirm={(newName) => onConfirmRename(node.path, newName)}
-					onCancel={onCancelRename}
+					onConfirm={(newName) => void actions.confirmRename(node.path, newName)}
+					onCancel={actions.cancelRename}
 					selectBaseName={!node.isDir}
 				/>
 			) : (
 				<span className="overflow-hidden text-ellipsis whitespace-nowrap flex-1" title={node.name}>
-					{node.isDir ? node.name : node.name.replace(/\.md$/, "")}
+					{getFileTreeNodeTitle(node)}
 				</span>
+			)}
+			{node.isDatabase && !visualState.renaming && (
+				<span className="file-tree-trail">{countNotes(node)}</span>
 			)}
 		</Button>
 	)
@@ -803,109 +425,6 @@ function InlineInput({ defaultValue, onConfirm, onCancel, selectBaseName }: Inli
 	)
 }
 
-function SyncExcludeMenuItem({ node }: { node: FileTreeNode }) {
-	const vaultPath = useVaultStore((s) => s.vault?.path)
-	const syncPreferences = useSyncStore((s) => s.syncPreferences)
-
-	if (!vaultPath) return null
-
-	const relative = node.path.replace(`${vaultPath}/`, "")
-	if (syncPreferences.ignoreImages && !node.isDir && isSyncImagePath(relative)) return null
-
-	const normalized = node.isDir ? (relative.endsWith("/") ? relative : `${relative}/`) : relative
-	const isExcluded = shouldIgnoreSyncPath(relative, syncPreferences)
-
-	return (
-		<>
-			<ContextMenuSeparator />
-			<ContextMenuItem
-				onSelect={() => useSyncStore.getState().toggleExcludedPath(normalized, !isExcluded)}
-			>
-				<CloudOffIcon />
-				{isExcluded ? "Include in Sync" : "Exclude from Sync"}
-			</ContextMenuItem>
-		</>
-	)
-}
-
-function showNativeFileContextMenu(
-	node: FileTreeNode,
-	position: { x: number; y: number },
-	actions: FileActions,
-	pluginMenuItems: ReturnType<typeof createPluginContextMenuItems>,
-) {
-	const vault = useVaultStore.getState().vault
-	const vaultPath = vault?.path
-	const syncPreferences = useSyncStore.getState().syncPreferences
-	const relative = vaultPath ? node.path.replace(`${vaultPath}/`, "") : ""
-	const syncIgnoreToggleAvailable = !(
-		syncPreferences.ignoreImages &&
-		!node.isDir &&
-		isSyncImagePath(relative)
-	)
-	const supportsNoteActions = !node.isDir && isMarkdownPath(node.path)
-	const items = buildFileContextMenuItems(
-		{
-			path: node.path,
-			fileName: node.name,
-			isDirectory: node.isDir,
-			selectionCount: 1,
-			isMultiSelect: false,
-		},
-		{
-			createFile: (parentPath) => actions.onNewFile(parentPath ?? node.path),
-			createFolder: (parentPath) => actions.onNewFolder(parentPath ?? node.path),
-			openInNewTab: (path) => actions.onOpenFile(path, { mode: "new-tab" }),
-			openInRightSplit: (path) => {
-				const { activePaneId } = useWorkspaceStore.getState()
-				if (activePaneId) {
-					useWorkspaceStore.getState().openInSplit(path, activePaneId, "horizontal")
-				}
-			},
-			rename: (path) => actions.onStartRename(path),
-			toggleBookmark: supportsNoteActions
-				? (path) => {
-						executeCommand("bookmarks.toggle", {
-							source: "menu",
-							payload: { filePath: path },
-						})
-					}
-				: undefined,
-			isBookmarked:
-				vaultPath && supportsNoteActions
-					? (path) => useBookmarksStore.getState().isBookmarked(vaultPath, path)
-					: undefined,
-			delete: (path, isDir) => actions.onDelete(path, isDir),
-			copyFile: supportsNoteActions ? (path) => actions.onDuplicate(path) : undefined,
-			copyPath: (path) => actions.onCopyPath(path, "absolute"),
-			copyRelativePath: (path) => actions.onCopyPath(path, "relative"),
-			showInExplorer: (path) => actions.onReveal(path),
-			showVersionHistory: supportsNoteActions ? (path) => actions.onViewHistory(path) : undefined,
-			toggleSyncIgnore:
-				vaultPath && syncIgnoreToggleAvailable
-					? (path, ignored) => {
-							const relative = path.replace(`${vaultPath}/`, "")
-							const normalized = node.isDir
-								? relative.endsWith("/")
-									? relative
-									: `${relative}/`
-								: relative
-							useSyncStore.getState().toggleExcludedPath(normalized, ignored)
-						}
-					: undefined,
-			isSyncIgnored:
-				vaultPath && syncIgnoreToggleAvailable
-					? (path) => {
-							const relative = path.replace(`${vaultPath}/`, "")
-							return useSyncStore.getState().isPathExcluded(relative)
-						}
-					: undefined,
-		},
-	)
-
-	nativeMenu.showContextMenu({ items: [...items, ...pluginMenuItems], position })
-}
-
 function getTreeNodeVisualState(
 	active: boolean,
 	expanded: boolean,
@@ -915,11 +434,5 @@ function getTreeNodeVisualState(
 	const key = (active ? 1 : 0) | (expanded ? 2 : 0) | (focused ? 4 : 0) | (renaming ? 8 : 0)
 	return treeNodeVisualStates[key]
 }
-
-function getParentPath(path: string): string {
-	return path.slice(0, path.lastIndexOf("/"))
-}
-
-const MemoizedTreeNodeView = memo(TreeNodeView)
 
 const MemoizedTreeNodeRow = memo(TreeNodeRow)

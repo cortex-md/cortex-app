@@ -1,114 +1,65 @@
+import { decodeVek } from "./crypto"
 import { SyncEngine } from "./engine"
-import { type DeviceLike, type KeychainLike, SyncHttpClient } from "./http"
-import type { SyncCommand } from "./state"
+import {
+	type FromWorkerMessage,
+	type MainMethods,
+	RpcChannel,
+	respond,
+	type SyncEventMessage,
+	type ToWorkerMessage,
+} from "./protocol"
 
-interface WorkerMessage {
-	type: string
-	id?: string
-	command?: SyncCommand
-	method?: string
-	args?: Record<string, unknown>
-	account?: string
-	value?: string
-	error?: string
-	result?: unknown
+interface ParentPortLike {
+	on(event: "message", listener: (event: { data: unknown }) => void): void
+	postMessage(message: unknown): void
 }
 
-declare const process: NodeJS.Process & {
-	parentPort?: {
-		on(event: "message", listener: (message: unknown) => void): void
-		postMessage(message: unknown): void
-	}
-}
+const port = (process as NodeJS.Process & { parentPort?: ParentPortLike }).parentPort
+if (!port) throw new Error("sync-engine worker must run inside an Electron UtilityProcess")
 
-const parentPort = process.parentPort
-if (!parentPort) {
-	throw new Error("sync-engine worker must run inside an Electron UtilityProcess")
-}
-
-const keychainCache = new Map<string, string>()
-let deviceId = "unknown-device"
-
-const syncKeychain: KeychainLike = {
-	get(account) {
-		return keychainCache.get(account) ?? null
-	},
-	set(account, value) {
-		keychainCache.set(account, value)
-		parentPort.postMessage({ type: "keychain", method: "set", account, value })
-	},
-	delete(account) {
-		keychainCache.delete(account)
-		parentPort.postMessage({ type: "keychain", method: "delete", account })
-	},
-}
-
-const device: DeviceLike = {
-	getDeviceId() {
-		return deviceId
-	},
-}
-
-const client = new SyncHttpClient({
-	keychain: syncKeychain,
-	device,
-	onSessionExpired: () => {
-		parentPort.postMessage({ type: "event", method: "auth-session-expired" })
-	},
-})
+const post = (message: FromWorkerMessage) => port.postMessage(message)
+const main = new RpcChannel<MainMethods>(post)
+let deviceId = ""
 
 const engine = new SyncEngine({
-	client,
-	keychain: syncKeychain,
-	device,
-	onEvent: (name, payload) => {
-		parentPort.postMessage({
-			type: "event",
-			method: name,
-			args: payload as Record<string, unknown> | undefined,
-		})
+	deviceId: () => deviceId,
+	emit: (name, payload) => post({ type: "event", name, payload } as SyncEventMessage),
+	tokens: {
+		getAccessToken: (serverUrl) => main.call("getAccessToken", { serverUrl }),
+		refreshAccessToken: (serverUrl) => main.call("refreshAccessToken", { serverUrl }),
+	},
+	loadVek: async (vaultId) => {
+		const encoded = await main.call("getVek", { vaultId })
+		return encoded ? decodeVek(encoded) : null
 	},
 })
 
-void engine.run()
+function reportFatal(label: string, error: unknown): void {
+	const message = error instanceof Error ? (error.stack ?? error.message) : String(error)
+	post({
+		type: "event",
+		name: "sync-log",
+		payload: { level: "error", message: `Sync worker ${label}: ${message}` },
+	} as SyncEventMessage)
+}
 
-parentPort.on("message", (raw) => {
-	const message = raw as WorkerMessage
+process.on("uncaughtException", (error) => reportFatal("error", error))
+process.on("unhandledRejection", (reason) => reportFatal("rejection", reason))
+
+port.on("message", ({ data }) => {
+	const message = data as ToWorkerMessage
 	switch (message.type) {
-		case "bootstrap": {
-			deviceId = String(message.args?.deviceId ?? deviceId)
-			const entries = (message.args?.keychainEntries ?? {}) as Record<string, string>
-			keychainCache.clear()
-			for (const [account, value] of Object.entries(entries)) {
-				keychainCache.set(account, value)
-			}
-			if (message.id) {
-				parentPort.postMessage({ type: "ready", id: message.id })
-			}
+		case "init":
+			deviceId = message.deviceId
 			return
-		}
-		case "command": {
-			if (message.command) engine.enqueue(message.command)
-			if (message.id) {
-				parentPort.postMessage({ type: "result", id: message.id, result: null })
-			}
+		case "command":
+			engine.dispatch(message.command)
 			return
-		}
-		case "keychainResult": {
-			if (message.account && typeof message.result === "string") {
-				keychainCache.set(message.account, message.result)
-			}
+		case "request":
+			void respond(message, (request) => engine.handleRequest(request), post)
 			return
-		}
-		case "stop": {
-			engine.enqueue({ type: "stop" })
-			engine.stopLoop()
-			if (message.id) {
-				parentPort.postMessage({ type: "result", id: message.id, result: null })
-			}
-			return
-		}
-		default:
+		case "response":
+			main.settle(message)
 			return
 	}
 })

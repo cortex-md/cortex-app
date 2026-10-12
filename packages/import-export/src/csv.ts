@@ -9,10 +9,10 @@ export function parseCsvRecords(content: string): string[][] {
 		const next = content[index + 1]
 
 		if (quoted) {
-			if (char === "\"" && next === "\"") {
-				field += "\""
+			if (char === '"' && next === '"') {
+				field += '"'
 				index += 1
-			} else if (char === "\"") {
+			} else if (char === '"') {
 				quoted = false
 			} else {
 				field += char
@@ -20,7 +20,7 @@ export function parseCsvRecords(content: string): string[][] {
 			continue
 		}
 
-		if (char === "\"") {
+		if (char === '"') {
 			quoted = true
 		} else if (char === ",") {
 			record.push(field)
@@ -49,7 +49,7 @@ export function stringifyCsvRecords(records: string[][]): string {
 			record
 				.map((field) => {
 					if (!/[",\n\r]/u.test(field)) return field
-					return `"${field.replaceAll("\"", "\"\"")}"`
+					return `"${field.replaceAll('"', '""')}"`
 				})
 				.join(","),
 		)
@@ -101,4 +101,3 @@ function parseMarkdownTableLine(line: string): string[] | null {
 function escapeMarkdownTableCell(value: string): string {
 	return value.replaceAll("|", "\\|").replace(/\r?\n/gu, " ")
 }
-

@@ -1,19 +1,6 @@
-import { protocol, net } from "electron"
 import { pathToFileURL } from "node:url"
-
-export function registerCortexFileProtocol(): void {
-	protocol.handle("cortex-file", async (request) => {
-		const url = new URL(request.url)
-		let filePath = decodeURIComponent(url.pathname)
-		if (url.hostname === "local") {
-			filePath = decodeURIComponent(url.pathname)
-		}
-		if (process.platform === "win32" && filePath.startsWith("/")) {
-			filePath = filePath.slice(1)
-		}
-		return net.fetch(pathToFileURL(filePath).toString())
-	})
-}
+import { net, protocol } from "electron"
+import { assertAllowedPath } from "./security"
 
 export function registerPrivilegedSchemes(): void {
 	protocol.registerSchemesAsPrivileged([
@@ -28,4 +15,18 @@ export function registerPrivilegedSchemes(): void {
 			},
 		},
 	])
+}
+
+export function registerCortexFileProtocol(): void {
+	protocol.handle("cortex-file", async (request) => {
+		const pathname = decodeURIComponent(new URL(request.url).pathname)
+		const filePath = process.platform === "win32" ? pathname.replace(/^\//, "") : pathname
+		let allowedPath: string
+		try {
+			allowedPath = assertAllowedPath(filePath)
+		} catch {
+			return new Response(null, { status: 403 })
+		}
+		return await net.fetch(pathToFileURL(allowedPath).toString())
+	})
 }

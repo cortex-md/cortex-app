@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("@cortex/core", () => ({
+	useCanWriteVaultPath: () => true,
 	useTemplateStore: vi.fn(),
 	useUIStore: vi.fn(),
 	useVaultStore: vi.fn(),

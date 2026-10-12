@@ -1,5 +1,6 @@
 import type { TemplateDefinition } from "@cortex/core"
 import { useVaultStore } from "@cortex/core"
+import { createEditorConfig } from "@cortex/editor/editor-config"
 import { EditorView } from "@cortex/editor/editor-view"
 import type { EditorRuntimeView } from "@cortex/editor/types"
 import { useSettingsStore } from "@cortex/settings"
@@ -10,7 +11,6 @@ import {
 } from "@cortex/templates"
 import {
 	Button,
-	Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
@@ -25,8 +25,8 @@ import {
 } from "@cortex/ui"
 import { PlusIcon, TestTube2Icon, VariableIcon, XIcon } from "lucide-react"
 import { memo, useCallback, useMemo, useRef, useState } from "react"
+import { ModalHost } from "@/utils/ModalHost"
 import { cortexVimCommandProvider } from "../split-view/vimCommandProvider"
-import { createTemplateEditorConfig } from "./templateEditorConfig"
 import { createEmptyDraft, type TemplateEditorDraft } from "./templateEditorDraft"
 
 interface TemplateEditorDialogProps {
@@ -288,17 +288,15 @@ export function TemplateEditorDialog({
 }: TemplateEditorDialogProps) {
 	const contentKey = initialDraft?.id ?? template?.id ?? "new-template"
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			{open && (
-				<TemplateEditorDialogContent
-					key={contentKey}
-					template={template}
-					initialDraft={initialDraft}
-					onOpenChange={onOpenChange}
-					onSave={onSave}
-				/>
-			)}
-		</Dialog>
+		<ModalHost open={open} onOpenChange={onOpenChange}>
+			<TemplateEditorDialogContent
+				key={contentKey}
+				template={template}
+				initialDraft={initialDraft}
+				onOpenChange={onOpenChange}
+				onSave={onSave}
+			/>
+		</ModalHost>
 	)
 }
 
@@ -329,7 +327,7 @@ function TemplateEditorDialogContent({
 	const draftName = draft.name
 	const draftCustomPlaceholders = draft.customPlaceholders
 
-	const editorConfig = useMemo(() => createTemplateEditorConfig(settings), [settings])
+	const editorConfig = useMemo(() => createEditorConfig(settings), [settings])
 
 	const previewContext = useMemo(
 		() =>

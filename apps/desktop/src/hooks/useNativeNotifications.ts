@@ -1,85 +1,89 @@
-import { noteCache, useSubscriptionStore, useSyncStore } from "@cortex/core"
-import { useEffect, useRef } from "react"
+import {
+	getBaseName,
+	noteCache,
+	type SyncState,
+	useSubscriptionStore,
+	useSyncStore,
+} from "@cortex/core"
+import { useEffect } from "react"
 import { sendCoreNotification } from "../utils/nativeNotifications"
 
-export function useNativeNotifications() {
-	const conflicts = useSyncStore((state) => state.conflicts)
-	const engineState = useSyncStore((state) => state.engineState)
-	const error = useSyncStore((state) => state.error)
-	const initialSyncComplete = useSyncStore((state) => state.initialSyncComplete)
-	const lastSyncedAt = useSyncStore((state) => state.lastSyncedAt)
-	const vekRequired = useSyncStore((state) => state.vekRequired)
-	const subscriptionBlock = useSubscriptionStore((state) => state.block)
+function hashText(value: string): string {
+	let hash = 0
+	for (let index = 0; index < value.length; index++) {
+		hash = (hash * 31 + value.charCodeAt(index)) | 0
+	}
+	return Math.abs(hash).toString(36)
+}
 
-	const knownConflictPaths = useRef<Set<string> | null>(null)
-	knownConflictPaths.current ??= new Set()
-	const deniedReason = useRef<string | null>(null)
-	const syncError = useRef<string | null>(null)
-	const initialSyncWasComplete = useRef(false)
-	const vekNotificationSent = useRef(false)
+function startNativeNotifications(): () => void {
+	let knownConflictPaths = new Set<string>()
+	let deniedReason: string | null = null
+	let syncErrorKey: string | null = null
+	let initialSyncWasComplete = false
+	let vekNotificationSent = false
 
-	useEffect(() => {
+	const notifyConflicts = (conflicts: SyncState["conflicts"]) => {
 		const paths = Object.keys(conflicts)
 		for (const path of paths) {
-			if (knownConflictPaths.current?.has(path)) continue
+			if (knownConflictPaths.has(path)) continue
 			void sendCoreNotification({
 				id: `sync-conflict:${path}`,
 				tag: `sync-conflict:${path}`,
 				title: "Sync conflict detected",
-				body: getFileName(path),
+				body: getBaseName(path),
 				kind: "warning",
 				urgency: "high",
 			})
 		}
-		knownConflictPaths.current = new Set(paths)
-	}, [conflicts])
+		knownConflictPaths = new Set(paths)
+	}
 
-	useEffect(() => {
-		if (engineState !== "denied") {
-			deniedReason.current = null
+	const notifyAccessDenied = (state: SyncState) => {
+		if (state.engineState !== "denied") {
+			deniedReason = null
 			return
 		}
-
-		const reason = error ?? "Vault access was denied."
-		if (deniedReason.current === reason) return
-		deniedReason.current = reason
+		const reason = state.error ?? "Vault access was denied."
+		if (deniedReason === reason) return
+		deniedReason = reason
+		const planRequired = useSubscriptionStore.getState().block !== null
 		void sendCoreNotification({
-			id: subscriptionBlock ? "sync-plan-required" : "sync-access-denied",
-			tag: subscriptionBlock ? "sync-plan-required" : "sync-access-denied",
-			title: subscriptionBlock ? "Cortex Cloud plan required" : "Vault access denied",
+			id: planRequired ? "sync-plan-required" : "sync-access-denied",
+			tag: planRequired ? "sync-plan-required" : "sync-access-denied",
+			title: planRequired ? "Cortex Cloud plan required" : "Vault access denied",
 			body: reason,
 			kind: "error",
 			urgency: "high",
 		})
-	}, [engineState, error, subscriptionBlock])
+	}
 
-	useEffect(() => {
-		if (!error || engineState === "denied") {
-			syncError.current = null
+	const notifySyncError = (state: SyncState) => {
+		if (!state.error || state.engineState === "denied") {
+			syncErrorKey = null
 			return
 		}
-
-		const reason = lastSyncedAt ? "Sync needs attention." : "Initial sync failed."
-		const key = `${reason}:${error}`
-		if (syncError.current === key) return
-		syncError.current = key
+		const reason = state.lastSyncedAt ? "Sync needs attention." : "Initial sync failed."
+		const key = `${reason}:${state.error}`
+		if (syncErrorKey === key) return
+		syncErrorKey = key
 		void sendCoreNotification({
 			id: `sync-error:${hashText(key)}`,
 			tag: "sync-error",
 			title: reason,
-			body: error,
+			body: state.error,
 			kind: "error",
 			urgency: "high",
 		})
-	}, [engineState, error, lastSyncedAt])
+	}
 
-	useEffect(() => {
+	const notifyInitialSync = (initialSyncComplete: boolean) => {
 		if (!initialSyncComplete) {
-			initialSyncWasComplete.current = false
+			initialSyncWasComplete = false
 			return
 		}
-		if (initialSyncWasComplete.current) return
-		initialSyncWasComplete.current = true
+		if (initialSyncWasComplete) return
+		initialSyncWasComplete = true
 		void sendCoreNotification({
 			id: "initial-sync-complete",
 			tag: "initial-sync",
@@ -88,48 +92,67 @@ export function useNativeNotifications() {
 			kind: "success",
 			urgency: "normal",
 		})
-	}, [initialSyncComplete])
+	}
 
-	useEffect(() => {
+	const notifyVekRequired = (vekRequired: boolean) => {
 		if (!vekRequired) {
-			vekNotificationSent.current = false
+			vekNotificationSent = false
 			return
 		}
-		if (vekNotificationSent.current) return
-		vekNotificationSent.current = true
+		if (vekNotificationSent) return
+		vekNotificationSent = true
 		void sendCoreNotification({
 			id: "vault-encryption-key-required",
 			tag: "vault-encryption-key-required",
-			title: "Vault key required",
-			body: "Unlock your vault key to continue syncing.",
+			title: "Waiting for vault access",
+			body: "Sync starts as soon as a vault admin grants you access.",
 			kind: "warning",
 			urgency: "high",
 		})
-	}, [vekRequired])
-
-	useEffect(() => {
-		return noteCache.onExternalChange((event) => {
-			if (event.kind !== "conflict") return
-			void sendCoreNotification({
-				id: `external-file-conflict:${event.filePath}`,
-				tag: `external-file-conflict:${event.filePath}`,
-				title: "External file conflict",
-				body: getFileName(event.filePath),
-				kind: "warning",
-				urgency: "high",
-			})
-		})
-	}, [])
-}
-
-function getFileName(path: string): string {
-	return path.split("/").filter(Boolean).at(-1) ?? path
-}
-
-function hashText(value: string): string {
-	let hash = 0
-	for (let index = 0; index < value.length; index++) {
-		hash = (hash * 31 + value.charCodeAt(index)) | 0
 	}
-	return Math.abs(hash).toString(36)
+
+	const handleSyncState = (state: SyncState, previousState?: SyncState) => {
+		if (state.conflicts !== previousState?.conflicts) notifyConflicts(state.conflicts)
+		if (state.engineState !== previousState?.engineState || state.error !== previousState.error) {
+			notifyAccessDenied(state)
+		}
+		if (
+			state.engineState !== previousState?.engineState ||
+			state.error !== previousState.error ||
+			state.lastSyncedAt !== previousState.lastSyncedAt
+		) {
+			notifySyncError(state)
+		}
+		if (state.initialSyncComplete !== previousState?.initialSyncComplete) {
+			notifyInitialSync(state.initialSyncComplete)
+		}
+		if (state.vekRequired !== previousState?.vekRequired) notifyVekRequired(state.vekRequired)
+	}
+
+	handleSyncState(useSyncStore.getState())
+	const unsubscribeSync = useSyncStore.subscribe(handleSyncState)
+	const unsubscribeSubscription = useSubscriptionStore.subscribe((state, previousState) => {
+		if (state.block !== previousState.block) notifyAccessDenied(useSyncStore.getState())
+	})
+	const unsubscribeExternalChanges = noteCache.onExternalChange((event) => {
+		if (event.kind !== "conflict") return
+		void sendCoreNotification({
+			id: `external-file-conflict:${event.filePath}`,
+			tag: `external-file-conflict:${event.filePath}`,
+			title: "External file conflict",
+			body: getBaseName(event.filePath),
+			kind: "warning",
+			urgency: "high",
+		})
+	})
+
+	return () => {
+		unsubscribeSync()
+		unsubscribeSubscription()
+		unsubscribeExternalChanges()
+	}
+}
+
+export function useNativeNotifications() {
+	useEffect(() => startNativeNotifications(), [])
 }

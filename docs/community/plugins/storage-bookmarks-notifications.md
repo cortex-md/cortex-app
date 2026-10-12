@@ -1,80 +1,61 @@
 # Storage, Bookmarks, and Notifications
 
-These APIs integrate plugins with host-owned data, user bookmarks, metadata, themes, and native
-notifications.
-
 ## Plugin Data
 
-Plugin data is vault-scoped and stored under the plugin directory:
-
-```text
-<vault>/.cortex/plugins/<plugin-id>/data/
-```
+Plugin data is vault-scoped under `<vault>/.cortex/plugins/<plugin-id>/data/`:
 
 ```ts
-await this.api.data.write("cache.json", JSON.stringify({ lastRun: Date.now() }))
-const cached = await this.api.data.read("cache.json")
-await this.api.data.delete("cache.json")
+await ctx.data.write("cache.json", JSON.stringify({ lastRun: Date.now() }))
+const cached = await ctx.data.read("cache.json")
+await ctx.data.delete("cache.json")
 ```
 
-Declare `data`. Filenames must not contain `..` and must not start with `/` or `\`.
-
-Use data files for plugin-owned state and caches. Use vault APIs for user-visible notes.
+Requires `data`. Filenames must not contain `..` or start with `/` or `\`. Use data files for
+plugin-owned state; use vault APIs for user-visible notes. Settings are separate (see
+[Views, settings, and UI](views-settings-and-ui.md)).
 
 ## Metadata
 
-Metadata APIs require `vault:read`:
+Requires `vault:read`:
 
 ```ts
-const frontmatter = await this.api.metadata.getFrontmatter("Projects/Plan.md")
-const tags = await this.api.metadata.getTags("Projects/Plan.md")
-const allTags = this.api.metadata.getAllTags()
+const frontmatter = await ctx.metadata.getFrontmatter("Projects/Plan.md")
+const tags = await ctx.metadata.getTags("Projects/Plan.md")
+const allTags = ctx.metadata.getAllTags()
 ```
-
-Metadata paths are vault-relative Markdown paths.
 
 ## Bookmarks
 
 ```ts
-const bookmarks = this.api.bookmarks.list()
-await this.api.bookmarks.toggle("Projects/Plan.md")
-const isBookmarked = this.api.bookmarks.isBookmarked("Projects/Plan.md")
+const bookmarks = ctx.bookmarks.list()
+await ctx.bookmarks.toggle("Projects/Plan.md")
+const isBookmarked = ctx.bookmarks.isBookmarked("Projects/Plan.md")
 ```
 
-Reads require `bookmarks:read`. Mutations require `bookmarks:write`. Bookmark paths are
-vault-relative Markdown paths.
+Reads require `bookmarks:read`; mutations require `bookmarks:write`. Paths are vault-relative
+Markdown paths.
 
-## Theme Read API
+## Theme
 
 ```ts
-const activeTheme = this.api.theme.getActiveThemeName()
-const disposable = this.api.theme.onThemeChange((name) => {
-	console.log("Theme changed", name)
-})
+const activeTheme = ctx.theme.getActiveThemeName()
+ctx.theme.onThemeChange((name) => console.log("Theme changed", name))
 ```
 
-Declare `theme:read`. Plugins can observe the active theme name, but they should not mutate themes.
+Requires `theme:read`. Plugins observe the theme; they do not mutate it.
 
 ## Notifications and Notices
 
 ```ts
-const result = await this.notify({
+const result = await ctx.notifications.send({
 	title: "Task complete",
 	body: "Your plugin finished processing notes.",
 	kind: "success",
 })
-
-if (!result.delivered) {
-	console.warn(result.reason)
-}
+if (!result.delivered) console.warn(result.reason)
 ```
 
-Declare `notifications`. Plugins cannot request OS notification permission directly; Cortex owns
-permission prompts and platform support.
-
-`api.ui.showNotice(message)` also requires `notifications` and is delivered through the host notice
-path.
-
-Notifications are rate-limited per plugin. Keep them user-meaningful and avoid sending repeated
-status spam.
-
+Requires `notifications`; without it, `send` resolves `{ delivered: false, reason:
+"missing-capability" }`. Plugins cannot request OS permission; Cortex owns prompts and platform
+support. `ctx.ui.showNotice(message)` also requires `notifications`. Notifications are rate-limited
+per plugin.

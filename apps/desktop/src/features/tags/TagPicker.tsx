@@ -1,18 +1,24 @@
-import { useEditorStore, useTagsStore, useUIStore, useVaultStore } from "@cortex/core"
 import {
+	selectSortedTags,
+	useEditorStore,
+	useTagsStore,
+	useUIStore,
+	useVaultStore,
+} from "@cortex/core"
+import {
+	Button,
+	ColorPicker,
 	CommandDialog,
 	CommandEmpty,
-	CommandFooter,
-	CommandFooterHint,
-	CommandFooterKey,
+	CommandFooterHints,
 	CommandGroup,
 	CommandInput,
 	CommandItem,
 	CommandList,
 	CommandShortcut,
-	Input,
 } from "@cortex/ui"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useState } from "react"
+import { formatCount } from "@/utils/format"
 
 const emptyTags: string[] = []
 const TAG_PICKER_FOOTER_HINTS = [
@@ -23,41 +29,27 @@ const TAG_PICKER_FOOTER_HINTS = [
 
 export function TagPicker() {
 	const tagPickerOpen = useUIStore((s) => s.tagPickerOpen)
-	const toggleTagPicker = useUIStore((s) => s.toggleTagPicker)
 	const activeFilePath = useEditorStore((s) => s.activeFilePath)
+	if (!tagPickerOpen || !activeFilePath) return null
+	return <TagPickerDialog activeFilePath={activeFilePath} />
+}
+
+function TagPickerDialog({ activeFilePath }: { activeFilePath: string }) {
+	const toggleTagPicker = useUIStore((s) => s.toggleTagPicker)
 	const vault = useVaultStore((s) => s.vault)
-	const tagIndex = useTagsStore((s) => s.tagIndex)
+	const allTags = useTagsStore(selectSortedTags)
 	const tagColors = useTagsStore((s) => s.tagColors)
-	const currentTags = useTagsStore((s) =>
-		activeFilePath ? (s.fileTags[activeFilePath] ?? emptyTags) : emptyTags,
-	)
+	const currentTags = useTagsStore((s) => s.fileTags[activeFilePath] ?? emptyTags)
 	const setTagColor = useTagsStore((s) => s.setTagColor)
 	const addTagToFile = useTagsStore((s) => s.addTagToFile)
 	const removeTagFromFile = useTagsStore((s) => s.removeTagFromFile)
 	const [inputValue, setInputValue] = useState("")
 	const [editingColorFor, setEditingColorFor] = useState<string | null>(null)
 
-	const allTags = useMemo(
-		() =>
-			Object.entries(tagIndex)
-				.map(([tag, filePaths]) => ({
-					tag,
-					color: tagColors[tag] ?? null,
-					filePaths,
-				}))
-				.sort((a, b) => b.filePaths.length - a.filePaths.length || a.tag.localeCompare(b.tag)),
-		[tagColors, tagIndex],
-	)
-
-	const closeModal = useCallback(() => {
-		toggleTagPicker()
-		setInputValue("")
-		setEditingColorFor(null)
-	}, [toggleTagPicker])
+	const closeModal = toggleTagPicker
 
 	const handleToggleTag = useCallback(
 		async (tag: string) => {
-			if (!activeFilePath) return
 			if (currentTags.includes(tag)) {
 				await removeTagFromFile(activeFilePath, tag)
 			} else {
@@ -68,7 +60,7 @@ export function TagPicker() {
 	)
 
 	const handleCreateTag = useCallback(async () => {
-		if (!activeFilePath || !inputValue.trim()) return
+		if (!inputValue.trim()) return
 		const newTag = inputValue.trim().toLowerCase()
 		await addTagToFile(activeFilePath, newTag)
 		setInputValue("")
@@ -76,14 +68,13 @@ export function TagPicker() {
 	}, [activeFilePath, inputValue, addTagToFile, closeModal])
 
 	const handleColorChange = useCallback(
-		(tag: string, color: string) => {
+		(tag: string, color: string | null) => {
 			if (!vault) return
-			setTagColor(vault.path, tag, color || null)
+			setTagColor(vault.path, tag, color)
+			if (!color) setEditingColorFor(null)
 		},
 		[vault, setTagColor],
 	)
-
-	if (!activeFilePath) return null
 
 	const inputMatchesExisting = allTags.some(
 		(t) => t.tag.toLowerCase() === inputValue.trim().toLowerCase(),
@@ -91,7 +82,7 @@ export function TagPicker() {
 
 	return (
 		<CommandDialog
-			open={tagPickerOpen}
+			open
 			onOpenChange={(open) => {
 				if (!open) closeModal()
 			}}
@@ -107,13 +98,13 @@ export function TagPicker() {
 			<CommandList>
 				<CommandEmpty className="py-4">
 					{inputValue.trim() && !inputMatchesExisting ? (
-						<button
-							type="button"
-							className="mx-auto flex items-center gap-2 rounded-[8px] px-3 py-2 text-sm text-brand transition-[background-color,color] duration-150 ease-out hover:bg-muted/55 hover:text-brand/80"
+						<Button
+							variant="ghost"
+							className="mx-auto h-auto gap-2 rounded-[8px] px-3 py-2 text-sm text-brand hover:bg-muted/55 hover:text-brand/80 active:scale-100 dark:hover:bg-muted/55"
 							onClick={handleCreateTag}
 						>
 							Create tag "{inputValue.trim()}"
-						</button>
+						</Button>
 					) : (
 						<span className="text-sm text-muted-foreground">No tags found</span>
 					)}
@@ -143,11 +134,12 @@ export function TagPicker() {
 									<span className="command-item-copy">
 										<span className="command-item-title">{entry.tag}</span>
 										<span className="command-item-meta">
-											{entry.filePaths.length} {entry.filePaths.length === 1 ? "note" : "notes"}
+											{formatCount(entry.filePaths.length, "note")}
 										</span>
 									</span>
-									<button
-										type="button"
+									<Button
+										variant="ghost"
+										size="icon-xs"
 										aria-label={`Set color for ${entry.tag}`}
 										className="tag-picker-color-button"
 										style={{ backgroundColor: entry.color ?? "transparent" }}
@@ -165,40 +157,18 @@ export function TagPicker() {
 				)}
 			</CommandList>
 			{editingColorFor && (
-				<div className="command-inline-panel flex items-center gap-2 px-4 py-2">
-					<span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+				<div className="command-inline-panel flex flex-col gap-2 px-4 py-2">
+					<span className="min-w-0 truncate text-xs text-muted-foreground">
 						Color for {editingColorFor}
 					</span>
-					<Input
-						type="color"
-						value={tagColors[editingColorFor] ?? "#fb7185"}
-						onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-							handleColorChange(editingColorFor, e.target.value)
-						}
-						className="h-7 w-8 rounded-[6px] border-none p-0"
+					<ColorPicker
+						value={tagColors[editingColorFor] ?? null}
+						onChange={(color) => handleColorChange(editingColorFor, color)}
+						clearLabel="Clear"
 					/>
-					<button
-						type="button"
-						className="rounded-[6px] px-2 py-1 text-xs text-muted-foreground transition-[background-color,color] duration-150 ease-out hover:bg-muted/60 hover:text-text-primary"
-						onClick={() => {
-							if (vault) setTagColor(vault.path, editingColorFor, null)
-							setEditingColorFor(null)
-						}}
-					>
-						Clear
-					</button>
 				</div>
 			)}
-			<CommandFooter>
-				{TAG_PICKER_FOOTER_HINTS.map((hint) => (
-					<CommandFooterHint key={`${hint.keys.join("-")}-${hint.label}`}>
-						{hint.keys.map((key) => (
-							<CommandFooterKey key={key}>{key}</CommandFooterKey>
-						))}
-						{hint.label}
-					</CommandFooterHint>
-				))}
-			</CommandFooter>
+			<CommandFooterHints hints={TAG_PICKER_FOOTER_HINTS} />
 		</CommandDialog>
 	)
 }

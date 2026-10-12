@@ -1,6 +1,7 @@
-import { getPropertyType } from "@cortex/properties"
+import { getPlatform } from "@cortex/platform"
+import { getPropertyType, getPropertyValueHref } from "@cortex/properties"
 import { Button, Popover, PopoverAnchor, PopoverContent } from "@cortex/ui"
-import { ChevronRightIcon } from "lucide-react"
+import { CopyIcon, ExternalLinkIcon } from "lucide-react"
 import { useState } from "react"
 import { InlinePropertyValueEditor } from "./editors/InlinePropertyValueEditor"
 import { PropertyValueEditor } from "./editors/PropertyValueEditor"
@@ -137,6 +138,7 @@ export function PropertyRow({
 	const propertyType = getPropertyType(definition.type)
 	const readOnly = propertyType?.readOnly === true
 	const unavailable = !propertyType
+	const valueHref = getPropertyValueHref(definition.type, value)
 	const inlineEditable =
 		Boolean(propertyType && inlineEditableBaseTypes.has(propertyType.baseType)) &&
 		!(definition.key === "author" && authorConfig.variant === "person")
@@ -179,7 +181,6 @@ export function PropertyRow({
 					>
 						<PropertyTypeIcon icon={propertyType?.icon ?? "circle-help"} />
 						<span>{definition.name}</span>
-						<ChevronRightIcon className="note-property-settings-chevron" />
 					</Button>
 				) : (
 					<div className="note-property-name note-property-name-static">
@@ -244,6 +245,26 @@ export function PropertyRow({
 									authorConfig={authorConfig}
 								/>
 							</Button>
+						)}
+						{!inlineEditing && valueHref && (
+							<span className="note-property-link-actions">
+								<Button
+									variant="ghost"
+									size="icon-xs"
+									aria-label="Open link"
+									onClick={() => void getPlatform().app.openExternalUrl(valueHref)}
+								>
+									<ExternalLinkIcon />
+								</Button>
+								<Button
+									variant="ghost"
+									size="icon-xs"
+									aria-label="Copy link"
+									onClick={() => void getPlatform().clipboard.writeText(String(value))}
+								>
+									<CopyIcon />
+								</Button>
+							</span>
 						)}
 					</div>
 				</PopoverAnchor>

@@ -1,4 +1,4 @@
-import { noteCache, useVaultStore } from "@cortex/core"
+import { getParentPath, joinPath, noteCache, reportAppError, useVaultStore } from "@cortex/core"
 import {
 	exportNote,
 	getExportDefaultFileName,
@@ -8,7 +8,6 @@ import {
 	type TransferFormat,
 } from "@cortex/import-export"
 import { getPlatform } from "@cortex/platform"
-import { reportAppError } from "@/utils/reportAppError"
 
 type ImportExportSource = "command-palette" | "settings" | "context-menu"
 
@@ -56,16 +55,18 @@ export async function importFilesFromDialog(source: ImportExportSource): Promise
 			sourcePaths,
 			existingFiles: vaultState.files,
 		})
-		await vaultState.refreshFiles()
-		await platform.dialog.showAlert({
-			title: "Import complete",
-			message: getImportSummaryMessage(
-				result.importedCount,
-				result.skippedCount,
-				result.failedCount,
-			),
-			kind: result.failedCount > 0 ? "warning" : "info",
-		})
+		await Promise.all([
+			vaultState.refreshFiles(),
+			platform.dialog.showAlert({
+				title: "Import complete",
+				message: getImportSummaryMessage(
+					result.importedCount,
+					result.skippedCount,
+					result.failedCount,
+				),
+				kind: result.failedCount > 0 ? "warning" : "info",
+			}),
+		])
 	} catch (error) {
 		await reportAppError({
 			operation: "import-files",
@@ -86,15 +87,17 @@ export async function exportNoteFromDialog(
 	if (!exporter) return
 
 	try {
-		await noteCache.flush(filePath)
-		const targetPath = await platform.dialog.saveFile({
-			title: `Export ${exportFormatLabels[format]}`,
-			defaultPath: `${filePath.slice(0, filePath.lastIndexOf("/"))}/${getExportDefaultFileName(
-				filePath,
-				exporter,
-			)}`,
-			filters: [{ name: exportFormatLabels[format], extensions: [exporter.extension] }],
-		})
+		const [, targetPath] = await Promise.all([
+			noteCache.flush(filePath),
+			platform.dialog.saveFile({
+				title: `Export ${exportFormatLabels[format]}`,
+				defaultPath: joinPath(
+					getParentPath(filePath),
+					getExportDefaultFileName(filePath, exporter),
+				),
+				filters: [{ name: exportFormatLabels[format], extensions: [exporter.extension] }],
+			}),
+		])
 		if (!targetPath) return
 
 		await exportNote({

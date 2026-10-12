@@ -19,7 +19,9 @@ export {
 } from "./definitions"
 export { getObservedPropertyDefinitions } from "./discovery/observed"
 export {
+	getPropertyValueUsage,
 	invalidatePropertySuggestions,
+	type PropertyValueUsage,
 	suggestProperties,
 } from "./discovery/suggestions"
 export {
@@ -106,10 +108,25 @@ export {
 	setNotePropertiesExpanded,
 } from "./uiState"
 export {
+	allowsMultipleValues,
+	getPropertyInputType,
+	getPropertyValueHref,
+	getPropertyValueList,
 	isEmptyPropertyValue,
 	isResolvedPropertyActor,
+	type PropertyDraftResolution,
+	type PropertyInputType,
 	parsePropertyDate,
 	parsePropertyInput,
 	resolvePropertyOption,
+	resolveTextPropertyDraft,
 	serializePropertyDate,
+	supportsMultipleValues,
+	togglePropertyValue,
 } from "./values"
+export {
+	getHiddenPropertyDefinitions,
+	getVisiblePropertyDefinitions,
+	type PropertyVisibilityInput,
+	TAGS_PROPERTY_DEFINITION,
+} from "./visibility"

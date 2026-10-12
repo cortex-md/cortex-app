@@ -94,6 +94,9 @@ describe("auth Sync helpers", () => {
 				displayName: "Writer",
 				email: "writer@example.com",
 				password: "correct-password",
+				kdfSalt: "c2FsdA==",
+				publicKey: "cHVibGlj",
+				encryptedPrivateKey: "d3JhcHBlZA==",
 				redirectTo: "/billing",
 			},
 			{
@@ -110,6 +113,9 @@ describe("auth Sync helpers", () => {
 			email: "writer@example.com",
 			password: "correct-password",
 			display_name: "Writer",
+			kdf_salt: "c2FsdA==",
+			public_key: "cHVibGlj",
+			encrypted_private_key: "d3JhcHBlZA==",
 		})
 		expect(fetcher.mock.calls[1]?.[0]).toBe("https://sync.example.com/auth/v1/login")
 	})
@@ -133,6 +139,9 @@ describe("auth Sync helpers", () => {
 					displayName: "Writer",
 					email: "writer@example.com",
 					password: "correct-password",
+					kdfSalt: "c2FsdA==",
+					publicKey: "cHVibGlj",
+					encryptedPrivateKey: "d3JhcHBlZA==",
 				},
 				{ fetcher: existingUser },
 			),
@@ -143,6 +152,9 @@ describe("auth Sync helpers", () => {
 					displayName: "Writer",
 					email: "writer@example.com",
 					password: "correct-password",
+					kdfSalt: "c2FsdA==",
+					publicKey: "cHVibGlj",
+					encryptedPrivateKey: "d3JhcHBlZA==",
 				},
 				{ fetcher: closedRegistration },
 			),

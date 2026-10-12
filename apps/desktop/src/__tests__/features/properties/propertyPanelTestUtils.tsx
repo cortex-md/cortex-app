@@ -47,7 +47,8 @@ export function initializePanelRuntime(schema: VaultSchema, note: string): Panel
 		},
 		notes: {
 			readNote: read,
-			writeNote: async (path, content) => {
+			updateNote: async (path, update) => {
+				const content = update(await read(path))
 				files.set(path, content)
 				noteCache.writeExternal(path, content)
 			},

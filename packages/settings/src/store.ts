@@ -68,8 +68,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
 	updateSetting: async (section, key, value) => {
 		const manager = getSettingsManager()
-		await manager.set(section, key, value)
-		set({ settings: manager.getAll() })
+		const pending = manager.set(section, key, value)
+		if (!unsubscribeSettingsManager) set({ settings: manager.getAll() })
+		await pending
 	},
 
 	getSetting: (section, key) => {

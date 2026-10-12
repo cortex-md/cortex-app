@@ -23,6 +23,8 @@ interface FolderPickerProps {
 	reserveDropdownSpace?: boolean
 }
 
+const MAX_VISIBLE_OPTIONS = 200
+
 export function FolderPicker({
 	options,
 	value,
@@ -39,9 +41,11 @@ export function FolderPicker({
 	const listboxId = useId()
 
 	const filteredOptions = useMemo(() => {
-		if (!search.trim()) return options
-		const lower = search.toLowerCase()
-		return options.filter((option) => option.label.toLowerCase().includes(lower))
+		const lower = search.trim().toLowerCase()
+		const matches = lower
+			? options.filter((option) => option.label.toLowerCase().includes(lower))
+			: options
+		return matches.slice(0, MAX_VISIBLE_OPTIONS)
 	}, [options, search])
 	const trimmedSearch = search.trim()
 	const exactOptionExists = useMemo(() => {

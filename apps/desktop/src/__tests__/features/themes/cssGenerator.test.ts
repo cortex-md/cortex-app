@@ -9,15 +9,15 @@ describe("generateCSSVariables", () => {
 		expect(vars["--h2-color"]).toBe("#e11d48")
 		expect(vars["--h3-color"]).toBe("#3f6fa8")
 		expect(vars["--h4-color"]).toBe("#6b3a8a")
-		expect(vars["--h5-color"]).toBe("#4d5060")
-		expect(vars["--h6-color"]).toBe("#8b8f9d")
+		expect(vars["--h5-color"]).toBe("#44403c")
+		expect(vars["--h6-color"]).toBe("#8a847d")
 	})
 
 	it("emits design-system primitive color aliases", () => {
 		const vars = generateCSSVariables(paperTheme)
 		const inkVars = generateCSSVariables(inkTheme)
 
-		expect(vars["--stone-50"]).toBe("#fbfbfc")
+		expect(vars["--stone-50"]).toBe("#fcfcfb")
 		expect(vars["--mist-50"]).toBe("#fbfbfc")
 		expect(vars["--ink-800"]).toBe("#11151b")
 		expect(vars["--slate-800"]).toBe("#11151b")
@@ -127,7 +127,7 @@ describe("generateCSSVariables", () => {
 	})
 
 	it("emits theme-specific sidebar tree guides", () => {
-		expect(generateCSSVariables(paperTheme)["--sidebar-tree-guide"]).toBe("#d2d4dc")
+		expect(generateCSSVariables(paperTheme)["--sidebar-tree-guide"]).toBe("#dcd8d2")
 		expect(generateCSSVariables(inkTheme)["--sidebar-tree-guide"]).toBe("#373737")
 	})
 

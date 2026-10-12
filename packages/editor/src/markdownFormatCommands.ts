@@ -212,6 +212,89 @@ export const markdownFormatCommandIds = markdownFormatCommandDefinitions.map(
 	(definition) => definition.id,
 )
 
+export const markdownToolbarLayout = {
+	visible: [
+		"format.heading-1",
+		"format.heading-2",
+		"format.heading-3",
+		"format.bold",
+		"format.italic",
+		"format.inline-math",
+		"format.link",
+		"format.unordered-list",
+		"format.ordered-list",
+		"format.task-list",
+		"format.blockquote",
+	],
+	overflow: [
+		"format.strikethrough",
+		"format.inline-code",
+		"format.code-block",
+		"format.math-block",
+		"format.callout",
+		"format.image",
+		"format.table",
+		"format.drawing",
+	],
+} as const
+
+export const selectionToolbarLayout = {
+	turnInto: [
+		"editor.turn-into-text",
+		"format.heading-1",
+		"format.heading-2",
+		"format.heading-3",
+		"format.unordered-list",
+		"format.ordered-list",
+		"format.task-list",
+		"format.blockquote",
+	],
+	inline: ["format.bold", "format.italic", "format.inline-math", "format.link"],
+	block: ["format.task-list", "format.blockquote"],
+	annotate: ["comments.add"],
+	overflow: [
+		"format.strikethrough",
+		"format.inline-code",
+		"format.code-block",
+		"format.math-block",
+		"format.callout",
+		"format.image",
+		"format.table",
+		"format.drawing",
+	],
+} as const
+
+export type MarkdownToolbarCommandId =
+	| (typeof markdownToolbarLayout.visible)[number]
+	| (typeof markdownToolbarLayout.overflow)[number]
+
+export const markdownToolbarCommandIds: readonly MarkdownToolbarCommandId[] = [
+	...markdownToolbarLayout.visible,
+	...markdownToolbarLayout.overflow,
+]
+
+export const markdownToolbarShortLabels: Record<MarkdownToolbarCommandId, string> = {
+	"format.heading-1": "H1",
+	"format.heading-2": "H2",
+	"format.heading-3": "H3",
+	"format.bold": "B",
+	"format.italic": "I",
+	"format.inline-math": "∑",
+	"format.link": "Link",
+	"format.unordered-list": "List",
+	"format.ordered-list": "1.",
+	"format.task-list": "Task",
+	"format.blockquote": "Quote",
+	"format.strikethrough": "S",
+	"format.inline-code": "Code",
+	"format.code-block": "Block",
+	"format.math-block": "Math",
+	"format.callout": "Callout",
+	"format.image": "Image",
+	"format.table": "Table",
+	"format.drawing": "Draw",
+}
+
 export function createMarkdownFormatCommandEntries(
 	runCommand: MarkdownFormatCommandRunner,
 ): CommandEntry[] {

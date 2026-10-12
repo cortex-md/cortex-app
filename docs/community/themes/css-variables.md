@@ -7,7 +7,8 @@ the built-in theme system and are safe targets for community CSS.
 
 Built-in themes expose scale variables for each token key:
 
-- `--stone-*` and `--mist-*`
+- `--stone-*`: the warm Stone neutrals Paper is built on
+- `--mist-*`: the previous cool neutral scale, kept for community themes
 - `--ink-*` and `--slate-*`
 - `--amber-*` and `--rose-*`
 - `--amber-d-*` and `--rose-d-*`
@@ -110,6 +111,11 @@ weights and line heights.
 --settings-group-bg
 --settings-group-border
 --settings-group-divider
+--settings-group-radius
+--settings-row-height
+--settings-row-inset
+--settings-row-inset-icon
+--settings-row-icon
 --tab-bg
 --tab-active-bg
 --tab-accent
@@ -120,6 +126,9 @@ weights and line heights.
 --shadow-raised
 --shadow-floating
 --shadow-overlay
+--workspace-card-radius
+--workspace-card-shadow
+--titlebar-height
 --radius
 ```
 

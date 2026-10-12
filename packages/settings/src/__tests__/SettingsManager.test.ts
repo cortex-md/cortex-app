@@ -273,7 +273,6 @@ describe("getAll()", () => {
 		expect(all).toHaveProperty("appearance")
 		expect(all).toHaveProperty("editor")
 		expect(all).toHaveProperty("files")
-		expect(all).toHaveProperty("hotkeys")
 	})
 
 	it("returns a snapshot of the settings at call time", () => {

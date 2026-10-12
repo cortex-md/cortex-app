@@ -1,5 +1,5 @@
 import type { DragSource, DropTarget, DropZone } from "@cortex/core"
-import { useDragStore } from "@cortex/core"
+import { canMoveEntryTo, useDragStore } from "@cortex/core"
 import { useCallback, useRef } from "react"
 
 interface Options {
@@ -36,14 +36,6 @@ function findDropPane(clientX: number, clientY: number): HTMLElement | null {
 		if (pane) return pane
 	}
 	return null
-}
-
-function getPathName(filePath: string): string {
-	return filePath.split("/").pop() ?? filePath
-}
-
-function isPathOrDescendant(path: string, parentPath: string): boolean {
-	return path === parentPath || path.startsWith(`${parentPath}/`)
 }
 
 function findFileTreeDropElement(clientX: number, clientY: number): HTMLElement | null {
@@ -101,13 +93,10 @@ function getFileTreeRootDropTarget(target: HTMLElement): DropTarget | null {
 
 function isValidFileTreeDropTarget(source: DragSource, target: DropTarget): boolean {
 	if (source.type !== "file" || !target.fileTreeParentPath) return false
-	const destinationPath = `${target.fileTreeParentPath}/${getPathName(source.filePath)}`
-	if (destinationPath === source.filePath) return false
-	if (target.fileTreeParentPath === source.filePath) return false
-	if (source.isDirectory && isPathOrDescendant(target.fileTreeParentPath, source.filePath)) {
-		return false
-	}
-	return true
+	return canMoveEntryTo(
+		{ path: source.filePath, isDir: source.isDirectory === true },
+		target.fileTreeParentPath,
+	)
 }
 
 function updateDropTarget(clientX: number, clientY: number): void {

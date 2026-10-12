@@ -12,7 +12,7 @@ import {
 } from "lucide-react"
 import { GlobalWorkerOptions } from "pdfjs-dist"
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url"
-import { type ChangeEvent, useCallback, useEffect, useRef } from "react"
+import { type ChangeEvent, useCallback, useRef } from "react"
 import { getProgressValue, usePdfDocument } from "./usePdfDocument"
 import { usePdfPageRenderer } from "./usePdfPageRenderer"
 
@@ -85,12 +85,6 @@ export function PdfTabView({ tab, paneId, isActive }: PdfTabViewProps) {
 		},
 		[paneId, tab.id, updateTabViewState],
 	)
-
-	useEffect(() => {
-		if (documentStatus.type !== "ready") return
-		if (viewState.pageNumber === pageNumber) return
-		setPdfViewState({ pageNumber })
-	}, [documentStatus.type, pageNumber, setPdfViewState, viewState.pageNumber])
 
 	const handlePreviousPage = useCallback(() => {
 		setPdfViewState({ pageNumber: Math.max(1, pageNumber - 1) })

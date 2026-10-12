@@ -1,10 +1,6 @@
-import type { ContextMenuActionContext, ContextMenuItemRegistration } from "@cortex.md/api"
+import type { ContextMenuActionContext } from "@cortex.md/api"
 import { describe, expect, it, vi } from "vitest"
 import { createPluginContextMenuItems } from "../../../features/plugins/pluginContextMenu"
-
-interface TestContextMenuItem extends ContextMenuItemRegistration {
-	registrationKey?: string
-}
 
 describe("plugin context menu items", () => {
 	it("renders plugin actions as one flat section for a matching location", () => {
@@ -15,28 +11,34 @@ describe("plugin context menu items", () => {
 			filePath: "/vault/Note.md",
 		} satisfies ContextMenuActionContext
 		const items = createPluginContextMenuItems(
-			[
-				{
-					id: "first",
-					registrationKey: "alpha:first",
-					label: "First plugin action",
-					location: "file",
-					action: firstAction,
-				},
-				{
-					id: "ignored",
-					label: "Ignored editor action",
-					location: "editor",
-					action: vi.fn(),
-				},
-				{
-					id: "second",
-					registrationKey: "beta:second",
-					label: "Second plugin action",
-					location: "file",
-					action: secondAction,
-				},
-			] satisfies TestContextMenuItem[],
+			{
+				contextMenuItems: [
+					{
+						owner: "alpha",
+						id: "first",
+						key: "alpha:first",
+						label: "First plugin action",
+						location: "file",
+						action: firstAction,
+					},
+					{
+						owner: "alpha",
+						id: "ignored",
+						key: "alpha:ignored",
+						label: "Ignored editor action",
+						location: "editor",
+						action: vi.fn(),
+					},
+					{
+						owner: "beta",
+						id: "second",
+						key: "beta:second",
+						label: "Second plugin action",
+						location: "file",
+						action: secondAction,
+					},
+				],
+			},
 			"file",
 			context,
 		)
@@ -50,7 +52,7 @@ describe("plugin context menu items", () => {
 
 		const firstPluginItem = items[1]
 		expect(firstPluginItem.type).not.toBe("separator")
-		if (firstPluginItem.type !== "separator" && firstPluginItem.type !== "submenu") {
+		if (firstPluginItem.type === undefined || firstPluginItem.type === "normal") {
 			firstPluginItem.action?.()
 		}
 
@@ -60,14 +62,18 @@ describe("plugin context menu items", () => {
 
 	it("does not add a separator when no plugin actions match", () => {
 		const items = createPluginContextMenuItems(
-			[
-				{
-					id: "editor-only",
-					label: "Editor only",
-					location: "editor",
-					action: vi.fn(),
-				},
-			],
+			{
+				contextMenuItems: [
+					{
+						owner: "alpha",
+						id: "editor-only",
+						key: "alpha:editor-only",
+						label: "Editor only",
+						location: "editor",
+						action: vi.fn(),
+					},
+				],
+			},
 			"file",
 			{ location: "file", filePath: "/vault/Note.md" },
 		)

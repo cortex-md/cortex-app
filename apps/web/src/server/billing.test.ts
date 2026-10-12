@@ -59,7 +59,6 @@ describe("createCheckoutFromAuthSession", () => {
 			expect.objectContaining({
 				method: "GET",
 				headers: expect.objectContaining({
-					Accept: "application/json",
 					Authorization: "Bearer access-token",
 					"X-Device-ID": "device-123",
 				}),
@@ -75,7 +74,6 @@ describe("createCheckoutFromAuthSession", () => {
 					completion_url: "cortex://sync/checkout-complete",
 				}),
 				headers: expect.objectContaining({
-					Accept: "application/json",
 					Authorization: "Bearer access-token",
 					"Content-Type": "application/json",
 					"X-Device-ID": "device-123",

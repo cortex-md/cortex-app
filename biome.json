@@ -92,7 +92,6 @@
 			"package.json",
 			"tsconfig.json",
 			"biome.json",
-			"!!apps/desktop/src-tauri/~",
 			"!!**/*.d.ts",
 			"!!**/dist",
 			"!!**/.next",

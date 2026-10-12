@@ -1,26 +1,14 @@
-import { homedir } from "node:os"
 import { join } from "node:path"
+import { app } from "electron"
 
-export function normalizePath(path: string): string {
-	return path.replaceAll("\\", "/")
+export function userDataPath(...segments: string[]): string {
+	return join(app.getPath("userData"), ...segments)
 }
 
-export function cortexHomeDir(): string {
-	return join(homedir(), ".cortex")
-}
+export const vaultsRegistryPath = () => userDataPath("vaults.json")
 
-export function vaultsRegistryPath(): string {
-	return join(cortexHomeDir(), "vaults.json")
-}
+export const appSettingsPath = () => userDataPath("settings.json")
 
-export function settingsPath(): string {
-	return join(cortexHomeDir(), "settings.json")
-}
+export const credentialsPath = () => userDataPath("credentials.bin")
 
-export function credentialsPath(): string {
-	return join(cortexHomeDir(), "credentials.enc")
-}
-
-export function credentialsKeyPath(): string {
-	return join(cortexHomeDir(), "credentials.key")
-}
+export const windowStatePath = () => userDataPath("window-state.json")

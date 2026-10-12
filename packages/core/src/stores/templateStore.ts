@@ -1,4 +1,5 @@
 import { getPlatform } from "@cortex/platform"
+import { ensureMarkdownExtension, VAULT_FILES } from "@cortex/platform/utils"
 import { createNoteWithPropertyDefaults, invalidatePropertySuggestions } from "@cortex/properties"
 import {
 	renderTemplate,
@@ -10,6 +11,7 @@ import {
 import { create } from "zustand"
 import { resolveUniquePath, writeCleanNote } from "../utils/createdNote"
 import { getPortableFileNameError } from "../utils/fileName"
+import { assertVaultPathWritable } from "./accessStore"
 
 export type { TemplateDefinition, TemplateManifest, TemplateRenderContext }
 
@@ -77,7 +79,7 @@ export interface TemplateState {
 	reset: () => void
 }
 
-const templatesDirectoryName = ".cortex/templates"
+const templatesDirectoryName = VAULT_FILES.templates
 const manifestFileName = "manifest.json"
 const emptyManifest: TemplateManifest = { version: 1, templates: [] }
 
@@ -138,7 +140,7 @@ function normalizeMarkdownFileName(value: string): string {
 	if (!trimmed || trimmed.toLocaleLowerCase() === ".md") {
 		throw new Error("Saved title cannot be empty")
 	}
-	const fileName = trimmed.toLocaleLowerCase().endsWith(".md") ? trimmed : `${trimmed}.md`
+	const fileName = ensureMarkdownExtension(trimmed)
 	const error = getPortableFileNameError(fileName)
 	if (error) throw new Error(error)
 	return fileName
@@ -351,6 +353,7 @@ export const useTemplateStore = create<TemplateState>((set, get) => ({
 	createNoteFromTemplate: async (vault, input) => {
 		const preview = await get().previewNoteFromTemplate(vault, input)
 		const folderPath = preview.targetFolder ? `${vault.path}/${preview.targetFolder}` : vault.path
+		assertVaultPathWritable(folderPath, true)
 		const [filePath, content] = await Promise.all([
 			resolveUniquePath(folderPath, preview.fileName),
 			createNoteWithPropertyDefaults(vault.path, preview.content),

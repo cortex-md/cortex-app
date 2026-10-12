@@ -14,9 +14,15 @@ import {
 } from "lucide-react"
 import { type FormEvent, type ReactNode, useMemo, useRef, useState } from "react"
 import {
+	createWebAccountIdentity,
+	deriveAccountKeys,
+	type WebAccountIdentity,
+} from "../../lib/accountKeys"
+import {
 	type AuthActionResult,
 	type LoginInput,
 	login,
+	prelogin,
 	type SignupInput,
 	sanitizeRedirectPath,
 	signup,
@@ -28,7 +34,26 @@ type AuthMode = "login" | "signup"
 type LoginSubmitter = (options: { data: LoginInput }) => Promise<AuthActionResult>
 type SignupSubmitter = (options: { data: SignupInput }) => Promise<AuthActionResult>
 
+type LoginProof = { ok: true; password: string } | { ok: false; message: string }
+
+export interface AuthCredentials {
+	loginPassword(email: string, password: string): Promise<LoginProof>
+	signupKeys(password: string): Promise<WebAccountIdentity>
+}
+
+const browserCredentials: AuthCredentials = {
+	loginPassword: async (email, password) => {
+		const result = await prelogin({ data: { email } })
+		if (!result.ok) return result
+		if (result.kdfVersion < 1) return { ok: true, password }
+		if (!result.kdfSalt) return { ok: false, message: "Cortex Sync is temporarily unavailable." }
+		return { ok: true, password: (await deriveAccountKeys(password, result.kdfSalt)).authKey }
+	},
+	signupKeys: createWebAccountIdentity,
+}
+
 interface AuthPageProps {
+	credentials?: AuthCredentials
 	loginAction?: LoginSubmitter
 	mode: AuthMode
 	redirectTo?: (url: string) => void
@@ -120,6 +145,7 @@ function AuthField({
 }
 
 export function AuthPage({
+	credentials = browserCredentials,
 	loginAction = (options) => login(options),
 	mode,
 	redirectTo = defaultRedirectTo,
@@ -147,6 +173,29 @@ export function AuthPage({
 		setFormError(null)
 	}
 
+	async function submitSignup(email: string): Promise<AuthActionResult> {
+		const identity = await credentials.signupKeys(values.password)
+		return await signupAction({
+			data: {
+				displayName: values.displayName.trim(),
+				email,
+				password: identity.authKey,
+				kdfSalt: identity.kdfSalt,
+				publicKey: identity.publicKey,
+				encryptedPrivateKey: identity.encryptedPrivateKey,
+				redirectTo: redirectPath,
+			},
+		})
+	}
+
+	async function submitLogin(email: string): Promise<AuthActionResult> {
+		const proof = await credentials.loginPassword(email, values.password)
+		if (!proof.ok) return proof
+		return await loginAction({
+			data: { email, password: proof.password, redirectTo: redirectPath },
+		})
+	}
+
 	function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault()
 		if (isSubmittingRef.current) return
@@ -162,22 +211,8 @@ export function AuthPage({
 		setIsSubmitting(true)
 
 		void (async () => {
-			const result = isSignup
-				? await signupAction({
-						data: {
-							displayName: values.displayName.trim(),
-							email: values.email.trim(),
-							password: values.password,
-							redirectTo: redirectPath,
-						},
-					})
-				: await loginAction({
-						data: {
-							email: values.email.trim(),
-							password: values.password,
-							redirectTo: redirectPath,
-						},
-					})
+			const email = values.email.trim()
+			const result = isSignup ? await submitSignup(email) : await submitLogin(email)
 
 			if (!result.ok) {
 				setFormError(result.message)

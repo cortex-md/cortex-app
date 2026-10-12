@@ -78,7 +78,7 @@ function ContextMenuSubContent({
 			data-slot="context-menu-sub-content"
 			data-popup-surface=""
 			className={cn(
-				"z-50 min-w-[8rem] origin-(--radix-context-menu-content-transform-origin) overflow-hidden rounded-[var(--popup-radius,10px)] p-1 text-popover-foreground outline-hidden",
+				"z-[110] min-w-[8rem] origin-(--radix-context-menu-content-transform-origin) overflow-hidden rounded-[var(--popup-radius,10px)] p-1 text-popover-foreground outline-hidden",
 				nativePopupSurface,
 				nativePopupContentMotion,
 				className,
@@ -98,7 +98,7 @@ function ContextMenuContent({
 				data-slot="context-menu-content"
 				data-popup-surface=""
 				className={cn(
-					"z-50 max-h-(--radix-context-menu-content-available-height) min-w-[8rem] origin-(--radix-context-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-[var(--popup-radius,10px)] p-1 text-popover-foreground outline-hidden",
+					"z-[110] max-h-(--radix-context-menu-content-available-height) min-w-[8rem] origin-(--radix-context-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-[var(--popup-radius,10px)] p-1 text-popover-foreground outline-hidden",
 					nativePopupSurface,
 					nativePopupContentMotion,
 					className,

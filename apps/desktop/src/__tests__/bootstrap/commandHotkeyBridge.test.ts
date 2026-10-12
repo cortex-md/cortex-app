@@ -7,7 +7,6 @@ function resetHotkeysStore() {
 	useHotkeysStore.setState({
 		bindings: [],
 		parsedBindings: [],
-		handlers: {},
 		overrides: {},
 	})
 }
@@ -118,6 +117,6 @@ describe("command hotkey bridge", () => {
 			keys: "mod+b",
 			enabled: true,
 		})
-		expect(useHotkeysStore.getState().handlers["editor.bold"]).toBeUndefined()
+		expect(useHotkeysStore.getState().handleKeyEvent(createModKeyEvent("b"))).toBe(false)
 	})
 })

@@ -1,9 +1,11 @@
 import type { CurrentUser, NoteSyncMetadata, VaultMember } from "@cortex/platform"
+import { toVaultRelativePath } from "@cortex/platform/utils"
 
 export interface NoteSyncAttribution {
 	actorId: string
 	displayName: string
 	email: string | null
+	avatarUrl: string | null
 	editedAt: string
 }
 
@@ -34,6 +36,7 @@ export function resolveNoteSyncAttribution(
 			actorId: member.userId,
 			displayName: getDisplayName(member.displayName, member.email),
 			email: member.email,
+			avatarUrl: member.avatarUrl,
 			editedAt: metadata.lastEditedAt,
 		}
 	}
@@ -43,6 +46,7 @@ export function resolveNoteSyncAttribution(
 			actorId: currentUser.userId,
 			displayName: getDisplayName(currentUser.displayName, currentUser.email),
 			email: currentUser.email,
+			avatarUrl: null,
 			editedAt: metadata.lastEditedAt,
 		}
 	}
@@ -51,6 +55,7 @@ export function resolveNoteSyncAttribution(
 		actorId: metadata.lastEditedBy,
 		displayName: "Unknown member",
 		email: null,
+		avatarUrl: null,
 		editedAt: metadata.lastEditedAt,
 	}
 }
@@ -64,11 +69,9 @@ export async function loadNoteSyncAttribution({
 	loadMetadata,
 	loadMembers,
 }: LoadNoteSyncAttributionOptions): Promise<NoteSyncAttribution | null> {
-	if (!syncEnabled || !remoteVaultId || !vaultPath || !filePath.startsWith(`${vaultPath}/`)) {
-		return null
-	}
+	const relativePath = vaultPath ? toVaultRelativePath(filePath, vaultPath) : null
+	if (!syncEnabled || !remoteVaultId || !vaultPath || !relativePath) return null
 
-	const relativePath = filePath.slice(vaultPath.length + 1)
 	const metadata = await loadMetadata(vaultPath, relativePath)
 	if (!metadata?.synced || !metadata.lastEditedAt || !metadata.lastEditedBy) return null
 

@@ -1,9 +1,9 @@
 import type { ParsedCodeBlockEmbed } from "@cortex/editor/code-block-embeds"
 import { Button } from "@cortex/ui"
 import { Maximize2Icon, PanelTopOpenIcon, PenLineIcon, TriangleAlertIcon } from "lucide-react"
+import { formatDateTime } from "@/utils/format"
 import { parseDrawingDocument } from "./drawingDocument"
-import { openDrawingModal } from "./drawingModalStore"
-import { openDrawingBoardTab } from "./drawingWorkspace"
+import { openDrawingBoardTab, openDrawingModal } from "./drawingWorkspace"
 
 interface DrawingEmbedCardProps {
 	filePath: string
@@ -13,7 +13,7 @@ interface DrawingEmbedCardProps {
 export function formatDrawingUpdatedAt(value: string): string {
 	const date = new Date(value)
 	if (Number.isNaN(date.getTime())) return "Not saved yet"
-	return `Updated ${date.toLocaleString()}`
+	return `Updated ${formatDateTime(date)}`
 }
 
 export function DrawingEmbedCard({ filePath, block }: DrawingEmbedCardProps) {

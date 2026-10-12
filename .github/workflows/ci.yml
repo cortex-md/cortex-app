@@ -4,76 +4,31 @@ on:
   push:
     branches:
       - main
-    tags:
-      - 'v*'
-    paths:
-      - '.github/workflows/ci.yml'
-      - 'AGENTS.md'
-      - 'apps/desktop/**'
-      - 'packages/commands/**'
-      - 'packages/core/**'
-      - 'packages/editor/**'
-      - 'packages/hotkeys/**'
-      - 'packages/ipc/**'
-      - 'packages/marketplace/**'
-      - 'packages/platform/**'
-      - 'packages/plugin-api/**'
-      - 'packages/plugin-host-core/**'
-      - 'packages/plugin-host-web/**'
-      - 'packages/properties/**'
-      - 'packages/renderer/**'
-      - 'packages/search/**'
-      - 'packages/settings/**'
-      - 'packages/sync-engine/**'
-      - 'packages/templates/**'
-      - 'packages/theme/**'
-      - 'packages/ui/**'
-      - 'plugins/github-emoji/**'
-      - 'scripts/*.mjs'
-      - 'tools/benchmarks/**'
-      - 'biome.json'
-      - 'bun.lock'
-      - 'package.json'
-      - 'tsconfig.desktop.json'
-      - 'tsconfig.json'
+    paths-ignore:
+      - 'apps/mobile/**'
+      - 'apps/web/**'
+      - 'docs/**'
   pull_request:
     branches:
       - main
-    paths:
-      - '.github/workflows/ci.yml'
-      - 'AGENTS.md'
-      - 'apps/desktop/**'
-      - 'packages/commands/**'
-      - 'packages/core/**'
-      - 'packages/editor/**'
-      - 'packages/hotkeys/**'
-      - 'packages/ipc/**'
-      - 'packages/marketplace/**'
-      - 'packages/platform/**'
-      - 'packages/plugin-api/**'
-      - 'packages/plugin-host-core/**'
-      - 'packages/plugin-host-web/**'
-      - 'packages/properties/**'
-      - 'packages/renderer/**'
-      - 'packages/search/**'
-      - 'packages/settings/**'
-      - 'packages/sync-engine/**'
-      - 'packages/templates/**'
-      - 'packages/theme/**'
-      - 'packages/ui/**'
-      - 'plugins/github-emoji/**'
-      - 'scripts/*.mjs'
-      - 'tools/benchmarks/**'
-      - 'biome.json'
-      - 'bun.lock'
-      - 'package.json'
-      - 'tsconfig.desktop.json'
-      - 'tsconfig.json'
+    paths-ignore:
+      - 'apps/mobile/**'
+      - 'apps/web/**'
+      - 'docs/**'
+  workflow_call:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
 
 jobs:
   desktop:
     name: Desktop — Biome, types, tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -86,17 +41,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: |
             ${{ runner.os }}-bun-
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Biome lint
-        run: bun run lint
-
-      - name: Biome check
+      - name: Biome
         run: bun run check
 
       - name: TypeScript
@@ -106,7 +58,4 @@ jobs:
         run: bun run check:boundaries
 
       - name: Vitest
-        run: bun run test:desktop:frontend
-
-      - name: Sync engine tests
-        run: bun run test:sync-engine
+        run: bun run test

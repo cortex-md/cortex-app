@@ -1,53 +1,48 @@
 # Commands and Hotkeys
 
-Plugin commands enter the same command registry used by Cortex's command palette, configurable
-hotkeys, menus, and Vim command-line choices.
+Commands are declared under `contributes.commands` and feed the command palette, configurable
+hotkeys, and Vim command-line names from one entry.
 
-## Register a Command
+## Declare a Command
 
 ```ts
-this.addCommand({
-	id: "open-dashboard",
-	label: "Open Dashboard",
-	category: "Dashboard",
-	aliases: ["stats", "overview"],
-	icon: "layout-dashboard",
-	defaultHotkey: "mod+shift+d",
-	execute: () => {
-		this.api.workspace.openView("dashboard")
-	},
-})
+contributes: {
+	commands: [
+		{
+			id: "insert-date",
+			label: "Insert Date",
+			category: "Daily",
+			aliases: ["date"],
+			icon: "calendar",
+			defaultHotkey: "mod+shift+d",
+			run: (ctx) => ctx.editor.insertAtCursor(new Date().toISOString().slice(0, 10)),
+		},
+	],
+}
 ```
 
-Declare `commands` in `manifest.json`.
+`run(ctx, payload)` receives the typed plugin context and an optional payload (menu targets).
+Omit `run` to resolve `commands[id]` from `load()`. The first execution activates the plugin.
 
 ## Command Ids
 
-Public command ids are local to the plugin. Cortex prefixes them internally before they enter the
-global command registry, so `open-dashboard` can safely exist in more than one plugin.
+Ids are plugin-local. Cortex registers them as `<plugin-id>:<command-id>`. Inside the plugin, ids
+are inferred: `ctx.commands.execute("insert-date")` type-checks, unknown ids do not.
 
-Use stable command ids because users may assign custom hotkeys to them.
+Status bar items (`command`) and context menu items (`command`) reference these ids instead of
+holding callbacks.
 
 ## Hotkeys
 
-Use `defaultHotkey` for the suggested shortcut:
-
-```ts
-defaultHotkey: "mod+shift+d"
-```
-
-The user can reassign or disable the binding in Cortex. Do not implement a second hotkey system in
-your plugin.
+`defaultHotkey` is the default only; users rebind it in Settings > Hotkeys and the override wins.
+Plugin hotkeys are global-scoped. There is no separate hotkeys API.
 
 ## Vim Names
 
-Cortex derives Vim command-line choices from the same command registry. Keep labels and ids clear
-because Vim names are generated from the command id and shown to users in command hints.
+Vim command-line names derive from aliases, labels, and ids. Use short aliases for frequent
+commands and avoid names that collide with native Vim commands.
 
 ## Execution Guidelines
 
-- Keep command handlers small and responsive.
-- For longer work, show progress through a view, status bar item, notification, or generated
-  Markdown tab.
-- Use `api.commands.execute(id)` only for commands your plugin owns or intentionally composes with.
-
+- Keep `run` small; move heavy work behind `load()`.
+- Rejected promises are reported by the command registry; do not swallow errors silently.

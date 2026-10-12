@@ -24,16 +24,31 @@
 			"path": "../../packages/editor"
 		},
 		{
+			"path": "../../packages/hotkeys"
+		},
+		{
 			"path": "../../packages/platform"
 		},
 		{
 			"path": "../../packages/plugin-host-core"
 		},
 		{
+			"path": "../../plugins"
+		},
+		{
 			"path": "../../packages/properties"
 		},
 		{
-			"path": "../../packages/theme-mobile"
+			"path": "../../packages/renderer"
+		},
+		{
+			"path": "../../packages/settings"
+		},
+		{
+			"path": "../../packages/sync-api"
+		},
+		{
+			"path": "../../packages/theme"
 		}
 	]
 }

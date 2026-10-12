@@ -1,11 +1,27 @@
 import { executeCommand } from "@cortex/commands"
-import type { Tab } from "@cortex/core"
-import { noteCache, useEditorStore, useVaultStore, useWorkspaceStore } from "@cortex/core"
+import {
+	openWikiLink,
+	type Tab,
+	useCanWriteVaultPath,
+	useCollabNote,
+	useEditorStore,
+} from "@cortex/core"
 import { clipboardImageExtension } from "@cortex/editor/clipboard"
-import type { CodeBlockEmbedDefinition } from "@cortex/editor/code-block-embeds"
+import { readOnlyDocumentExtension } from "@cortex/editor/collab"
 import { EditorView } from "@cortex/editor/editor-view"
 import { reconfigureMarkdownKeymap } from "@cortex/editor/keymap"
+import {
+	type MentionMenuState,
+	mentionAutocompleteExtension,
+	mentionHoverExtension,
+} from "@cortex/editor/mentions"
+import { revealLine } from "@cortex/editor/navigation-commands"
 import { ReadingView } from "@cortex/editor/reading-view"
+import { searchHighlightExtension } from "@cortex/editor/search-commands"
+import {
+	type SelectionToolbarState,
+	selectionToolbarExtension,
+} from "@cortex/editor/selection-toolbar"
 import { SideBySideView } from "@cortex/editor/side-by-side-view"
 import { type SlashCommandMenuState, slashCommandExtension } from "@cortex/editor/slash-commands"
 import type {
@@ -16,30 +32,33 @@ import type {
 } from "@cortex/editor/types"
 import { useHotkeysStore } from "@cortex/hotkeys"
 import { getPlatform } from "@cortex/platform"
-import { setEditorViewRef } from "@cortex/plugin-host-core"
-import {
-	type PropertyMap,
-	projectRawNote,
-	type RawNoteProjection,
-	replaceFrontmatterBody,
-} from "@cortex/properties"
+import { registerEditorView, setEditorViewRef } from "@cortex/plugin-host-core"
 import {
 	createFrontmatterExtension,
 	updateFrontmatterEditorState,
 } from "@cortex/properties/codemirror"
 import { useSettingsStore } from "@cortex/settings"
+import { taskRefAtOffset } from "@cortex/tasks"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { DrawingEmbedCard } from "../drawings/DrawingEmbedCard"
-import { mountDrawingLivePreview } from "../drawings/DrawingLivePreview"
-import { DRAWING_FENCE_LANGUAGE, parseDrawingDocument } from "../drawings/drawingDocument"
-import { openDrawingModal } from "../drawings/drawingModalStore"
-import { createMermaidCodeBlockEmbed } from "../mermaid/mermaidCodeBlockEmbed"
+import {
+	getMentionMenuItems,
+	getMentionPersonPreview,
+	hasMentionCandidates,
+	MentionMenu,
+} from "../comments/MentionMenu"
+import { useCommentEditorAnchors } from "../comments/useCommentEditorAnchors"
 import { NotePropertiesPanel } from "../properties/NotePropertiesPanel"
+import { toggleTaskInNote } from "../tasks/taskModel"
 import { EditorContextMenu } from "./EditorContextMenu"
-import { MarkdownToolbar } from "./MarkdownToolbar"
 import { getSlashCommandItems } from "./markdownFormatActions"
+import { NoteFindBar } from "./NoteFindBar"
 import { NoteHeader } from "./NoteHeader"
+import { NoteUnavailable } from "./NoteUnavailable"
+import { createNoteCodeBlockEmbeds, resolveNoteImageUrl } from "./noteEditorAssets"
+import { SelectionToolbar } from "./SelectionToolbar"
 import { SlashCommandMenu } from "./SlashCommandMenu"
+import { useImagePaste } from "./useImagePaste"
+import { useNoteDocumentSession } from "./useNoteDocumentSession"
 import { cortexVimCommandProvider } from "./vimCommandProvider"
 
 export interface TabEditorProps {
@@ -48,49 +67,6 @@ export interface TabEditorProps {
 	isActive: boolean
 	editorConfig: EditorConfig
 	onCursorChange: (cursor: CursorInfo) => void
-	onViewHistory: (filePath: string) => void
-}
-
-interface ProjectedContentDraft {
-	filePath: string
-	projection: RawNoteProjection
-}
-
-function createNoteCodeBlockEmbeds(filePath: string): CodeBlockEmbedDefinition[] {
-	return [
-		{
-			languages: [DRAWING_FENCE_LANGUAGE],
-			render: ({ block }) => <DrawingEmbedCard filePath={filePath} block={block} />,
-			renderLivePreview: ({ content }) => {
-				const document = parseDrawingDocument(content)
-				if (!document) {
-					return {
-						title: "Drawing unavailable",
-						description: "The embedded drawing data could not be read.",
-						icon: "!",
-						tone: "error",
-					}
-				}
-				return {
-					title: document.title,
-					className: "is-drawing-board",
-					mount: (container) =>
-						mountDrawingLivePreview(container, {
-							filePath,
-							drawingId: document.id,
-						}),
-				}
-			},
-			canOpenLivePreview: ({ content }) => parseDrawingDocument(content) !== null,
-			openLivePreview: ({ content }) => {
-				const document = parseDrawingDocument(content)
-				if (!document) return
-				openDrawingModal({ filePath, drawingId: document.id })
-			},
-			livePreviewOpenLabel: "Open",
-		},
-		createMermaidCodeBlockEmbed(filePath),
-	]
 }
 
 export function ActiveTabEditor({
@@ -99,32 +75,39 @@ export function ActiveTabEditor({
 	isActive,
 	editorConfig,
 	onCursorChange,
-	onViewHistory,
 }: TabEditorProps) {
-	const [projectedContentDraft, setProjectedContentDraft] = useState<ProjectedContentDraft | null>(
-		() => getCachedProjectedContent(tab.filePath),
-	)
-	const markTabDirty = useWorkspaceStore((s) => s.markTabDirty)
 	const mode = useEditorStore((s) => s.mode)
+	const canWritePath = useCanWriteVaultPath(tab.filePath)
+	const collabNote = useCollabNote(tab.filePath, isActive)
+	const collabBinding = collabNote?.binding ?? null
+	const readOnly = !canWritePath || (collabBinding !== null && !collabNote?.snapshot.canWrite)
 	const viewRef = useRef<EditorRuntimeView | null>(null)
-	const rawContentRef = useRef<string | null>(null)
-	const [slashCommandState, setSlashCommandState] = useState<SlashCommandMenuState | null>(null)
-	const frontmatterStateRef = useRef<{ meta: PropertyMap; error: string | null }>({
-		meta: {},
-		error: null,
+	const { documentState, loadError, frontmatterStateRef, handleChange } = useNoteDocumentSession({
+		filePath: tab.filePath,
+		isActive,
+		live: collabBinding !== null,
+		mode,
+		viewRef,
 	})
-	const getEditorView = useCallback(() => viewRef.current as EditorRuntimeView | null, [])
+	const [slashCommandState, setSlashCommandState] = useState<SlashCommandMenuState | null>(null)
+	const [mentionMenuState, setMentionMenuState] = useState<MentionMenuState | null>(null)
+	const commentAnchorsExtension = useCommentEditorAnchors({
+		filePath: tab.filePath,
+		isActive,
+		viewRef,
+	})
+	const getEditorView = useCallback(() => viewRef.current, [])
 	const vimCommandProvider = editorConfig.vimMode ? cortexVimCommandProvider : null
 	const slashCommandsEnabled = useSettingsStore((s) => s.settings.editor.slashCommands)
 	const markdownToolbarEnabled = useSettingsStore((s) => s.settings.editor.markdownToolbar)
-	const showMarkdownToolbar =
+	const [selectionToolbarState, setSelectionToolbarState] = useState<SelectionToolbarState | null>(
+		null,
+	)
+	const selectionToolbarMenuOpenRef = useRef(false)
+	const showSelectionToolbar =
 		isActive &&
-		markdownToolbarEnabled &&
+		!readOnly &&
 		(mode === "source" || mode === "live-preview" || mode === "side-by-side")
-	const projectedContent =
-		projectedContentDraft?.filePath === tab.filePath
-			? projectedContentDraft.projection
-			: (getCachedProjectedContent(tab.filePath)?.projection ?? null)
 	const codeBlockEmbeds = useMemo(() => createNoteCodeBlockEmbeds(tab.filePath), [tab.filePath])
 
 	const formatBindingsSnapshot = useHotkeysStore((s) =>
@@ -135,38 +118,7 @@ export function ActiveTabEditor({
 			.join(","),
 	)
 
-	const handleImagePaste = useCallback(
-		async (imageBlob: Blob): Promise<string | null> => {
-			const vaultPath = useVaultStore.getState().vault?.path
-			if (!vaultPath) return null
-
-			const editorSettings = useSettingsStore.getState().settings.editor
-			const fileDir = tab.filePath.substring(0, tab.filePath.lastIndexOf("/"))
-
-			let targetDir: string
-			if (editorSettings.imageStorageLocation === "root") {
-				targetDir = vaultPath
-			} else if (editorSettings.imageStorageLocation === "custom") {
-				const customPath = editorSettings.imageStorageCustomPath
-				targetDir = customPath ? `${vaultPath}/${customPath}` : vaultPath
-			} else {
-				targetDir = fileDir
-			}
-
-			const extension = extensionFromMimeType(imageBlob.type)
-			const fileName = `paste-${Date.now()}${extension}`
-			const targetPath = `${targetDir}/${fileName}`
-
-			const arrayBuffer = await imageBlob.arrayBuffer()
-			const data = Array.from(new Uint8Array(arrayBuffer))
-
-			await getPlatform().fs.writeBinaryFile(targetPath, data)
-
-			const relativePath = computeRelativePath(fileDir, targetPath)
-			return `![${fileName}](${relativePath})`
-		},
-		[tab.filePath],
-	)
+	const handleImagePaste = useImagePaste(tab.filePath)
 
 	const handleSlashCommandStateChange = useCallback((state: SlashCommandMenuState | null) => {
 		setSlashCommandState(state)
@@ -183,95 +135,65 @@ export function ActiveTabEditor({
 					onStateChange: handleSlashCommandStateChange,
 					onExecuteCommand: executeSlashCommand,
 				}),
+			(runtime) =>
+				mentionAutocompleteExtension(runtime, {
+					enabled: hasMentionCandidates,
+					getItems: getMentionMenuItems,
+					onStateChange: setMentionMenuState,
+				}),
+			(runtime) => mentionHoverExtension(runtime, { getPerson: getMentionPersonPreview }),
+			commentAnchorsExtension,
+			searchHighlightExtension,
+			(runtime) =>
+				selectionToolbarExtension(runtime, {
+					keepOpen: () => selectionToolbarMenuOpenRef.current,
+					onStateChange: setSelectionToolbarState,
+				}),
+			...(readOnly ? [readOnlyDocumentExtension] : []),
 		],
-		[handleImagePaste, handleSlashCommandStateChange],
-	)
-
-	useEffect(() => {
-		if (!slashCommandsEnabled) setSlashCommandState(null)
-	}, [slashCommandsEnabled])
-
-	const resolveImageUrl = useCallback((src: string, currentFilePath: string): string => {
-		if (src.startsWith("http://") || src.startsWith("https://") || src.startsWith("data:")) {
-			return src
-		}
-		const fileDir = currentFilePath.substring(0, currentFilePath.lastIndexOf("/"))
-		const absolutePath = src.startsWith("/") ? src : `${fileDir}/${src}`
-		return getPlatform().app.resolveFileAssetUrl(absolutePath)
-	}, [])
-
-	const updateProjectedFrontmatter = useCallback((projection: RawNoteProjection) => {
-		frontmatterStateRef.current = {
-			meta: projection.meta,
-			error: projection.frontmatterError,
-		}
-		const view = viewRef.current as EditorRuntimeView | null
-		if (view) {
-			void updateFrontmatterEditorState(
-				view,
-				frontmatterStateRef.current.meta,
-				frontmatterStateRef.current.error,
-			)
-		}
-	}, [])
-
-	useEffect(() => {
-		let active = true
-		const applyProjectedContent = (projection: RawNoteProjection) => {
-			if (!active) return
-			rawContentRef.current = projection.rawContent
-			setProjectedContentDraft({ filePath: tab.filePath, projection })
-			updateProjectedFrontmatter(projection)
-		}
-		const cachedContent = getCachedProjectedContent(tab.filePath)
-		if (cachedContent) {
-			applyProjectedContent(cachedContent.projection)
-		} else {
-			rawContentRef.current = null
-			noteCache
-				.readEntry(tab.filePath)
-				.then((entry) => applyProjectedContent(projectRawNote(entry.content)))
-				.catch(() => {
-					if (!active) return
-					rawContentRef.current = null
-					setProjectedContentDraft(null)
-				})
-		}
-		return () => {
-			active = false
-		}
-	}, [tab.filePath, updateProjectedFrontmatter])
-
-	useEffect(() => {
-		const unsubscribe = noteCache.onContentChange(tab.filePath, (_filePath, newContent) => {
-			const projection = projectRawNote(newContent)
-			rawContentRef.current = projection.rawContent
-			setProjectedContentDraft({ filePath: tab.filePath, projection })
-			updateProjectedFrontmatter(projection)
-		})
-		return unsubscribe
-	}, [tab.filePath, updateProjectedFrontmatter])
-
-	const handleChange = useCallback(
-		(newBody: string) => {
-			const currentRawContent = rawContentRef.current ?? ""
-			const nextRawContent = replaceFrontmatterBody(currentRawContent, newBody)
-			const nextProjection = projectRawNote(nextRawContent)
-			rawContentRef.current = nextProjection.rawContent
-			setProjectedContentDraft({ filePath: tab.filePath, projection: nextProjection })
-			noteCache.write(tab.filePath, nextRawContent)
-			markTabDirty(tab.id, true)
-		},
-		[tab.filePath, tab.id, markTabDirty],
+		[commentAnchorsExtension, handleImagePaste, handleSlashCommandStateChange, readOnly],
 	)
 
 	const handleExternalLinkClick = useCallback((url: string) => {
 		void getPlatform().app.openExternalUrl(url)
 	}, [])
 
+	const handleTaskCheckboxToggle = useCallback(
+		(offset: number) => {
+			if (readOnly || !documentState) return
+			const ref = taskRefAtOffset(tab.filePath, documentState.body, offset)
+			if (!ref) return
+			const { rawContent, body } = documentState.projection
+			const frontmatter = rawContent.slice(0, rawContent.length - body.length)
+			void toggleTaskInNote({ ...ref, line: ref.line + frontmatter.split("\n").length - 1 })
+		},
+		[documentState, readOnly, tab.filePath],
+	)
+
+	const handleWikiLinkClick = useCallback(
+		(target: string) => void openWikiLink(target, { paneId }),
+		[paneId],
+	)
+
+	const revealRequest = useEditorStore((s) =>
+		s.revealRequest?.filePath === tab.filePath ? s.revealRequest : null,
+	)
+	useEffect(() => {
+		const view = viewRef.current
+		if (!revealRequest || !isActive || !view) return
+		useEditorStore.getState().clearReveal(revealRequest.requestId)
+		void revealLine(view, revealRequest.line)
+	}, [revealRequest, isActive])
+
 	const handleViewReady = useCallback(
 		(view: EditorRuntimeView) => {
 			viewRef.current = view
+			const pendingReveal = useEditorStore.getState().revealRequest
+			if (pendingReveal?.filePath === tab.filePath) {
+				useEditorStore.getState().clearReveal(pendingReveal.requestId)
+				void revealLine(view, pendingReveal.line)
+			}
+			registerEditorView(view as never)
 			void updateFrontmatterEditorState(
 				view,
 				frontmatterStateRef.current.meta,
@@ -284,7 +206,7 @@ export function ActiveTabEditor({
 				executeEditorHotkeyCommand,
 			)
 		},
-		[isActive],
+		[isActive, tab.filePath, frontmatterStateRef],
 	)
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: formatBindingsSnapshot is an intentional change-signal; bindings are read fresh from store
@@ -312,51 +234,62 @@ export function ActiveTabEditor({
 					style={{ display: isActive ? "flex" : "none" }}
 					aria-hidden={!isActive}
 				>
-					{projectedContent === null ? (
-						<div className="flex-1 bg-bg-primary" />
+					{documentState === null ? (
+						loadError !== null ? (
+							<NoteUnavailable filePath={tab.filePath} message={loadError} />
+						) : (
+							<div className="flex-1 bg-bg-primary" />
+						)
 					) : (
 						<div className="note-document-scroll">
-							<NoteHeader filePath={tab.filePath} paneId={paneId} onViewHistory={onViewHistory} />
+							{isActive && <NoteFindBar filePath={tab.filePath} getEditorView={getEditorView} />}
+							<NoteHeader filePath={tab.filePath} paneId={paneId} />
 							<NotePropertiesPanel
 								filePath={tab.filePath}
-								rawContent={projectedContent.rawContent}
-								projection={projectedContent}
+								projection={documentState.projection}
+								readOnly={readOnly}
 							/>
-							{showMarkdownToolbar && <MarkdownToolbar getEditorView={getEditorView} />}
 							<div className="note-document-surface">
 								{mode === "reading" ? (
 									<ReadingView
-										content={projectedContent.body}
+										content={documentState.body}
 										scrollMode="parent"
 										codeBlockEmbeds={codeBlockEmbeds}
 										onExternalLinkClick={handleExternalLinkClick}
+										onWikiLinkClick={handleWikiLinkClick}
+										onTaskCheckboxToggle={handleTaskCheckboxToggle}
 									/>
 								) : mode === "side-by-side" ? (
 									<SideBySideView
-										content={projectedContent.body}
+										key={readOnly ? "read-only" : "editable"}
+										content={documentState.body}
 										filePath={tab.filePath}
 										editorConfig={editorConfig}
 										extraExtensions={editorExtensions}
 										codeBlockEmbeds={codeBlockEmbeds}
-										resolveImageUrl={resolveImageUrl}
+										resolveImageUrl={resolveNoteImageUrl}
 										vimCommandProvider={vimCommandProvider}
 										commandExecutor={executeEditorHotkeyCommand}
+										collab={collabBinding}
 										scrollMode="parent"
 										onChange={handleChange}
 										onViewReady={handleViewReady}
 										onExternalLinkClick={handleExternalLinkClick}
+										onWikiLinkClick={handleWikiLinkClick}
 									/>
 								) : (
 									<EditorView
-										content={projectedContent.body}
+										key={readOnly ? "read-only" : "editable"}
+										content={documentState.body}
 										filePath={tab.filePath}
 										editorConfig={editorConfig}
 										livePreview={mode === "live-preview"}
 										codeBlockEmbeds={codeBlockEmbeds}
-										resolveImageUrl={resolveImageUrl}
+										resolveImageUrl={resolveNoteImageUrl}
 										extraExtensions={editorExtensions}
 										vimCommandProvider={vimCommandProvider}
 										commandExecutor={executeEditorHotkeyCommand}
+										collab={collabBinding}
 										scrollMode="parent"
 										onChange={handleChange}
 										onCursorChange={isActive ? onCursorChange : undefined}
@@ -369,46 +302,25 @@ export function ActiveTabEditor({
 				</div>
 			</EditorContextMenu>
 			<SlashCommandMenu
-				state={isActive && mode !== "reading" && slashCommandsEnabled ? slashCommandState : null}
+				state={
+					isActive && !readOnly && mode !== "reading" && slashCommandsEnabled
+						? slashCommandState
+						: null
+				}
 			/>
+			<MentionMenu state={isActive && !readOnly && mode !== "reading" ? mentionMenuState : null} />
+			{showSelectionToolbar && selectionToolbarState && !slashCommandState && !mentionMenuState && (
+				<SelectionToolbar
+					state={selectionToolbarState}
+					showFormatting={markdownToolbarEnabled}
+					getEditorView={getEditorView}
+					onMenuOpenChange={(open) => {
+						selectionToolbarMenuOpenRef.current = open
+					}}
+				/>
+			)}
 		</>
 	)
-}
-
-function createProjectedContentDraft(filePath: string, rawContent: string): ProjectedContentDraft {
-	return {
-		filePath,
-		projection: projectRawNote(rawContent),
-	}
-}
-
-function getCachedProjectedContent(filePath: string): ProjectedContentDraft | null {
-	const entry = noteCache.getEntry(filePath)
-	return entry ? createProjectedContentDraft(filePath, entry.content) : null
-}
-
-function computeRelativePath(fromDir: string, toFile: string): string {
-	const fromParts = fromDir.split("/").filter(Boolean)
-	const toParts = toFile.split("/").filter(Boolean)
-	let common = 0
-	while (
-		common < fromParts.length &&
-		common < toParts.length &&
-		fromParts[common] === toParts[common]
-	) {
-		common++
-	}
-	const ups = fromParts.length - common
-	const remaining = toParts.slice(common)
-	const relative = [...Array(ups).fill(".."), ...remaining].join("/")
-	return relative.startsWith(".") ? relative : `./${relative}`
-}
-
-function extensionFromMimeType(mimeType: string): string {
-	if (mimeType === "image/jpeg") return ".jpg"
-	if (mimeType === "image/webp") return ".webp"
-	if (mimeType === "image/gif") return ".gif"
-	return ".png"
 }
 
 function executeSlashCommand(commandId: string, view: EditorRuntimeView): void {

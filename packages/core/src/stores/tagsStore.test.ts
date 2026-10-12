@@ -41,9 +41,13 @@ describe("tags store", () => {
 				readFile,
 			},
 		} as never)
-		const filePaths = Array.from({ length: 12 }, (_, index) => `/vault/note-${index}.md`)
+		const files = Array.from({ length: 12 }, (_, index) => ({
+			path: `/vault/note-${index}.md`,
+			name: `note-${index}.md`,
+			isDir: false,
+		}))
 
-		await useTagsStore.getState().buildIndex("/vault", filePaths)
+		await useTagsStore.getState().buildIndexFromFiles("/vault", files)
 
 		expect(maxActiveReads).toBeLessThanOrEqual(4)
 		expect(Object.keys(useTagsStore.getState().fileTags)).toHaveLength(12)
@@ -86,13 +90,13 @@ describe("tags store", () => {
 		const filePath = "/vault/note.md"
 		const files = new Map([[filePath, "---\ntags: [old]\n---\nBody"]])
 		const readFile = vi.fn(async (path: string) => files.get(path) ?? "")
-		const writeFile = vi.fn(async (path: string, content: string) => {
+		const atomicWriteFile = vi.fn(async (path: string, content: string) => {
 			files.set(path, content)
 		})
 		vi.mocked(getPlatform).mockReturnValue({
 			fs: {
 				readFile,
-				writeFile,
+				atomicWriteFile,
 			},
 		} as never)
 
@@ -108,7 +112,7 @@ describe("tags store", () => {
 
 		expect(files.get(filePath)).not.toContain("tags:")
 		expect(useTagsStore.getState().fileTags[filePath]).toEqual([])
-		expect(writeFile).toHaveBeenCalledTimes(2)
+		expect(atomicWriteFile).toHaveBeenCalledTimes(2)
 	})
 
 	it("does not publish stale tag indexing after cancellation", async () => {

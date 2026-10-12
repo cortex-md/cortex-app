@@ -1,4 +1,5 @@
 import {
+	isMarkdownPath,
 	requiresCloudEntitlement,
 	resolveSyncServerUrl,
 	useAuthStore,
@@ -11,13 +12,20 @@ import {
 import { useEffect, useMemo } from "react"
 import type { SyncSettingsView } from "./types"
 
+function describeServer(serverUrl: string): string {
+	try {
+		return new URL(serverUrl).host || "Self-hosted"
+	} catch {
+		return "Self-hosted"
+	}
+}
+
 export function useSyncOverview(view: SyncSettingsView) {
 	const authenticated = useAuthStore((state) => state.authenticated)
 	const vault = useVaultStore((state) => state.vault)
 	const files = useVaultStore((state) => state.files)
 	const linkedVaultId = useRemoteVaultStore((state) => state.linkedVaultId)
 	const remoteVaults = useRemoteVaultStore((state) => state.remoteVaults)
-	const loadLink = useRemoteVaultStore((state) => state.loadLink)
 	const fetchRemoteVaults = useRemoteVaultStore((state) => state.fetchRemoteVaults)
 	const syncConfig = useRemoteVaultStore((state) => state.syncConfig)
 	const refreshSubscriptionStatus = useSubscriptionStore((state) => state.refreshStatus)
@@ -28,47 +36,29 @@ export function useSyncOverview(view: SyncSettingsView) {
 	const devicesError = useDevicesStore((state) => state.error)
 	const fetchDevices = useDevicesStore((state) => state.fetchDevices)
 
-	// oxlint-disable react-doctor/no-event-handler -- sync overview fetches follow the active vault, auth state, and visible overview
-	useEffect(() => {
-		if (vault?.path) void loadLink(vault.path)
-	}, [loadLink, vault?.path])
+	const serverUrl = resolveSyncServerUrl(syncConfig)
+	const needsEntitlement = requiresCloudEntitlement(syncConfig)
+	const devicesVaultId =
+		view === "overview" && authenticated && syncConfig.enabled ? linkedVaultId : null
 
+	// oxlint-disable react-doctor/no-event-handler -- sync overview data follows auth state and the linked vault
 	useEffect(() => {
 		if (authenticated && syncConfig.enabled) void fetchRemoteVaults()
 	}, [authenticated, fetchRemoteVaults, syncConfig.enabled])
 
 	useEffect(() => {
-		if (!authenticated || !requiresCloudEntitlement(syncConfig)) return
-		void refreshSubscriptionStatus(resolveSyncServerUrl(syncConfig)).catch(() => {})
-	}, [authenticated, refreshSubscriptionStatus, syncConfig])
+		if (!authenticated || !needsEntitlement) return
+		void refreshSubscriptionStatus(serverUrl).catch(() => {})
+	}, [authenticated, needsEntitlement, refreshSubscriptionStatus, serverUrl])
 
 	useEffect(() => {
-		if (
-			view === "overview" &&
-			authenticated &&
-			syncConfig.enabled &&
-			linkedVaultId &&
-			deviceEntries.length === 0 &&
-			!devicesLoading &&
-			!devicesError
-		) {
-			void fetchDevices()
-		}
-	}, [
-		authenticated,
-		deviceEntries.length,
-		devicesError,
-		devicesLoading,
-		fetchDevices,
-		linkedVaultId,
-		syncConfig.enabled,
-		view,
-	])
+		if (devicesVaultId) void fetchDevices()
+	}, [devicesVaultId, fetchDevices])
 	// oxlint-enable react-doctor/no-event-handler
 
 	const linkedVault = remoteVaults.find((remoteVault) => remoteVault.id === linkedVaultId)
 	const noteCount = useMemo(
-		() => files.filter((file) => !file.isDir && file.name.toLowerCase().endsWith(".md")).length,
+		() => files.filter((file) => !file.isDir && isMarkdownPath(file.name)).length,
 		[files],
 	)
 	const connectedDeviceCount = useMemo(
@@ -87,6 +77,7 @@ export function useSyncOverview(view: SyncSettingsView) {
 		linkedVaultId,
 		noteCount,
 		syncConfig,
+		serverLabel: syncConfig.selfHosted ? describeServer(serverUrl) : "Cortex Cloud",
 		vault,
 	}
 }

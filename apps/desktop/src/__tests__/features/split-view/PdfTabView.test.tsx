@@ -58,7 +58,7 @@ function createDeferred<T>(): Deferred<T> {
 function createPlatformMock() {
 	return {
 		fs: {
-			readBinaryFile: vi.fn().mockResolvedValue([37, 80, 68, 70]),
+			readBinaryFile: vi.fn().mockResolvedValue(new Uint8Array([37, 80, 68, 70])),
 		},
 		app: {
 			resolveFileAssetUrl: vi.fn((path: string) => `asset://${path}`),

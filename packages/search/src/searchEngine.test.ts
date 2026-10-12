@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { buildSearchMatches } from "./matches"
 import { SearchEngine } from "./searchEngine"
 
 function createSearchEngineWithDocument(content: string): SearchEngine {
@@ -9,36 +10,35 @@ function createSearchEngineWithDocument(content: string): SearchEngine {
 
 describe("SearchEngine", () => {
 	it("builds snippets around the earliest matching query term", () => {
-		const searchEngine = createSearchEngineWithDocument(`alpha ${"middle ".repeat(20)} omega`)
+		const [snippet] = buildSearchMatches(
+			`alpha ${"middle ".repeat(20)} omega`,
+			"omega alpha",
+		).snippets
 
-		const [result] = searchEngine.search("omega alpha")
-
-		expect(result.snippet.startsWith("alpha")).toBe(true)
-		expect(result.snippet).not.toContain("omega")
+		expect(snippet.text.startsWith("alpha")).toBe(true)
+		expect(snippet.text).not.toContain("omega")
 	})
 
 	it("escapes query terms before building the snippet matcher", () => {
-		const searchEngine = createSearchEngineWithDocument(`literal c++ value ${"tail ".repeat(20)}`)
+		const [snippet] = buildSearchMatches(`literal c++ value ${"tail ".repeat(20)}`, "c++").snippets
 
-		const [result] = searchEngine.search("c++")
-
-		expect(result.snippet).toContain("c++")
+		expect(snippet.text).toContain("c++")
 	})
 
-	it("finds terms beyond the stored preview without serializing full content", () => {
+	it("finds terms deep in the body without serializing note content", () => {
 		const searchEngine = createSearchEngineWithDocument(
 			`${"preview ".repeat(1400)} deepneedle final body text`,
 		)
 
 		const [result] = searchEngine.search("deepneedle")
-		const serialized = JSON.parse(searchEngine.serialize()) as {
+		const serialized = JSON.parse(JSON.stringify(searchEngine)) as {
 			storedFields: Record<string, Record<string, unknown>>
 		}
 		const storedDocument = Object.values(serialized.storedFields)[0]
 
 		expect(result.id).toBe("daily-note")
 		expect(storedDocument.content).toBeUndefined()
-		expect(storedDocument.preview).not.toContain("deepneedle")
+		expect(storedDocument.preview).toBeUndefined()
 	})
 
 	it("limits full-text results to 100 by default", () => {

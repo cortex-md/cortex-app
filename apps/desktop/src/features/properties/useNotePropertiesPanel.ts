@@ -1,4 +1,4 @@
-import { noteCache, useVaultStore } from "@cortex/core"
+import { getErrorMessage, noteCache, useVaultStore } from "@cortex/core"
 import {
 	duplicatePropertyDefinition,
 	getNotePropertiesExpanded,
@@ -54,10 +54,6 @@ function resolveSnapshot(
 
 function resolveMessage(state: ScopedMessageState | null, filePath: string): string | null {
 	return state?.filePath === filePath ? state.message : null
-}
-
-function getErrorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error)
 }
 
 export function useNotePropertiesPanel(filePath: string, input: NotePropertiesPanelInput = {}) {

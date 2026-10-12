@@ -1,3 +1,5 @@
+import type { EffectiveAccess } from "./Members"
+
 export type SyncEngineState =
 	| "idle"
 	| "authenticating"
@@ -57,6 +59,7 @@ export interface VersionInfo {
 	checksum: string | null
 	authorId: string | null
 	authorName: string | null
+	authorAvatarUrl: string | null
 	deviceId: string | null
 	deviceName: string | null
 	createdAt: string | null
@@ -84,6 +87,17 @@ export interface DeletedFileInfo {
 
 export interface VaultEncryptionStatus {
 	hasKey: boolean
+	hasPasswordKey: boolean
+	hasLocalKey: boolean
+}
+
+export type VaultKeyRequestResult = "granted" | "pending"
+
+export interface KeyTrustIssue {
+	vaultId: string
+	userId: string
+	fingerprint: string
+	previousFingerprint: string
 }
 
 export interface SyncPreferences {
@@ -100,8 +114,12 @@ export interface SyncPreferences {
 export interface Sync {
 	updateSyncPreferences(preferences: SyncPreferences): Promise<void>
 	checkVaultEncryption(vaultId: string): Promise<VaultEncryptionStatus>
-	createVaultKey(vaultId: string, password: string): Promise<void>
+	createVaultKey(vaultId: string): Promise<void>
+	requestVaultKey(vaultId: string): Promise<VaultKeyRequestResult>
 	unlockVaultKey(vaultId: string, password: string): Promise<void>
+	getAccess(): Promise<EffectiveAccess | null>
+	getKeyTrustIssues(vaultId: string): Promise<KeyTrustIssue[]>
+	trustMemberKey(vaultId: string, userId: string, fingerprint: string): Promise<void>
 	start(
 		vaultId: string,
 		vaultPath: string,
@@ -128,12 +146,14 @@ export interface Sync {
 	): Promise<void>
 	listDeletedFiles(vaultId: string, vaultPath: string): Promise<DeletedFileInfo[]>
 	restoreDeletedFile(vaultId: string, vaultPath: string, filePath: string): Promise<void>
-	onStateChanged(callback: (event: SyncStateEvent) => void): Promise<() => void>
-	onFileEvent(callback: (event: SyncFileEvent) => void): Promise<() => void>
-	onInitialSyncProgress(callback: (event: InitialSyncProgressEvent) => void): Promise<() => void>
-	onConflict(callback: (event: SyncConflictEvent) => void): Promise<() => void>
-	onInitialSyncComplete(callback: () => void): Promise<() => void>
-	onVekRequired(callback: () => void): Promise<() => void>
-	onVaultAccessDenied(callback: (event: SyncAccessDeniedEvent) => void): Promise<() => void>
-	onSyncLog(callback: (event: { level: string; message: string }) => void): Promise<() => void>
+	onStateChanged(callback: (event: SyncStateEvent) => void): () => void
+	onFileEvent(callback: (event: SyncFileEvent) => void): () => void
+	onInitialSyncProgress(callback: (event: InitialSyncProgressEvent) => void): () => void
+	onConflict(callback: (event: SyncConflictEvent) => void): () => void
+	onInitialSyncComplete(callback: () => void): () => void
+	onVekRequired(callback: () => void): () => void
+	onAccessChanged(callback: (access: EffectiveAccess | null) => void): () => void
+	onKeyTrustIssue(callback: (issue: KeyTrustIssue) => void): () => void
+	onVaultAccessDenied(callback: (event: SyncAccessDeniedEvent) => void): () => void
+	onSyncLog(callback: (event: { level: string; message: string }) => void): () => void
 }

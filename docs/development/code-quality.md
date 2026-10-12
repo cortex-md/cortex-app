@@ -19,7 +19,6 @@ Use explicit scopes when needed:
 ```bash
 bun run check:web
 bun run check:mobile
-bun run check:all
 ```
 
 ## TypeScript
@@ -44,13 +43,14 @@ The default test command is the desktop gate:
 bun run test
 ```
 
-That runs desktop frontend suites and Rust tests. Use narrower commands while iterating:
+That runs every desktop-scoped Vitest project declared in the root `vitest.config.ts` in a single
+process. Narrow it with `--project` while iterating:
 
 ```bash
-bun run test:desktop:frontend
-bun run test:rust
-bun run --cwd packages/core vitest run
-bun run --cwd apps/desktop vitest run
+bun run test -- --project desktop
+bun run test -- --project core
+bun run test -- --project @cortex/sync-engine
+bun run test:watch -- --project editor
 ```
 
 ## React Doctor
@@ -75,7 +75,6 @@ Automatic CI is desktop-scoped. It should run:
 - Desktop TypeScript project references.
 - Workspace boundary checks.
 - Desktop frontend Vitest suites.
-- Rust fmt, check, and tests for the Tauri workspace.
 - React Doctor for desktop React changes.
 
 The full monorepo gates remain available for maintainers when mobile or web work is in scope.

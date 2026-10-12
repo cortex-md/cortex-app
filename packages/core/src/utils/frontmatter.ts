@@ -128,3 +128,36 @@ export function extractAllTags(content: string): string[] {
 	const inlineTags = extractInlineTags(body)
 	return [...new Set([...yamlTags, ...inlineTags])]
 }
+
+const TAG_ESCAPE_PATTERN = /[.*+?^${}()|[\]\\]/g
+
+function renameTagValue(tag: string, oldTag: string, newTag: string): string {
+	const lower = tag.toLowerCase()
+	if (lower === oldTag) return newTag
+	if (lower.startsWith(`${oldTag}/`)) return `${newTag}${tag.slice(oldTag.length)}`
+	return tag
+}
+
+export function renameTagInContent(content: string, oldTag: string, newTag: string): string {
+	const from = oldTag.trim().replace(/^#/, "").toLowerCase()
+	const to = newTag.trim().replace(/^#/, "")
+	if (!from || !to || from === to.toLowerCase()) return content
+	const { frontmatter } = parseFrontmatter(content)
+	let updated = content
+	const yamlTags = frontmatter?.tags ?? []
+	if (yamlTags.some((tag) => renameTagValue(tag, from, to) !== tag)) {
+		updated = setTagsInFrontmatter(
+			updated,
+			yamlTags.map((tag) => renameTagValue(tag, from, to)),
+		)
+	}
+	const inlinePattern = new RegExp(
+		`(^|[^\\w&#])#${from.replace(TAG_ESCAPE_PATTERN, "\\$&")}(?=[/\\s.,;:!?)\\]]|$)`,
+		"gimu",
+	)
+	const updatedBody = parseFrontmatter(updated).body
+	if (!updated.endsWith(updatedBody)) return updated
+	const nextBody = updatedBody.replace(inlinePattern, `$1#${to}`)
+	if (nextBody === updatedBody) return updated
+	return updated.slice(0, updated.length - updatedBody.length) + nextBody
+}

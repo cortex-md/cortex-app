@@ -61,3 +61,44 @@
   trigger another vault scan.
 - Schema writes and synced schema replacements notify `onVaultSchemaChange` subscribers without a
   React dependency.
+- Panel presentation rules are framework-free: `getVisiblePropertyDefinitions`/
+  `getHiddenPropertyDefinitions` (including the virtual `TAGS_PROPERTY_DEFINITION`) decide which rows
+  show, and `resolveTextPropertyDraft`/`getPropertyInputType` own text draft parsing, validation, and
+  input kinds. Desktop and mobile editors must not duplicate that commit logic.
+- `@cortex/properties/frontmatter` is the dependency-light subpath for frontmatter parsing used by
+  `@cortex/renderer`; it is the only YAML frontmatter parser in the repo.
+- The properties runtime adapter (`initializeCoreProperties`) lives in `@cortex/core`; apps must not
+  build their own `PropertiesRuntime` objects.
+
+## Multiple Values, Empty Visibility, and Links
+
+- `PropertyDefinition.multiple` stores select and person values as arrays; use
+  `allowsMultipleValues`, `getPropertyValueList`, and `togglePropertyValue` instead of branching on
+  value shape in UI code. `setProperty` validates each item.
+- `PropertyDefinition.hideWhenEmpty` hides a property with an empty value unless the user revealed it.
+- `getPropertyValueHref` turns URL, email, and phone values into `https:`, `mailto:`, and `tel:`
+  links. `getPropertyValueUsage(vaultPath, key)` reports how many notes use a property and each value.
+
+## Databases
+
+- `@cortex/properties/database` is the portable database engine shared by desktop and mobile. It
+  may import only properties internals, `yaml`, and `zod`: no DOM, React, `crypto`, or `node:`.
+- A database is a folder whose folder note (`Folder/Folder.md`) has a `database` frontmatter key.
+  Rows are the folder's direct Markdown children, excluding that note. Use `paths.ts` helpers.
+- `detectDatabaseNote` and `normalizeDatabaseConfig` never throw. Malformed or conflicted YAML keeps
+  the note detected with a default table view and an `error`, so rows stay visible.
+- `serializeDatabaseConfig` writes block-style YAML in a fixed key order and omits empty fields so
+  line-based sync merges stay clean. View ids are deterministic (`table`, `table-2`); never store
+  timestamps or UI state (active view, collapsed groups, search) in the config.
+- Property names, types, and select options stay in the vault schema. Filters and board columns use
+  select option ids, never labels. `$me`/`$today` tokens resolve from an injected
+  `DatabaseQueryContext`; the engine never reads clocks or identity.
+- Presets (`buildDatabaseFromPreset`) reuse existing schema keys case-insensitively before creating
+  definitions. Row templates live in `config.templates`, not `.cortex/templates`, so they sync.
+- The `database` key is excluded from observed and visible property rows.
+- Manual order is `view.order` (row titles); `sortDatabaseRows` applies it after explicit sorts and
+  before the title tie-break. `renameDatabaseOrderEntry` keeps it in step with row renames.
+- Date comparisons and calendar buckets go through `readDatabaseDate`, which maps ISO timestamps
+  (`created_time`, `last_edited_time`) to the local calendar day. Read-only property types are never
+  written by presets, board moves, or calendar moves (`isDatabasePropertyReadOnly`).
+- Note writes go through `notes.updateNote(path, transform)`; the host serializes them per path.

@@ -33,6 +33,7 @@ const fiftyThousandBookmarks = createBookmarkEntries(50_000)
 const legacyAbsolutePaths = tenThousandBookmarks.map((bookmark) => `${vaultPath}/${bookmark.path}`)
 const lookupPaths = fiftyThousandBookmarks.map((bookmark) => bookmark.path)
 const lookupIndex = createBookmarkedPaths(fiftyThousandBookmarks)
+let blackhole = 0
 
 bench(
 	"Bookmarks normalize 10k legacy absolute paths",
@@ -57,7 +58,7 @@ bench(
 		for (const path of lookupPaths) {
 			if (lookupIndex[path]) hits++
 		}
-		return hits
+		blackhole += hits
 	},
 	{ iterations: 50 },
 )

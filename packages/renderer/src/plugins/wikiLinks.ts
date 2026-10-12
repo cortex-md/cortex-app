@@ -25,19 +25,30 @@ export const rehypeWikiLinks: Plugin = () => {
 			WIKI_LINK_PATTERN.lastIndex = 0
 
 			for (const match of node.value.matchAll(WIKI_LINK_PATTERN)) {
-				if (match.index > lastIndex) {
-					parts.push({ type: "text", value: node.value.slice(lastIndex, match.index) })
+				const isMention = match.index > 0 && node.value[match.index - 1] === "@"
+				const textEnd = isMention ? match.index - 1 : match.index
+				if (textEnd > lastIndex) {
+					parts.push({ type: "text", value: node.value.slice(lastIndex, textEnd) })
 				}
 
 				const target = match[1].trim()
 				const label = match[2]?.trim() ?? target
 
-				parts.push({
-					type: "element",
-					tagName: "a",
-					properties: { "data-wiki-link": target, href: "#" },
-					children: [{ type: "text", value: label }],
-				})
+				parts.push(
+					isMention
+						? {
+								type: "element",
+								tagName: "span",
+								properties: { "data-mention": target, className: ["mention"] },
+								children: [{ type: "text", value: target }],
+							}
+						: {
+								type: "element",
+								tagName: "a",
+								properties: { "data-wiki-link": target, href: "#" },
+								children: [{ type: "text", value: label }],
+							},
+				)
 
 				lastIndex = match.index + match[0].length
 			}

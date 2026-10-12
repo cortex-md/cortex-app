@@ -2,7 +2,8 @@ import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("@cortex/core", () => ({
+vi.mock("@cortex/core", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@cortex/core")>()),
 	useSyncStore: vi.fn(),
 	useVaultStore: vi.fn(),
 }))
@@ -121,14 +122,14 @@ describe("ConflictBanner", () => {
 			setupMocks({ conflicts: { [relativeConflictPath]: conflictData } })
 			render(<ConflictBanner filePath={conflictingFilePath} />)
 			await userEvent.click(screen.getByRole("button", { name: "View Diff" }))
-			expect(screen.getByRole("button", { name: "Close Diff" })).toBeInTheDocument()
+			expect(await screen.findByRole("button", { name: "Close Diff" })).toBeInTheDocument()
 		})
 
 		it("hides ConflictDiffView when closed", async () => {
 			setupMocks({ conflicts: { [relativeConflictPath]: conflictData } })
 			render(<ConflictBanner filePath={conflictingFilePath} />)
 			await userEvent.click(screen.getByRole("button", { name: "View Diff" }))
-			await userEvent.click(screen.getByRole("button", { name: "Close Diff" }))
+			await userEvent.click(await screen.findByRole("button", { name: "Close Diff" }))
 			expect(screen.queryByRole("button", { name: "Close Diff" })).not.toBeInTheDocument()
 		})
 	})

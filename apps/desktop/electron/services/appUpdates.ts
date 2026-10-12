@@ -1,24 +1,14 @@
+import type { AppUpdateStatus } from "@cortex/platform"
 import { app } from "electron"
-import { autoUpdater } from "electron-updater"
+import electronUpdater from "electron-updater"
+import type { MainApi } from "../contract"
 import { emitToRenderer } from "../events"
 
-export interface AppUpdateStatus {
-	state: string
-	currentVersion: string | null
-	pendingUpdate: {
-		version: string
-		currentVersion: string
-		body: string | null
-		date: string | null
-		target: string | null
-	} | null
-	lastCheckedAt: string | null
-	lastError: string | null
-	downloaded: number
-	contentLength: number | null
-}
+const { autoUpdater } = electronUpdater
 
-let lastStatus: AppUpdateStatus = {
+autoUpdater.autoDownload = false
+
+let status: AppUpdateStatus = {
 	state: "idle",
 	currentVersion: null,
 	pendingUpdate: null,
@@ -28,93 +18,71 @@ let lastStatus: AppUpdateStatus = {
 	contentLength: null,
 }
 
-function currentVersion(): string {
-	return app.getVersion()
+autoUpdater.on("download-progress", (progress) => {
+	status = { ...status, downloaded: progress.transferred, contentLength: progress.total }
+	emitToRenderer("app-update-install", {
+		event: "progress",
+		data: {
+			chunkLength: progress.delta,
+			downloaded: progress.transferred,
+			contentLength: progress.total,
+		},
+	})
+})
+
+function getStatus(): AppUpdateStatus {
+	return { ...status, currentVersion: app.getVersion() }
 }
 
-export function getStatus(): AppUpdateStatus {
-	return {
-		...lastStatus,
-		currentVersion: currentVersion(),
-	}
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error)
 }
 
-export async function checkForUpdate(_source: string): Promise<AppUpdateStatus> {
+async function checkForUpdate(): Promise<AppUpdateStatus> {
+	status = { ...status, state: "checking", lastError: null }
 	try {
-		lastStatus = {
-			...lastStatus,
-			state: "checking",
-			currentVersion: currentVersion(),
-			lastError: null,
-		}
 		const result = await autoUpdater.checkForUpdates()
-		const update = result?.updateInfo
-		if (!update || update.version === currentVersion()) {
-			lastStatus = {
-				...lastStatus,
-				state: "up-to-date",
-				pendingUpdate: null,
-				lastCheckedAt: new Date().toISOString(),
-			}
-		} else {
-			lastStatus = {
-				...lastStatus,
-				state: "available",
-				pendingUpdate: {
-					version: update.version,
-					currentVersion: currentVersion(),
-					body: typeof update.releaseNotes === "string" ? update.releaseNotes : null,
-					date: update.releaseDate ?? null,
-					target: process.platform,
-				},
-				lastCheckedAt: new Date().toISOString(),
-			}
+		const update = result?.isUpdateAvailable ? result.updateInfo : null
+		status = {
+			...status,
+			state: update ? "available" : "up-to-date",
+			pendingUpdate: update && {
+				version: update.version,
+				currentVersion: app.getVersion(),
+				body: typeof update.releaseNotes === "string" ? update.releaseNotes : null,
+				date: update.releaseDate ?? null,
+				target: process.platform,
+			},
+			lastCheckedAt: new Date().toISOString(),
 		}
 	} catch (error) {
-		lastStatus = {
-			...lastStatus,
+		status = {
+			...status,
 			state: app.isPackaged ? "error" : "unsupported",
-			lastError: error instanceof Error ? error.message : String(error),
+			lastError: errorMessage(error),
 			lastCheckedAt: new Date().toISOString(),
 		}
 	}
 	return getStatus()
 }
 
-export async function installUpdate(): Promise<AppUpdateStatus> {
+async function installUpdate(): Promise<AppUpdateStatus> {
+	status = { ...status, state: "installing", lastError: null }
 	try {
-		lastStatus = { ...lastStatus, state: "installing", lastError: null }
-		autoUpdater.on("download-progress", (progress) => {
-			lastStatus = {
-				...lastStatus,
-				downloaded: progress.transferred,
-				contentLength: progress.total,
-			}
-			emitToRenderer("app-update-install", {
-				event: "progress",
-				data: {
-					chunkLength: progress.delta,
-					downloaded: progress.transferred,
-					contentLength: progress.total,
-				},
-			})
-		})
+		emitToRenderer("app-update-install", { event: "started", data: { contentLength: null } })
 		await autoUpdater.downloadUpdate()
-		lastStatus = { ...lastStatus, state: "installed" }
-		autoUpdater.quitAndInstall()
+		emitToRenderer("app-update-install", { event: "finished" })
+		status = { ...status, state: "installed" }
+		setImmediate(() => autoUpdater.quitAndInstall())
 	} catch (error) {
-		lastStatus = {
-			...lastStatus,
-			state: "error",
-			lastError: error instanceof Error ? error.message : String(error),
-		}
+		status = { ...status, state: "error", lastError: errorMessage(error) }
 	}
 	return getStatus()
 }
 
-export async function fetchChangelog(version: string): Promise<string | null> {
+async function fetchChangelog(version: string): Promise<string | null> {
 	const response = await fetch(
-		`https://api.github.com/repos/cortex-md/cortex-app/releases/tags/v${version}`,
+		`https://api.github.com/repos/cortex-md/cortex-app/releases/tags/v${encodeURIComponent(version)}`,
 		{
 			headers: {
 				Accept: "application/vnd.github+json",
@@ -123,6 +91,12 @@ export async function fetchChangelog(version: string): Promise<string | null> {
 		},
 	)
 	if (!response.ok) return null
-	const body = (await response.json()) as { body?: string | null }
-	return body.body ?? null
+	return ((await response.json()) as { body?: string | null }).body ?? null
 }
+
+export const appUpdatesApi = {
+	getStatus: async () => getStatus(),
+	checkForUpdate: async () => await checkForUpdate(),
+	installUpdate,
+	fetchChangelog,
+} satisfies MainApi["appUpdates"]

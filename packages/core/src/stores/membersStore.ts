@@ -1,9 +1,24 @@
-import type { AcceptInviteResult, VaultInvite, VaultMember } from "@cortex/platform"
+import type {
+	AcceptInviteResult,
+	AccessRule,
+	GroupUpdate,
+	InviteOptions,
+	InvitePreview,
+	MemberDevice,
+	RemoteVaultInfo,
+	VaultGroup,
+	VaultInvite,
+	VaultMember,
+	VaultPresencePeer,
+} from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
 import { requiresCloudEntitlement, resolveSyncServerUrl } from "../sync/serverConfig"
+import { useAccessStore } from "./accessStore"
+import { useAuthStore } from "./authStore"
+import { useRemoteVaultStore } from "./remoteVaultStore"
 import { useSubscriptionStore } from "./subscriptionStore"
 
 export interface MembersState {
@@ -12,8 +27,23 @@ export interface MembersState {
 	activeMemberCacheKey: string | null
 	invites: VaultInvite[]
 	myInvites: VaultInvite[]
+	groups: VaultGroup[]
+	accessRules: AccessRule[]
+	presence: VaultPresencePeer[]
+	memberDevices: MemberDevice[]
+	overviewVault: RemoteVaultInfo | null
+	overviewVaultId: string | null
+	myRole: string | null
 	loading: boolean
 	error: string | null
+
+	fetchOverview: (vaultId: string) => Promise<void>
+	createGroup: (vaultId: string, name: string, memberIds: string[]) => Promise<VaultGroup>
+	updateGroup: (vaultId: string, groupId: string, update: GroupUpdate) => Promise<VaultGroup>
+	deleteGroup: (vaultId: string, groupId: string) => Promise<void>
+	setAccessRule: (vaultId: string, rule: AccessRule) => Promise<AccessRule | null>
+	previewInvite: (token: string) => Promise<InvitePreview>
+	acceptInviteLink: (token: string, linkKey: string | null) => Promise<AcceptInviteResult>
 
 	fetchMembers: (vaultId: string, serverUrl?: string) => Promise<void>
 	ensureMembers: (vaultId: string, serverUrl?: string) => Promise<VaultMember[]>
@@ -25,7 +55,8 @@ export interface MembersState {
 		inviteeEmail: string,
 		role: string,
 		encryptedVaultKey: string,
-	) => Promise<void>
+		options?: InviteOptions,
+	) => Promise<VaultInvite>
 	deleteInvite: (vaultId: string, inviteId: string) => Promise<void>
 	fetchMyInvites: () => Promise<void>
 	acceptInvite: (inviteId: string) => Promise<AcceptInviteResult>
@@ -36,17 +67,14 @@ const memberLoads = new Map<string, Promise<VaultMember[]>>()
 
 async function resolveServerUrl(serverUrl?: string): Promise<string> {
 	if (serverUrl) return serverUrl.trim().replace(/\/+$/, "")
-	const { useRemoteVaultStore } = await import("./remoteVaultStore")
 	return resolveSyncServerUrl(useRemoteVaultStore.getState().syncConfig)
 }
 
 async function syncAuthContext(serverUrl: string): Promise<void> {
-	const { useAuthStore } = await import("./authStore")
 	await useAuthStore.getState().checkAuth(serverUrl || undefined)
 }
 
 async function ensureMemberMutationAllowed(): Promise<void> {
-	const { useRemoteVaultStore } = await import("./remoteVaultStore")
 	const syncConfig = useRemoteVaultStore.getState().syncConfig
 	if (!requiresCloudEntitlement(syncConfig)) return
 	await useSubscriptionStore.getState().ensureCloudEntitlement(resolveSyncServerUrl(syncConfig))
@@ -122,8 +150,138 @@ export const useMembersStore = create<MembersState>()(
 				activeMemberCacheKey: null,
 				invites: [],
 				myInvites: [],
+				groups: [],
+				accessRules: [],
+				presence: [],
+				memberDevices: [],
+				overviewVault: null,
+				overviewVaultId: null,
+				myRole: null,
 				loading: false,
 				error: null,
+
+				fetchOverview: async (vaultId) => {
+					const resolvedServerUrl = await resolveServerUrl()
+					const cacheKey = `${resolvedServerUrl}:${vaultId}`
+					set((state) => {
+						state.loading = true
+						state.error = null
+						if (state.activeMemberCacheKey !== cacheKey) {
+							state.members = []
+							state.invites = []
+							state.groups = []
+							state.accessRules = []
+							state.presence = []
+							state.myRole = null
+							state.activeMemberCacheKey = cacheKey
+						}
+					})
+					try {
+						await syncAuthContext(resolvedServerUrl)
+						const overview = await getPlatform().members.getVaultOverview(vaultId)
+						set((state) => {
+							state.members = overview.members
+							state.memberCache[cacheKey] = overview.members
+							state.invites = overview.invites
+							state.groups = overview.groups
+							state.accessRules = overview.accessRules
+							state.presence = overview.presence
+							state.memberDevices = overview.devices
+							state.overviewVault = overview.vault
+							state.overviewVaultId = vaultId
+							state.myRole = overview.myRole
+							state.loading = false
+						})
+					} catch (e) {
+						set((state) => {
+							state.loading = false
+							state.error = String(e)
+						})
+					}
+				},
+
+				createGroup: async (vaultId, name, memberIds) => {
+					try {
+						await prepareMemberMutation()
+						const group = await getPlatform().members.createGroup(vaultId, name, memberIds)
+						set((state) => {
+							state.groups.push(group)
+						})
+						return group
+					} catch (e) {
+						set((state) => {
+							state.error = String(e)
+						})
+						throw e
+					}
+				},
+
+				updateGroup: async (vaultId, groupId, update) => {
+					try {
+						await prepareMemberMutation()
+						const group = await getPlatform().members.updateGroup(vaultId, groupId, update)
+						set((state) => {
+							const index = state.groups.findIndex((candidate) => candidate.id === groupId)
+							if (index === -1) state.groups.push(group)
+							else state.groups[index] = group
+						})
+						return group
+					} catch (e) {
+						set((state) => {
+							state.error = String(e)
+						})
+						throw e
+					}
+				},
+
+				deleteGroup: async (vaultId, groupId) => {
+					try {
+						await prepareMemberMutation()
+						await getPlatform().members.deleteGroup(vaultId, groupId)
+						set((state) => {
+							state.groups = state.groups.filter((group) => group.id !== groupId)
+							for (const rule of state.accessRules) {
+								rule.entries = rule.entries.filter(
+									(entry) => entry.principalType !== "group" || entry.principalId !== groupId,
+								)
+							}
+						})
+					} catch (e) {
+						set((state) => {
+							state.error = String(e)
+						})
+						throw e
+					}
+				},
+
+				setAccessRule: async (vaultId, rule) => {
+					try {
+						await prepareMemberMutation()
+						const saved = await getPlatform().members.setAccessRule(vaultId, rule)
+						set((state) => {
+							const remaining = state.accessRules.filter(
+								(candidate) => candidate.path !== rule.path,
+							)
+							state.accessRules = saved ? [...remaining, saved] : remaining
+						})
+						return saved
+					} catch (e) {
+						set((state) => {
+							state.error = String(e)
+						})
+						throw e
+					}
+				},
+
+				previewInvite: async (token) => {
+					await syncAuthContext(await resolveServerUrl())
+					return await getPlatform().members.previewInvite(token)
+				},
+
+				acceptInviteLink: async (token, linkKey) => {
+					await prepareMemberMutation()
+					return await getPlatform().members.acceptInviteLink(token, linkKey)
+				},
 
 				fetchMembers: async (vaultId, serverUrl) => {
 					await loadMembers(vaultId, serverUrl, true)
@@ -160,6 +318,14 @@ export const useMembersStore = create<MembersState>()(
 						await platform.members.removeMember(vaultId, userId)
 						set((state) => {
 							state.members = state.members.filter((m) => m.userId !== userId)
+							for (const group of state.groups) {
+								group.memberIds = group.memberIds.filter((memberId) => memberId !== userId)
+							}
+							for (const rule of state.accessRules) {
+								rule.entries = rule.entries.filter(
+									(entry) => entry.principalType !== "user" || entry.principalId !== userId,
+								)
+							}
 							if (state.activeMemberCacheKey) {
 								state.memberCache[state.activeMemberCacheKey] = state.memberCache[
 									state.activeMemberCacheKey
@@ -188,7 +354,7 @@ export const useMembersStore = create<MembersState>()(
 					}
 				},
 
-				createInvite: async (vaultId, inviteeEmail, role, encryptedVaultKey) => {
+				createInvite: async (vaultId, inviteeEmail, role, encryptedVaultKey, options) => {
 					try {
 						const platform = getPlatform()
 						await prepareMemberMutation()
@@ -197,10 +363,12 @@ export const useMembersStore = create<MembersState>()(
 							inviteeEmail,
 							role,
 							encryptedVaultKey,
+							options,
 						)
 						set((state) => {
 							state.invites.push(invite)
 						})
+						return invite
 					} catch (e) {
 						set((state) => {
 							state.error = String(e)
@@ -265,3 +433,9 @@ export const useMembersStore = create<MembersState>()(
 		{ name: "membersStore" },
 	),
 )
+
+useAccessStore.subscribe((state, previous) => {
+	if (state.access === previous.access || !state.access) return
+	const { overviewVaultId, fetchOverview } = useMembersStore.getState()
+	if (overviewVaultId) void fetchOverview(overviewVaultId)
+})

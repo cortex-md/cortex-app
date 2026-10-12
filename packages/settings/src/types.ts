@@ -5,7 +5,8 @@ import {
 	DEFAULT_EDITOR_SETTINGS,
 	DEFAULT_FILES_SETTINGS,
 	DEFAULT_GENERAL_SETTINGS,
-	DEFAULT_HOTKEYS_SETTINGS,
+	DEFAULT_PLUGINS_SETTINGS,
+	DEFAULT_TASKS_SETTINGS,
 } from "./defaults"
 
 const AppearanceSettingsInputSchema = z.object({
@@ -32,6 +33,10 @@ export const AppearanceSettingsSchema = AppearanceSettingsInputSchema.transform(
 	}
 })
 
+export const PluginsSettingsSchema = z.object({
+	allowCommunity: z.boolean().default(DEFAULT_PLUGINS_SETTINGS.allowCommunity),
+})
+
 export const GlobalAppSettingsSchema = z.object({
 	appearance: z
 		.object({
@@ -40,6 +45,7 @@ export const GlobalAppSettingsSchema = z.object({
 		.default({
 			nativeWindowEffects: DEFAULT_APPEARANCE_SETTINGS.nativeWindowEffects,
 		}),
+	plugins: PluginsSettingsSchema.default(DEFAULT_PLUGINS_SETTINGS),
 })
 
 export const EditorSettingsSchema = z.object({
@@ -68,9 +74,20 @@ export const GeneralSettingsSchema = z.object({
 	autoOpenLastVault: z.boolean().default(DEFAULT_GENERAL_SETTINGS.autoOpenLastVault),
 })
 
-export const HotkeysSettingsSchema = z
-	.record(z.string(), z.string())
-	.default(DEFAULT_HOTKEYS_SETTINGS)
+const ClockTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+
+export const TasksSettingsSchema = z.object({
+	remindersEnabled: z.boolean().default(DEFAULT_TASKS_SETTINGS.remindersEnabled),
+	defaultReminder: z.enum(["at", "5", "15", "60"]).default(DEFAULT_TASKS_SETTINGS.defaultReminder),
+	untimedReminderTime: ClockTimeSchema.default(DEFAULT_TASKS_SETTINGS.untimedReminderTime),
+	digestEnabled: z.boolean().default(DEFAULT_TASKS_SETTINGS.digestEnabled),
+	digestTime: ClockTimeSchema.default(DEFAULT_TASKS_SETTINGS.digestTime),
+	mentionsEnabled: z.boolean().default(DEFAULT_TASKS_SETTINGS.mentionsEnabled),
+	quietHoursEnabled: z.boolean().default(DEFAULT_TASKS_SETTINGS.quietHoursEnabled),
+	quietHoursStart: ClockTimeSchema.default(DEFAULT_TASKS_SETTINGS.quietHoursStart),
+	quietHoursEnd: ClockTimeSchema.default(DEFAULT_TASKS_SETTINGS.quietHoursEnd),
+	sound: z.boolean().default(DEFAULT_TASKS_SETTINGS.sound),
+})
 
 export const AppSettingsSchema = z.object({
 	general: GeneralSettingsSchema.default(DEFAULT_APP_SETTINGS.general),
@@ -80,14 +97,16 @@ export const AppSettingsSchema = z.object({
 		excludePatterns: [...DEFAULT_APP_SETTINGS.files.excludePatterns],
 		hideHiddenFiles: DEFAULT_APP_SETTINGS.files.hideHiddenFiles,
 	}),
-	hotkeys: HotkeysSettingsSchema.default(DEFAULT_APP_SETTINGS.hotkeys),
+	plugins: PluginsSettingsSchema.default(DEFAULT_APP_SETTINGS.plugins),
+	tasks: TasksSettingsSchema.default(DEFAULT_APP_SETTINGS.tasks),
 })
 
 export type AppearanceSettings = z.infer<typeof AppearanceSettingsSchema>
 export type GeneralSettings = z.infer<typeof GeneralSettingsSchema>
 export type EditorSettings = z.infer<typeof EditorSettingsSchema>
 export type FilesSettings = z.infer<typeof FilesSettingsSchema>
-export type HotkeysSettings = z.infer<typeof HotkeysSettingsSchema>
+export type PluginsSettings = z.infer<typeof PluginsSettingsSchema>
+export type TasksSettings = z.infer<typeof TasksSettingsSchema>
 export type AppSettings = z.infer<typeof AppSettingsSchema>
 export type GlobalAppSettings = z.infer<typeof GlobalAppSettingsSchema>
 

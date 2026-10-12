@@ -1,17 +1,9 @@
 import type { FileMetadata, FileSnapshot } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
+import { joinPath, splitExtension } from "@cortex/platform/utils"
 import { noteCache } from "../noteCache"
 
 const CREATED_NOTE_FINGERPRINT_RETRY_DELAYS_MS = [20, 80]
-
-export function splitFileName(fileName: string): { baseName: string; extension: string } {
-	const extensionIndex = fileName.lastIndexOf(".")
-	if (extensionIndex <= 0) return { baseName: fileName, extension: "" }
-	return {
-		baseName: fileName.slice(0, extensionIndex),
-		extension: fileName.slice(extensionIndex),
-	}
-}
 
 function delay(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms))
@@ -27,13 +19,11 @@ export async function pathExists(filePath: string): Promise<boolean> {
 }
 
 export async function resolveUniquePath(parentPath: string, fileName: string): Promise<string> {
-	const { baseName, extension } = splitFileName(fileName)
-	let candidateName = fileName
-	let candidatePath = `${parentPath}/${candidateName}`
+	const { baseName, extension } = splitExtension(fileName)
+	let candidatePath = joinPath(parentPath, fileName)
 	let suffix = 2
 	while (await pathExists(candidatePath)) {
-		candidateName = `${baseName} ${suffix}${extension}`
-		candidatePath = `${parentPath}/${candidateName}`
+		candidatePath = joinPath(parentPath, `${baseName} ${suffix}${extension}`)
 		suffix++
 	}
 	return candidatePath

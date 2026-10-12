@@ -18,13 +18,20 @@ export class CommandRegistry {
 	private cacheDirty = true
 
 	register(command: CommandEntry): () => void {
-		this.commands.set(command.id, command)
+		return this.registerMany([command])
+	}
+
+	registerMany(commands: readonly CommandEntry[]): () => void {
+		for (const command of commands) this.commands.set(command.id, command)
 		this.notify()
 		return () => {
-			const current = this.commands.get(command.id)
-			if (current !== command) return
-			this.commands.delete(command.id)
-			this.notify()
+			let changed = false
+			for (const command of commands) {
+				if (this.commands.get(command.id) !== command) continue
+				this.commands.delete(command.id)
+				changed = true
+			}
+			if (changed) this.notify()
 		}
 	}
 

@@ -4,6 +4,8 @@ import { create } from "zustand"
 import { devtools } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
 import { resolveSyncServerUrl } from "../sync/serverConfig"
+import { useAuthStore } from "./authStore"
+import { useRemoteVaultStore } from "./remoteVaultStore"
 
 export interface DevicesState {
 	deviceEntries: DeviceEntry[]
@@ -17,10 +19,6 @@ export interface DevicesState {
 }
 
 async function syncAuthContext(): Promise<void> {
-	const [{ useRemoteVaultStore }, { useAuthStore }] = await Promise.all([
-		import("./remoteVaultStore"),
-		import("./authStore"),
-	])
 	const serverUrl = resolveSyncServerUrl(useRemoteVaultStore.getState().syncConfig)
 	await useAuthStore.getState().checkAuth(serverUrl)
 }

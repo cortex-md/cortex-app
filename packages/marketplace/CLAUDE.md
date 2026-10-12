@@ -4,18 +4,21 @@
 
 `@cortex/marketplace` provides the shared marketplace logic for browsing, installing, and uninstalling community plugins and themes from the Cortex registry at `cortex-md/registry` on GitHub.
 
-This package is platform-agnostic — it uses `@cortex/platform` abstractions for HTTP and filesystem operations, making it usable on both desktop (Tauri) and mobile.
+This package is platform-agnostic — it uses `@cortex/platform` abstractions for HTTP and filesystem operations. Desktop (Electron) and mobile (Expo) both consume it; mobile browses plugins only.
 
 ## Package Structure
 
 ```
 packages/marketplace/
   src/
-    types.ts              # RegistryEntry, GitHubRelease, GitHubReleaseAsset
-    registryService.ts    # Fetch + cache registry JSON and README from GitHub
-    installService.ts     # Download zip, extract, trigger plugin/theme discovery
-    marketplaceStore.ts   # Zustand store for UI state
-    index.ts              # Public exports
+    types.ts               # RegistryEntry, GitHubRelease, MarketplacePluginHost
+    registryService.ts     # Fetch + cache registry JSON, README, release manifest metadata
+    installService.ts      # Staged install/update/uninstall for plugins and themes
+    updateService.ts       # Installed version vs latest release detection
+    versionUtils.ts        # compareVersions, isVersionCompatible
+    marketplaceStore.ts    # Zustand store for UI state and actions
+    marketplaceSelectors.ts # Pure catalog/detail selectors shared by desktop and mobile
+    index.ts               # Public exports
 ```
 
 ## Registry Format
@@ -53,28 +56,37 @@ Themes:
 
 ## Bridge Pattern
 
-`setMarketplaceCallbacks(callbacks)` must be called by `apps/desktop` during initialization to wire platform-specific operations:
+`setMarketplaceCallbacks(callbacks)` is called once by each app host:
 
-```typescript
-setMarketplaceCallbacks({
-  getPluginsDir: () => vault?.path ? `${vault.path}/.cortex/plugins` : null,
-  getThemesDir: () => vault?.path ? `${vault.path}/.cortex/themes` : null,
-  reloadPluginHost: (dir) => reloadCommunityPlugins(dir, getVaultPath),
-  reloadThemes: loadCommunityThemes,
-  isPluginInstalled: (id) => id in pluginStore.getState().plugins,
-  isThemeInstalled: (id) => getThemeManager().getThemeFamilies().some(f => f.name === id),
-})
-```
+- Desktop `apps/desktop/src/bootstrap/desktopHost.ts`: `getPluginsDir: pluginHost.getCommunityPluginsDir`,
+  `<vault>/.cortex/themes`, the desktop `PluginHost`, `reloadCommunityThemes`, theme-family checks, and
+  `notify` through core native notifications.
+- Mobile `apps/mobile/src/bootstrap/marketplace.ts`: `mobilePluginHost`, no themes directory
+  (`getThemesDir: () => null`, `isThemeInstalled: () => false`), and `notify` through `reportAppError` for
+  failures plus a `dialog.showAlert` after an install.
+
+Installing never enables a plugin; the user enables it in plugin settings. `installEntry` and
+`uninstallEntry` report failures through `notify` and resolve instead of rejecting.
+
+Install/update relies on the platform fs contract: `downloadFile`, `downloadAndExtract` (strip the archive
+top-level folder with `@cortex/platform/vault` `archiveEntrySegments`), `createDir`, `renameFile` and
+`deleteFile` on directories (recursive), and `listDir` hiding dot-names. The staging workspace is
+`<pluginsDir>/.<id>-install-<timestamp>`.
 
 ## Store Filtering and Sorting
 
-The store exposes `filterInstalled: boolean` and `sortOrder: "default" | "newest" | "oldest"` state with corresponding setters. Both reset to defaults when `setActiveTab()` is called. Desktop applies filtering/sorting client-side in the Marketplace workspace surface. Date-based sorting lazily fetches `published_at` from the GitHub releases API via `loadReleaseDates()` (triggered automatically when sort order changes from "default"), cached in `releaseDates: Record<string, string>`. Compatibility checks read `minAppVersion` from the latest release `manifest.json` asset first, then fall back to raw `manifest.json` on `main`/`master` for source-based packages.
+The store exposes `filterInstalled: boolean` and `sortOrder: "default" | "newest" | "oldest"` state with corresponding setters. Both reset to defaults when `setActiveTab()` is called. Filtering, sorting, grouping, and detail action state live in `marketplaceSelectors.ts`; app surfaces must use them instead of re-implementing catalog logic. Date-based sorting lazily fetches `published_at` from the GitHub releases API via `loadReleaseDates()` (triggered automatically when sort order changes from "default"), cached in `releaseDates: Record<string, string>`. Compatibility checks read `minAppVersion` from the latest release `manifest.json` asset first, then fall back to raw `manifest.json` on `main`/`master` for source-based packages.
 
 ## Key Exports
 
 - `useMarketplaceStore` — Zustand store with all UI state and actions
 - `setMarketplaceCallbacks(cbs)` — Wire platform-specific callbacks (call once at app init)
 - `isEntryInstalled(id, tab)` — Check if a plugin/theme is installed
+- `selectMarketplaceEntries(state, { isInstalled })` — Search, installed filter, and release-date sort
+- `groupMarketplaceEntries(entries, { isInstalled, availableUpdates })` — Updates / Installed / Available groups
+- `getMarketplaceEntryState(state, id, installed)` — `install` / `update` / `uninstall` action, update version, `incompatible`
+- `getCapabilityLabel`, `formatManifestValue`, `marketplaceSortLabels`, `matchesEntry`
+- `getRepositoryUrl`, `getRepositoryLabel`, `getExternalUrl` — Registry link helpers
 - `RegistryEntry` — Type for registry entries
 - `MarketplaceSortOrder` — `"default" | "newest" | "oldest"`
 - `fetchPluginRegistry() / fetchThemeRegistry()` — Fetch with in-memory cache
@@ -84,7 +96,6 @@ The store exposes `filterInstalled: boolean` and `sortOrder: "default" | "newest
 
 ## Dependencies
 
-- `@cortex/platform` — `getPlatform().http.fetch()` for network, `getPlatform().fs.writeFile()` + `createDir()` for install
-- `@cortex/plugin-host-core` — plugin registry state and community plugin load errors
+- `@cortex/platform` — `getPlatform().http.fetch()` for network, `getPlatform().fs` download/extract/rename/delete for install
 - `@cortex/theme` — `getThemeManager()` for theme registration checks
 - `zustand` + `immer` — state management

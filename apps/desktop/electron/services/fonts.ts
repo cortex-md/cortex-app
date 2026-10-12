@@ -1,17 +1,23 @@
 import { getFonts } from "font-list"
+import type { MainApi } from "../contract"
 
-export interface FontInfo {
-	family: string
-	postscriptName: string | null
-}
+type SystemFonts = Awaited<ReturnType<MainApi["font"]["listSystemFonts"]>>
 
-export async function listSystemFonts(): Promise<FontInfo[]> {
+let systemFonts: Promise<SystemFonts> | null = null
+
+async function loadSystemFonts(): Promise<SystemFonts> {
 	const families = await getFonts({ disableQuoting: true })
-	const unique = [...new Set(families.map((family) => family.trim()).filter(Boolean))].sort(
-		(a, b) => a.localeCompare(b),
-	)
-	return unique.map((family) => ({
-		family,
-		postscriptName: null,
-	}))
+	return [...new Set(families.map((family) => family.trim()).filter(Boolean))]
+		.sort((a, b) => a.localeCompare(b))
+		.map((family) => ({ family, postscriptName: null }))
 }
+
+export const fontApi = {
+	listSystemFonts: () => {
+		systemFonts ??= loadSystemFonts().catch((error: unknown) => {
+			systemFonts = null
+			throw error
+		})
+		return systemFonts
+	},
+} satisfies MainApi["font"]

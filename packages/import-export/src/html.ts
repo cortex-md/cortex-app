@@ -1,5 +1,4 @@
-import type { SanitizedMarkdownHtml } from "@cortex/renderer"
-import { createRenderer, sanitizeRenderedMarkdownHtml } from "@cortex/renderer"
+import { type SanitizedMarkdownHtml, sanitizeRenderedMarkdownHtml } from "@cortex/renderer"
 
 export function decodeHtmlEntities(value: string): string {
 	const namedEntities: Record<string, string> = {
@@ -8,7 +7,7 @@ export function decodeHtmlEntities(value: string): string {
 		gt: ">",
 		lt: "<",
 		nbsp: " ",
-		quot: "\"",
+		quot: '"',
 	}
 	return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/giu, (entity, rawName: string) => {
 		const name = rawName.toLocaleLowerCase()
@@ -50,10 +49,8 @@ export function htmlToMarkdown(content: string): string {
 	return normalizeMarkdownWhitespace(decodeHtmlEntities(withMarkdownLinks))
 }
 
-export async function renderMarkdownExportHtml(
-	markdown: string,
-	title: string,
-): Promise<string> {
+export async function renderMarkdownExportHtml(markdown: string, title: string): Promise<string> {
+	const { createRenderer } = await import("@cortex/renderer/pipeline")
 	const renderer = createRenderer({ surface: "export" })
 	const rendered = await renderer.render(markdown)
 	return createStandaloneHtml(rendered, title)
@@ -161,7 +158,12 @@ function readHtmlAttribute(attrs: string, name: string): string | null {
 }
 
 function cleanInlineText(value: string): string {
-	return decodeHtmlEntities(value.replace(/<[^>]+>/gu, "").replace(/\s+/gu, " ").trim())
+	return decodeHtmlEntities(
+		value
+			.replace(/<[^>]+>/gu, "")
+			.replace(/\s+/gu, " ")
+			.trim(),
+	)
 }
 
 function normalizeMarkdownWhitespace(value: string): string {
@@ -178,5 +180,5 @@ function escapeHtml(value: string): string {
 		.replaceAll("&", "&amp;")
 		.replaceAll("<", "&lt;")
 		.replaceAll(">", "&gt;")
-		.replaceAll("\"", "&quot;")
+		.replaceAll('"', "&quot;")
 }

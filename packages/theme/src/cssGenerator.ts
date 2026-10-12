@@ -20,7 +20,8 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
 	const vars: Record<string, string> = {}
 	const t = theme.tokens
 
-	emitColorScale(vars, t.primitive.stone, "stone", "mist")
+	emitColorScale(vars, t.primitive.stone, "stone")
+	emitColorScale(vars, t.primitive.mist ?? t.primitive.stone, "mist")
 	emitColorScale(vars, t.primitive.ink, "ink", "slate")
 	emitColorScale(vars, t.primitive.amber, "amber", "rose")
 	emitColorScale(vars, t.primitive.amberDark, "amber-d", "rose-d")

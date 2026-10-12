@@ -162,15 +162,12 @@ describe("syncStore preferences", () => {
 	it("uses sync file events for state without re-reading note contents", async () => {
 		const hashFile = vi.fn()
 		let fileListener: ((event: { path: string; status: string }) => void) | undefined
-		const listen = (callback?: (event: never) => void) => {
-			if (callback) return Promise.resolve(vi.fn())
-			return Promise.resolve(vi.fn())
-		}
+		const listen = () => vi.fn()
 		vi.mocked(getPlatform).mockReturnValue({
 			fs: { hashFile },
 			sync: {
 				onStateChanged: listen,
-				onFileEvent: vi.fn().mockImplementation(async (callback) => {
+				onFileEvent: vi.fn().mockImplementation((callback) => {
 					fileListener = callback
 					return vi.fn()
 				}),
@@ -178,6 +175,8 @@ describe("syncStore preferences", () => {
 				onConflict: listen,
 				onInitialSyncComplete: listen,
 				onVekRequired: listen,
+				onAccessChanged: listen,
+				onKeyTrustIssue: listen,
 				onSyncLog: listen,
 				onVaultAccessDenied: listen,
 			},

@@ -26,7 +26,7 @@ function PopoverContent({
 				align={align}
 				sideOffset={sideOffset}
 				className={cn(
-					"z-50 w-72 origin-(--radix-popover-content-transform-origin) rounded-[var(--popup-radius,10px)] p-4 text-popover-foreground outline-hidden",
+					"z-[110] w-72 origin-(--radix-popover-content-transform-origin) rounded-[var(--popup-radius,10px)] p-4 text-popover-foreground outline-hidden",
 					nativePopupSurface,
 					nativePopupContentMotion,
 					className,

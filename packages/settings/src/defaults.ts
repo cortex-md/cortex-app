@@ -39,12 +39,28 @@ export const DEFAULT_FILES_SETTINGS = {
 	hideHiddenFiles: true,
 } as const
 
-export const DEFAULT_HOTKEYS_SETTINGS = {} as const
+export const DEFAULT_PLUGINS_SETTINGS = {
+	allowCommunity: false,
+} as const
+
+export const DEFAULT_TASKS_SETTINGS = {
+	remindersEnabled: true,
+	defaultReminder: "at",
+	untimedReminderTime: "09:00",
+	digestEnabled: true,
+	digestTime: "08:30",
+	mentionsEnabled: true,
+	quietHoursEnabled: true,
+	quietHoursStart: "22:00",
+	quietHoursEnd: "07:00",
+	sound: false,
+} as const
 
 export const DEFAULT_APP_SETTINGS = {
 	general: DEFAULT_GENERAL_SETTINGS,
 	appearance: DEFAULT_APPEARANCE_SETTINGS,
 	editor: DEFAULT_EDITOR_SETTINGS,
 	files: DEFAULT_FILES_SETTINGS,
-	hotkeys: DEFAULT_HOTKEYS_SETTINGS,
+	plugins: DEFAULT_PLUGINS_SETTINGS,
+	tasks: DEFAULT_TASKS_SETTINGS,
 } as const

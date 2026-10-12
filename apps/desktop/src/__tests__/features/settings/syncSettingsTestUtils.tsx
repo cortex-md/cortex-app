@@ -35,6 +35,10 @@ vi.mock("@cortex/core", async (importOriginal) => {
 
 vi.mock("@cortex/platform", () => ({
 	getPlatform: vi.fn(() => ({
+		clipboard: {
+			writeText: (text: string) => navigator.clipboard.writeText(text),
+			readText: () => navigator.clipboard.readText(),
+		},
 		dialog: {
 			showConfirm: platformMocks.showConfirm,
 			saveFile: platformMocks.saveFile,

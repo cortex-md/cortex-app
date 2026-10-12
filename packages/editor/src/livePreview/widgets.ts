@@ -1,5 +1,7 @@
 import { type MarkdownPortableNode, sanitizeMarkdownUrl } from "@cortex/renderer"
+import { renderMathExpression } from "@cortex/renderer/math"
 import type { CodeBlockEmbedLivePreview } from "../codeBlockEmbeds"
+import { toggleTaskAt } from "../taskToggle"
 import type { EditorRuntimeModules, EditorRuntimeView } from "../types"
 import type { LivePreviewEffects } from "./effects"
 import type { ImageBlock, TableCellModel } from "./model"
@@ -24,12 +26,12 @@ async function renderMathIntoElement(
 	isDisposed: () => boolean,
 ): Promise<void> {
 	try {
-		const [math, stylesheet] = await Promise.all([
-			import("@cortex/renderer/math"),
-			import("../mathStylesheet"),
+		const [, result] = await Promise.all([
+			import("../mathStylesheet")
+				.then((stylesheet) => stylesheet.ensureMathStylesheet())
+				.catch(() => undefined),
+			renderMathExpression({ source, displayMode }),
 		])
-		await stylesheet.ensureMathStylesheet().catch(() => undefined)
-		const result = await math.renderMathExpression({ source, displayMode })
 		if (isDisposed()) return
 		element.classList.remove("is-loading")
 		element.classList.toggle("is-error", result.status === "error")
@@ -228,13 +230,7 @@ export function createLivePreviewWidgets(
 			checkbox.addEventListener("pointerdown", (event) => {
 				event.preventDefault()
 				event.stopPropagation()
-				view.dispatch({
-					changes: {
-						from: this.from,
-						to: this.from + 3,
-						insert: this.checked ? "[ ]" : "[x]",
-					},
-				})
+				toggleTaskAt(view, this.from)
 			})
 			return checkbox
 		}

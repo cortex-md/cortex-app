@@ -1,4 +1,5 @@
 import { type SyncLogEntry, useSyncLogStore } from "@cortex/core"
+import { getPlatform } from "@cortex/platform"
 import { cleanup, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -21,12 +22,11 @@ const entries: SyncLogEntry[] = [
 	},
 ]
 
+const writeText = vi.fn().mockResolvedValue(undefined)
+
 beforeEach(() => {
 	useSyncLogStore.setState({ entries, nextId: entries.length })
-	Object.defineProperty(navigator, "clipboard", {
-		configurable: true,
-		value: { writeText: vi.fn().mockResolvedValue(undefined) },
-	})
+	vi.mocked(getPlatform).mockReturnValue({ clipboard: { writeText } } as never)
 })
 
 afterEach(() => {
@@ -41,10 +41,10 @@ describe("SyncLogsModal", () => {
 
 		expect(screen.getByRole("heading", { name: "Sync logs" })).toBeInTheDocument()
 		expect(screen.getByText("Sync connected")).toBeInTheDocument()
-		expect(screen.getByText("vault=Writing")).toBeInTheDocument()
 		expect(screen.getByText("Upload failed")).toBeInTheDocument()
+		expect(screen.getByText("Notes/Plan.md")).toBeInTheDocument()
 
-		await userEvent.click(screen.getByRole("radio", { name: "Show error logs" }))
+		await userEvent.click(screen.getByRole("tab", { name: "Error" }))
 
 		expect(screen.queryByText("Sync connected")).not.toBeInTheDocument()
 		expect(screen.getByText("Upload failed")).toBeInTheDocument()
@@ -55,7 +55,7 @@ describe("SyncLogsModal", () => {
 
 		await userEvent.click(screen.getByRole("button", { name: "Copy" }))
 
-		expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+		expect(writeText).toHaveBeenCalledWith(
 			expect.stringContaining("[ERROR] Upload failed path=Notes/Plan.md"),
 		)
 
@@ -64,6 +64,6 @@ describe("SyncLogsModal", () => {
 		await waitFor(() => {
 			expect(screen.getByText("No sync activity yet")).toBeInTheDocument()
 		})
-		expect(screen.getByRole("button", { name: "Copy" })).toBeDisabled()
+		expect(screen.getByRole("button", { name: "Copied" })).toBeDisabled()
 	})
 })

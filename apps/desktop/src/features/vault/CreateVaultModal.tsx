@@ -1,17 +1,19 @@
 import {
 	createDefaultSyncPreferences,
+	createVaultFromFolder,
+	isPathOrDescendant,
 	isSyncImagePath,
 	normalizeSyncPathPattern,
+	reportAppError,
 	shouldIgnoreSyncPath,
-	useSyncStore,
-	useVaultStore,
+	toVaultRelativePath,
+	VAULT_CONFIG_DIR,
 } from "@cortex/core"
 import type { FileEntry, SyncPreferences } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
 import {
 	Badge,
 	Button,
-	Dialog,
 	DialogBody,
 	DialogClose,
 	DialogContent,
@@ -31,27 +33,19 @@ import {
 } from "@cortex/ui"
 import { FileIcon, FolderIcon, XIcon } from "lucide-react"
 import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from "react"
-
-interface CreateVaultModalProps {
-	open: boolean
-	folderPath: string
-	onOpenChange: (open: boolean) => void
-}
+import { ModalStoreHost } from "@/utils/ModalHost"
+import { createVaultModal } from "./createVaultModalStore"
 
 interface CreateVaultModalContentProps {
 	folderPath: string
-	onOpenChange: (open: boolean) => void
+	defaultName: string
 }
 
 type CreateVaultStep = "identity" | "preferences"
 
-/** Default vault accent color, matching the brand rose-400 accent used elsewhere in the app. */
-const DEFAULT_VAULT_COLOR = "#fb7185"
-
 interface CreateVaultDraft {
 	step: CreateVaultStep
 	name: string
-	color: string
 	icon: IconName | undefined
 	files: FileEntry[]
 	syncPreferences: SyncPreferences
@@ -59,7 +53,7 @@ interface CreateVaultDraft {
 }
 
 function fileEntryToRelativePath(entry: FileEntry, vaultPath: string): string {
-	const relative = entry.path.replace(`${vaultPath}/`, "")
+	const relative = toVaultRelativePath(entry.path, vaultPath) ?? entry.path
 	return entry.isDir ? (relative.endsWith("/") ? relative : `${relative}/`) : relative
 }
 
@@ -67,7 +61,6 @@ function createVaultDraft(defaultName: string): CreateVaultDraft {
 	return {
 		step: "identity",
 		name: defaultName,
-		color: DEFAULT_VAULT_COLOR,
 		icon: undefined,
 		files: [],
 		syncPreferences: createDefaultSyncPreferences(),
@@ -75,27 +68,23 @@ function createVaultDraft(defaultName: string): CreateVaultDraft {
 	}
 }
 
-export function CreateVaultModal({ open, folderPath, onOpenChange }: CreateVaultModalProps) {
+export function CreateVaultModalHost() {
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			{open && (
+		<ModalStoreHost store={createVaultModal}>
+			{(target) => (
 				<CreateVaultModalContent
-					key={folderPath}
-					folderPath={folderPath}
-					onOpenChange={onOpenChange}
+					key={target.folderPath}
+					folderPath={target.folderPath}
+					defaultName={target.defaultName}
 				/>
 			)}
-		</Dialog>
+		</ModalStoreHost>
 	)
 }
 
-function CreateVaultModalContent({ folderPath, onOpenChange }: CreateVaultModalContentProps) {
-	const openVault = useVaultStore((state) => state.openVault)
-	const saveSyncPreferences = useSyncStore((state) => state.saveSyncPreferences)
-	const defaultName = folderPath.split("/").pop() || "My Vault"
-
+function CreateVaultModalContent({ folderPath, defaultName }: CreateVaultModalContentProps) {
 	const [draft, setDraft] = useState<CreateVaultDraft>(() => createVaultDraft(defaultName))
-	const { step, name, color, icon, files, syncPreferences, creating } = draft
+	const { step, name, icon, files, syncPreferences, creating } = draft
 
 	useEffect(() => {
 		let active = true
@@ -115,7 +104,7 @@ function CreateVaultModalContent({ folderPath, onOpenChange }: CreateVaultModalC
 	const availableOptions = useMemo(() => {
 		return files.flatMap((file) => {
 			const path = fileEntryToRelativePath(file, folderPath)
-			if (path.startsWith(".cortex/") || path === ".cortex") return []
+			if (isPathOrDescendant(path, VAULT_CONFIG_DIR)) return []
 			if (syncPreferences.ignoreImages && isSyncImagePath(path)) return []
 			if (shouldIgnoreSyncPath(path, syncPreferences)) return []
 			return [
@@ -160,14 +149,16 @@ function CreateVaultModalContent({ folderPath, onOpenChange }: CreateVaultModalC
 	const handleCreate = async () => {
 		setDraft((current) => ({ ...current, creating: true }))
 		try {
-			await openVault(folderPath, {
-				icon: icon ?? undefined,
-				color,
-				name,
-				createOnboardingNote: true,
+			await createVaultFromFolder(folderPath, { name, icon, syncPreferences })
+			createVaultModal.close()
+		} catch (error) {
+			await reportAppError({
+				operation: "create-vault",
+				source: "create-vault-modal",
+				cause: error,
+				userMessage: "The vault could not be created.",
+				context: { folderPath },
 			})
-			await saveSyncPreferences(folderPath, syncPreferences)
-			onOpenChange(false)
 		} finally {
 			setDraft((current) => ({ ...current, creating: false }))
 		}
@@ -198,28 +189,15 @@ function CreateVaultModalContent({ folderPath, onOpenChange }: CreateVaultModalC
 									placeholder="Second brain"
 								/>
 							</Field>
-							<div className="grid grid-cols-2 gap-4">
-								<Field>
-									<Label htmlFor="vault-color">Color</Label>
-									<Input
-										id="vault-color"
-										type="color"
-										value={color}
-										onChange={(event: ChangeEvent<HTMLInputElement>) =>
-											setDraft((current) => ({ ...current, color: event.target.value }))
-										}
-									/>
-								</Field>
-								<Field>
-									<Label>Icon</Label>
-									<IconPicker
-										value={icon}
-										onValueChange={(nextIcon) =>
-											setDraft((current) => ({ ...current, icon: nextIcon }))
-										}
-									/>
-								</Field>
-							</div>
+							<Field>
+								<Label>Icon</Label>
+								<IconPicker
+									value={icon}
+									onValueChange={(nextIcon) =>
+										setDraft((current) => ({ ...current, icon: nextIcon }))
+									}
+								/>
+							</Field>
 						</FieldGroup>
 					</DialogBody>
 					<DialogFooter className="dialog-chrome-footer">
@@ -281,13 +259,15 @@ function CreateVaultModalContent({ folderPath, onOpenChange }: CreateVaultModalC
 													<FileIcon className="size-3 shrink-0 text-text-muted" />
 												)}
 												<span className="text-xs">{path}</span>
-												<button
-													type="button"
+												<Button
+													variant="ghost"
+													size="icon-xs"
 													onClick={() => toggleExcludedPath(path, false)}
-													className="ml-0.5 rounded-sm p-0.5 hover:bg-bg-hover"
+													className="ml-0.5 size-4 rounded-sm p-0.5 hover:bg-bg-hover"
+													aria-label={`Remove ${path}`}
 												>
 													<XIcon className="size-3" />
-												</button>
+												</Button>
 											</Badge>
 										))}
 									</div>

@@ -1,8 +1,12 @@
-import { noteCache, useRemoteVaultStore, useVaultStore } from "@cortex/core"
+import {
+	initializeCoreProperties,
+	noteCache,
+	useRemoteVaultStore,
+	useVaultStore,
+} from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
 import { loadNotePropertiesSnapshot, resetPropertiesRuntime } from "@cortex/properties"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { initializeDesktopProperties } from "../propertiesRuntime"
 
 const vaultPath = "/vault"
 const notePath = "/vault/Untitled.md"
@@ -94,7 +98,7 @@ describe("desktop properties runtime", () => {
 			},
 		} as never)
 		noteCache.primeClean(notePath, "Body", "hash-new", { localCreated: true })
-		initializeDesktopProperties()
+		initializeCoreProperties({ deviceType: "desktop" })
 
 		const snapshot = await loadNotePropertiesSnapshot(notePath)
 

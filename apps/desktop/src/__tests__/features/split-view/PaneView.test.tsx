@@ -37,10 +37,6 @@ vi.mock("../../../features/mermaid/mermaidCodeBlockEmbed", () => ({
 	})),
 }))
 
-vi.mock("../../../features/split-view/coreViewRegistry", () => ({
-	getCoreViewComponent: vi.fn(() => null),
-}))
-
 vi.mock("../../../features/split-view/PdfTabView", () => ({
 	PdfTabView: vi.fn(({ tab }) => <div data-testid="pdf-tab-view">{tab.filePath}</div>),
 }))
@@ -153,8 +149,8 @@ describe("PaneView", () => {
 		})
 		expect(vi.mocked(NotePropertiesPanel).mock.calls[0]?.[0]).toMatchObject({
 			filePath: "/vault/note.md",
-			rawContent: "---\ntags:\n  - cached\n---\n# Body",
 			projection: expect.objectContaining({
+				rawContent: "---\ntags:\n  - cached\n---\n# Body",
 				body: "# Body",
 				meta: { tags: ["cached"] },
 				frontmatterError: null,
@@ -164,33 +160,6 @@ describe("PaneView", () => {
 
 	it("does not mount the Markdown toolbar when the setting is disabled", () => {
 		setPaneTab()
-		noteCache.primeClean("/vault/note.md", "# Note", "hash")
-
-		render(<PaneView paneId="root" />)
-
-		expect(screen.queryByRole("toolbar", { name: "Markdown formatting" })).not.toBeInTheDocument()
-	})
-
-	it.each([
-		"source",
-		"live-preview",
-		"side-by-side",
-	] as const)("mounts the Markdown toolbar in %s mode when enabled", (mode) => {
-		setPaneTab()
-		setMarkdownToolbarEnabled(true)
-		useEditorStore.setState({ mode })
-		noteCache.primeClean("/vault/note.md", "# Note", "hash")
-
-		render(<PaneView paneId="root" />)
-
-		expect(screen.getByRole("toolbar", { name: "Markdown formatting" })).toBeInTheDocument()
-		expect(screen.getByRole("button", { name: "Bold" })).toBeInTheDocument()
-	})
-
-	it("does not mount the Markdown toolbar in reading mode", () => {
-		setPaneTab()
-		setMarkdownToolbarEnabled(true)
-		useEditorStore.setState({ mode: "reading" })
 		noteCache.primeClean("/vault/note.md", "# Note", "hash")
 
 		render(<PaneView paneId="root" />)

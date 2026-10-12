@@ -5,7 +5,8 @@ import {
 	setMarketplaceCallbacks,
 	useMarketplaceStore,
 } from "@cortex/marketplace"
-import { cleanup, render, screen } from "@testing-library/react"
+import { useSettingsStore } from "@cortex/settings"
+import { cleanup, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { MarketplaceSection } from "../../../features/marketplace/MarketplaceSection"
@@ -131,9 +132,14 @@ function configureInstalledEntries(pluginIds = ["installed-toolkit"], themeIds: 
 	setMarketplaceCallbacks({
 		getPluginsDir: () => "/vault/.cortex/plugins",
 		getThemesDir: () => "/vault/.cortex/themes",
-		reloadPluginHost: vi.fn().mockResolvedValue(undefined),
+		pluginHost: {
+			reloadCommunityPlugins: vi.fn().mockResolvedValue(undefined),
+			disablePlugin: vi.fn().mockResolvedValue(undefined),
+			unregisterCommunityPlugin: vi.fn(),
+			isPluginInstalled: (id) => pluginIds.includes(id),
+			getCommunityPluginLoadError: () => null,
+		},
 		reloadThemes: vi.fn().mockResolvedValue(undefined),
-		isPluginInstalled: (id) => pluginIds.includes(id),
 		isThemeInstalled: (id) => themeIds.includes(id),
 	})
 }
@@ -146,6 +152,9 @@ function clickCatalogRow(name: string) {
 
 beforeEach(() => {
 	useVaultStore.setState({ vault })
+	useSettingsStore.setState((state) => ({
+		settings: { ...state.settings, plugins: { allowCommunity: true } },
+	}))
 	configureInstalledEntries()
 	configureMarketplaceState()
 })
@@ -160,7 +169,7 @@ describe("MarketplaceSection", () => {
 	it("keeps the detail pane hidden until an item is selected", () => {
 		render(<MarketplaceSection initialTab="plugins" />)
 
-		expect(screen.queryByRole("button", { name: "Install" })).not.toBeInTheDocument()
+		expect(document.querySelector(".marketplace-detail")).toBeNull()
 		expect(
 			screen.queryByText("Select a plugin to view details and README."),
 		).not.toBeInTheDocument()
@@ -178,7 +187,8 @@ describe("MarketplaceSection", () => {
 	it("filters catalog rows to installed entries", async () => {
 		render(<MarketplaceSection initialTab="plugins" />)
 
-		await userEvent.click(screen.getByRole("button", { name: "Installed" }))
+		await userEvent.click(screen.getByRole("button", { name: "Marketplace view options" }))
+		await userEvent.click(screen.getByRole("menuitemcheckbox", { name: "Installed only" }))
 
 		expect(screen.getByText("Installed Toolkit")).toBeInTheDocument()
 		expect(screen.queryByText("Syntax Highlighter")).not.toBeInTheDocument()
@@ -228,11 +238,10 @@ describe("MarketplaceSection", () => {
 		expect(screen.getByText("community/syntax-highlighter")).toBeInTheDocument()
 	})
 
-	it("shows plugin capabilities as readable permissions after expanding them", async () => {
+	it("shows plugin capabilities as readable permissions", async () => {
 		render(<MarketplaceSection initialTab="plugins" />)
 
 		await clickCatalogRow("Syntax Highlighter")
-		await userEvent.click(screen.getByRole("button", { name: /Capabilities/ }))
 
 		expect(screen.getByText("Read active editor")).toBeInTheDocument()
 		expect(screen.getByText("Write editor content")).toBeInTheDocument()
@@ -268,16 +277,18 @@ describe("MarketplaceSection", () => {
 
 		expect(screen.getByText("Update available")).toBeInTheDocument()
 		expect(screen.getByText("No README available.")).toBeInTheDocument()
-		expect(installEntry).toHaveBeenCalledWith(installedPlugin)
+		expect(installEntry).toHaveBeenCalledWith(installedPlugin, "plugins")
 	})
 
 	it("dispatches install actions for uninstalled entries", async () => {
 		render(<MarketplaceSection initialTab="plugins" />)
 
 		await clickCatalogRow("Syntax Highlighter")
-		await userEvent.click(screen.getByRole("button", { name: "Install" }))
+		const detailActions = document.querySelector<HTMLElement>(".marketplace-detail-actions")
+		if (!detailActions) throw new Error("Missing detail actions")
+		await userEvent.click(within(detailActions).getByRole("button", { name: "Install" }))
 
-		expect(installEntry).toHaveBeenCalledWith(syntaxPlugin)
+		expect(installEntry).toHaveBeenCalledWith(syntaxPlugin, "plugins")
 	})
 
 	it("disables installation when no vault is open", async () => {

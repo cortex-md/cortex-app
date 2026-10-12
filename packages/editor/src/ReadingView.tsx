@@ -2,7 +2,6 @@ import "./markdown.css"
 import {
 	getCalloutRegistryVersion,
 	getMarkdownRegistryVersion,
-	getSharedRenderer,
 	type SanitizedMarkdownHtml,
 	sanitizeRenderedMarkdownHtml,
 	subscribeCalloutTypes,
@@ -135,9 +134,14 @@ function adjustRenderedTaskOffsets(
 	return template.innerHTML as SanitizedMarkdownHtml
 }
 
+async function renderMarkdown(content: string): Promise<SanitizedMarkdownHtml> {
+	const { getSharedRenderer } = await import("@cortex/renderer/pipeline")
+	return getSharedRenderer().render(content)
+}
+
 async function renderMarkdownPiece(piece: MarkdownPlanPiece): Promise<MarkdownRenderPiece> {
 	const prefix = piece.sourceFrom === 0 ? "" : "\n"
-	const renderedHtml = await getSharedRenderer().render(`${prefix}${piece.content}`)
+	const renderedHtml = await renderMarkdown(`${prefix}${piece.content}`)
 	return {
 		type: "markdown",
 		id: piece.id,
@@ -200,12 +204,10 @@ export function ReadingView({
 						html: "" as SanitizedMarkdownHtml,
 						pieces: renderedPieces,
 					}))
-				: getSharedRenderer()
-						.render(content)
-						.then((renderedHtml) => ({
-							html: renderedHtml,
-							pieces: null,
-						}))
+				: renderMarkdown(content).then((renderedHtml) => ({
+						html: renderedHtml,
+						pieces: null,
+					}))
 			void renderPromise.then((rendered) => {
 				if (
 					request === renderRequestRef.current &&

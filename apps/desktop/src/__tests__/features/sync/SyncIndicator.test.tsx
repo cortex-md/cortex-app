@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 // Mock all @cortex/core stores
-vi.mock("@cortex/core", () => ({
+vi.mock("@cortex/core", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@cortex/core")>()),
 	useSyncStore: vi.fn(),
 	useAuthStore: vi.fn(),
 	useVaultStore: vi.fn(),
@@ -19,9 +20,6 @@ vi.mock("../../../features/sync/SyncLogsModal", () => ({
 }))
 vi.mock("../../../features/sync/DeletedNotesPanel", () => ({
 	DeletedNotesPanel: () => null,
-}))
-vi.mock("../../../features/sync/NoteHistoryPanel", () => ({
-	NoteHistoryPanel: () => null,
 }))
 vi.mock("../../../features/sync/VaultLinkModal", () => ({
 	VaultLinkModal: () => null,
@@ -116,9 +114,9 @@ describe("SyncIndicator", () => {
 			mockAllStores({ syncStore: { vekRequired: true, engineState: "idle" } })
 		})
 
-		it("renders Unlock Required button", () => {
+		it("renders Waiting for access button", () => {
 			render(<SyncIndicator />)
-			expect(screen.getByText("Unlock Required")).toBeInTheDocument()
+			expect(screen.getByText("Waiting for access")).toBeInTheDocument()
 		})
 	})
 

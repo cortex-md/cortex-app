@@ -1,83 +1,38 @@
+import type {
+	AlertDialogOptions,
+	ConfirmDialogOptions,
+	ContextMenuItem,
+	ContextMenuOptions,
+	DialogFilter,
+	FileDialogOptions,
+	FolderDialogOptions,
+} from "@cortex/platform"
+import { normalizePath } from "@cortex/platform/utils"
 import {
 	BrowserWindow,
 	dialog,
 	Menu,
-	shell,
 	type MenuItemConstructorOptions,
 	type OpenDialogOptions,
 	type SaveDialogOptions,
+	shell,
 } from "electron"
-import { normalizePath } from "../paths"
+import type { MainApi } from "../contract"
+import { getInvokeSender } from "../ipc/sender"
+import { assertAllowedPath, grantPath } from "../security"
 
-interface DialogFilter {
-	name: string
-	extensions: string[]
-}
-
-interface FolderDialogOptions {
-	title?: string
-	defaultPath?: string
-}
-
-interface FileDialogOptions {
-	title?: string
-	defaultPath?: string
-	filters?: DialogFilter[]
-	multiple?: boolean
-}
-
-interface ConfirmDialogOptions {
-	title: string
-	message: string
-	kind?: "info" | "warning" | "error"
-	confirmLabel?: string
-	cancelLabel?: string
-	destructive?: boolean
-}
-
-interface AlertDialogOptions {
-	title: string
-	message: string
-	kind?: "info" | "warning" | "error"
-	okLabel?: string
-}
-
-type ContextMenuItem =
-	| {
-			id: string
-			text: string
-			enabled?: boolean
-			accelerator?: string
-			destructive?: boolean
-			type?: "normal"
-	  }
-	| { type: "separator" }
-	| {
-			id: string
-			text: string
-			enabled?: boolean
-			accelerator?: string
-			destructive?: boolean
-			type: "checkbox"
-			checked: boolean
-	  }
-	| {
-			id: string
-			text: string
-			enabled?: boolean
-			accelerator?: string
-			destructive?: boolean
-			type: "submenu"
-			items: ContextMenuItem[]
-	  }
-
-interface ContextMenuOptions {
-	items: ContextMenuItem[]
-	position?: { x: number; y: number } | null
+function grantSelection(path: string): string {
+	grantPath(path)
+	return normalizePath(path)
 }
 
 function focusedWindow(): BrowserWindow | undefined {
-	return BrowserWindow.getFocusedWindow() ?? undefined
+	const sender = getInvokeSender()
+	return (
+		(sender && BrowserWindow.fromWebContents(sender)) ||
+		BrowserWindow.getFocusedWindow() ||
+		undefined
+	)
 }
 
 function toElectronFilters(filters?: DialogFilter[]): OpenDialogOptions["filters"] {
@@ -88,7 +43,7 @@ function toElectronFilters(filters?: DialogFilter[]): OpenDialogOptions["filters
 	}))
 }
 
-export async function pickFolder(options: FolderDialogOptions = {}): Promise<string | null> {
+async function pickFolder(options: FolderDialogOptions = {}): Promise<string | null> {
 	const window = focusedWindow()
 	const openOptions: OpenDialogOptions = {
 		title: options.title,
@@ -99,10 +54,10 @@ export async function pickFolder(options: FolderDialogOptions = {}): Promise<str
 		? await dialog.showOpenDialog(window, openOptions)
 		: await dialog.showOpenDialog(openOptions)
 	if (result.canceled || result.filePaths.length === 0) return null
-	return normalizePath(result.filePaths[0]!)
+	return grantSelection(result.filePaths[0]!)
 }
 
-export async function pickFile(options: FileDialogOptions = {}): Promise<string | null> {
+async function pickFile(options: FileDialogOptions = {}): Promise<string | null> {
 	const window = focusedWindow()
 	const openOptions: OpenDialogOptions = {
 		title: options.title,
@@ -114,10 +69,10 @@ export async function pickFile(options: FileDialogOptions = {}): Promise<string 
 		? await dialog.showOpenDialog(window, openOptions)
 		: await dialog.showOpenDialog(openOptions)
 	if (result.canceled || result.filePaths.length === 0) return null
-	return normalizePath(result.filePaths[0]!)
+	return grantSelection(result.filePaths[0]!)
 }
 
-export async function pickFiles(options: FileDialogOptions = {}): Promise<string[]> {
+async function pickFiles(options: FileDialogOptions = {}): Promise<string[]> {
 	const window = focusedWindow()
 	const openOptions: OpenDialogOptions = {
 		title: options.title,
@@ -129,10 +84,10 @@ export async function pickFiles(options: FileDialogOptions = {}): Promise<string
 		? await dialog.showOpenDialog(window, openOptions)
 		: await dialog.showOpenDialog(openOptions)
 	if (result.canceled) return []
-	return result.filePaths.map(normalizePath)
+	return result.filePaths.map(grantSelection)
 }
 
-export async function saveFile(options: FileDialogOptions = {}): Promise<string | null> {
+async function saveFile(options: FileDialogOptions = {}): Promise<string | null> {
 	const window = focusedWindow()
 	const saveOptions: SaveDialogOptions = {
 		title: options.title,
@@ -143,10 +98,10 @@ export async function saveFile(options: FileDialogOptions = {}): Promise<string 
 		? await dialog.showSaveDialog(window, saveOptions)
 		: await dialog.showSaveDialog(saveOptions)
 	if (result.canceled || !result.filePath) return null
-	return normalizePath(result.filePath)
+	return grantSelection(result.filePath)
 }
 
-export async function showConfirm(options: ConfirmDialogOptions): Promise<boolean> {
+async function showConfirm(options: ConfirmDialogOptions): Promise<boolean> {
 	const window = focusedWindow()
 	const messageOptions = {
 		type: options.kind ?? (options.destructive ? ("warning" as const) : ("question" as const)),
@@ -163,7 +118,7 @@ export async function showConfirm(options: ConfirmDialogOptions): Promise<boolea
 	return result.response === 0
 }
 
-export async function showAlert(options: AlertDialogOptions): Promise<void> {
+async function showAlert(options: AlertDialogOptions): Promise<void> {
 	const window = focusedWindow()
 	const messageOptions = {
 		type: options.kind ?? ("info" as const),
@@ -179,8 +134,8 @@ export async function showAlert(options: AlertDialogOptions): Promise<void> {
 	}
 }
 
-export async function revealFolder(path: string): Promise<void> {
-	shell.showItemInFolder(path)
+async function revealFolder(path: string): Promise<void> {
+	shell.showItemInFolder(assertAllowedPath(path))
 }
 
 function toMenuTemplate(
@@ -220,7 +175,7 @@ function toMenuTemplate(
 	})
 }
 
-export async function showContextMenu(options: ContextMenuOptions): Promise<string | null> {
+async function showContextMenu(options: ContextMenuOptions): Promise<string | null> {
 	return await new Promise((resolvePromise) => {
 		let settled = false
 		const finish = (id: string | null) => {
@@ -243,3 +198,14 @@ export async function showContextMenu(options: ContextMenuOptions): Promise<stri
 		})
 	})
 }
+
+export const dialogApi = {
+	pickFolder,
+	pickFile,
+	pickFiles,
+	saveFile,
+	showConfirm,
+	showAlert,
+	revealFolder,
+	showContextMenu,
+} satisfies MainApi["dialog"]

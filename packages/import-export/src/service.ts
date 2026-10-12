@@ -1,18 +1,18 @@
-import { getPlatform, type FileEntry } from "@cortex/platform"
-import { builtInExporters, builtInImporters } from "./builtins"
+import { type FileEntry, getPlatform } from "@cortex/platform"
 import {
+	getBaseName,
 	getExtension,
 	getParentPath,
-	getPathName,
-	reserveUniquePath,
-	sanitizeFileStem,
+	joinPath,
 	splitExtension,
-} from "./path"
+} from "@cortex/platform/utils"
+import { builtInExporters, builtInImporters } from "./builtins"
+import { reserveUniquePath, sanitizeFileStem } from "./path"
 import {
-	exporterRegistry,
-	importerRegistry,
 	type Exporter,
+	exporterRegistry,
 	type Importer,
+	importerRegistry,
 	type TransferFormat,
 } from "./registry"
 
@@ -88,7 +88,7 @@ export async function importFiles(options: ImportBatchOptions): Promise<ImportBa
 			}
 		}
 
-		const stem = sanitizeFileStem(splitExtension(getPathName(sourcePath)).baseName)
+		const stem = sanitizeFileStem(splitExtension(getBaseName(sourcePath)).baseName)
 		const targetPath = reserveUniquePath(destinationPath, `${stem}.md`, reservedPaths)
 		return { importer, sourcePath, targetPath }
 	})
@@ -139,7 +139,7 @@ export async function exportNote(options: ExportNoteOptions): Promise<ExportNote
 	if (!exporter) throw new Error(`Unsupported export format: ${options.format}`)
 
 	const markdown = options.markdown ?? (await platform.fs.readFile(options.sourcePath))
-	const title = options.title ?? splitExtension(getPathName(options.sourcePath)).baseName
+	const title = options.title ?? splitExtension(getBaseName(options.sourcePath)).baseName
 	const output = await exporter.exportFile({
 		sourcePath: options.sourcePath,
 		targetPath: options.targetPath,
@@ -174,7 +174,7 @@ export async function exportNote(options: ExportNoteOptions): Promise<ExportNote
 }
 
 export function getExportDefaultFileName(sourcePath: string, exporter: Exporter): string {
-	const title = sanitizeFileStem(splitExtension(getPathName(sourcePath)).baseName)
+	const title = sanitizeFileStem(splitExtension(getBaseName(sourcePath)).baseName)
 	return `${title}.${exporter.extension}`
 }
 
@@ -220,5 +220,5 @@ async function runBounded<T, R>(
 }
 
 export function resolveSiblingExportPath(sourcePath: string, exporter: Exporter): string {
-	return `${getParentPath(sourcePath)}/${getExportDefaultFileName(sourcePath, exporter)}`
+	return joinPath(getParentPath(sourcePath), getExportDefaultFileName(sourcePath, exporter))
 }

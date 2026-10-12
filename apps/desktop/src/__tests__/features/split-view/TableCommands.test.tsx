@@ -1,11 +1,11 @@
 import { EditorState } from "@codemirror/state"
 import { commandRegistry, registerCommand } from "@cortex/commands"
 import type { EditorRuntimeView } from "@cortex/editor/types"
-import { pluginStore } from "@cortex/plugin-host-core"
-import { cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react"
+import { registerContributions, resetPluginStore } from "@cortex/plugin-host-core"
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { registerAppCommands } from "../../../bootstrap/appCommands"
 import { EditorContextMenu } from "../../../features/split-view/EditorContextMenu"
-import { useAppCommands } from "../../../hooks/useAppCommands"
 
 const openMarketplaceView = vi.hoisted(() => vi.fn())
 
@@ -47,7 +47,7 @@ function createEditorView(content: string, selection: number): EditorRuntimeView
 
 beforeEach(() => {
 	commandRegistry.clear()
-	pluginStore.getState().reset()
+	resetPluginStore()
 })
 
 afterEach(() => {
@@ -58,7 +58,7 @@ afterEach(() => {
 
 describe("table command surfaces", () => {
 	it("registers the Marketplace workspace command", () => {
-		renderHook(() => useAppCommands())
+		registerAppCommands()
 
 		const command = commandRegistry.get("marketplace.open")
 
@@ -71,7 +71,7 @@ describe("table command surfaces", () => {
 	})
 
 	it("registers table commands for palette and Vim names", () => {
-		renderHook(() => useAppCommands())
+		registerAppCommands()
 
 		for (const commandId of tableCommandIds) {
 			const command = commandRegistry.get(commandId)
@@ -183,11 +183,15 @@ describe("table command surfaces", () => {
 
 	it("shows editor plugin actions as flat menu items", async () => {
 		const pluginAction = vi.fn()
-		pluginStore.getState().addContextMenuItem("alpha", {
-			id: "run-action",
-			label: "Run plugin action",
-			location: "editor",
-			action: pluginAction,
+		registerContributions("alpha", {
+			contextMenuItems: [
+				{
+					id: "run-action",
+					label: "Run plugin action",
+					location: "editor",
+					action: pluginAction,
+				},
+			],
 		})
 		const plainView = createEditorView("plain text", 0)
 

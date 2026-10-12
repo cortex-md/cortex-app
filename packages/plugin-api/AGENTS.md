@@ -3,43 +3,38 @@
 ## Public Contract
 
 - This package is the zero-dependency public TypeScript contract imported by plugin authors. Do not
-  add React, DOM, CodeMirror, Tauri, Node, or runtime package imports here.
+  add React, DOM, CodeMirror, Electron, Node, or runtime package imports here. The only runtime values
+  are `definePlugin` (identity) and `PLUGIN_PERMISSIONS`.
+- A plugin is one `export default definePlugin({ manifest, settings, contributes, activation,
+  activate, load })` object. There is no plugin class and no imperative register wrappers.
+- `contributes` is static data (commands, views, sidebar items, status bar items, context menu
+  items, markdown rules, property types, fold providers, editor extensions). Hosts register it
+  without running plugin code. Command `run`, view `render/reduce/onAction`, and `activate` run on
+  first use; `load: () => import("./impl")` resolves missing handlers lazily (type the module with
+  `satisfies PluginImplementation`). `activation: "startup"` activates at enable.
+- `definePlugin` infers setting keys, command ids, and view ids into `PluginContext`; status bar and
+  context menu items reference command ids, sidebar items reference view ids, and `when` accepts
+  boolean setting keys only. Keep new contribution kinds typed the same way.
+- Settings are one schema record with defaults (`settings: { key: { type, label, default } }`).
+  The host renders the settings page and applies defaults in `ctx.settings.get`.
 - `ViewDescriptor` is a discriminated union of declarative host-rendered nodes. Do not add free
-  `className`, inline style, arbitrary DOM, component, or event-handler escape hatches.
-- Plugin UI must stay portable across desktop and future mobile hosts. Icons are string names, not
-  imported components.
-- Utility UI nodes such as `setting-row`, `item`, `alert`, `tabs`, `table`, and input variants are
-  portable descriptors. Add future UI by extending this union, not by exposing React or DOM handles.
-- `api.ui.openModal(...)` opens a registered `location: "modal"` declarative view and returns a
-  host-owned modal instance id. Plugins close modals through `api.ui.closeModal(...)`.
-- `CortexPlugin.registerSettingsTab(...)` returns one idempotent disposable that removes both the
-  tab and any setting `onChange` listeners registered from the tab definitions.
-- `registerRibbonAction` is intentionally absent until a host ribbon surface exists.
+  `className`, inline style, arbitrary DOM, component, or event-handler escape hatches. Views run
+  effects through `onAction(ctx, action, payload, state)`.
+- Plugin UI must stay portable across desktop and mobile hosts. Icons are string names.
 
-## Capabilities
+## Permissions
 
-- Every public sub-API method must have an explicit manifest capability enforced by
-  `@cortex/plugin-host-core`.
-- Keep capability names granular and stable: vault read/write/delete/watch, editor read/write and
-  extensions/folding, markdown extensions, UI surfaces, workspace tabs, theme read, bookmarks,
-  commands, settings, plugin data, properties, and notifications.
-- `editor:folding` exposes only portable line-based fold providers. Do not expose CodeMirror,
-  editor DOM, syntax tree nodes, or host-specific fold state through the public API.
-- Plugins do not get a standalone hotkeys API. A plugin declares a configurable shortcut through
-  `PluginCommand.defaultHotkey`, and the host mirrors that command into hotkeys and Vim.
-- `api.data` requires the single `data` capability. The host owns storage location details and may
-  map them differently across desktop and future mobile hosts.
-- `api.bookmarks` exposes ordered `BookmarkEntry` objects with vault-relative Markdown paths only.
-  Keep this contract free of host path details; plugins must not pass absolute paths or paths outside
-  the active vault. It intentionally does not expose bookmark reordering.
-- Notifications use the `notifications` capability; plugins never request OS notification
-  permission directly.
+- Contributions never need a permission: declaring them is the grant. Runtime host APIs on the
+  context (vault, editor read/write, workspace tabs, theme, bookmarks, data, notifications) require
+  `manifest.permissions`, defined once in `PLUGIN_PERMISSIONS`. Do not reintroduce a parallel
+  capability union, validation array, or requirements map.
+- Plugins do not get a standalone hotkeys API. `defaultHotkey` on a command is mirrored into
+  hotkeys and Vim by the host.
+- `ctx.bookmarks` exposes vault-relative Markdown paths only; `ctx.data` is plugin-scoped storage.
+- Notifications use the `notifications` permission; plugins never request OS permission directly.
 
 ## Markdown
 
-- `registerInline(...)` and `registerSemantic(...)` are the portable path for Live Preview,
-  Reading View, and export.
-- `registerPreprocessor(...)` and `registerProcessor(...)` are limited to `reading-view` and
-  `export`. Do not expose Live Preview through Unified preprocessors/processors.
-- Semantic output remains validated portable nodes only. Do not add arbitrary DOM, HAST, CodeMirror
-  widgets, inline styles, or event handlers to the public contract.
+- `contributes.markdown.inline` and `.semantic` are the portable path for Live Preview, Reading
+  View, and export. `preprocessors` and `processors` are limited to `reading-view` and `export`.
+- Semantic output remains validated portable nodes only.

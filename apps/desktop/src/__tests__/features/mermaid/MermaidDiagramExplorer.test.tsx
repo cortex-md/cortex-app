@@ -158,7 +158,7 @@ describe("MermaidDiagramExplorer", () => {
 		rerender(<MermaidDiagramExplorer source="first" title="Diagram" isActive={false} />)
 		fireEvent.wheel(viewport, { deltaY: -100, clientX: 210, clientY: 120 })
 
-		expect(getSvg(container).getAttribute("viewBox")).toBe("0 0 100 50")
+		expect(getSvg(container).getAttribute("viewBox")).toBe(zoomedViewBox)
 
 		viewportRect = { left: 10, top: 20, width: 400, height: 200 }
 		rerender(<MermaidDiagramExplorer source="first" title="Diagram" isActive />)

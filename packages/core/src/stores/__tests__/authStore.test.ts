@@ -7,7 +7,12 @@ import { useVaultStore } from "../../stores/vaultStore"
 
 const logout = vi.fn().mockResolvedValue(undefined)
 const stopSync = vi.fn().mockResolvedValue(undefined)
-const updateSyncConfig = vi.fn().mockResolvedValue(undefined)
+const { updateSyncConfig } = vi.hoisted(() => ({ updateSyncConfig: vi.fn() }))
+
+vi.mock("../../sync/syncConfig", async (importOriginal) => ({
+	...(await importOriginal<typeof import("../../sync/syncConfig")>()),
+	updateSyncConfig,
+}))
 
 beforeEach(() => {
 	vi.clearAllMocks()
@@ -43,7 +48,6 @@ beforeEach(() => {
 	useSyncStore.setState({ stopSync })
 	vi.mocked(getPlatform).mockReturnValue({
 		auth: { logout },
-		remoteVault: { updateSyncConfig },
 	} as never)
 })
 
@@ -52,7 +56,7 @@ describe("authStore", () => {
 		await useAuthStore.getState().logout(false, "https://sync.example.com")
 
 		expect(stopSync).toHaveBeenCalledTimes(1)
-		expect(updateSyncConfig).toHaveBeenCalledWith("/vault", "enabled", false)
+		expect(updateSyncConfig).toHaveBeenCalledWith("/vault", { enabled: false })
 		expect(logout).toHaveBeenCalledWith("https://sync.example.com", false)
 		expect(useRemoteVaultStore.getState().syncConfig.enabled).toBe(false)
 		expect(useAuthStore.getState().authenticated).toBe(false)

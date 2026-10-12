@@ -85,8 +85,8 @@ describe("search store", () => {
 		const persistedEngine = new SearchEngine()
 		persistedEngine.addDocument("note.md", "note", "cachedneedle", "", 10)
 		const persistedIndex = JSON.stringify({
-			version: 1,
-			engine: JSON.parse(persistedEngine.serialize()),
+			version: 2,
+			engine: persistedEngine.toJSON(),
 			documents: {
 				"note.md": { mtime: 10, size: 20 },
 			},

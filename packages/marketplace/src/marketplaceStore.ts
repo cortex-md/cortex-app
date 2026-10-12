@@ -11,15 +11,14 @@ import {
 	fetchThemeRegistry,
 	invalidateRegistryCache,
 } from "./registryService"
-import type { MarketplaceManifestMetadata, RegistryEntry } from "./types"
+import type { MarketplaceManifestMetadata, MarketplacePluginHost, RegistryEntry } from "./types"
 import { detectAvailableUpdates } from "./updateService"
 
 export interface MarketplaceCallbacks {
 	getPluginsDir: () => string | null
 	getThemesDir: () => string | null
-	reloadPluginHost: (dir: string) => Promise<void>
+	pluginHost: MarketplacePluginHost
 	reloadThemes: (dir: string) => Promise<void>
-	isPluginInstalled: (id: string) => boolean
 	isThemeInstalled: (id: string) => boolean
 	notify?: (event: MarketplaceNotificationEvent) => void | Promise<void>
 }
@@ -72,8 +71,8 @@ export interface MarketplaceState {
 	selectEntry: (id: string | null) => void
 	loadRegistry: () => Promise<void>
 	refreshRegistry: () => Promise<void>
-	installEntry: (entry: RegistryEntry) => Promise<void>
-	uninstallEntry: (entry: RegistryEntry) => Promise<void>
+	installEntry: (entry: RegistryEntry, kind?: MarketplaceTab) => Promise<void>
+	uninstallEntry: (entry: RegistryEntry, kind?: MarketplaceTab) => Promise<void>
 	loadReadme: (entry: RegistryEntry) => Promise<void>
 	loadManifestMetadata: (entry: RegistryEntry) => Promise<void>
 	checkUpdates: () => Promise<void>
@@ -193,12 +192,12 @@ export const useMarketplaceStore = create<MarketplaceState>()(
 				await get().loadRegistry()
 			},
 
-			installEntry: async (entry) => {
+			installEntry: async (entry, kind) => {
 				if (!callbacks) return
-				const { activeTab } = get()
+				const activeTab = kind ?? get().activeTab
 				const wasInstalled =
 					activeTab === "plugins"
-						? callbacks.isPluginInstalled(entry.id)
+						? callbacks.pluginHost.isPluginInstalled(entry.id)
 						: callbacks.isThemeInstalled(entry.id)
 				set((s) => {
 					s.loadingEntryId = entry.id
@@ -208,7 +207,7 @@ export const useMarketplaceStore = create<MarketplaceState>()(
 					if (activeTab === "plugins") {
 						const dir = callbacks.getPluginsDir()
 						if (!dir) throw new Error("Open a vault before installing plugins.")
-						await installPlugin(entry, dir, callbacks.reloadPluginHost)
+						await installPlugin(entry, dir, callbacks.pluginHost)
 					} else {
 						const dir = callbacks.getThemesDir()
 						if (!dir) throw new Error("Open a vault before installing themes.")
@@ -246,9 +245,9 @@ export const useMarketplaceStore = create<MarketplaceState>()(
 				}
 			},
 
-			uninstallEntry: async (entry) => {
+			uninstallEntry: async (entry, kind) => {
 				if (!callbacks) return
-				const { activeTab } = get()
+				const activeTab = kind ?? get().activeTab
 				set((s) => {
 					s.loadingEntryId = entry.id
 				})
@@ -256,7 +255,7 @@ export const useMarketplaceStore = create<MarketplaceState>()(
 					if (activeTab === "plugins") {
 						const dir = callbacks.getPluginsDir()
 						if (!dir) return
-						await uninstallPlugin(entry.id, dir)
+						await uninstallPlugin(entry.id, dir, callbacks.pluginHost)
 					} else {
 						const dir = callbacks.getThemesDir()
 						if (!dir) return
@@ -279,7 +278,6 @@ export const useMarketplaceStore = create<MarketplaceState>()(
 						body: getErrorMessage(error),
 						level: "error",
 					})
-					throw error
 				} finally {
 					set((s) => {
 						s.loadingEntryId = null
@@ -351,7 +349,7 @@ export const useMarketplaceStore = create<MarketplaceState>()(
 					const themesDir = callbacks.getThemesDir()
 
 					const installedPluginIds = pluginEntries.flatMap((entry) =>
-						callbacks!.isPluginInstalled(entry.id) ? [entry.id] : [],
+						callbacks!.pluginHost.isPluginInstalled(entry.id) ? [entry.id] : [],
 					)
 
 					const installedThemeIds = themeEntries.flatMap((entry) =>
@@ -424,5 +422,7 @@ function getErrorMessage(error: unknown): string {
 
 export function isEntryInstalled(id: string, tab: MarketplaceTab): boolean {
 	if (!callbacks) return false
-	return tab === "plugins" ? callbacks.isPluginInstalled(id) : callbacks.isThemeInstalled(id)
+	return tab === "plugins"
+		? callbacks.pluginHost.isPluginInstalled(id)
+		: callbacks.isThemeInstalled(id)
 }

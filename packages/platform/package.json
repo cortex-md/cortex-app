@@ -4,7 +4,14 @@
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.ts",
+		"./utils": "./src/utils.ts",
+		"./hash": "./src/hash.ts",
+		"./vault": "./src/vault.ts",
+		"./sync-rules": "./src/sync-rules.ts"
+	},
+	"dependencies": {
+		"@noble/hashes": "1.8.0"
 	},
 	"devDependencies": {
 		"typescript": "^5.7.0"

@@ -59,6 +59,8 @@ export interface PropertyDefinition {
 	options?: PropertyOption[]
 	defaultOptionId?: string
 	optionSort?: "manual" | "alphabetical"
+	multiple?: boolean
+	hideWhenEmpty?: boolean
 	observed?: boolean
 }
 
@@ -92,6 +94,7 @@ export interface PropertyPerson {
 	id: string
 	label: string
 	email?: string
+	avatarUrl?: string | null
 }
 
 export interface PropertyDevice {
@@ -106,6 +109,7 @@ export type ResolvedPropertyActor =
 			id: string
 			label: string
 			email?: string
+			avatarUrl?: string | null
 			current?: boolean
 	  }
 	| {
@@ -154,7 +158,7 @@ export interface PropertiesFileService {
 
 export interface PropertiesNoteService {
 	readNote(path: string): Promise<string>
-	writeNote(path: string, content: string): Promise<void>
+	updateNote(path: string, update: (content: string) => string): Promise<void>
 	resolveVaultPath(filePath: string): string | null
 	listMarkdownFiles(vaultPath: string): Promise<string[]>
 }

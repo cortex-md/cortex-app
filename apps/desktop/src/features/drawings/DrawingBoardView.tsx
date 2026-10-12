@@ -1,4 +1,4 @@
-import type { CoreViewProps } from "../split-view/coreViewRegistry"
+import type { CoreViewProps } from "../split-view/coreViewProps"
 import { DrawingBoard } from "./DrawingBoard"
 import type { DrawingBoardViewState } from "./drawingDocument"
 

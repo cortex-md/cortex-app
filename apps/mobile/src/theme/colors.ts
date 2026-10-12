@@ -1,7 +1,29 @@
+import { inkTheme, paperTheme, type Theme } from "@cortex/theme"
 import { Color } from "expo-router"
-import { Platform, type ColorSchemeName, type ColorValue } from "react-native"
+import { type ColorSchemeName, type ColorValue, Platform } from "react-native"
 
 export type MobileColorScheme = "light" | "dark"
+
+function createStaticColors({ tokens: { semantic, status } }: Theme) {
+	return {
+		background: semantic.bg.primary,
+		groupedBackground: semantic.bg.secondary,
+		secondaryBackground: semantic.bg.elevated,
+		label: semantic.text.primary,
+		secondaryLabel: semantic.text.secondary,
+		mutedLabel: semantic.text.muted,
+		destructive: status.error,
+		separator: semantic.border.default,
+		tint: semantic.accent.default,
+	}
+}
+
+type MobileStaticColors = ReturnType<typeof createStaticColors>
+
+const themeColors: Record<MobileColorScheme, MobileStaticColors> = {
+	light: createStaticColors(paperTheme),
+	dark: createStaticColors(inkTheme),
+}
 
 function platformColor(ios: ColorValue, android: ColorValue, fallback: string): ColorValue {
 	return Platform.select({
@@ -11,76 +33,58 @@ function platformColor(ios: ColorValue, android: ColorValue, fallback: string): 
 	})!
 }
 
-export const mobileColors = {
-	light: {
-		background: platformColor(Color.ios.systemBackground, Color.android.dynamic.surface, "#ffffff"),
+function createNativeColors(fallback: MobileStaticColors) {
+	return {
+		background: platformColor(
+			Color.ios.systemBackground,
+			Color.android.dynamic.surface,
+			fallback.background,
+		),
 		groupedBackground: platformColor(
 			Color.ios.systemGroupedBackground,
 			Color.android.dynamic.surfaceContainerLowest,
-			"#f2f2f7",
+			fallback.groupedBackground,
 		),
-		label: platformColor(Color.ios.label, Color.android.dynamic.onSurface, "#111111"),
-		destructive: platformColor(Color.ios.systemRed, Color.android.dynamic.error, "#ff3b30"),
+		label: platformColor(Color.ios.label, Color.android.dynamic.onSurface, fallback.label),
+		destructive: platformColor(
+			Color.ios.systemRed,
+			Color.android.dynamic.error,
+			fallback.destructive,
+		),
 		secondaryLabel: platformColor(
 			Color.ios.secondaryLabel,
 			Color.android.dynamic.onSurfaceVariant,
-			"#6b7280",
+			fallback.secondaryLabel,
 		),
 		secondaryBackground: platformColor(
 			Color.ios.secondarySystemBackground,
 			Color.android.dynamic.surfaceContainer,
-			"#f8fafc",
+			fallback.secondaryBackground,
 		),
-		separator: platformColor(Color.ios.separator, Color.android.dynamic.outlineVariant, "#d1d5db"),
-		tint: platformColor(Color.ios.systemBlue, Color.android.dynamic.primary, "#007aff"),
-	},
-	dark: {
-		background: platformColor(Color.ios.systemBackground, Color.android.dynamic.surface, "#000000"),
-		groupedBackground: platformColor(
-			Color.ios.systemGroupedBackground,
-			Color.android.dynamic.surfaceContainerLowest,
-			"#111113",
+		separator: platformColor(
+			Color.ios.separator,
+			Color.android.dynamic.outlineVariant,
+			fallback.separator,
 		),
-		label: platformColor(Color.ios.label, Color.android.dynamic.onSurface, "#f5f5f7"),
-		destructive: platformColor(Color.ios.systemRed, Color.android.dynamic.error, "#ff453a"),
-		secondaryLabel: platformColor(
-			Color.ios.secondaryLabel,
-			Color.android.dynamic.onSurfaceVariant,
-			"#a1a1aa",
-		),
-		secondaryBackground: platformColor(
-			Color.ios.secondarySystemBackground,
-			Color.android.dynamic.surfaceContainer,
-			"#1c1c1e",
-		),
-		separator: platformColor(Color.ios.separator, Color.android.dynamic.outlineVariant, "#38383a"),
-		tint: platformColor(Color.ios.systemBlue, Color.android.dynamic.primary, "#0a84ff"),
-	},
-} as const
+		tint: platformColor(Color.ios.systemBlue, Color.android.dynamic.primary, fallback.tint),
+	}
+}
 
-export const mobileStaticColors = {
-	light: {
-		background: "#ffffff",
-		groupedBackground: "#f2f2f7",
-		secondaryBackground: "#f8fafc",
-	},
-	dark: {
-		background: "#000000",
-		groupedBackground: "#111113",
-		secondaryBackground: "#1c1c1e",
-	},
-} as const
+export const mobileColors = {
+	light: createNativeColors(themeColors.light),
+	dark: createNativeColors(themeColors.dark),
+}
+
+export const mobileStaticColors = themeColors
+
+export type MobileColors = (typeof mobileColors)[MobileColorScheme]
 
 export const mobileIconColors = {
-	light: {
-		secondary: "#8e8e93",
-		tint: "#007aff",
-	},
-	dark: {
-		secondary: "#98989d",
-		tint: "#0a84ff",
-	},
-} as const
+	light: { secondary: themeColors.light.mutedLabel, tint: themeColors.light.tint },
+	dark: { secondary: themeColors.dark.mutedLabel, tint: themeColors.dark.tint },
+}
+
+export type MobileIconColors = (typeof mobileIconColors)[MobileColorScheme]
 
 export function getMobileColorScheme(colorScheme: ColorSchemeName): MobileColorScheme {
 	return colorScheme === "dark" ? "dark" : "light"

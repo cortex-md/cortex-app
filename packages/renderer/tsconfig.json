@@ -15,5 +15,10 @@
 		"outDir": "dist",
 		"baseUrl": "."
 	},
-	"include": ["src"]
+	"include": ["src"],
+	"references": [
+		{
+			"path": "../properties"
+		}
+	]
 }

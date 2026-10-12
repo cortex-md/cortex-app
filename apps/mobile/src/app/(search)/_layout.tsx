@@ -1,6 +1,6 @@
 import { Stack } from "expo-router"
 
-import { SidebarToggleButton } from "@/components/mobile-sidebar"
+import { SidebarToggleButton } from "@/features/sidebar/SidebarToggleButton"
 
 export default function SearchLayout() {
 	return (

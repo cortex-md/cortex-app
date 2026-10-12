@@ -12,24 +12,41 @@ interface WorkspacePackage {
 	}
 }
 
-const workspaceRoots = ["apps", "packages", "plugins"]
+const workspaceRoots = ["apps", "packages"]
+const bundledPluginsDirectory = "plugins"
 const allowedDependencies: Record<string, readonly string[]> = {
 	"@cortex/commands": [],
+	"@cortex/comments": [],
 	"@cortex/platform": [],
 	"@cortex/properties": [],
-	"@cortex/renderer": [],
+	"@cortex/renderer": ["@cortex/properties"],
+	"@cortex/tasks": [],
 	"@cortex/templates": [],
 	"@cortex/theme": [],
-	"@cortex/theme-mobile": [],
 	"@cortex/settings": ["@cortex/platform"],
+	"@cortex/sync-api": ["@cortex/platform"],
+	"@cortex/collab": ["@cortex/platform"],
 	"@cortex/core": [
+		"@cortex/collab",
+		"@cortex/commands",
+		"@cortex/comments",
 		"@cortex/platform",
 		"@cortex/properties",
+		"@cortex/search",
 		"@cortex/settings",
+		"@cortex/sync-api",
+		"@cortex/tasks",
 		"@cortex/templates",
 	],
-	"@cortex/editor": ["@cortex/commands", "@cortex/properties", "@cortex/renderer"],
-	"@cortex/ipc": ["@cortex/platform"],
+	"@cortex/editor": [
+		"@cortex/collab",
+		"@cortex/commands",
+		"@cortex/comments",
+		"@cortex/platform",
+		"@cortex/properties",
+		"@cortex/renderer",
+		"@cortex/tasks",
+	],
 	"@cortex.md/api": [],
 	"@cortex/plugin-host-core": [
 		"@cortex/commands",
@@ -38,36 +55,30 @@ const allowedDependencies: Record<string, readonly string[]> = {
 		"@cortex/renderer",
 		"@cortex.md/api",
 	],
-	"@cortex/plugin-host-web": [
-		"@cortex/platform",
-		"@cortex/plugin-host-core",
-		"@cortex/renderer",
-		"@cortex/ui",
-		"@cortex.md/api",
-	],
 	"@cortex/ui": [],
 	"@cortex/search": ["@cortex/platform", "@cortex/properties"],
-	"@cortex/hotkeys": ["@cortex/platform"],
+	"@cortex/hotkeys": ["@cortex/commands", "@cortex/platform"],
 	"@cortex/import-export": ["@cortex/platform", "@cortex/renderer"],
-	"@cortex/marketplace": ["@cortex/platform", "@cortex/plugin-host-core", "@cortex/theme"],
-	"@cortex/plugin-github-emoji": ["@cortex.md/api"],
-	"@cortex/web": ["@cortex/ui"],
+	"@cortex/marketplace": ["@cortex/platform", "@cortex/theme"],
+	"@cortex/plugins": ["@cortex.md/api"],
+	"@cortex/web": ["@cortex/sync-api", "@cortex/ui"],
 	"@cortex/mobile": [
 		"@cortex.md/api",
+		"@cortex/collab",
 		"@cortex/commands",
 		"@cortex/core",
 		"@cortex/editor",
+		"@cortex/hotkeys",
+		"@cortex/marketplace",
 		"@cortex/platform",
 		"@cortex/plugin-host-core",
+		"@cortex/plugins",
 		"@cortex/properties",
-		"@cortex/theme-mobile",
+		"@cortex/renderer",
+		"@cortex/settings",
+		"@cortex/sync-api",
+		"@cortex/theme",
 	],
-}
-
-const forbiddenDependencies: Record<string, readonly string[]> = {
-	"@cortex/desktop": ["@cortex/theme-mobile"],
-	"@cortex/marketplace": ["@cortex/theme-mobile"],
-	"@cortex/theme": ["@cortex/theme-mobile"],
 }
 
 interface SourceBoundaryRule {
@@ -87,8 +98,7 @@ const portableForbiddenImports = [
 	/^@cortex\/ui($|\/)/,
 	/^@cortex\/editor($|\/)/,
 	/^@codemirror\//,
-	/^@tauri-apps\//,
-	/^@cortex\/ipc($|\/)/,
+	/^electron($|\/)/,
 	/^node:/,
 	/^(fs|path|os|child_process|worker_threads)$/,
 	/^(lucide-react|cmdk|sonner|vaul|radix-ui)($|\/)/,
@@ -119,10 +129,6 @@ const sourceBoundaryRules: Record<string, SourceBoundaryRule> = {
 		forbiddenIdentifiers: portableForbiddenIdentifiers,
 	},
 	"@cortex/theme": {
-		forbiddenImports: [...portableForbiddenImports, /^@cortex\/theme-mobile($|\/)/],
-		forbiddenIdentifiers: portableForbiddenIdentifiers,
-	},
-	"@cortex/theme-mobile": {
 		forbiddenImports: portableForbiddenImports,
 		forbiddenIdentifiers: portableForbiddenIdentifiers,
 	},
@@ -134,6 +140,32 @@ const sourceBoundaryRules: Record<string, SourceBoundaryRule> = {
 		forbiddenImports: portableForbiddenImports,
 		forbiddenIdentifiers: portableForbiddenIdentifiers,
 	},
+	"@cortex/plugins": {
+		forbiddenImports: portableForbiddenImports,
+		forbiddenIdentifiers: portableForbiddenIdentifiers,
+	},
+	"@cortex/platform": {
+		forbiddenImports: [...portableForbiddenImports, /^(expo|expo-[\w-]+|react-native[\w-]*)($|\/)/],
+		forbiddenIdentifiers: portableForbiddenIdentifiers.filter(
+			(identifier) => identifier !== "window",
+		),
+	},
+	"@cortex/tasks": {
+		forbiddenImports: portableForbiddenImports,
+		forbiddenIdentifiers: portableForbiddenIdentifiers,
+	},
+	"@cortex/comments": {
+		forbiddenImports: portableForbiddenImports,
+		forbiddenIdentifiers: portableForbiddenIdentifiers,
+	},
+	"@cortex/collab": {
+		forbiddenImports: portableForbiddenImports,
+		forbiddenIdentifiers: portableForbiddenIdentifiers,
+	},
+	"@cortex/sync-api": {
+		forbiddenImports: [...portableForbiddenImports, /^argon2($|\/)/, /^@cortex\/sync-engine($|\/)/],
+		forbiddenIdentifiers: portableForbiddenIdentifiers,
+	},
 }
 
 const commandSurfaceRules: readonly CommandSurfaceRule[] = [
@@ -143,22 +175,21 @@ const commandSurfaceRules: readonly CommandSurfaceRule[] = [
 		allowedPaths: [],
 	},
 	{
-		pattern: /\bregisterCommand\s*\(/,
+		pattern: /\b(registerCommands?|registerMany)\s*\(/,
 		message: "must register app/plugin commands only through the central command owners",
 		allowedPaths: [
 			"packages/commands/src/index.ts",
-			"packages/plugin-host-core/src/apis/CommandsAPI.ts",
-			"apps/desktop/src/hooks/useAppCommands.ts",
-			"apps/mobile/src/features/editor/mobile-editor-commands.ts",
+			"packages/commands/src/CommandRegistry.ts",
+			"packages/plugin-host-core/src/pluginContributions.ts",
+			"apps/desktop/src/bootstrap/appCommands.ts",
+			"apps/mobile/src/features/editor/editorCommands.ts",
+			"apps/mobile/src/bootstrap/appCommands.ts",
 		],
 	},
 	{
 		pattern: /\bcommand\.execute\s*\(/,
 		message: "must execute commands through commandRegistry.execute or executeCommand",
-		allowedPaths: [
-			"packages/commands/src/CommandRegistry.ts",
-			"packages/plugin-host-core/src/apis/CommandsAPI.ts",
-		],
+		allowedPaths: ["packages/commands/src/CommandRegistry.ts"],
 	},
 ]
 
@@ -168,14 +199,15 @@ function readJson<T>(path: string): T {
 
 function collectWorkspacePackages(): WorkspacePackage[] {
 	const packages: WorkspacePackage[] = []
-	for (const root of workspaceRoots) {
-		for (const entry of readdirSync(root)) {
-			const directory = join(root, entry)
-			const manifestPath = join(directory, "package.json")
-			if (!existsSync(manifestPath)) continue
-			const manifest = readJson<WorkspacePackage["manifest"] & { name?: string }>(manifestPath)
-			if (manifest.name) packages.push({ name: manifest.name, directory, manifest })
-		}
+	const directories = [
+		...workspaceRoots.flatMap((root) => readdirSync(root).map((entry) => join(root, entry))),
+		bundledPluginsDirectory,
+	]
+	for (const directory of directories) {
+		const manifestPath = join(directory, "package.json")
+		if (!existsSync(manifestPath)) continue
+		const manifest = readJson<WorkspacePackage["manifest"] & { name?: string }>(manifestPath)
+		if (manifest.name) packages.push({ name: manifest.name, directory, manifest })
 	}
 	return packages
 }
@@ -192,6 +224,10 @@ function collectSourceFiles(directory: string): string[] {
 			if (stats.isDirectory()) visit(path)
 			else if (/\.[cm]?[jt]sx?$/.test(entry)) files.push(path)
 		}
+	}
+	if (directory === bundledPluginsDirectory) {
+		visit(directory)
+		return files
 	}
 	for (const sourceName of ["src", "electron"]) {
 		const sourceDirectory = join(directory, sourceName)
@@ -352,21 +388,11 @@ for (const workspacePackage of workspacePackages) {
 			errors.push(`${workspacePackage.name} declares unused workspace ${dependency}`)
 		}
 	}
-	for (const forbiddenDependency of forbiddenDependencies[workspacePackage.name] ?? []) {
-		if (declared[forbiddenDependency] || imports.has(forbiddenDependency)) {
-			errors.push(
-				`${workspacePackage.name} must not depend on or import ${forbiddenDependency}`,
-			)
-		}
-	}
-
 	const allowed = allowedDependencies[workspacePackage.name]
 	if (allowed) {
 		for (const importedWorkspace of imports) {
 			if (!allowed.includes(importedWorkspace)) {
-				errors.push(
-					`${workspacePackage.name} violates its layer by importing ${importedWorkspace}`,
-				)
+				errors.push(`${workspacePackage.name} violates its layer by importing ${importedWorkspace}`)
 			}
 		}
 	}

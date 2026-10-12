@@ -4,17 +4,28 @@ import {
 	type SelfHostedEnvironmentGroup,
 } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
+import { Button, Collapsible, CollapsibleContent, CollapsibleTrigger, Input } from "@cortex/ui"
 import {
-	Badge,
-	Button,
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-	Input,
-} from "@cortex/ui"
-import { ChevronRight, ClipboardCopy, Download } from "lucide-react"
-import { type ChangeEvent, useEffect, useRef, useState } from "react"
-import { SettingsField, SettingsGroup, SettingsSection } from "../SettingsPrimitives"
+	ChevronRight,
+	ClipboardCopy,
+	DatabaseIcon,
+	Download,
+	HardDriveIcon,
+	KeyRoundIcon,
+	LockIcon,
+	type LucideIcon,
+	ServerIcon,
+	Settings2Icon,
+} from "lucide-react"
+import { type ChangeEvent, useState } from "react"
+import { useCopyFeedback } from "@/hooks/useCopyFeedback"
+import {
+	SettingsField,
+	SettingsGroup,
+	SettingsIconTile,
+	SettingsSection,
+} from "../SettingsPrimitives"
+import { useSettingsRevealTarget } from "../settingsReveal"
 import { useSelfHostedEnvironment } from "./useSelfHostedEnvironment"
 
 interface EnvironmentDisclosureProps {
@@ -24,6 +35,13 @@ interface EnvironmentDisclosureProps {
 	secrets: Record<string, string>
 	onOpenChange(open: boolean): void
 	onFieldChange(field: SelfHostedEnvironmentField, value: string): Promise<void>
+}
+
+const ENVIRONMENT_GROUP_ICONS: Record<string, LucideIcon> = {
+	server: ServerIcon,
+	database: DatabaseIcon,
+	authentication: KeyRoundIcon,
+	storage: HardDriveIcon,
 }
 
 function EnvironmentDisclosure({
@@ -36,90 +54,103 @@ function EnvironmentDisclosure({
 }: EnvironmentDisclosureProps) {
 	const fieldCount = group.sections.reduce((count, section) => count + section.fields.length, 0)
 	const showSubsectionLabels = group.sections.length > 1
+	const GroupIcon = ENVIRONMENT_GROUP_ICONS[group.id] ?? Settings2Icon
 	return (
-		<Collapsible open={open} onOpenChange={onOpenChange} className="border-b last:border-b-0">
-			<CollapsibleTrigger asChild>
-				<Button
-					variant="ghost"
-					aria-label={group.label}
-					className="h-auto w-full justify-between rounded-none px-4 py-3 text-left hover:bg-muted/50 [&[data-state=open]_.self-host-chevron]:rotate-90"
+		<Collapsible open={open} onOpenChange={onOpenChange} asChild>
+			<SettingsGroup className="settings-env-group">
+				<CollapsibleTrigger asChild>
+					<Button variant="ghost" aria-label={group.label} className="settings-env-trigger">
+						<ChevronRight className="settings-env-chevron" />
+						<SettingsIconTile>
+							<GroupIcon />
+						</SettingsIconTile>
+						<span className="settings-env-copy">
+							<b>{group.label}</b>
+							<span>{group.description}</span>
+						</span>
+						<span className="settings-count-pill">{fieldCount}</span>
+					</Button>
+				</CollapsibleTrigger>
+				<CollapsibleContent
+					forceMount
+					aria-hidden={!open}
+					inert={!open}
+					className="settings-env-content grid grid-rows-[0fr] transition-[grid-template-rows,visibility] duration-200 ease-out data-[state=closed]:invisible data-[state=open]:grid-rows-[1fr] data-[state=open]:visible"
 				>
-					<div className="min-w-0">
-						<p className="m-0 text-[13px] font-medium text-foreground">{group.label}</p>
-						<p className="m-0 mt-0.5 truncate text-xs font-normal text-muted-foreground">
-							{group.description}
-						</p>
-					</div>
-					<div className="flex shrink-0 items-center gap-2">
-						<Badge variant="secondary">{fieldCount}</Badge>
-						<ChevronRight className="self-host-chevron size-4 text-muted-foreground transition-transform duration-200" />
-					</div>
-				</Button>
-			</CollapsibleTrigger>
-			<CollapsibleContent
-				forceMount
-				aria-hidden={!open}
-				inert={!open}
-				className="grid grid-rows-[0fr] transition-[grid-template-rows,visibility] duration-200 ease-out data-[state=closed]:invisible data-[state=open]:grid-rows-[1fr] data-[state=open]:visible"
-			>
-				<div className="min-h-0 overflow-hidden border-t border-settings-group-divider">
-					{group.sections.map((section) => (
-						<div key={section.id}>
-							{showSubsectionLabels && (
-								<div className="border-b border-settings-group-divider bg-muted/30 px-4 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-									{section.label}
-								</div>
-							)}
-							<div className="divide-y divide-settings-group-divider">
+					<div className="min-h-0 overflow-hidden">
+						{group.sections.map((section) => (
+							<div key={section.id} className="settings-list">
+								{showSubsectionLabels && (
+									<div className="settings-env-subsection">{section.label}</div>
+								)}
 								{section.fields.map((field) => (
 									<SettingsField
 										key={field.key}
+										fieldId={`${ENVIRONMENT_FIELD_PREFIX}${field.key}`}
+										className="settings-env-field"
 										label={field.label}
-										description={field.key}
+										description={<code>{field.key}</code>}
 										htmlFor={field.key}
-										controlClassName="max-w-[420px]"
+										controlClassName="settings-env-control-column"
 									>
-										<Input
-											id={field.key}
-											type={field.secret ? "password" : "text"}
-											value={field.secret ? (secrets[field.key] ?? "") : (values[field.key] ?? "")}
-											onChange={(event: ChangeEvent<HTMLInputElement>) =>
-												void onFieldChange(field, event.target.value)
-											}
-											placeholder={field.defaultValue}
-										/>
+										<div className="settings-env-control">
+											<Input
+												id={field.key}
+												size="sm"
+												type={field.secret ? "password" : "text"}
+												value={
+													field.secret ? (secrets[field.key] ?? "") : (values[field.key] ?? "")
+												}
+												onChange={(event: ChangeEvent<HTMLInputElement>) =>
+													void onFieldChange(field, event.target.value)
+												}
+												placeholder={field.defaultValue}
+											/>
+											{field.secret && (
+												<span className="settings-env-secret" title="Stored in the OS keychain">
+													<LockIcon />
+													Secret
+												</span>
+											)}
+										</div>
 									</SettingsField>
 								))}
 							</div>
-						</div>
-					))}
-				</div>
-			</CollapsibleContent>
+						))}
+					</div>
+				</CollapsibleContent>
+			</SettingsGroup>
 		</Collapsible>
 	)
 }
 
+const ENVIRONMENT_FIELD_PREFIX = "sync-self-host.env."
+
+function findEnvironmentGroupId(fieldId: string | undefined): string | null {
+	if (!fieldId?.startsWith(ENVIRONMENT_FIELD_PREFIX)) return null
+	const key = fieldId.slice(ENVIRONMENT_FIELD_PREFIX.length)
+	const group = SELF_HOSTED_ENVIRONMENT_GROUPS.find((candidate) =>
+		candidate.sections.some((section) => section.fields.some((field) => field.key === key)),
+	)
+	return group?.id ?? null
+}
+
 export function SelfHostedEnvironment() {
 	const { environment, environmentFile, secrets, updateField } = useSelfHostedEnvironment()
-	const [copied, setCopied] = useState(false)
-	const [exported, setExported] = useState(false)
+	const [copied, showCopied] = useCopyFeedback()
+	const [exported, showExported] = useCopyFeedback()
 	const [openGroupId, setOpenGroupId] = useState<string | null>(null)
-	const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-	const exportTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-	useEffect(
-		() => () => {
-			if (copyTimer.current) clearTimeout(copyTimer.current)
-			if (exportTimer.current) clearTimeout(exportTimer.current)
-		},
-		[],
-	)
+	const revealTarget = useSettingsRevealTarget()
+	const [handledRevealNonce, setHandledRevealNonce] = useState<number | null>(null)
+	if (revealTarget && revealTarget.nonce !== handledRevealNonce) {
+		setHandledRevealNonce(revealTarget.nonce)
+		const revealGroupId = findEnvironmentGroupId(revealTarget.fieldId)
+		if (revealGroupId) setOpenGroupId(revealGroupId)
+	}
 
 	const handleCopy = async () => {
-		await navigator.clipboard.writeText(environmentFile)
-		setCopied(true)
-		if (copyTimer.current) clearTimeout(copyTimer.current)
-		copyTimer.current = setTimeout(() => setCopied(false), 1200)
+		await getPlatform().clipboard.writeText(environmentFile)
+		showCopied()
 	}
 
 	const handleExport = async () => {
@@ -131,29 +162,27 @@ export function SelfHostedEnvironment() {
 		})
 		if (!path) return
 		await platform.fs.writeFile(path, environmentFile)
-		setExported(true)
-		if (exportTimer.current) clearTimeout(exportTimer.current)
-		exportTimer.current = setTimeout(() => setExported(false), 1200)
+		showExported()
 	}
 
 	return (
 		<SettingsSection
 			title="Environment"
-			description="Values are saved for this vault. Secret values are stored in the OS keychain."
+			footer="Values are saved for this vault. Secrets are stored in the OS keychain."
 			action={
 				<>
-					<Button variant="secondary" size="sm" onClick={() => void handleCopy()}>
+					<Button variant="ghost" size="xs" onClick={() => void handleCopy()}>
 						<ClipboardCopy size={14} />
 						{copied ? "Copied" : "Copy .env"}
 					</Button>
-					<Button variant="secondary" size="sm" onClick={() => void handleExport()}>
+					<Button variant="ghost" size="xs" onClick={() => void handleExport()}>
 						<Download size={14} />
 						{exported ? "Exported" : "Export"}
 					</Button>
 				</>
 			}
 		>
-			<SettingsGroup>
+			<div className="settings-env-groups">
 				{SELF_HOSTED_ENVIRONMENT_GROUPS.map((group) => (
 					<EnvironmentDisclosure
 						key={group.id}
@@ -165,7 +194,7 @@ export function SelfHostedEnvironment() {
 						onFieldChange={updateField}
 					/>
 				))}
-			</SettingsGroup>
+			</div>
 		</SettingsSection>
 	)
 }

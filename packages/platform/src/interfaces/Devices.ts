@@ -6,7 +6,6 @@ export interface DeviceEntry {
 	createdAt: string
 	revoked: boolean
 	isCurrent: boolean | null
-	lastSyncEventId: number | null
 }
 
 export interface Devices {
@@ -14,5 +13,4 @@ export interface Devices {
 	get(deviceId: string): Promise<DeviceEntry>
 	rename(deviceId: string, deviceName: string): Promise<DeviceEntry>
 	revoke(deviceId: string): Promise<void>
-	updateSyncCursor(deviceId: string, lastSyncEventId: number): Promise<void>
 }

@@ -42,7 +42,7 @@ describe("SidebarViewStage", () => {
 		)
 	})
 
-	it("keeps only the latest two panels during rapid navigation", () => {
+	it("shows only the latest two panels during rapid navigation", () => {
 		vi.useFakeTimers()
 		const { rerender } = render(
 			<SidebarViewStage activeId="files" items={items} ViewComponent={TestSidebarViewPanel} />,
@@ -55,14 +55,14 @@ describe("SidebarViewStage", () => {
 			<SidebarViewStage activeId="tags" items={items} ViewComponent={TestSidebarViewPanel} />,
 		)
 
-		expect(screen.queryByTestId("view-files")).not.toBeInTheDocument()
-		expect(screen.getByTestId("view-search")).toBeInTheDocument()
-		expect(screen.getByTestId("view-tags")).toBeInTheDocument()
+		expect(screen.getByTestId("view-files")).not.toBeVisible()
+		expect(screen.getByTestId("view-search")).toBeVisible()
+		expect(screen.getByTestId("view-tags")).toBeVisible()
 
 		act(() => vi.advanceTimersByTime(220))
 
-		expect(screen.queryByTestId("view-search")).not.toBeInTheDocument()
-		expect(screen.getByTestId("view-tags")).toBeInTheDocument()
+		expect(screen.getByTestId("view-search")).not.toBeVisible()
+		expect(screen.getByTestId("view-tags")).toBeVisible()
 	})
 })
 

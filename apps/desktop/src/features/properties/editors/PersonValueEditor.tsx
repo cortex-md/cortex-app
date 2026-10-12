@@ -1,6 +1,10 @@
 import {
-	Avatar,
-	AvatarFallback,
+	allowsMultipleValues,
+	getPropertyValueList,
+	isEmptyPropertyValue,
+	togglePropertyValue,
+} from "@cortex/properties"
+import {
 	Button,
 	Command,
 	CommandEmpty,
@@ -10,17 +14,9 @@ import {
 	CommandList,
 } from "@cortex/ui"
 import { CheckIcon, XIcon } from "lucide-react"
+import { UserAvatar } from "../../sync/UserAvatar"
 import type { PropertyValueEditorProps } from "../types"
 import { TextValueEditor } from "./TextValueEditor"
-
-function getInitials(label: string): string {
-	return label
-		.trim()
-		.split(/\s+/)
-		.slice(0, 2)
-		.map((part) => part[0]?.toLocaleUpperCase())
-		.join("")
-}
 
 export function PersonValueEditor({
 	definition,
@@ -41,25 +37,31 @@ export function PersonValueEditor({
 			/>
 		)
 	}
-	const selected = authorConfig.options.find((person) => person.id === value)
+	const multiple = allowsMultipleValues(definition)
+	const selectedIds = new Set(getPropertyValueList(value).map(String))
+	const selected = authorConfig.options.filter((person) => selectedIds.has(person.id))
+	const choosePerson = async (personId: string) => {
+		const next = togglePropertyValue(definition, value, personId)
+		if (isEmptyPropertyValue(next)) await onRemoveValue()
+		else await onSetValue(next)
+		if (!multiple) onClose()
+	}
 	return (
 		<Command className="note-property-command">
-			{selected && (
-				<div className="note-property-selected-person">
-					<Avatar size="sm">
-						<AvatarFallback>{getInitials(selected.label)}</AvatarFallback>
-					</Avatar>
-					<span>{selected.label}</span>
+			{selected.map((person) => (
+				<div key={person.id} className="note-property-selected-person">
+					<UserAvatar name={person.label} avatarUrl={person.avatarUrl} size="sm" />
+					<span>{person.label}</span>
 					<Button
 						variant="ghost"
 						size="icon-xs"
-						aria-label={`Remove ${selected.label}`}
-						onClick={() => void onRemoveValue()}
+						aria-label={`Remove ${person.label}`}
+						onClick={() => void choosePerson(person.id)}
 					>
 						<XIcon />
 					</Button>
 				</div>
-			)}
+			))}
 			<CommandInput autoFocus placeholder="Search for people..." />
 			<CommandList>
 				<CommandGroup heading="Select a person">
@@ -67,20 +69,16 @@ export function PersonValueEditor({
 						<CommandItem
 							key={person.id}
 							value={`${person.label} ${person.email ?? ""}`}
-							onSelect={() => {
-								void onSetValue(person.id).then(onClose)
-							}}
+							onSelect={() => void choosePerson(person.id)}
 						>
-							<Avatar size="sm">
-								<AvatarFallback>{getInitials(person.label)}</AvatarFallback>
-							</Avatar>
+							<UserAvatar name={person.label} avatarUrl={person.avatarUrl} size="sm" />
 							<span>
 								{person.label}
 								{person.id === authorConfig.currentUserId && (
 									<span className="note-property-you"> (You)</span>
 								)}
 							</span>
-							{person.id === value && <CheckIcon className="ml-auto" />}
+							{selectedIds.has(person.id) && <CheckIcon className="ml-auto" />}
 						</CommandItem>
 					))}
 				</CommandGroup>

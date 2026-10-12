@@ -5,6 +5,9 @@ import { devtools } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
 import { DEFAULT_SYNC_SERVER_URL, normalizeServerUrl } from "../sync/serverConfig"
 import { setAuthStatusRefresher } from "./authSession"
+import { useRemoteVaultStore } from "./remoteVaultStore"
+import { useSyncStore } from "./syncStore"
+import { useVaultStore } from "./vaultStore"
 
 const SERVER_URL_KEYCHAIN_KEY = "server_url"
 
@@ -17,12 +20,18 @@ export interface AuthState {
 
 	checkAuth: (serverUrl?: string) => Promise<void>
 	loadPreferences: () => Promise<void>
-	login: (email: string, password: string, serverUrl?: string) => Promise<void>
+	login: (email: string, password: string, serverUrl?: string) => Promise<string | null>
 	register: (
 		email: string,
 		password: string,
 		displayName: string,
 		serverUrl?: string,
+	) => Promise<string | null>
+	resetPassword: (
+		serverUrl: string,
+		token: string,
+		newPassword: string,
+		recoveryKey: string | null,
 	) => Promise<void>
 	logout: (allDevices?: boolean, serverUrl?: string) => Promise<void>
 	clearError: () => void
@@ -112,6 +121,7 @@ export const useAuthStore = create<AuthState>()(
 						}
 						state.loading = false
 					})
+					return result.recoveryKey
 				} catch (e) {
 					set((state) => {
 						state.loading = false
@@ -136,10 +146,11 @@ export const useAuthStore = create<AuthState>()(
 						password,
 						displayName,
 					)
-					await get().login(email, password, resolvedServerUrl)
+					const loginRecoveryKey = await get().login(email, password, resolvedServerUrl)
 					set((state) => {
 						if (state.user) state.user.displayName = result.displayName
 					})
+					return result.recoveryKey ?? loginRecoveryKey
 				} catch (e) {
 					set((state) => {
 						state.loading = false
@@ -149,19 +160,23 @@ export const useAuthStore = create<AuthState>()(
 				}
 			},
 
+			resetPassword: async (serverUrl, token, newPassword, recoveryKey) => {
+				await getPlatform().auth.resetPassword(
+					normalizeServerUrl(serverUrl),
+					token,
+					newPassword,
+					recoveryKey,
+				)
+			},
+
 			logout: async (allDevices = false, serverUrl) => {
 				const resolvedServerUrl = resolveServerUrl(serverUrl, get().serverUrl)
 				try {
-					const { useSyncStore } = await import("./syncStore")
 					await useSyncStore.getState().stopSync()
 				} catch (error) {
 					console.error("[Auth logout sync stop failed]", { error })
 				}
 				try {
-					const [{ useRemoteVaultStore }, { useVaultStore }] = await Promise.all([
-						import("./remoteVaultStore"),
-						import("./vaultStore"),
-					])
 					const vaultPath = useVaultStore.getState().vault?.path
 					const remoteVaultState = useRemoteVaultStore.getState()
 					if (vaultPath && remoteVaultState.syncConfig.enabled) {

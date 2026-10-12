@@ -1,4 +1,5 @@
-import { type FileMetadata, getPlatform } from "@cortex/platform"
+import { type FileMetadata, type FileSnapshot, getPlatform } from "@cortex/platform"
+import { isMarkdownPath, isPathOrDescendant, replacePathPrefix } from "@cortex/platform/utils"
 import { prepareNoteForSave } from "@cortex/properties"
 
 export type SnapshotTrigger = "auto" | "manual" | "pre-save" | "pre-sync"
@@ -21,6 +22,17 @@ export interface NoteCacheEntry {
 	openTabCount: number
 	snapshots: Snapshot[]
 	localCreatedAt?: number
+	prepareOnSave?: boolean
+}
+
+export interface LiveDocumentHandler {
+	applyExternalContent: (content: string) => void
+}
+
+export interface LiveWriteOptions {
+	persist: boolean
+	prepare: boolean
+	notify?: boolean
 }
 
 export type ExternalChangeKind = "overwrite" | "conflict"
@@ -33,6 +45,8 @@ export interface ExternalChangeEvent {
 
 type ExternalChangeListener = (event: ExternalChangeEvent) => void
 type ContentChangeListener = (filePath: string, content: string) => void
+type DiskContentListener = (entry: NoteCacheEntry) => void
+type PathChangeListener = (oldPath: string, newPath: string | null) => void
 
 interface ExternalChangeLoad {
 	latestHash: string
@@ -51,14 +65,12 @@ const SNAPSHOT_MAX_PER_FILE = 50
 const SNAPSHOT_RETENTION_DAYS = 30
 const AUTOSAVE_DEBOUNCE_MS = 2000
 
-function replacePathPrefix(path: string, oldPath: string, newPath: string): string | null {
-	if (path === oldPath) return newPath
-	if (!path.startsWith(`${oldPath}/`)) return null
-	return `${newPath}${path.slice(oldPath.length)}`
-}
-
-function isMarkdownNotePath(filePath: string): boolean {
-	return filePath.toLocaleLowerCase().endsWith(".md")
+async function writeNoteSnapshot(filePath: string, content: string): Promise<FileSnapshot> {
+	const fs = getPlatform().fs
+	if (fs.writeFileSnapshot) return fs.writeFileSnapshot(filePath, content)
+	await fs.writeFile(filePath, content)
+	const [hash, metadata] = await Promise.all([fs.hashFile(filePath), fs.getFileMetadata(filePath)])
+	return { content, hash, metadata }
 }
 
 function createUnsupportedNoteCachePathError(filePath: string): Error {
@@ -71,6 +83,10 @@ class NoteCache {
 	private snapshotTimers = new Map<string, ReturnType<typeof setInterval>>()
 	private externalChangeListeners: ExternalChangeListener[] = []
 	private contentChangeListeners = new Map<string, Set<ContentChangeListener>>()
+	private diskContentListeners = new Set<DiskContentListener>()
+	private pathChangeListeners = new Set<PathChangeListener>()
+	private liveDocuments = new Map<string, LiveDocumentHandler>()
+	private flushes = new Map<string, Promise<void>>()
 	private externalChangeLoads = new Map<string, ExternalChangeLoad>()
 	private entryLoads = new Map<string, PendingEntryLoad>()
 	private pendingOpenTabCounts = new Map<string, number>()
@@ -97,12 +113,12 @@ class NoteCache {
 	}
 
 	async readEntry(filePath: string): Promise<NoteCacheEntry> {
-		if (!isMarkdownNotePath(filePath)) throw createUnsupportedNoteCachePathError(filePath)
+		if (!isMarkdownPath(filePath)) throw createUnsupportedNoteCachePathError(filePath)
 		return this.loadEntry(filePath)
 	}
 
 	private loadEntry(filePath: string): Promise<NoteCacheEntry> {
-		if (!isMarkdownNotePath(filePath)) {
+		if (!isMarkdownPath(filePath)) {
 			return Promise.reject(createUnsupportedNoteCachePathError(filePath))
 		}
 		const entry = this.entries.get(filePath)
@@ -160,32 +176,67 @@ class NoteCache {
 	}
 
 	write(filePath: string, content: string) {
-		if (!isMarkdownNotePath(filePath)) return
+		if (!isMarkdownPath(filePath)) return
 		const entry = this.entries.get(filePath)
 		if (!entry) return
 
 		entry.content = content
-		entry.dirty = content !== entry.diskContent
+		entry.dirty = true
+		entry.prepareOnSave = true
 		entry.lastAccessed = Date.now()
+		this.scheduleSave(filePath)
+	}
 
-		if (entry.dirty) {
+	writeLive(filePath: string, content: string, options: LiveWriteOptions) {
+		if (!isMarkdownPath(filePath)) return
+		const entry = this.entries.get(filePath)
+		if (!entry) return
+		entry.lastAccessed = Date.now()
+		if (entry.content === content) return
+		entry.content = content
+		if (options.persist) {
+			entry.prepareOnSave = options.prepare || (entry.dirty && entry.prepareOnSave !== false)
+			entry.dirty = true
 			this.scheduleSave(filePath)
+		}
+		if (options.notify !== false) this.notifyContentChange(filePath, content)
+	}
+
+	attachLiveDocument(filePath: string, handler: LiveDocumentHandler): () => void {
+		this.liveDocuments.set(filePath, handler)
+		return () => {
+			for (const [path, liveHandler] of this.liveDocuments) {
+				if (liveHandler === handler) this.liveDocuments.delete(path)
+			}
 		}
 	}
 
+	hasLiveDocument(filePath: string): boolean {
+		return this.liveDocuments.has(filePath)
+	}
+
+	restoreDiskContent(filePath: string) {
+		const entry = this.entries.get(filePath)
+		if (!entry || entry.dirty || entry.content === entry.diskContent) return
+		entry.content = entry.diskContent
+		this.notifyContentChange(filePath, entry.content)
+	}
+
+	onPathChange(listener: PathChangeListener): () => void {
+		this.pathChangeListeners.add(listener)
+		return () => this.pathChangeListeners.delete(listener)
+	}
+
+	private notifyPathChange(oldPath: string, newPath: string | null) {
+		for (const listener of this.pathChangeListeners) listener(oldPath, newPath)
+	}
+
 	writeExternal(filePath: string, content: string) {
-		if (!isMarkdownNotePath(filePath)) return
+		if (!isMarkdownPath(filePath)) return
 		const entry = this.entries.get(filePath)
 		if (!entry) return
 
-		entry.content = content
-		entry.dirty = content !== entry.diskContent
-		entry.lastAccessed = Date.now()
-
-		if (entry.dirty) {
-			this.scheduleSave(filePath)
-		}
-
+		this.write(filePath, content)
 		this.notifyContentChange(filePath, content)
 	}
 
@@ -195,7 +246,7 @@ class NoteCache {
 		hash: string,
 		options: { localCreated?: boolean; metadata?: FileMetadata } = {},
 	) {
-		if (!isMarkdownNotePath(filePath)) return
+		if (!isMarkdownPath(filePath)) return
 		const existing = this.entries.get(filePath)
 		const now = Date.now()
 		const openTabCount = existing?.openTabCount ?? this.pendingOpenTabCounts.get(filePath) ?? 0
@@ -233,7 +284,7 @@ class NoteCache {
 						...this.pendingOpenTabCounts.keys(),
 						...this.externalChangeLoads.keys(),
 					]),
-				).filter((path) => path === filePath || path.startsWith(`${filePath}/`))
+				).filter((path) => isPathOrDescendant(path, filePath))
 			: [filePath]
 
 		for (const path of paths) {
@@ -248,6 +299,8 @@ class NoteCache {
 			this.contentChangeListeners.delete(path)
 			this.externalChangeLoads.delete(path)
 			this.pendingOpenTabCounts.delete(path)
+			this.liveDocuments.delete(path)
+			this.notifyPathChange(path, null)
 		}
 	}
 
@@ -273,7 +326,7 @@ class NoteCache {
 	}
 
 	private scheduleSave(filePath: string) {
-		if (!isMarkdownNotePath(filePath)) return
+		if (!isMarkdownPath(filePath)) return
 		const existing = this.saveTimers.get(filePath)
 		if (existing) clearTimeout(existing)
 
@@ -286,7 +339,12 @@ class NoteCache {
 	}
 
 	async flush(filePath: string): Promise<void> {
-		if (!isMarkdownNotePath(filePath)) return
+		if (!isMarkdownPath(filePath)) return
+		const activeFlush = this.flushes.get(filePath)
+		if (activeFlush) {
+			await activeFlush
+			return this.flush(filePath)
+		}
 		const entry = this.entries.get(filePath)
 		if (!entry || !entry.dirty) return
 
@@ -296,24 +354,54 @@ class NoteCache {
 			this.saveTimers.delete(filePath)
 		}
 
-		const platform = getPlatform()
-		const preparedContent = await prepareNoteForSave(filePath, entry.content)
-		if (preparedContent !== entry.content) {
+		const flush = this.writeEntry(filePath, entry).finally(() => {
+			if (this.flushes.get(filePath) === flush) this.flushes.delete(filePath)
+		})
+		this.flushes.set(filePath, flush)
+		await flush
+	}
+
+	private async writeEntry(filePath: string, entry: NoteCacheEntry): Promise<void> {
+		const prepareContent = (content: string) =>
+			entry.prepareOnSave === false ? content : prepareNoteForSave(filePath, content)
+		let sourceContent = entry.content
+		let preparedContent = await prepareContent(sourceContent)
+		while (entry.content !== sourceContent) {
+			sourceContent = entry.content
+			preparedContent = await prepareContent(sourceContent)
+		}
+		if (preparedContent !== sourceContent) {
 			entry.content = preparedContent
 			this.notifyContentChange(filePath, preparedContent)
 		}
-		this.takeSnapshot(filePath, "pre-save")
-		await platform.fs.writeFile(filePath, entry.content)
-		const [hash, metadata] = await Promise.all([
-			platform.fs.hashFile(filePath),
-			platform.fs.getFileMetadata(filePath),
-		])
+		if (preparedContent === entry.diskContent) {
+			entry.dirty = false
+			entry.prepareOnSave = undefined
+			return
+		}
 
-		entry.diskContent = entry.content
-		entry.dirty = false
-		entry.hash = hash
-		entry.metadata = metadata
-		entry.mtime = metadata.modifiedAt
+		this.takeSnapshot(filePath, "pre-save")
+		const snapshot = await writeNoteSnapshot(filePath, preparedContent)
+		entry.diskContent = preparedContent
+		entry.hash = snapshot.hash
+		entry.metadata = snapshot.metadata
+		entry.mtime = snapshot.metadata.modifiedAt
+		entry.dirty = entry.content !== preparedContent
+		if (!entry.dirty) entry.prepareOnSave = undefined
+		if (entry.dirty) {
+			this.scheduleSave(entry.filePath)
+			return
+		}
+		this.notifyDiskContentChange(entry)
+	}
+
+	onDiskContentChange(listener: DiskContentListener): () => void {
+		this.diskContentListeners.add(listener)
+		return () => this.diskContentListeners.delete(listener)
+	}
+
+	private notifyDiskContentChange(entry: NoteCacheEntry) {
+		for (const listener of this.diskContentListeners) listener(entry)
 	}
 
 	async flushAll(): Promise<void> {
@@ -346,17 +434,21 @@ class NoteCache {
 			this.stopSnapshotTimer(path)
 			const contentListeners = this.contentChangeListeners.get(path)
 			const externalChangeLoad = this.externalChangeLoads.get(path)
+			const liveDocument = this.liveDocuments.get(path)
 			this.entries.delete(path)
 			this.contentChangeListeners.delete(path)
 			this.externalChangeLoads.delete(path)
+			this.liveDocuments.delete(path)
 
 			entry.filePath = nextPath
 			this.entries.set(nextPath, entry)
 			if (contentListeners) this.contentChangeListeners.set(nextPath, contentListeners)
 			if (externalChangeLoad) this.externalChangeLoads.set(nextPath, externalChangeLoad)
+			if (liveDocument) this.liveDocuments.set(nextPath, liveDocument)
 
 			if (entry.dirty) this.scheduleSave(nextPath)
 			if (entry.openTabCount > 0) this.startSnapshotTimer(nextPath)
+			this.notifyPathChange(path, nextPath)
 		}
 
 		for (const path of pendingPaths) {
@@ -375,7 +467,7 @@ class NoteCache {
 	}
 
 	openTab(filePath: string) {
-		if (!isMarkdownNotePath(filePath)) return
+		if (!isMarkdownPath(filePath)) return
 		const entry = this.entries.get(filePath)
 		if (entry) {
 			entry.openTabCount++
@@ -387,7 +479,7 @@ class NoteCache {
 	}
 
 	async closeTab(filePath: string) {
-		if (!isMarkdownNotePath(filePath)) return
+		if (!isMarkdownPath(filePath)) return
 		const entry = this.entries.get(filePath)
 		if (!entry) {
 			const pendingCount = this.pendingOpenTabCounts.get(filePath)
@@ -425,7 +517,7 @@ class NoteCache {
 	}
 
 	takeSnapshot(filePath: string, trigger: SnapshotTrigger): Snapshot | null {
-		if (!isMarkdownNotePath(filePath)) return null
+		if (!isMarkdownPath(filePath)) return null
 		const entry = this.entries.get(filePath)
 		if (!entry) return null
 
@@ -454,7 +546,7 @@ class NoteCache {
 	}
 
 	handleExternalChange(filePath: string, newHash: string): Promise<void> {
-		if (!isMarkdownNotePath(filePath)) return Promise.resolve()
+		if (!isMarkdownPath(filePath)) return Promise.resolve()
 		const existing = this.externalChangeLoads.get(filePath)
 		if (existing) {
 			existing.latestHash = newHash
@@ -480,6 +572,11 @@ class NoteCache {
 		const targetHash: string = load.latestHash
 		const entry = this.entries.get(filePath)
 		if (!entry || targetHash === entry.hash) return
+		const liveDocument = this.liveDocuments.get(filePath)
+		if (liveDocument) {
+			await this.applyExternalChangeToLiveDocument(filePath, entry, liveDocument)
+			return this.processExternalChanges(filePath, load, targetHash)
+		}
 		if (entry.dirty) {
 			const snapshot = this.takeSnapshot(filePath, "pre-sync")
 			if (snapshot) this.notifyExternalChange({ filePath, kind: "conflict", snapshot })
@@ -499,6 +596,7 @@ class NoteCache {
 		entry.localCreatedAt = undefined
 
 		if (contentChanged) {
+			this.notifyDiskContentChange(entry)
 			this.notifyContentChange(filePath, content)
 			this.notifyExternalChange({
 				filePath,
@@ -508,6 +606,25 @@ class NoteCache {
 		}
 
 		return this.processExternalChanges(filePath, load, targetHash)
+	}
+
+	private async applyExternalChangeToLiveDocument(
+		filePath: string,
+		entry: NoteCacheEntry,
+		liveDocument: LiveDocumentHandler,
+	): Promise<void> {
+		const snapshot = await getPlatform().fs.readFileSnapshot(filePath)
+		const previousDiskContent = entry.diskContent
+		entry.diskContent = snapshot.content
+		entry.hash = snapshot.hash
+		entry.metadata = snapshot.metadata
+		entry.mtime = snapshot.metadata.modifiedAt
+		entry.localCreatedAt = undefined
+		if (snapshot.content === previousDiskContent) return
+		this.notifyDiskContentChange(entry)
+		if (snapshot.content !== entry.content && this.liveDocuments.get(filePath) === liveDocument) {
+			liveDocument.applyExternalContent(snapshot.content)
+		}
 	}
 
 	private notifyExternalChange(event: ExternalChangeEvent) {
@@ -559,6 +676,7 @@ class NoteCache {
 		this.entryLoads.clear()
 		this.pendingOpenTabCounts.clear()
 		this.loadVersions.clear()
+		this.flushes.clear()
 	}
 }
 

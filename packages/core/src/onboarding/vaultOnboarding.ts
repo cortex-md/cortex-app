@@ -1,4 +1,5 @@
 import { getPlatform } from "@cortex/platform"
+import { getVaultFilePath, toVaultRelativePath, VAULT_CONFIG_DIR } from "@cortex/platform/utils"
 import { createNoteWithPropertyDefaults } from "@cortex/properties"
 import { DEFAULT_VAULT_ONBOARDING_NOTE } from "./defaultVaultOnboardingNote"
 
@@ -44,14 +45,13 @@ async function resolveOnboardingNotePath(vaultPath: string): Promise<string> {
 	return candidate
 }
 
-async function getVaultOnboardingMarkerPath(vaultPath: string): Promise<string> {
-	const configDir = await getPlatform().storage.getVaultConfigDir(vaultPath)
-	return `${configDir}/${vaultOnboardingMarkerFileName}`
+function getVaultOnboardingMarkerPath(vaultPath: string): string {
+	return getVaultFilePath(vaultPath, `${VAULT_CONFIG_DIR}/${vaultOnboardingMarkerFileName}`)
 }
 
 async function hasVaultOnboardingMarker(vaultPath: string): Promise<boolean> {
 	try {
-		await getPlatform().fs.readFile(await getVaultOnboardingMarkerPath(vaultPath))
+		await getPlatform().fs.readFile(getVaultOnboardingMarkerPath(vaultPath))
 		return true
 	} catch {
 		return false
@@ -67,20 +67,22 @@ export async function ensureVaultOnboardingNote(
 	}
 
 	const platform = getPlatform()
-	const [notePath, content, configDir] = await Promise.all([
+	const [notePath, content] = await Promise.all([
 		resolveOnboardingNotePath(vaultPath),
 		createNoteWithPropertyDefaults(vaultPath, DEFAULT_VAULT_ONBOARDING_NOTE),
-		platform.storage.getVaultConfigDir(vaultPath),
 	])
 	const marker: VaultOnboardingMarker = {
 		version: 1,
-		notePath: notePath.replace(`${vaultPath}/`, ""),
+		notePath: toVaultRelativePath(notePath, vaultPath) ?? notePath,
 		createdAt: now.toISOString(),
 	}
 
-	await Promise.all([platform.fs.writeFile(notePath, content), platform.fs.createDir(configDir)])
+	await Promise.all([
+		platform.fs.writeFile(notePath, content),
+		platform.fs.createDir(getVaultFilePath(vaultPath, VAULT_CONFIG_DIR)),
+	])
 	await platform.fs.writeFile(
-		`${configDir}/${vaultOnboardingMarkerFileName}`,
+		getVaultOnboardingMarkerPath(vaultPath),
 		JSON.stringify(marker, null, 2),
 	)
 	return { created: true, notePath }

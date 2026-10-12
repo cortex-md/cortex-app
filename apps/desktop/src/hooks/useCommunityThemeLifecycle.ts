@@ -1,3 +1,4 @@
+import { reportAppError } from "@cortex/core"
 import { getPlatform, type VaultMetadata } from "@cortex/platform"
 import { useEffect, useState } from "react"
 import { applyAppearanceSettings } from "../features/settings/applyAppearance"
@@ -6,7 +7,7 @@ import {
 	reloadCommunityThemes,
 	unloadCommunityThemes,
 } from "../features/themes/communityThemeLoader"
-import { reportAppError } from "../utils/reportAppError"
+import { useWatchedDirectory } from "./useWatchedDirectory"
 
 type AppearanceSettings = Parameters<typeof applyAppearanceSettings>[0]
 
@@ -18,58 +19,26 @@ export function useCommunityThemeLifecycle(
 	const [loadedThemesDirectory, setLoadedThemesDirectory] = useState<string | null>(null)
 	const themesLoaded = loadedThemesDirectory === themesDirectory
 
-	useEffect(() => {
-		if (!themesDirectory) return
-		let cancelled = false
-		let stopThemesWatcher: (() => void) | null = null
-		let themeReloadTimer: number | null = null
-		const initializeThemes = async () => {
-			await getPlatform().fs.createDir(themesDirectory)
-			await loadCommunityThemes(themesDirectory)
-			if (!cancelled) setLoadedThemesDirectory(themesDirectory)
-			if (cancelled) return
-			const stopWatching = await getPlatform().fs.startWatching(
-				themesDirectory,
-				() => {
-					if (themeReloadTimer) window.clearTimeout(themeReloadTimer)
-					themeReloadTimer = window.setTimeout(() => {
-						setLoadedThemesDirectory(null)
-						reloadCommunityThemes(themesDirectory)
-							.then(() => {
-								if (!cancelled) setLoadedThemesDirectory(themesDirectory)
-							})
-							.catch((error) => {
-								void reportAppError({
-									operation: "reload-community-themes",
-									source: "theme-lifecycle",
-									cause: error,
-								})
-							})
-					}, 300)
-				},
-				{ includeHidden: true, followSymlinks: true },
-			)
-			if (cancelled) {
-				stopWatching()
-				return
-			}
-			stopThemesWatcher = stopWatching
-		}
-		initializeThemes().catch((error) => {
-			if (!cancelled) setLoadedThemesDirectory(null)
+	useWatchedDirectory(themesDirectory, {
+		load: async (directory, signal) => {
+			await loadCommunityThemes(directory)
+			if (!signal.aborted) setLoadedThemesDirectory(directory)
+		},
+		reload: async (directory, signal) => {
+			setLoadedThemesDirectory(null)
+			await reloadCommunityThemes(directory)
+			if (!signal.aborted) setLoadedThemesDirectory(directory)
+		},
+		unload: unloadCommunityThemes,
+		onError: (operation, error) => {
+			if (operation === "load") setLoadedThemesDirectory(null)
 			void reportAppError({
-				operation: "initialize-community-themes",
+				operation: operation === "load" ? "initialize-community-themes" : "reload-community-themes",
 				source: "theme-lifecycle",
 				cause: error,
 			})
-		})
-		return () => {
-			cancelled = true
-			if (themeReloadTimer) window.clearTimeout(themeReloadTimer)
-			stopThemesWatcher?.()
-			unloadCommunityThemes()
-		}
-	}, [themesDirectory])
+		},
+	})
 
 	useEffect(() => {
 		if (!vault || !themesLoaded) return
@@ -84,9 +53,6 @@ export function useCommunityThemeLifecycle(
 		}
 		applyAppearance()
 		if (appearance.colorscheme !== "system") return
-		const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
-		const handleSystemThemeChange = () => applyAppearance()
-		mediaQuery.addEventListener("change", handleSystemThemeChange)
-		return () => mediaQuery.removeEventListener("change", handleSystemThemeChange)
+		return getPlatform().appearance.subscribe(applyAppearance)
 	}, [appearance, themesLoaded, vault])
 }

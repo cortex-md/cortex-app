@@ -1,27 +1,24 @@
-import { hostname } from "node:os"
 import { randomUUID } from "node:crypto"
-import * as keychain from "./keychain"
-
-const DEVICE_ID_KEY = "device_id"
-
-export interface DeviceInfo {
-	deviceId: string
-	deviceName: string
-	deviceType: string
-}
+import { hostname } from "node:os"
+import type { DeviceInfo } from "@cortex/platform"
+import { DEVICE_ID_KEY, getOrCreateDeviceId } from "@cortex/platform/vault"
+import type { MainApi } from "../contract"
+import { get as getSecret, set as setSecret } from "./keychain"
 
 export function getDeviceId(): string {
-	const existing = keychain.get(DEVICE_ID_KEY)
-	if (existing) return existing
-	const id = randomUUID()
-	keychain.set(DEVICE_ID_KEY, id)
-	return id
+	return getOrCreateDeviceId({ get: getSecret, set: setSecret }, randomUUID)
 }
 
 export function getDeviceInfo(): DeviceInfo {
-	return {
-		deviceId: getDeviceId(),
-		deviceName: hostname(),
-		deviceType: "desktop",
-	}
+	return { deviceId: getDeviceId(), deviceName: hostname(), deviceType: "desktop" }
 }
+
+export function resetDeviceId(): DeviceInfo {
+	setSecret(DEVICE_ID_KEY, randomUUID())
+	return getDeviceInfo()
+}
+
+export const deviceApi = {
+	getDeviceId: async () => getDeviceId(),
+	getDeviceInfo: async () => getDeviceInfo(),
+} satisfies MainApi["device"]

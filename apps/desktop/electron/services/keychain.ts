@@ -1,113 +1,76 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto"
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs"
 import { dirname } from "node:path"
-import { credentialsKeyPath, credentialsPath, cortexHomeDir } from "../paths"
-
-interface EncryptedPayload {
-	nonce: string
-	data: string
-}
+import { safeStorage } from "electron"
+import type { MainApi } from "../contract"
+import { credentialsPath } from "../paths"
 
 type CredentialEntries = Record<string, string>
 
-let store: {
-	path: string
-	key: Buffer
-	entries: CredentialEntries
-} | null = null
+const RENDERER_KEY_PREFIXES = ["server_url", "sync-env-secret:"]
 
-function encodeBase64(bytes: Buffer): string {
-	return bytes.toString("base64")
+let entries: CredentialEntries | null = null
+let flushScheduled = false
+
+function canPersist(): boolean {
+	return safeStorage.isEncryptionAvailable()
 }
 
-function decodeBase64(value: string): Buffer {
-	return Buffer.from(value, "base64")
-}
-
-function loadOrCreateKey(): Buffer {
-	const path = credentialsKeyPath()
-	if (existsSync(path)) {
-		const raw = readFileSync(path)
-		if (raw.length === 32) {
-			return raw
-		}
-	}
-
-	const key = randomBytes(32)
-	mkdirSync(dirname(path), { recursive: true })
-	writeFileSync(path, key)
+function load(): CredentialEntries {
+	if (entries) return entries
+	entries = {}
+	const path = credentialsPath()
+	if (!existsSync(path) || !canPersist()) return entries
 	try {
-		chmodSync(path, 0o600)
-	} catch {
-		// Best-effort on platforms without POSIX modes.
+		entries = JSON.parse(safeStorage.decryptString(readFileSync(path))) as CredentialEntries
+	} catch (error) {
+		console.error("[keychain] failed to read credential store:", error)
+	}
+	return entries
+}
+
+function flush(): void {
+	flushScheduled = false
+	if (!entries || !canPersist()) return
+	const path = credentialsPath()
+	const temporaryPath = `${path}.tmp`
+	mkdirSync(dirname(path), { recursive: true })
+	writeFileSync(temporaryPath, safeStorage.encryptString(JSON.stringify(entries)), { mode: 0o600 })
+	renameSync(temporaryPath, path)
+}
+
+function scheduleFlush(): void {
+	if (flushScheduled) return
+	flushScheduled = true
+	setImmediate(flush)
+}
+
+export function get(account: string): string | null {
+	return load()[account] ?? null
+}
+
+export function set(account: string, value: string): void {
+	load()[account] = value
+	scheduleFlush()
+}
+
+function remove(account: string): void {
+	const store = load()
+	if (!(account in store)) return
+	delete store[account]
+	scheduleFlush()
+}
+
+export { remove as delete }
+
+function assertRendererKey(key: string): string {
+	if (!RENDERER_KEY_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+		throw new Error(`Keychain key is not accessible from the renderer: ${key}`)
 	}
 	return key
 }
 
-function decryptFile(path: string, key: Buffer): CredentialEntries {
-	const raw = readFileSync(path, "utf8")
-	const payload = JSON.parse(raw) as EncryptedPayload
-	const nonce = decodeBase64(payload.nonce)
-	const ciphertext = decodeBase64(payload.data)
-	if (ciphertext.length < 16) {
-		throw new Error("failed to decrypt credential store")
-	}
-	const authTag = ciphertext.subarray(ciphertext.length - 16)
-	const encrypted = ciphertext.subarray(0, ciphertext.length - 16)
-	const decipher = createDecipheriv("aes-256-gcm", key, nonce)
-	decipher.setAuthTag(authTag)
-	const plaintext = Buffer.concat([decipher.update(encrypted), decipher.final()])
-	return JSON.parse(plaintext.toString("utf8")) as CredentialEntries
-}
-
-function flush(path: string, key: Buffer, entries: CredentialEntries): void {
-	const json = JSON.stringify(entries)
-	const nonce = randomBytes(12)
-	const cipher = createCipheriv("aes-256-gcm", key, nonce)
-	const encrypted = Buffer.concat([cipher.update(json, "utf8"), cipher.final()])
-	const authTag = cipher.getAuthTag()
-	const payload: EncryptedPayload = {
-		nonce: encodeBase64(nonce),
-		data: encodeBase64(Buffer.concat([encrypted, authTag])),
-	}
-	mkdirSync(dirname(path), { recursive: true })
-	writeFileSync(path, JSON.stringify(payload), "utf8")
-}
-
-function withStore<T>(callback: (entries: CredentialEntries) => T): T {
-	if (!store) {
-		mkdirSync(cortexHomeDir(), { recursive: true })
-		const key = loadOrCreateKey()
-		const path = credentialsPath()
-		let entries: CredentialEntries = {}
-		if (existsSync(path)) {
-			try {
-				entries = decryptFile(path, key)
-			} catch {
-				entries = {}
-			}
-		}
-		store = { path, key, entries }
-	}
-	return callback(store.entries)
-}
-
-export function set(account: string, value: string): void {
-	withStore((entries) => {
-		entries[account] = value
-		flush(store!.path, store!.key, entries)
-	})
-}
-
-export function get(account: string): string | null {
-	return withStore((entries) => entries[account] ?? null)
-}
-
-export function deleteAccount(account: string): void {
-	withStore((entries) => {
-		delete entries[account]
-		flush(store!.path, store!.key, entries)
-	})
-}
-
-export { deleteAccount as delete }
+export const keychainApi = {
+	get: async (key) => get(assertRendererKey(key)),
+	set: async (key, value) => set(assertRendererKey(key), value),
+	delete: async (key) => remove(assertRendererKey(key)),
+} satisfies MainApi["keychain"]

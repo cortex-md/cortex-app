@@ -15,16 +15,7 @@ export {
 	stringifyCsvRecords,
 } from "./csv"
 export { decodeHtmlEntities, htmlToMarkdown, renderMarkdownExportHtml } from "./html"
-export {
-	getExtension,
-	getParentPath,
-	getPathName,
-	getRelativePath,
-	normalizeTransferPath,
-	reserveUniquePath,
-	sanitizeFileStem,
-	splitExtension,
-} from "./path"
+export { reserveUniquePath, sanitizeFileStem } from "./path"
 export {
 	type Exporter,
 	type ExporterInput,
@@ -39,18 +30,17 @@ export {
 	type TransferFormat,
 } from "./registry"
 export {
-	ensureBuiltInTransferFormats,
-	exportNote,
 	type ExportNoteOptions,
 	type ExportNoteResult,
+	ensureBuiltInTransferFormats,
+	exportNote,
+	getExportDefaultFileName,
 	getExporter,
 	getExporter as getTransferExporter,
-	getExportDefaultFileName,
 	getImporterDialogFilters,
-	importFiles,
 	type ImportBatchOptions,
 	type ImportBatchResult,
 	type ImportFileResult,
+	importFiles,
 	resolveSiblingExportPath,
 } from "./service"
-

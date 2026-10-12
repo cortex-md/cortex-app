@@ -1,113 +1,66 @@
-import MiniSearch from "minisearch"
-import { extractFrontmatter, stripMarkdown } from "./preprocessor"
+import MiniSearch, { type Options } from "minisearch"
+import { prepareSearchContent } from "./preprocessor"
 import type { SearchDocument, SearchOptions, SearchResult } from "./types"
 
-const SNIPPET_CONTEXT_CHARS = 60
-const SEARCH_PREVIEW_CHARS = 8192
 const DEFAULT_SEARCH_LIMIT = 100
 const TITLE_SEARCH_LIMIT = 20
-const regularExpressionSpecialCharacters = /[.*+?^${}()|[\]\\]/g
 
-interface IndexedSearchDocument extends SearchDocument {
-	preview: string
+type SerializedSearchIndex = Parameters<typeof MiniSearch.loadJS>[0]
+
+interface StoredSearchFields {
+	title: string
+	folder: string
+	tags?: string[]
 }
 
-function escapeSearchTerm(term: string): string {
-	return term.replace(regularExpressionSpecialCharacters, "\\$&")
+const SEARCH_INDEX_OPTIONS: Options<SearchDocument> = {
+	fields: ["title", "content", "tags", "aliases"],
+	storeFields: ["title", "folder", "tags"],
+	searchOptions: {
+		boost: { title: 3, aliases: 2, tags: 2, content: 1 },
+		fuzzy: 0.2,
+		prefix: true,
+	},
 }
 
-function createSearchIndex(): MiniSearch<IndexedSearchDocument> {
-	return new MiniSearch<IndexedSearchDocument>({
-		fields: ["title", "content", "tags", "aliases"],
-		storeFields: ["title", "folder", "preview", "tags"],
-		searchOptions: {
-			boost: { title: 3, aliases: 2, tags: 2, content: 1 },
-			fuzzy: 0.2,
-			prefix: true,
-		},
-	})
+function readSerializedDocumentIds(serialized: SerializedSearchIndex): string[] {
+	return Object.values(serialized.documentIds).filter((id): id is string => typeof id === "string")
 }
 
-function readSerializedDocumentIds(json: string): string[] {
-	const serialized = JSON.parse(json) as {
-		documentIds?: unknown
-		storedFields?: unknown
+function toSearchResult(
+	hit: { id: string; score: number; match: Record<string, string[]> },
+	stored: StoredSearchFields,
+): SearchResult {
+	return {
+		id: hit.id,
+		title: stored.title,
+		folder: stored.folder,
+		score: hit.score,
+		matchedFields: Object.values(hit.match).flat(),
+		matchCount: 0,
+		snippets: [],
 	}
-	if (Array.isArray(serialized.documentIds)) {
-		return serialized.documentIds.filter((id): id is string => typeof id === "string")
-	}
-	if (serialized.documentIds && typeof serialized.documentIds === "object") {
-		return Object.values(serialized.documentIds).filter(
-			(id): id is string => typeof id === "string",
-		)
-	}
-	if (serialized.storedFields && typeof serialized.storedFields === "object") {
-		return Object.keys(serialized.storedFields)
-	}
-	return []
-}
-
-function findBestSnippetIndex(content: string, query: string): number {
-	const terms = query
-		.trim()
-		.toLowerCase()
-		.split(/\s+/)
-		.flatMap((term) => {
-			const escapedTerm = escapeSearchTerm(term)
-			return escapedTerm ? [escapedTerm] : []
-		})
-	if (terms.length === 0) return -1
-
-	return new RegExp(terms.join("|")).exec(content.toLowerCase())?.index ?? -1
-}
-
-function buildSnippet(content: string, query: string): string {
-	if (!query.trim()) return content.slice(0, SNIPPET_CONTEXT_CHARS * 2)
-
-	const bestIndex = findBestSnippetIndex(content, query)
-	if (bestIndex === -1) return content.slice(0, SNIPPET_CONTEXT_CHARS * 2)
-
-	const start = Math.max(0, bestIndex - SNIPPET_CONTEXT_CHARS)
-	const end = Math.min(content.length, bestIndex + SNIPPET_CONTEXT_CHARS)
-	let snippet = content.slice(start, end).replace(/\n/g, " ")
-
-	if (start > 0) snippet = `...${snippet}`
-	if (end < content.length) snippet = `${snippet}...`
-
-	return snippet
 }
 
 export class SearchEngine {
-	private miniSearch: MiniSearch<IndexedSearchDocument>
+	private miniSearch: MiniSearch<SearchDocument>
 	private documentIds = new Set<string>()
 
-	constructor() {
-		this.miniSearch = createSearchIndex()
-	}
-
-	clear(): void {
-		this.miniSearch = createSearchIndex()
-		this.documentIds.clear()
+	constructor(serialized?: SerializedSearchIndex) {
+		this.miniSearch = serialized
+			? MiniSearch.loadJS<SearchDocument>(serialized, SEARCH_INDEX_OPTIONS)
+			: new MiniSearch<SearchDocument>(SEARCH_INDEX_OPTIONS)
+		if (serialized) this.documentIds = new Set(readSerializedDocumentIds(serialized))
 	}
 
 	addDocument(id: string, title: string, rawContent: string, folder: string, mtime: number): void {
-		const { tags, aliases, content: bodyContent } = extractFrontmatter(rawContent)
-		const content = stripMarkdown(bodyContent)
+		const { tags, aliases, content } = prepareSearchContent(rawContent)
 
 		if (this.miniSearch.has(id)) {
 			this.miniSearch.discard(id)
 		}
 
-		this.miniSearch.add({
-			id,
-			title,
-			content,
-			preview: content.slice(0, SEARCH_PREVIEW_CHARS),
-			tags,
-			aliases,
-			folder,
-			mtime,
-		})
+		this.miniSearch.add({ id, title, content, tags, aliases, folder, mtime })
 		this.documentIds.add(id)
 	}
 
@@ -122,6 +75,10 @@ export class SearchEngine {
 		return this.documentIds.has(id) && this.miniSearch.has(id)
 	}
 
+	getDocumentIds(): string[] {
+		return Array.from(this.documentIds)
+	}
+
 	pruneExcept(activeDocumentIds: Set<string>): void {
 		for (const id of Array.from(this.documentIds)) {
 			if (!activeDocumentIds.has(id)) this.removeDocument(id)
@@ -131,84 +88,53 @@ export class SearchEngine {
 	search(query: string, options?: SearchOptions): SearchResult[] {
 		if (!query.trim()) return []
 
-		const searchOptions: Record<string, unknown> = {}
 		const limit = options?.limit ?? DEFAULT_SEARCH_LIMIT
+		const folders = [options?.folder, ...(options?.folders ?? [])].filter(
+			(candidate): candidate is string => Boolean(candidate),
+		)
+		const tagFilters = options?.tags?.map((tag) => tag.toLowerCase()) ?? []
+		const fileFilters = options?.files?.map((file) => file.toLowerCase()) ?? []
+		const filter =
+			folders.length > 0 || tagFilters.length > 0 || fileFilters.length > 0
+				? (result: StoredSearchFields) => {
+						if (folders.length > 0 && !folders.some((folder) => result.folder.startsWith(folder))) {
+							return false
+						}
+						if (tagFilters.length > 0) {
+							const documentTags = result.tags?.map((tag) => tag.toLowerCase()) ?? []
+							const matchesTag = tagFilters.some((filterTag) =>
+								documentTags.some((documentTag) => documentTag.includes(filterTag)),
+							)
+							if (!matchesTag) return false
+						}
+						if (fileFilters.length > 0) {
+							const title = result.title?.toLowerCase() ?? ""
+							if (!fileFilters.some((file) => title.includes(file))) return false
+						}
+						return true
+					}
+				: undefined
 
-		const hasTagFilter = options?.tags && options.tags.length > 0
-		const hasFileFilter = options?.files && options.files.length > 0
-
-		if (options?.folder || hasTagFilter || hasFileFilter) {
-			searchOptions.filter = (result: IndexedSearchDocument) => {
-				if (options?.folder && !result.folder.startsWith(options.folder)) return false
-				if (hasTagFilter) {
-					const docTags = (result as unknown as { tags?: string[] }).tags ?? []
-					const matchesTag = options.tags!.some((filterTag) =>
-						docTags.some((docTag) => docTag.toLowerCase().includes(filterTag.toLowerCase())),
-					)
-					if (!matchesTag) return false
-				}
-				if (hasFileFilter) {
-					const title = (result as unknown as { title: string }).title?.toLowerCase() ?? ""
-					const matchesFile = options.files!.some((f) => title.includes(f.toLowerCase()))
-					if (!matchesFile) return false
-				}
-				return true
-			}
-		}
-
-		const raw = this.miniSearch.search(query, searchOptions)
-		return raw.slice(0, limit).map((hit) => {
-			const stored = hit as unknown as {
-				title: string
-				folder: string
-				preview?: string
-				content?: string
-			}
-			return {
-				id: hit.id,
-				title: stored.title,
-				folder: stored.folder,
-				score: hit.score,
-				matchedFields: Object.values(hit.match).flat(),
-				snippet: buildSnippet(stored.preview ?? stored.content ?? "", query),
-			}
-		})
+		return this.miniSearch
+			.search(
+				query,
+				filter ? { filter: (result) => filter(result as unknown as StoredSearchFields) } : {},
+			)
+			.slice(0, limit)
+			.map((hit) => toSearchResult(hit, hit as unknown as StoredSearchFields))
 	}
 
 	searchTitles(query: string): SearchResult[] {
 		if (!query.trim()) return []
 
-		const raw = this.miniSearch.search(query, {
-			fields: ["title", "aliases"],
-			fuzzy: 0.2,
-			prefix: true,
-		})
-
-		return raw.slice(0, TITLE_SEARCH_LIMIT).map((hit) => ({
-			id: hit.id,
-			title: (hit as unknown as { title: string }).title,
-			folder: (hit as unknown as { folder: string }).folder,
-			score: hit.score,
-			matchedFields: Object.values(hit.match).flat(),
-			snippet: "",
-		}))
+		return this.miniSearch
+			.search(query, { fields: ["title", "aliases"], fuzzy: 0.2, prefix: true })
+			.slice(0, TITLE_SEARCH_LIMIT)
+			.map((hit) => toSearchResult(hit, hit as unknown as StoredSearchFields))
 	}
 
-	serialize(): string {
-		return JSON.stringify(this.miniSearch.toJSON())
-	}
-
-	deserialize(json: string): void {
-		this.miniSearch = MiniSearch.loadJSON<IndexedSearchDocument>(json, {
-			fields: ["title", "content", "tags", "aliases"],
-			storeFields: ["title", "folder", "preview", "tags"],
-			searchOptions: {
-				boost: { title: 3, aliases: 2, tags: 2, content: 1 },
-				fuzzy: 0.2,
-				prefix: true,
-			},
-		})
-		this.documentIds = new Set(readSerializedDocumentIds(json))
+	toJSON(): SerializedSearchIndex {
+		return this.miniSearch.toJSON()
 	}
 
 	get documentCount(): number {

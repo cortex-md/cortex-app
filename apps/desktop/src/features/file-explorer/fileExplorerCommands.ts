@@ -1,5 +1,3 @@
-export const FILE_EXPLORER_COMMAND_EVENT = "cortex:file-explorer-command"
-
 export const FILE_EXPLORER_COMMAND_IDS = {
 	openMenu: "file-explorer.open-menu",
 	rename: "file-explorer.rename",
@@ -9,14 +7,23 @@ export const FILE_EXPLORER_COMMAND_IDS = {
 export type FileExplorerCommandId =
 	(typeof FILE_EXPLORER_COMMAND_IDS)[keyof typeof FILE_EXPLORER_COMMAND_IDS]
 
-export interface FileExplorerCommandEventDetail {
-	commandId: FileExplorerCommandId
+export type FileExplorerCommandHandler = (
+	commandId: FileExplorerCommandId,
+	filePath: string | null,
+) => void
+
+let activeHandler: FileExplorerCommandHandler | null = null
+
+export function setFileExplorerCommandHandler(handler: FileExplorerCommandHandler): () => void {
+	activeHandler = handler
+	return () => {
+		if (activeHandler === handler) activeHandler = null
+	}
 }
 
-export function dispatchFileExplorerCommand(commandId: FileExplorerCommandId): void {
-	window.dispatchEvent(
-		new CustomEvent<FileExplorerCommandEventDetail>(FILE_EXPLORER_COMMAND_EVENT, {
-			detail: { commandId },
-		}),
-	)
+export function runFileExplorerCommand(
+	commandId: FileExplorerCommandId,
+	filePath: string | null = null,
+): void {
+	activeHandler?.(commandId, filePath)
 }

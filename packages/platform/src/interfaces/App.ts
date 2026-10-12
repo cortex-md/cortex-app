@@ -6,6 +6,6 @@ export interface App {
 	getCurrentAppVersion: () => Promise<string>
 	openExternalUrl: (url: string) => Promise<void>
 	resolveFileAssetUrl: (path: string) => string
-	onDeepLinkOpen: (listener: DeepLinkOpenListener) => Promise<() => void>
-	onNativeEvent: <T = unknown>(name: string, listener: NativeEventListener<T>) => Promise<() => void>
+	onDeepLinkOpen: (listener: DeepLinkOpenListener) => () => void
+	onNativeEvent: <T = unknown>(name: string, listener: NativeEventListener<T>) => () => void
 }

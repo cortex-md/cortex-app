@@ -1,6 +1,6 @@
 import { ReadingView } from "@cortex/editor/reading-view"
 import { getPlatform } from "@cortex/platform"
-import type { CoreViewProps } from "../split-view/coreViewRegistry"
+import type { CoreViewProps } from "../split-view/coreViewProps"
 
 function readMarkdownContent(value: unknown): string {
 	return typeof value === "string" ? value : ""

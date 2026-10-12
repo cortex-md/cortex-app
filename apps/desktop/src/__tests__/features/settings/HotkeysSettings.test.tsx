@@ -12,16 +12,12 @@ function resetHotkeysStore() {
 	useHotkeysStore.setState({
 		bindings: [],
 		parsedBindings: [],
-		handlers: {},
 		overrides: {},
 	})
 }
 
 function configurePlatform() {
 	const platform = {
-		storage: {
-			getVaultConfigDir: vi.fn().mockResolvedValue("/vault/.cortex"),
-		},
 		fs: {
 			readFile: vi.fn().mockRejectedValue(new Error("missing")),
 			writeFile: vi.fn().mockResolvedValue(undefined),

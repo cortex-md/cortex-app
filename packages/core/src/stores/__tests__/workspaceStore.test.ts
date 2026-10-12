@@ -764,7 +764,7 @@ describe("workspace persistence", () => {
 		await useWorkspaceStore.getState().loadWorkspace("/vault")
 
 		expect(useUIStore.getState().leftSidebarCollapsed).toBe(false)
-		expect(useUIStore.getState().leftSidebarWidth).toBe(240)
+		expect(useUIStore.getState().leftSidebarWidth).toBe(292)
 	})
 })
 

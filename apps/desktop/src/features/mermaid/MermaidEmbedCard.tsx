@@ -3,8 +3,7 @@ import { Button } from "@cortex/ui"
 import { GitBranchIcon, Maximize2Icon, PanelTopOpenIcon } from "lucide-react"
 import { MermaidDiagramSurface } from "./MermaidDiagramSurface"
 import { createMermaidDiagramReference } from "./mermaidDocument"
-import { openMermaidModal } from "./mermaidModalStore"
-import { openMermaidDiagramTab } from "./mermaidWorkspace"
+import { openMermaidDiagramTab, openMermaidModal } from "./mermaidWorkspace"
 
 interface MermaidEmbedCardProps {
 	filePath: string

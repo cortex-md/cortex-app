@@ -20,5 +20,12 @@
 		}
 	},
 	"include": ["src"],
-	"references": [{ "path": "../commands" }, { "path": "../properties" }, { "path": "../renderer" }]
+	"references": [
+		{ "path": "../collab" },
+		{ "path": "../commands" },
+		{ "path": "../comments" },
+		{ "path": "../platform" },
+		{ "path": "../properties" },
+		{ "path": "../renderer" }
+	]
 }

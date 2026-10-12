@@ -1,71 +1,61 @@
-# Manifest and Capabilities
+# Manifest and Permissions
 
-Every community plugin needs a `manifest.json` at the plugin root.
+The manifest lives inside `definePlugin({ manifest })`. The vault `manifest.json` only needs `id`
+and `main` so the loader can find the bundle.
 
 ## Manifest Shape
 
-```json
-{
-	"id": "example-plugin",
-	"name": "Example Plugin",
-	"version": "0.1.0",
-	"minAppVersion": "0.1.0",
-	"author": "Your Name",
-	"authorUrl": "https://example.com",
-	"description": "Adds a sample command and sidebar view.",
-	"icon": "puzzle",
-	"main": "dist/index.js",
-	"capabilities": ["commands", "ui:views", "ui:sidebar"]
+```ts
+manifest: {
+	id: "example-plugin",
+	name: "Example Plugin",
+	version: "0.1.0",
+	minAppVersion: "0.1.0",
+	author: "Your Name",
+	authorUrl: "https://example.com",
+	description: "Adds a sample command and sidebar view.",
+	icon: "puzzle",
+	permissions: ["vault:read", "workspace:tabs"],
 }
 ```
 
 | Field | Required | Notes |
 | --- | --- | --- |
-| `id` | Yes | Stable id unique inside a vault. Marketplace releases must match this id. |
-| `name` | Yes | User-facing name. |
-| `version` | Yes | Use semver for update comparisons. |
+| `id` | Yes | Stable id unique inside a vault. Must match `manifest.json` and the Marketplace entry. |
+| `name` | Yes | User-facing name; also labels the plugin settings page. |
+| `version` | Yes | Semver for update comparisons. |
 | `minAppVersion` | Yes | Minimum Cortex version the plugin expects. |
 | `author` | Yes | Displayed in plugin and Marketplace surfaces. |
 | `authorUrl` | No | Public URL for the author or organization. |
 | `description` | Yes | Short install/review summary. |
-| `icon` | Yes | Lucide icon name or host-supported icon identifier. |
-| `main` | Yes | Safe relative path to the plugin bundle. |
-| `capabilities` | No | Required before guarded API calls work. |
+| `icon` | Yes | Lucide icon name. |
+| `main` | No | Filled from `manifest.json` for community bundles. |
+| `permissions` | No | Runtime context APIs the plugin calls. Unknown values fail the load. |
 
-## Capability Reference
+## Contributions Need No Permission
 
-| Capability | Enables |
+Commands, views, sidebar items, status bar items, context menu items, settings, Markdown rules,
+property types, fold providers, and editor extensions are granted by declaring them under
+`contributes`. The plugin's capabilities are derived from that declaration.
+
+## Runtime Permissions
+
+`PLUGIN_PERMISSIONS` lists every value. A context call without its permission throws (or, for
+notifications, returns `{ delivered: false, reason: "missing-capability" }`).
+
+| Permission | Enables |
 | --- | --- |
-| `commands` | `api.commands.register`, `api.commands.execute`, command palette, hotkeys, Vim names. |
-| `settings` | Plugin settings storage, schemas, settings tabs, and `onChange` listeners. |
-| `vault:read` | Vault path, file reads, file listings, `exists`, metadata reads, and tag reads. |
-| `vault:write` | Writing text files in the active vault. |
-| `vault:delete` | Deleting files from the active vault. |
-| `vault:watch` | Subscribing to vault file events. |
-| `editor:read` | Active file path and active editor content reads. |
-| `editor:write` | Cursor insertion and selection replacement. |
-| `editor:extensions` | Host-specific editor extensions. |
-| `editor:folding` | Portable line-based fold providers. |
-| `markdown:extensions` | Inline, semantic, callout, preprocessor, processor, and plugin `styles.css` support. |
-| `properties:types` | Custom note property type registration. |
-| `ui:views` | Declarative host-rendered views. |
-| `ui:sidebar` | Sidebar items that open registered views. |
-| `ui:statusbar` | Status bar items. |
-| `ui:contextmenu` | File, editor, and tab context menu items. |
-| `ui:modals` | Opening and closing registered modal views. |
-| `workspace:tabs` | Opening files, views, and temporary Markdown tabs. |
+| `vault:read` | `ctx.vault` reads, listings, `exists`, `getVaultPath`, and `ctx.metadata`. |
+| `vault:write` | `ctx.vault.writeFile`. |
+| `vault:delete` | `ctx.vault.deleteFile`. |
+| `vault:watch` | `ctx.vault.onFileEvent`. |
+| `editor:read` | Active file path and content. |
+| `editor:write` | `insertAtCursor` and `replaceSelection`. |
+| `workspace:tabs` | Opening files, plugin views, and temporary Markdown tabs; open-file reads. |
 | `theme:read` | Active theme name and theme change subscriptions. |
 | `bookmarks:read` | Bookmark list, lookup, and change subscriptions. |
 | `bookmarks:write` | Add, remove, and toggle bookmarks. |
 | `data` | Plugin-owned data files. |
-| `notifications` | Native notifications and lightweight notices. |
+| `notifications` | Native notifications and `ctx.ui.showNotice`. |
 
-## Best Practices
-
-- Request the narrowest capabilities you need.
-- Treat capabilities as user-visible permissions.
-- Do not call APIs defensively and ignore capability failures. Declare the capability or remove the
-  feature.
-- Use local ids for plugin commands, views, settings, and context menu items. Cortex prefixes where
-  global uniqueness is needed.
-
+Request the narrowest set you need; permissions are user-visible.

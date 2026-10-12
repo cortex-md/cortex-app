@@ -29,7 +29,7 @@ const allRendererFeatures: RendererFeatureFlags = {
 	hasMath: true,
 }
 
-const taskListPattern = /(?:^|\n)\s{0,3}(?:[-+*]|\d+[.)])\s+\[[ xX]\](?:\s|$)/
+const taskListPattern = /(?:^|\n)[ \t>]*(?:[-+*]|\d+[.)])\s+\[[ xX]\](?:\s|$)/
 const codeBlockPattern = /(?:^|\n)(?:\s{0,3}(?:```|~~~)|(?: {4}|\t)\S)/
 const calloutPattern = /(?:^|\n)>\s*\[!/
 const tablePattern = /(?:^|\n)\s*\|?.+\|.+\n\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?(?=\n|$)/

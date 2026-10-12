@@ -1,112 +1,81 @@
-import { existsSync, mkdirSync, promises as fs } from "node:fs"
-import { basename, join } from "node:path"
 import { randomUUID } from "node:crypto"
-import type { FileEntry } from "./fs"
-import { normalizePath } from "../paths"
+import { promises as fs } from "node:fs"
+import { dirname, join } from "node:path"
+import type { FileEntry, VaultMetadata } from "@cortex/platform"
+import { getVaultFilePath, normalizePath, VAULT_FILES } from "@cortex/platform/utils"
+import {
+	isHiddenVaultPath,
+	readOrCreateVaultId,
+	resolveVaultName,
+	type VaultTextIo,
+} from "@cortex/platform/vault"
+import type { MainApi } from "../contract"
+import { assertAllowedPath } from "../security"
+import { statsToFileEntry } from "./fs"
+import { vaultRegistryApi } from "./registry"
 
-export interface VaultMetadata {
-	uuid: string
-	path: string
-	name: string
-	fileCount: number
+const vaultTextIo: VaultTextIo = {
+	readText: async (path) => await fs.readFile(path, "utf8"),
+	writeText: async (path, text) => {
+		await fs.mkdir(dirname(path), { recursive: true })
+		await fs.writeFile(path, text, "utf8")
+	},
+	isNotFound: (error) => (error as NodeJS.ErrnoException).code === "ENOENT",
+	createId: randomUUID,
 }
 
-interface VaultIdentity {
-	uuid: string
+async function readVaultMetadataFile(vaultPath: string): Promise<string | null> {
+	return await fs
+		.readFile(getVaultFilePath(vaultPath, VAULT_FILES.vaultMetadata), "utf8")
+		.catch(() => null)
 }
 
-function ensureCortexDir(vaultPath: string): void {
-	mkdirSync(join(vaultPath, ".cortex"), { recursive: true })
-}
-
-async function readOrCreateVaultId(vaultPath: string): Promise<string> {
-	const idPath = join(vaultPath, ".cortex", "vault-id.json")
-	if (existsSync(idPath)) {
-		const content = await fs.readFile(idPath, "utf8")
-		const identity = JSON.parse(content) as VaultIdentity
-		return identity.uuid
-	}
-	const uuid = randomUUID()
-	await fs.writeFile(idPath, JSON.stringify({ uuid }, null, 2), "utf8")
-	return uuid
-}
-
-export async function openVault(path: string): Promise<VaultMetadata> {
-	if (!existsSync(path)) {
+async function assertDirectory(path: string): Promise<void> {
+	const stats = await fs.stat(path).catch(() => null)
+	if (!stats?.isDirectory()) {
 		throw new Error(`Path does not exist or is not a directory: ${path}`)
 	}
-	const metadata = await fs.stat(path)
-	if (!metadata.isDirectory()) {
-		throw new Error(`Path does not exist or is not a directory: ${path}`)
-	}
-	ensureCortexDir(path)
-	const uuid = await readOrCreateVaultId(path)
-	return {
-		uuid,
-		path: normalizePath(path),
-		name: basename(path) || "Vault",
-		fileCount: 0,
-	}
 }
 
-async function scanRecursive(
-	dir: string,
-	files: FileEntry[],
-	isRoot: boolean,
-): Promise<void> {
-	let dirents
-	try {
-		dirents = await fs.readdir(dir, { withFileTypes: true })
-	} catch (error) {
+async function scanDirectory(dir: string, isRoot: boolean): Promise<FileEntry[]> {
+	const dirents = await fs.readdir(dir, { withFileTypes: true }).catch((error) => {
 		if (isRoot) throw error
-		return
-	}
-
-	for (const dirent of dirents) {
-		if (dirent.name.startsWith(".")) continue
-		const fullPath = join(dir, dirent.name)
-		let metadata
-		try {
-			metadata = await fs.stat(fullPath)
-		} catch {
-			continue
-		}
-		const isDir = metadata.isDirectory()
-		files.push({
-			path: normalizePath(fullPath),
-			name: dirent.name,
-			isDir,
-			size: metadata.size,
-			mtime: Math.floor(metadata.mtimeMs / 1000),
-		})
-		if (isDir) {
-			await scanRecursive(fullPath, files, false)
-		}
-	}
+		return []
+	})
+	const nested = await Promise.all(
+		dirents
+			.filter((dirent) => !isHiddenVaultPath(dirent.name))
+			.map(async (dirent) => {
+				const fullPath = join(dir, dirent.name)
+				const stats = await fs.stat(fullPath).catch(() => null)
+				if (!stats) return []
+				const entry = statsToFileEntry(fullPath, dirent.name, stats)
+				return entry.isDir ? [entry, ...(await scanDirectory(fullPath, false))] : [entry]
+			}),
+	)
+	return nested.flat()
 }
 
-export async function scanVault(path: string): Promise<FileEntry[]> {
-	const files: FileEntry[] = []
-	await scanRecursive(path, files, true)
-	return files
+async function describeVault(path: string, fileCount: number): Promise<VaultMetadata> {
+	const [uuid, metadataJson] = await Promise.all([
+		readOrCreateVaultId(path, vaultTextIo),
+		readVaultMetadataFile(path),
+	])
+	return { uuid, path: normalizePath(path), name: resolveVaultName(metadataJson, path), fileCount }
 }
 
-export async function getVaultMetadata(path: string): Promise<VaultMetadata> {
-	if (!existsSync(path)) {
-		throw new Error(`Vault path does not exist: ${path}`)
-	}
-	ensureCortexDir(path)
-	const uuid = await readOrCreateVaultId(path)
-	let files: FileEntry[] = []
-	try {
-		files = await scanVault(path)
-	} catch {
-		files = []
-	}
-	return {
-		uuid,
-		path: normalizePath(path),
-		name: basename(path) || "Vault",
-		fileCount: files.filter((entry) => !entry.isDir).length,
-	}
-}
+export const vaultApi = {
+	openVault: async (path) => {
+		const vaultPath = assertAllowedPath(path)
+		await assertDirectory(vaultPath)
+		return await describeVault(vaultPath, 0)
+	},
+	scanVault: async (path) => await scanDirectory(assertAllowedPath(path), true),
+	getVaultMetadata: async (path) => {
+		const vaultPath = assertAllowedPath(path)
+		await assertDirectory(vaultPath)
+		const files = await scanDirectory(vaultPath, true).catch(() => [])
+		return await describeVault(vaultPath, files.filter((entry) => !entry.isDir).length)
+	},
+	...vaultRegistryApi,
+} satisfies MainApi["vault"]

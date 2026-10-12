@@ -1,3 +1,4 @@
+import { reportAppError } from "@cortex/core"
 import type { FontInfo } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
 import type { AppearanceSettings } from "@cortex/settings"
@@ -13,11 +14,7 @@ import {
 } from "@cortex/ui"
 import { RefreshCw, Store } from "lucide-react"
 import { useEffect, useState } from "react"
-import { reportAppError } from "../../utils/reportAppError"
-import {
-	type OpenMarketplaceHandler,
-	openMarketplaceView,
-} from "../marketplace/openMarketplaceView"
+import type { OpenMarketplaceHandler } from "../marketplace/openMarketplaceView"
 import type { UpdateSettingFn } from "."
 import { applyAppearanceSettings, buildAppearanceOverrides } from "./applyAppearance"
 import { SettingsField, SettingsGroup, SettingsPage, SettingsSection } from "./SettingsPrimitives"
@@ -25,7 +22,7 @@ import { SettingsField, SettingsGroup, SettingsPage, SettingsSection } from "./S
 interface AppearanceSectionProps {
 	settings: AppearanceSettings
 	onUpdate: UpdateSettingFn
-	onBrowseMarketplace?: OpenMarketplaceHandler
+	onBrowseMarketplace: OpenMarketplaceHandler
 }
 
 function uniqueColorOptions(options: ColorPickerOption[]): ColorPickerOption[] {
@@ -71,10 +68,45 @@ function applyAppearanceSafely(nextAppearance: AppearanceSettings) {
 	})
 }
 
+interface FontSizeSliderProps {
+	id: string
+	min: number
+	max: number
+	value: number
+	onPreview: (size: number) => void
+	onCommit: (size: number) => void
+}
+
+function FontSizeSlider({ id, min, max, value, onPreview, onCommit }: FontSizeSliderProps) {
+	const [draft, setDraft] = useState<number | null>(null)
+	return (
+		<div className="flex items-center gap-3 flex-1">
+			<Slider
+				id={id}
+				min={min}
+				max={max}
+				value={[draft ?? value]}
+				onValueChange={([size]: number[]) => {
+					setDraft(size)
+					onPreview(size)
+				}}
+				onValueCommit={([size]: number[]) => {
+					setDraft(null)
+					onCommit(size)
+				}}
+				className="flex-1 h-1 accent-color-accent"
+			/>
+			<span className="text-[11px] text-text-muted min-w-[36px] text-right font-family-mono">
+				{draft ?? value}px
+			</span>
+		</div>
+	)
+}
+
 export function AppearanceSection({
 	settings,
 	onUpdate,
-	onBrowseMarketplace = openMarketplaceView,
+	onBrowseMarketplace,
 }: AppearanceSectionProps) {
 	const [systemFonts, setSystemFonts] = useState<FontInfo[]>([])
 	const [fontsLoading, setFontsLoading] = useState(true)
@@ -132,7 +164,6 @@ export function AppearanceSection({
 
 	const handleUIFontSizeChange = (size: number) => {
 		onUpdate("appearance", "uiFontSize", size)
-		applyOverrides({ uiFontSize: size })
 	}
 
 	const handleNativeWindowEffectsChange = async (enabled: boolean) => {
@@ -147,7 +178,6 @@ export function AppearanceSection({
 
 	const handleEditorFontSizeChange = (size: number) => {
 		onUpdate("appearance", "editorFontSize", size)
-		applyOverrides({ editorFontSize: size })
 	}
 
 	const handleOpenSelectedThemeInMarketplace = () => {
@@ -168,7 +198,7 @@ export function AppearanceSection({
 				}
 			>
 				<SettingsGroup>
-					<SettingsField label="Theme" htmlFor="theme">
+					<SettingsField fieldId="appearance.theme" htmlFor="theme">
 						<div className="settings-theme-marketplace-control">
 							<NativeSelect
 								id="theme"
@@ -194,7 +224,7 @@ export function AppearanceSection({
 						</div>
 					</SettingsField>
 
-					<SettingsField label="Colorscheme" htmlFor="colorscheme">
+					<SettingsField fieldId="appearance.colorscheme" htmlFor="colorscheme">
 						<NativeSelect
 							id="colorscheme"
 							value={settings.colorscheme}
@@ -209,7 +239,7 @@ export function AppearanceSection({
 					</SettingsField>
 
 					<SettingsField
-						label="Accent color"
+						fieldId="appearance.accent-color"
 						htmlFor="accent-color"
 						controlClassName="max-w-[280px]"
 					>
@@ -234,7 +264,7 @@ export function AppearanceSection({
 			>
 				<SettingsGroup>
 					<SettingsField
-						label="UI font"
+						fieldId="appearance.ui-font"
 						htmlFor="ui-font-family"
 						description={fontsLoading ? "Loading system fonts..." : undefined}
 					>
@@ -254,30 +284,21 @@ export function AppearanceSection({
 					</SettingsField>
 
 					<SettingsField
-						label="UI font size"
+						fieldId="appearance.ui-font-size"
 						htmlFor="ui-font-size"
 						controlClassName="max-w-[420px]"
 					>
-						<div className="flex items-center gap-3 flex-1">
-							<Slider
-								id="ui-font-size"
-								min={10}
-								max={20}
-								defaultValue={[settings.uiFontSize]}
-								onValueChange={(value: number[]) => handleUIFontSizeChange(value[0])}
-								className="flex-1 h-1 accent-color-accent"
-							/>
-							<span className="text-[11px] text-text-muted min-w-[36px] text-right font-family-mono">
-								{settings.uiFontSize}px
-							</span>
-						</div>
+						<FontSizeSlider
+							id="ui-font-size"
+							min={10}
+							max={20}
+							value={settings.uiFontSize}
+							onPreview={(size) => applyOverrides({ uiFontSize: size })}
+							onCommit={handleUIFontSizeChange}
+						/>
 					</SettingsField>
 
-					<SettingsField
-						label="Native window effects"
-						description="Use macOS Sidebar material and Windows Mica. Requires restart."
-						htmlFor="native-window-effects"
-					>
+					<SettingsField fieldId="appearance.native-window-effects" htmlFor="native-window-effects">
 						<div className="flex items-center gap-3">
 							{nativeWindowEffectsRestartPending && (
 								<Button variant="outline" size="sm" onClick={restartApp}>
@@ -298,7 +319,7 @@ export function AppearanceSection({
 			<SettingsSection title="Editor" description="Tune note editing typography.">
 				<SettingsGroup>
 					<SettingsField
-						label="Editor font"
+						fieldId="appearance.editor-font"
 						htmlFor="editor-font-family"
 						description={fontsLoading ? "Loading system fonts..." : undefined}
 					>
@@ -318,23 +339,18 @@ export function AppearanceSection({
 					</SettingsField>
 
 					<SettingsField
-						label="Editor font size"
+						fieldId="appearance.editor-font-size"
 						htmlFor="editor-font-size"
 						controlClassName="max-w-[420px]"
 					>
-						<div className="flex items-center gap-3 flex-1">
-							<Slider
-								id="editor-font-size"
-								min={12}
-								max={24}
-								defaultValue={[settings.editorFontSize]}
-								onValueChange={(value: number[]) => handleEditorFontSizeChange(value[0])}
-								className="flex-1 h-1 accent-color-accent"
-							/>
-							<span className="text-[11px] text-text-muted min-w-[36px] text-right font-family-mono">
-								{settings.editorFontSize}px
-							</span>
-						</div>
+						<FontSizeSlider
+							id="editor-font-size"
+							min={12}
+							max={24}
+							value={settings.editorFontSize}
+							onPreview={(size) => applyOverrides({ editorFontSize: size })}
+							onCommit={handleEditorFontSizeChange}
+						/>
 					</SettingsField>
 				</SettingsGroup>
 			</SettingsSection>

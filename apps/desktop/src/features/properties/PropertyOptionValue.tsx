@@ -1,5 +1,5 @@
 import type { PropertyOption } from "@cortex/properties"
-import { Button } from "@cortex/ui"
+import { Button, StatusBadge } from "@cortex/ui"
 import { XIcon } from "lucide-react"
 
 interface PropertyOptionValueProps {
@@ -9,9 +9,8 @@ interface PropertyOptionValueProps {
 
 export function PropertyOptionValue({ option, onRemove }: PropertyOptionValueProps) {
 	return (
-		<span className="note-property-option-value" data-color={option.color}>
-			<span className="note-property-color-dot" data-color={option.color} />
-			<span>{option.label}</span>
+		<StatusBadge color={option.color} className="note-property-option-value">
+			<span className="truncate">{option.label}</span>
 			{onRemove && (
 				<Button
 					variant="ghost"
@@ -26,6 +25,6 @@ export function PropertyOptionValue({ option, onRemove }: PropertyOptionValuePro
 					<XIcon />
 				</Button>
 			)}
-		</span>
+		</StatusBadge>
 	)
 }

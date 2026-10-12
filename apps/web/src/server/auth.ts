@@ -1,7 +1,18 @@
+import {
+	requestLogin,
+	requestLogout,
+	requestPrelogin,
+	requestRegister,
+	SyncError,
+} from "@cortex/sync-api"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { SyncApiError, syncRequest } from "./sync/client"
-import type { SyncRuntimeEnv } from "./sync/config"
+import {
+	createSyncClient,
+	resolveActiveSession,
+	type SessionDependencies,
+	type SyncDependencies,
+} from "./sync/api"
 
 export const authCookieNames = {
 	accessToken: "cortex_access_token",
@@ -28,7 +39,14 @@ const signupSchema = z.object({
 	displayName: z.string().trim().min(1, "Enter your name").max(120, "Name is too long"),
 	email: z.email("Enter a valid email address"),
 	password: z.string().min(8, "Use at least 8 characters"),
+	kdfSalt: z.string().min(1),
+	publicKey: z.string().min(1),
+	encryptedPrivateKey: z.string().min(1),
 	redirectTo: z.string().optional(),
+})
+
+const preloginSchema = z.object({
+	email: z.email("Enter a valid email address"),
 })
 
 const logoutSchema = z.object({
@@ -37,6 +55,11 @@ const logoutSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>
 export type SignupInput = z.infer<typeof signupSchema>
+export type PreloginInput = z.infer<typeof preloginSchema>
+
+export type PreloginResult =
+	| { ok: true; kdfVersion: number; kdfSalt: string | null }
+	| { ok: false; message: string }
 
 export interface AuthSession {
 	accessToken: string
@@ -58,35 +81,13 @@ export type AuthSessionResult =
 	| { authenticated: false }
 	| { authenticated: true; session: { deviceId: string; email: string; userId: string } }
 
-interface SyncLoginResponse {
-	access_token: string
-	email: string
-	refresh_token: string
-	user_id: string
-}
-
-interface SyncRefreshResponse {
-	access_token: string
-	refresh_token: string
-}
-
-interface AuthDependencies {
+interface AuthDependencies extends SyncDependencies {
 	currentDeviceId?: string
-	env?: SyncRuntimeEnv
-	fetcher?: typeof fetch
 	randomUUID?: () => string
 }
 
-interface SessionDependencies {
-	env?: SyncRuntimeEnv
-	fetcher?: typeof fetch
-	onSessionCleared?: () => void
-	onSessionRefreshed?: (session: AuthSession) => void
-	session?: AuthSession | null
-}
-
 function authErrorMessage(error: unknown) {
-	if (error instanceof SyncApiError) {
+	if (error instanceof SyncError) {
 		switch (error.code) {
 			case "user_exists":
 				return "An account already exists for that email."
@@ -100,7 +101,7 @@ function authErrorMessage(error: unknown) {
 				return "Your session expired. Sign in again."
 			default:
 				if (error.status === 401) return "Email or password is incorrect."
-				return error.message
+				return error.detail ?? "Cortex Sync is temporarily unavailable."
 		}
 	}
 
@@ -136,24 +137,22 @@ export async function loginWithSync(
 		dependencies.currentDeviceId || dependencies.randomUUID?.() || crypto.randomUUID()
 
 	try {
-		const response = await syncRequest<SyncLoginResponse>("/auth/v1/login", {
-			method: "POST",
-			body: {
-				email: input.email,
-				password: input.password,
-				device_id: deviceId,
-				device_name: "Cortex Web",
-				device_type: "web",
+		const response = await requestLogin(
+			createSyncClient(dependencies),
+			input.email,
+			input.password,
+			{
+				deviceId,
+				deviceName: "Cortex Web",
+				deviceType: "web",
 			},
-			env: dependencies.env,
-			fetcher: dependencies.fetcher,
-		})
+		)
 		const session: AuthSession = {
-			accessToken: response.access_token,
+			accessToken: response.accessToken,
 			deviceId,
 			email: response.email,
-			refreshToken: response.refresh_token,
-			userId: response.user_id,
+			refreshToken: response.refreshToken,
+			userId: response.userId,
 		}
 
 		return {
@@ -171,21 +170,38 @@ export async function signupWithSync(
 	dependencies: AuthDependencies = {},
 ): Promise<InternalAuthResult> {
 	try {
-		await syncRequest("/auth/v1/register", {
-			method: "POST",
-			body: {
-				email: input.email,
-				password: input.password,
-				display_name: input.displayName,
+		await requestRegister(
+			createSyncClient(dependencies),
+			input.email,
+			input.password,
+			input.displayName,
+			{
+				kdfSalt: input.kdfSalt,
+				publicKey: input.publicKey,
+				encryptedPrivateKey: input.encryptedPrivateKey,
+				recoveryWrappedPrivateKey: null,
 			},
-			env: dependencies.env,
-			fetcher: dependencies.fetcher,
-		})
+		)
 	} catch (error) {
 		return { ok: false, message: authErrorMessage(error) }
 	}
 
 	return loginWithSync(input, dependencies)
+}
+
+export async function preloginWithSync(
+	input: PreloginInput,
+	dependencies: SyncDependencies = {},
+): Promise<PreloginResult> {
+	try {
+		const response = await requestPrelogin(createSyncClient(dependencies), input.email)
+		return { ok: true, kdfVersion: response.kdfVersion, kdfSalt: response.kdfSalt }
+	} catch (error) {
+		if (error instanceof SyncError && error.status === 404) {
+			return { ok: true, kdfVersion: 0, kdfSalt: null }
+		}
+		return { ok: false, message: authErrorMessage(error) }
+	}
 }
 
 export function toAuthActionResult(result: InternalAuthResult): AuthActionResult {
@@ -198,45 +214,12 @@ export function toAuthActionResult(result: InternalAuthResult): AuthActionResult
 	}
 }
 
-export async function refreshAuthSession(
-	session: AuthSession,
-	dependencies: Pick<AuthDependencies, "env" | "fetcher"> = {},
-) {
-	const response = await syncRequest<SyncRefreshResponse>("/auth/v1/token/refresh", {
-		method: "POST",
-		body: {
-			refresh_token: session.refreshToken,
-		},
-		env: dependencies.env,
-		fetcher: dependencies.fetcher,
-	})
-
-	return {
-		...session,
-		accessToken: response.access_token,
-		refreshToken: response.refresh_token,
-	}
-}
-
 export async function getSessionFromAuthSession(
 	dependencies: SessionDependencies = {},
 ): Promise<AuthSessionResult> {
-	let session = dependencies.session ?? null
+	const session = await resolveActiveSession(dependencies)
 
 	if (!session) return { authenticated: false }
-
-	if (!session.accessToken) {
-		try {
-			session = await refreshAuthSession(session, {
-				env: dependencies.env,
-				fetcher: dependencies.fetcher,
-			})
-			dependencies.onSessionRefreshed?.(session)
-		} catch {
-			dependencies.onSessionCleared?.()
-			return { authenticated: false }
-		}
-	}
 
 	return {
 		authenticated: true,
@@ -257,6 +240,10 @@ export const login = createServerFn({ method: "POST" })
 
 		return toAuthActionResult(result)
 	})
+
+export const prelogin = createServerFn({ method: "POST" })
+	.validator(preloginSchema)
+	.handler(async ({ data }) => preloginWithSync(data))
 
 export const signup = createServerFn({ method: "POST" })
 	.validator(signupSchema)
@@ -293,12 +280,13 @@ export const logout = createServerFn({ method: "POST" })
 
 		if (session?.accessToken && session.deviceId) {
 			try {
-				await syncRequest("/auth/v1/logout", {
-					method: "POST",
-					body: { all_devices: data.allDevices ?? false },
-					accessToken: session.accessToken,
-					deviceId: session.deviceId,
-				})
+				await requestLogout(
+					createSyncClient({}, session.deviceId, {
+						getAccessToken: async () => session.accessToken,
+						refreshAccessToken: async () => null,
+					}),
+					data.allDevices ?? false,
+				)
 			} catch {
 				// Local logout should still clear the browser session if Sync is unavailable.
 			}

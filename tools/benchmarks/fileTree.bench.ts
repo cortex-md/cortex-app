@@ -4,7 +4,7 @@ import {
 	projectVisibleFileTree,
 	type FileTreeNode,
 	type FileTreeVisibleNodeRow,
-} from "../../apps/desktop/src/features/file-explorer/fileTree"
+} from "../../packages/core/src/utils/fileTree"
 
 function createEntries(fileCount: number) {
 	const directoryCount = Math.ceil(fileCount / 100)

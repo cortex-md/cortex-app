@@ -1,5 +1,5 @@
+import { buildFileTree, flattenVisibleFileTree } from "@cortex/core"
 import { describe, expect, it } from "vitest"
-import { buildFileTree, flattenVisibleFileTree } from "../../../features/file-explorer/fileTree"
 
 describe("file tree model", () => {
 	it("indexes each entry into a sorted hierarchy", () => {

@@ -31,11 +31,11 @@ export interface WatchOptions {
 export interface FileSystem {
 	readFile(path: string): Promise<string>
 	readFileSnapshot(path: string): Promise<FileSnapshot>
-	readBinaryFile?(path: string): Promise<number[]>
+	readBinaryFile?(path: string): Promise<Uint8Array>
 	writeFileSnapshot?(path: string, content: string): Promise<FileSnapshot>
 	writeFile(path: string, content: string): Promise<void>
 	atomicWriteFile(path: string, content: string): Promise<void>
-	writeBinaryFile(path: string, data: number[]): Promise<void>
+	writeBinaryFile(path: string, data: Uint8Array): Promise<void>
 	deleteFile(path: string): Promise<void>
 	renameFile(oldPath: string, newPath: string): Promise<void>
 	createDir(path: string): Promise<void>

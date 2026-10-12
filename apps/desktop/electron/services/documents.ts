@@ -1,40 +1,10 @@
-import { BrowserWindow } from "electron"
 import { promises as fs } from "node:fs"
 import { dirname } from "node:path"
+import { BrowserWindow } from "electron"
+import type { MainApi } from "../contract"
+import { assertAllowedPath } from "../security"
 
-export interface PdfTextPage {
-	pageNumber: number
-	text: string
-}
-
-export interface PdfTextExtraction {
-	pages: PdfTextPage[]
-}
-
-export async function extractPdfText(path: string): Promise<PdfTextExtraction> {
-	const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs")
-	const data = new Uint8Array(await fs.readFile(path))
-	const document = await pdfjs.getDocument({ data, useSystemFonts: true }).promise
-	const pages: PdfTextPage[] = []
-
-	for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
-		const page = await document.getPage(pageNumber)
-		const content = await page.getTextContent()
-		const text = content.items
-			.map((item) => ("str" in item ? item.str : ""))
-			.join(" ")
-			.trim()
-		pages.push({ pageNumber, text })
-	}
-
-	if (pages.every((page) => !page.text.trim())) {
-		throw new Error("PDF contains no extractable text")
-	}
-
-	return { pages }
-}
-
-export async function exportHtmlToPdf(path: string, html: string, title: string): Promise<void> {
+async function exportHtmlToPdf(path: string, html: string, title: string): Promise<void> {
 	await fs.mkdir(dirname(path), { recursive: true })
 	const window = new BrowserWindow({
 		show: false,
@@ -42,6 +12,7 @@ export async function exportHtmlToPdf(path: string, html: string, title: string)
 			sandbox: true,
 			contextIsolation: true,
 			nodeIntegration: false,
+			javascript: false,
 		},
 	})
 
@@ -51,7 +22,6 @@ export async function exportHtmlToPdf(path: string, html: string, title: string)
 		const pdf = await window.webContents.printToPDF({
 			printBackground: true,
 			margins: {
-				marginType: "custom",
 				top: 0.75,
 				bottom: 0.75,
 				left: 0.75,
@@ -71,3 +41,8 @@ function escapeHtml(value: string): string {
 		.replaceAll(">", "&gt;")
 		.replaceAll('"', "&quot;")
 }
+
+export const documentsApi = {
+	exportHtmlToPdf: async ({ targetPath, html, title }) =>
+		await exportHtmlToPdf(assertAllowedPath(targetPath), html, title),
+} satisfies MainApi["documents"]

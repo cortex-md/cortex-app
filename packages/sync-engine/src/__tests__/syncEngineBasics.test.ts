@@ -1,13 +1,18 @@
 import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import {
+	createDefaultSyncPreferences,
+	isSyncImagePath,
+	shouldIgnoreSyncPath,
+} from "@cortex/platform/sync-rules"
+import { toVaultRelativePath } from "@cortex/platform/utils"
+import { SyncError } from "@cortex/sync-api"
 import { afterEach, describe, expect, it } from "vitest"
 import { SyncDb } from "../db"
-import { defaultSyncPreferences, isImagePath, shouldIgnorePath } from "../ignore"
 import { mergeMarkdown } from "../merge"
-import { normalizeRelativePath, toVaultRelativePath } from "../paths"
 import { retryBackoffSecs, SyncQueue } from "../queue"
-import { isRetriableSyncErrorMessage } from "../state"
+import { normalizeRelativePath } from "../util"
 
 const tempDirs: string[] = []
 
@@ -30,7 +35,7 @@ describe("paths", () => {
 	})
 
 	it("derives windows relative paths from logical roots", () => {
-		expect(toVaultRelativePath("C:\\Users\\Luiza\\Vault", "C:\\Users\\Luiza\\Vault\\Note.md")).toBe(
+		expect(toVaultRelativePath("C:\\Users\\Luiza\\Vault\\Note.md", "C:\\Users\\Luiza\\Vault")).toBe(
 			"Note.md",
 		)
 	})
@@ -44,105 +49,96 @@ describe("mergeMarkdown", () => {
 
 describe("sync error classification", () => {
 	it("treats http 429 as retriable", () => {
-		expect(isRetriableSyncErrorMessage("Upload failed: HTTP 429: too many requests")).toBe(true)
+		expect(
+			SyncError.fromStatus(429, "Upload failed: HTTP 429: too many requests").isRetriable,
+		).toBe(true)
 	})
 
 	it("treats auth errors as non-retriable", () => {
-		expect(isRetriableSyncErrorMessage("Conflict: HTTP 401: cannot retry")).toBe(false)
+		expect(SyncError.fromStatus(401, "Conflict: HTTP 401: cannot retry").isRetriable).toBe(false)
 	})
 })
 
 describe("ignore patterns", () => {
 	it("matches excluded files and directories", () => {
 		const preferences = {
-			...defaultSyncPreferences(),
-			excludedPaths: ["private/", "scratch.md"],
+			...createDefaultSyncPreferences(),
+			excludedPaths: ["private/", "/scratch.md"],
 		}
-		expect(shouldIgnorePath("private/note.md", preferences)).toBe(true)
-		expect(shouldIgnorePath("scratch.md", preferences)).toBe(true)
-		expect(shouldIgnorePath("notes/scratch.md", preferences)).toBe(false)
+		expect(shouldIgnoreSyncPath("private/note.md", preferences)).toBe(true)
+		expect(shouldIgnoreSyncPath("scratch.md", preferences)).toBe(true)
+		expect(shouldIgnoreSyncPath("notes/scratch.md", preferences)).toBe(false)
 	})
 
 	it("ignores images when configured", () => {
-		expect(isImagePath("photo.PNG")).toBe(true)
-		const preferences = { ...defaultSyncPreferences(), ignoreImages: true }
-		expect(shouldIgnorePath("assets/photo.png", preferences)).toBe(true)
-		expect(shouldIgnorePath("notes/todo.md", preferences)).toBe(false)
+		expect(isSyncImagePath("photo.PNG")).toBe(true)
+		const preferences = { ...createDefaultSyncPreferences(), ignoreImages: true }
+		expect(shouldIgnoreSyncPath("assets/photo.png", preferences)).toBe(true)
+		expect(shouldIgnoreSyncPath("notes/todo.md", preferences)).toBe(false)
 	})
 })
 
 describe("queue dedup", () => {
 	it("deduplicates uploads in memory and sqlite", () => {
 		const vault = tempVault()
-		const db = SyncDb.open(vault)
-		const queue = SyncQueue.withDb(db)
-		const [first, priority] = SyncQueue.upload("note.md")
-		queue.push(first, priority)
-		const [second] = SyncQueue.upload("note.md")
-		queue.push(second, priority)
+		const db = new SyncDb(vault)
+		const queue = new SyncQueue(db)
+		queue.push({ type: "upload", path: "note.md" })
+		queue.push({ type: "upload", path: "note.md" })
 
-		expect(queue.len()).toBe(1)
-		expect(db.loadPendingQueue(Math.floor(Date.now() / 1000))).toHaveLength(1)
+		expect(queue.size).toBe(1)
+		expect(db.listDueQueue(Math.floor(Date.now() / 1000))).toHaveLength(1)
 		db.close()
 	})
 
 	it("keeps only the latest download version", () => {
 		const vault = tempVault()
-		const db = SyncDb.open(vault)
-		const queue = SyncQueue.withDb(db)
-		queue.push(...SyncQueue.download("note.md", 2))
-		queue.push(...SyncQueue.download("note.md", 1))
-		queue.push(...SyncQueue.download("note.md", 5))
+		const db = new SyncDb(vault)
+		const queue = new SyncQueue(db)
+		queue.push({ type: "download", path: "note.md", version: 2 })
+		queue.push({ type: "download", path: "note.md", version: 1 })
+		queue.push({ type: "download", path: "note.md", version: 5 })
 
-		expect(queue.len()).toBe(1)
+		expect(queue.size).toBe(1)
 		const item = queue.pop()
 		expect(item?.op).toEqual({ type: "download", path: "note.md", version: 5 })
-		const rows = db.loadPendingQueue(Math.floor(Date.now() / 1000))
+		const rows = db.listDueQueue(Math.floor(Date.now() / 1000))
 		expect(rows).toHaveLength(1)
-		expect(rows[0]?.extraData).toBe("5")
+		expect(JSON.parse(rows[0]?.op ?? "{}").version).toBe(5)
 		db.close()
 	})
 
 	it("deduplicating downloads keeps the highest source event id", () => {
 		const vault = tempVault()
-		const db = SyncDb.open(vault)
-		const queue = SyncQueue.withDb(db)
-		const [older, priority] = SyncQueue.download("note.md", 5)
-		queue.pushFromEvent(older, priority, "8")
-		const [stale] = SyncQueue.download("note.md", 2)
-		queue.pushFromEvent(stale, priority, "12")
+		const db = new SyncDb(vault)
+		const queue = new SyncQueue(db)
+		queue.push({ type: "download", path: "note.md", version: 5 }, "8")
+		queue.push({ type: "download", path: "note.md", version: 2 }, "12")
 
-		expect(queue.len()).toBe(1)
+		expect(queue.size).toBe(1)
 		const item = queue.pop()
 		expect(item?.op).toEqual({ type: "download", path: "note.md", version: 5 })
 		expect(item?.sourceEventId).toBe("12")
 		db.close()
 	})
 
-	it("keeps a single creation metadata lookup", () => {
-		const queue = new SyncQueue()
-		queue.push(...SyncQueue.lookupCreationMetadata("note.md"))
-		queue.push(...SyncQueue.lookupCreationMetadata("note.md"))
-		expect(queue.len()).toBe(1)
-	})
-
 	it("schedules retries without duplicating pending rows", () => {
 		const vault = tempVault()
-		const db = SyncDb.open(vault)
-		const queue = SyncQueue.withDb(db)
-		queue.push(...SyncQueue.upload("note.md"))
+		const db = new SyncDb(vault)
+		const queue = new SyncQueue(db)
+		queue.push({ type: "upload", path: "note.md" })
 		const item = queue.pop()
 		expect(item).toBeTruthy()
 		if (!item) return
-		queue.markFailed(item, "temporary", true)
+		queue.fail(item, true)
 
 		const now = Math.floor(Date.now() / 1000)
-		expect(db.loadPendingQueue(now)).toHaveLength(0)
-		expect(db.loadPendingQueue(now + retryBackoffSecs(0) + 1)).toHaveLength(1)
+		expect(db.listDueQueue(now)).toHaveLength(0)
+		expect(db.listDueQueue(now + retryBackoffSecs(0) + 1)).toHaveLength(1)
 
-		queue.push(...SyncQueue.upload("note.md"))
-		expect(queue.len()).toBe(1)
-		expect(db.loadPendingQueue(now)).toHaveLength(1)
+		queue.push({ type: "upload", path: "note.md" })
+		expect(queue.size).toBe(1)
+		expect(db.listDueQueue(now)).toHaveLength(1)
 		db.close()
 	})
 })

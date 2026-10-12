@@ -3,4 +3,4 @@ export {
 	getCalloutRegistryVersion,
 	getCalloutTypes,
 	subscribeCalloutTypes,
-} from "@cortex/renderer"
+} from "@cortex/renderer/callouts"

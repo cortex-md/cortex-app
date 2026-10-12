@@ -1,14 +1,22 @@
-import { createServerFn } from "@tanstack/react-start"
-import { type AuthSession, refreshAuthSession } from "./auth"
 import {
-	normalizeSubscriptionStatus,
+	type DeviceEntry,
+	getSubscriptionStatus,
+	listDevices,
+	listRemoteVaults,
+	mapDevices,
+	mapRemoteVaults,
+	type RemoteVaultInfo,
 	type SubscriptionStatus,
-	type SubscriptionStatusResponse,
-} from "./billing"
-import { SyncApiError, syncRequest } from "./sync/client"
-import type { SyncRuntimeEnv } from "./sync/config"
+} from "@cortex/sync-api"
+import { createServerFn } from "@tanstack/react-start"
+import {
+	createSessionClient,
+	isAuthFailure,
+	resolveActiveSession,
+	type SessionDependencies,
+} from "./sync/api"
 
-export type { SubscriptionStatus } from "./billing"
+export type { SubscriptionStatus } from "@cortex/sync-api"
 
 export interface AccountPublicSession {
 	email: string
@@ -55,136 +63,51 @@ export type AccountOverviewResult =
 			vaults: AccountVaultsResult
 	  }
 
-interface AccountDependencies {
-	env?: SyncRuntimeEnv
-	fetcher?: typeof fetch
-	onSessionCleared?: () => void
-	onSessionRefreshed?: (session: AuthSession) => void
-	session?: AuthSession | null
+const unauthenticatedResult: AccountOverviewResult = {
+	authenticated: false,
+	redirectTo: "/login?redirect=/account",
 }
 
-function isAuthFailure(error: unknown) {
-	if (!(error instanceof SyncApiError)) return false
-	return (
-		error.status === 401 ||
-		error.code === "token_expired" ||
-		error.code === "token_revoked" ||
-		error.code === "token_reuse"
-	)
-}
-
-function toPublicSession(session: AuthSession): AccountPublicSession {
-	return {
-		email: session.email,
-	}
-}
-
-function normalizeString(value: unknown) {
-	return typeof value === "string" && value.trim() ? value.trim() : null
-}
-
-function normalizeNumber(value: unknown) {
-	return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null
-}
-
-function normalizeItemsPayload(payload: unknown, key: "devices" | "vaults") {
-	if (Array.isArray(payload)) return payload
+function normalizeVaultRole(role: string): AccountVaultRole {
+	const normalizedRole = role.toLowerCase()
 	if (
-		payload &&
-		typeof payload === "object" &&
-		Array.isArray((payload as Record<string, unknown>)[key])
+		normalizedRole === "admin" ||
+		normalizedRole === "editor" ||
+		normalizedRole === "owner" ||
+		normalizedRole === "viewer"
 	) {
-		return (payload as Record<string, unknown>)[key] as unknown[]
-	}
-	return []
-}
-
-function normalizeVaultRole(value: unknown): AccountVaultRole {
-	const role = normalizeString(value)?.toLowerCase()
-	if (role === "admin" || role === "editor" || role === "owner" || role === "viewer") {
-		return role
+		return normalizedRole
 	}
 	return "unknown"
 }
 
-export function normalizeAccountDevices(payload: unknown): AccountDeviceSummary[] {
-	return normalizeItemsPayload(payload, "devices").map((item) => {
-		const record = item && typeof item === "object" ? (item as Record<string, unknown>) : {}
-		const type = normalizeString(record.device_type) ?? "unknown"
-
-		return {
-			name: normalizeString(record.device_name) ?? "Unnamed device",
-			type,
-			isCurrent: record.is_current === true,
-			isRevoked: record.revoked === true,
-			lastSeenAt: normalizeString(record.last_seen_at),
-			createdAt: normalizeString(record.created_at),
-		}
-	})
-}
-
-export function normalizeAccountVaults(payload: unknown): AccountVaultSummary[] {
-	return normalizeItemsPayload(payload, "vaults").map((item) => {
-		const record = item && typeof item === "object" ? (item as Record<string, unknown>) : {}
-
-		return {
-			name: normalizeString(record.name) ?? "Untitled vault",
-			description: normalizeString(record.description),
-			role: normalizeVaultRole(record.role),
-			memberCount: normalizeNumber(record.member_count),
-			updatedAt: normalizeString(record.updated_at),
-		}
-	})
-}
-
-async function refreshSessionOrUnauthenticated(
-	session: AuthSession,
-	dependencies: AccountDependencies,
-) {
-	try {
-		const refreshedSession = await refreshAuthSession(session, {
-			env: dependencies.env,
-			fetcher: dependencies.fetcher,
-		})
-		dependencies.onSessionRefreshed?.(refreshedSession)
-		return refreshedSession
-	} catch {
-		dependencies.onSessionCleared?.()
-		return null
+function toDeviceSummary(device: DeviceEntry): AccountDeviceSummary {
+	return {
+		name: device.deviceName,
+		type: device.deviceType,
+		isCurrent: device.isCurrent === true,
+		isRevoked: device.revoked,
+		lastSeenAt: device.lastSeenAt,
+		createdAt: device.createdAt || null,
 	}
 }
 
-async function readSubscriptionStatus(session: AuthSession, dependencies: AccountDependencies) {
-	const payload = await syncRequest<SubscriptionStatusResponse>("/subscription/v1/status", {
-		accessToken: session.accessToken,
-		deviceId: session.deviceId,
-		env: dependencies.env,
-		fetcher: dependencies.fetcher,
-	})
-
-	return normalizeSubscriptionStatus(payload)
+function toVaultSummary(vault: RemoteVaultInfo): AccountVaultSummary {
+	return {
+		name: vault.name,
+		description: vault.description,
+		role: normalizeVaultRole(vault.role),
+		memberCount: vault.memberCount,
+		updatedAt: vault.updatedAt || null,
+	}
 }
 
-async function readDevices(session: AuthSession, dependencies: AccountDependencies) {
-	const payload = await syncRequest<unknown>("/devices/v1/", {
-		accessToken: session.accessToken,
-		deviceId: session.deviceId,
-		env: dependencies.env,
-		fetcher: dependencies.fetcher,
-	})
-
-	return normalizeAccountDevices(payload)
+export function normalizeAccountDevices(payload: unknown): AccountDeviceSummary[] {
+	return mapDevices(payload).map(toDeviceSummary)
 }
 
-async function readVaults(session: AuthSession, dependencies: AccountDependencies) {
-	const payload = await syncRequest<unknown>("/vaults/v1/", {
-		accessToken: session.accessToken,
-		deviceId: session.deviceId,
-		env: dependencies.env,
-		fetcher: dependencies.fetcher,
-	})
-
-	return normalizeAccountVaults(payload)
+export function normalizeAccountVaults(payload: unknown): AccountVaultSummary[] {
+	return mapRemoteVaults(payload).map(toVaultSummary)
 }
 
 type CapturedResult<T> = { ok: true; value: T } | { error: unknown; ok: false }
@@ -197,119 +120,41 @@ async function capture<T>(promise: Promise<T>): Promise<CapturedResult<T>> {
 	}
 }
 
-function getCapturedAuthFailure(results: Array<CapturedResult<unknown>>) {
-	const failedResult = results.find((result) => !result.ok && isAuthFailure(result.error))
-	return failedResult && !failedResult.ok ? failedResult.error : null
-}
-
-async function readAccountData(session: AuthSession, dependencies: AccountDependencies) {
-	const [subscription, devices, vaults] = await Promise.all([
-		capture(readSubscriptionStatus(session, dependencies)),
-		capture(readDevices(session, dependencies)),
-		capture(readVaults(session, dependencies)),
-	])
-	const authFailure = getCapturedAuthFailure([subscription, devices, vaults])
-
-	if (authFailure) throw authFailure
-
-	return {
-		subscription: subscription.ok
-			? ({ available: true, status: subscription.value } satisfies AccountSubscriptionResult)
-			: ({
-					available: false,
-					message: "Plan details are temporarily unavailable.",
-				} satisfies AccountSubscriptionResult),
-		devices: devices.ok
-			? ({ available: true, devices: devices.value } satisfies AccountDevicesResult)
-			: ({
-					available: false,
-					message: "Devices are temporarily unavailable.",
-				} satisfies AccountDevicesResult),
-		vaults: vaults.ok
-			? ({ available: true, vaults: vaults.value } satisfies AccountVaultsResult)
-			: ({
-					available: false,
-					message: "Vaults are temporarily unavailable.",
-				} satisfies AccountVaultsResult),
-	}
+function hasAuthFailure(results: Array<CapturedResult<unknown>>) {
+	return results.some((result) => !result.ok && isAuthFailure(result.error))
 }
 
 export async function getAccountOverviewFromAuthSession(
-	dependencies: AccountDependencies = {},
+	dependencies: SessionDependencies = {},
 ): Promise<AccountOverviewResult> {
-	let session = dependencies.session ?? null
+	const session = await resolveActiveSession(dependencies)
 
-	if (!session) return { authenticated: false, redirectTo: "/login?redirect=/account" }
+	if (!session) return unauthenticatedResult
 
-	if (!session.accessToken) {
-		session = await refreshSessionOrUnauthenticated(session, dependencies)
-		if (!session) return { authenticated: false, redirectTo: "/login?redirect=/account" }
+	const { api, getSession } = createSessionClient(session, dependencies)
+	const [subscription, devices, vaults] = await Promise.all([
+		capture(getSubscriptionStatus(api)),
+		capture(listDevices(api)),
+		capture(listRemoteVaults(api)),
+	])
+
+	if (hasAuthFailure([subscription, devices, vaults])) {
+		dependencies.onSessionCleared?.()
+		return unauthenticatedResult
 	}
 
-	try {
-		const accountData = await readAccountData(session, dependencies)
-
-		return {
-			authenticated: true,
-			...accountData,
-			session: toPublicSession(session),
-		}
-	} catch (error) {
-		if (isAuthFailure(error)) {
-			const refreshedSession = await refreshSessionOrUnauthenticated(session, dependencies)
-			if (!refreshedSession) {
-				return { authenticated: false, redirectTo: "/login?redirect=/account" }
-			}
-
-			try {
-				const accountData = await readAccountData(refreshedSession, dependencies)
-
-				return {
-					authenticated: true,
-					...accountData,
-					session: toPublicSession(refreshedSession),
-				}
-			} catch (retryError) {
-				if (isAuthFailure(retryError)) {
-					dependencies.onSessionCleared?.()
-					return { authenticated: false, redirectTo: "/login?redirect=/account" }
-				}
-
-				return {
-					authenticated: true,
-					session: toPublicSession(refreshedSession),
-					subscription: {
-						available: false,
-						message: "Plan details are temporarily unavailable.",
-					},
-					devices: {
-						available: false,
-						message: "Devices are temporarily unavailable.",
-					},
-					vaults: {
-						available: false,
-						message: "Vaults are temporarily unavailable.",
-					},
-				}
-			}
-		}
-
-		return {
-			authenticated: true,
-			session: toPublicSession(session),
-			subscription: {
-				available: false,
-				message: "Plan details are temporarily unavailable.",
-			},
-			devices: {
-				available: false,
-				message: "Devices are temporarily unavailable.",
-			},
-			vaults: {
-				available: false,
-				message: "Vaults are temporarily unavailable.",
-			},
-		}
+	return {
+		authenticated: true,
+		session: { email: getSession().email },
+		subscription: subscription.ok
+			? { available: true, status: subscription.value }
+			: { available: false, message: "Plan details are temporarily unavailable." },
+		devices: devices.ok
+			? { available: true, devices: devices.value.map(toDeviceSummary) }
+			: { available: false, message: "Devices are temporarily unavailable." },
+		vaults: vaults.ok
+			? { available: true, vaults: vaults.value.map(toVaultSummary) }
+			: { available: false, message: "Vaults are temporarily unavailable." },
 	}
 }
 

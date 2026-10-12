@@ -1,215 +1,152 @@
 import {
-	getNotePathPresentation,
+	buildTagTree,
+	selectActiveTab,
+	selectSortedTags,
+	type TagTreeNode,
 	useTagsStore,
 	useVaultStore,
 	useWorkspaceStore,
 } from "@cortex/core"
-import { Badge, Button, InputGroup, InputGroupAddon, InputGroupInput } from "@cortex/ui"
-import { ChevronRightIcon, FileIcon, FolderIcon, TagIcon, Vault } from "lucide-react"
+import { Button } from "@cortex/ui"
+import { ChevronRightIcon, TagIcon } from "lucide-react"
 import { useCallback, useMemo, useState } from "react"
+import { formatCount, toggleSetItem } from "@/utils/format"
+import { SidebarNoVaultState, SidebarToolView } from "../sidebar/SidebarToolView"
+import { openTagView, TAG_VIEW_ID } from "./tagWorkspaceView"
 
-interface SidebarNotePresentation {
-	title: string
-	folder: string
-}
-
-function getSidebarNotePresentation(filePath: string, vaultPath: string): SidebarNotePresentation {
-	const notePath = getNotePathPresentation(filePath, vaultPath)
-	const folder = notePath.segments
-		.slice(0, -1)
-		.map((segment) => segment.label)
-		.join("/")
-	return {
-		title: notePath.title,
-		folder,
-	}
-}
-
-function TagRow({
-	tag,
-	color,
-	filePaths,
-	vaultPath,
-	isExpanded,
-	onToggle,
-	onOpenFile,
-}: {
-	tag: string
-	color: string | null
-	filePaths: string[]
-	vaultPath: string
-	isExpanded: boolean
+interface TagTreeRowProps {
+	node: TagTreeNode
+	depth: number
+	expandedTags: ReadonlySet<string>
+	forceExpanded: boolean
+	activeTag: string | null
 	onToggle: (tag: string) => void
-	onOpenFile: (filePath: string) => void
-}) {
+}
+
+function TagTreeRow({
+	node,
+	depth,
+	expandedTags,
+	forceExpanded,
+	activeTag,
+	onToggle,
+}: TagTreeRowProps) {
+	const hasChildren = node.children.length > 0
+	const isExpanded = hasChildren && (forceExpanded || expandedTags.has(node.tag))
 	return (
-		<div className="sidebar-tag-group" data-expanded={isExpanded ? "true" : "false"}>
-			<button
-				type="button"
+		<>
+			<div
 				className="sidebar-tag-row"
-				onClick={() => onToggle(tag)}
-				aria-expanded={isExpanded}
+				data-active={node.tag === activeTag || undefined}
+				style={{ paddingLeft: 6 + depth * 16 }}
 			>
-				<ChevronRightIcon
-					className="sidebar-tag-chevron"
-					data-expanded={isExpanded ? "true" : "false"}
-				/>
-				<span
-					className="sidebar-tag-swatch"
-					style={{ backgroundColor: color ? color : "var(--muted-foreground)" }}
-				/>
-				<span className="sidebar-tag-copy">
-					<span className="sidebar-tag-name">{tag}</span>
-				</span>
-				<Badge variant="secondary" className="sidebar-tag-count">
-					{filePaths.length}
-				</Badge>
-			</button>
-
-			{isExpanded && (
-				<div className="sidebar-tag-files">
-					{filePaths.map((filePath) => {
-						const notePath = getSidebarNotePresentation(filePath, vaultPath)
-
-						return (
-							<button
-								type="button"
-								key={filePath}
-								className="sidebar-tag-file"
-								onClick={() => onOpenFile(filePath)}
-								aria-label={`Open ${notePath.title}`}
-							>
-								<FileIcon className="sidebar-tag-file-icon" />
-								<span className="sidebar-tag-file-copy">
-									<span className="sidebar-tag-file-title">{notePath.title}</span>
-									{notePath.folder && (
-										<span className="sidebar-tag-file-path">
-											<FolderIcon className="sidebar-tag-file-folder-icon" />
-											<span>{notePath.folder}</span>
-										</span>
-									)}
-								</span>
-							</button>
-						)
-					})}
-				</div>
-			)}
-		</div>
+				{hasChildren ? (
+					<Button
+						variant="ghost"
+						size="icon-xs"
+						className="sidebar-tag-toggle"
+						aria-label={isExpanded ? `Collapse ${node.tag}` : `Expand ${node.tag}`}
+						onClick={() => onToggle(node.tag)}
+					>
+						<ChevronRightIcon
+							className="sidebar-tag-chevron"
+							data-expanded={isExpanded ? "true" : "false"}
+						/>
+					</Button>
+				) : (
+					<span className="sidebar-tag-toggle" aria-hidden="true" />
+				)}
+				<Button
+					variant="ghost"
+					className="sidebar-tag-open"
+					aria-label={`Open #${node.tag}`}
+					aria-current={node.tag === activeTag ? "page" : undefined}
+					onClick={() => openTagView(node.tag)}
+				>
+					<span
+						className="sidebar-tag-swatch"
+						style={{ backgroundColor: node.color ?? "var(--text-muted)" }}
+					/>
+					<span className="sidebar-tag-name">{node.name}</span>
+					<span className="sidebar-tag-count">{node.count}</span>
+				</Button>
+			</div>
+			{isExpanded &&
+				node.children.map((child) => (
+					<TagTreeRow
+						key={child.tag}
+						node={child}
+						depth={depth + 1}
+						expandedTags={expandedTags}
+						forceExpanded={forceExpanded}
+						activeTag={activeTag}
+						onToggle={onToggle}
+					/>
+				))}
+		</>
 	)
 }
 
 export function TagsSidebar() {
 	const vault = useVaultStore((s) => s.vault)
-	const openTab = useWorkspaceStore((s) => s.openTab)
 	const tagIndex = useTagsStore((s) => s.tagIndex)
 	const tagColors = useTagsStore((s) => s.tagColors)
+	const activeTag = useWorkspaceStore((s) => {
+		const tab = selectActiveTab(s)
+		return tab?.viewId === TAG_VIEW_ID && typeof tab.viewState?.tag === "string"
+			? tab.viewState.tag
+			: null
+	})
 	const [filterQuery, setFilterQuery] = useState("")
-	const [expandedTags, setExpandedTags] = useState<Set<string>>(new Set())
+	const [expandedTags, setExpandedTags] = useState<ReadonlySet<string>>(() => new Set())
 
-	const allTags = useMemo(
-		() =>
-			Object.entries(tagIndex)
-				.map(([tag, filePaths]) => ({
-					tag,
-					color: tagColors[tag] ?? null,
-					filePaths,
-				}))
-				.sort((a, b) => b.filePaths.length - a.filePaths.length || a.tag.localeCompare(b.tag)),
-		[tagColors, tagIndex],
-	)
-
-	const filteredTags = useMemo(() => {
-		if (!filterQuery.trim()) return allTags
-		const query = filterQuery.toLowerCase()
-		return allTags.filter((entry) => entry.tag.toLowerCase().includes(query))
+	const allTags = useMemo(() => selectSortedTags({ tagIndex, tagColors }), [tagColors, tagIndex])
+	const tree = useMemo(() => {
+		const query = filterQuery.trim().toLowerCase()
+		const entries = query
+			? allTags.filter((entry) => entry.tag.toLowerCase().includes(query))
+			: allTags
+		return buildTagTree(entries)
 	}, [allTags, filterQuery])
 
-	const handleToggleExpand = useCallback((tag: string) => {
-		setExpandedTags((prev) => {
-			const next = new Set(prev)
-			if (next.has(tag)) {
-				next.delete(tag)
-			} else {
-				next.add(tag)
-			}
-			return next
-		})
+	const handleToggle = useCallback((tag: string) => {
+		setExpandedTags((previous) => toggleSetItem(previous, tag))
 	}, [])
 
-	const handleOpenFile = useCallback(
-		(filePath: string) => {
-			openTab(filePath)
-		},
-		[openTab],
-	)
-
-	if (!vault) {
-		return (
-			<div className="sidebar-tool-empty sidebar-tool-empty-stacked p-8">
-				<Vault className="size-6 text-muted-foreground" />
-				<p className="text-xs text-muted-foreground">No vault open</p>
-			</div>
-		)
-	}
+	if (!vault) return <SidebarNoVaultState />
 
 	return (
-		<div className="sidebar-tags-view">
-			<div className="sidebar-tool-header">
-				<InputGroup variant="search" aria-label="Filter tags">
-					<InputGroupAddon>
-						<TagIcon />
-					</InputGroupAddon>
-					<InputGroupInput
-						type="text"
-						value={filterQuery}
-						onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFilterQuery(e.target.value)}
-						placeholder="Filter tags..."
+		<SidebarToolView
+			title="Tags"
+			filterLabel="Filter tags"
+			filterIcon={<TagIcon />}
+			filterPlaceholder="Filter tags..."
+			filterValue={filterQuery}
+			onFilterChange={setFilterQuery}
+			count={allTags.length === 0 ? "No tags found" : formatCount(allTags.length, "tag")}
+			empty={
+				tree.length === 0
+					? {
+							icon: <TagIcon className="size-6 text-muted-foreground" />,
+							message: filterQuery ? "No tags match your filter" : "No tags in vault",
+							clearable: Boolean(filterQuery),
+						}
+					: null
+			}
+		>
+			<div className="sidebar-tool-list">
+				{tree.map((node) => (
+					<TagTreeRow
+						key={node.tag}
+						node={node}
+						depth={0}
+						expandedTags={expandedTags}
+						forceExpanded={Boolean(filterQuery.trim())}
+						activeTag={activeTag}
+						onToggle={handleToggle}
 					/>
-				</InputGroup>
-				<div className="sidebar-tool-meta-row">
-					<span className="sidebar-tool-count">
-						{allTags.length === 0
-							? "No tags found"
-							: `${allTags.length} tag${allTags.length !== 1 ? "s" : ""}`}
-					</span>
-				</div>
+				))}
 			</div>
-
-			<div className="sidebar-tool-scroll">
-				{filteredTags.length === 0 ? (
-					<div className="sidebar-tool-empty sidebar-tool-empty-stacked">
-						<TagIcon className="size-6 text-muted-foreground" />
-						<p className="text-xs text-muted-foreground">
-							{filterQuery ? "No tags match your filter" : "No tags in vault"}
-						</p>
-						{filterQuery && (
-							<Button
-								variant="ghost"
-								size="sm"
-								className="text-xs h-7"
-								onClick={() => setFilterQuery("")}
-							>
-								Clear filter
-							</Button>
-						)}
-					</div>
-				) : (
-					<div className="sidebar-tags-list">
-						{filteredTags.map((entry) => (
-							<TagRow
-								key={entry.tag}
-								tag={entry.tag}
-								color={entry.color}
-								filePaths={entry.filePaths}
-								vaultPath={vault.path}
-								isExpanded={expandedTags.has(entry.tag)}
-								onToggle={handleToggleExpand}
-								onOpenFile={handleOpenFile}
-							/>
-						))}
-					</div>
-				)}
-			</div>
-		</div>
+		</SidebarToolView>
 	)
 }

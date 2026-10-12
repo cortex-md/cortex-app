@@ -17,7 +17,7 @@ import type {
 	PropertyMap,
 	VaultSchema,
 } from "./types"
-import { isEmptyPropertyValue } from "./values"
+import { allowsMultipleValues, getPropertyValueList, isEmptyPropertyValue } from "./values"
 
 export interface LoadNotePropertiesSnapshotOptions {
 	rawContent?: string
@@ -116,20 +116,21 @@ export async function setProperty(filePath: string, key: string, value: unknown)
 		const type = getPropertyType(definition.type)
 		if (!type) throw new Error(`Property type "${definition.type}" is unavailable`)
 		if (type.readOnly) throw new Error(`Property "${definition.name}" is read-only`)
-		const validation = type.validate(value)
-		if (!validation.valid) throw new Error(validation.message ?? "Invalid property value")
-		value = type.serialize(value)
+		const values = allowsMultipleValues(definition) ? getPropertyValueList(value) : [value]
+		for (const item of values) {
+			const validation = type.validate(item)
+			if (!validation.valid) throw new Error(validation.message ?? "Invalid property value")
+		}
+		const serialized = values.map((item) => type.serialize(item))
+		value = allowsMultipleValues(definition) ? serialized : serialized[0]
 	}
-	const raw = await runtime.notes.readNote(filePath)
-	await runtime.notes.writeNote(filePath, setFrontmatterValue(raw, key, value))
+	await runtime.notes.updateNote(filePath, (raw) => setFrontmatterValue(raw, key, value))
 	invalidatePropertySuggestions(vaultPath)
 }
 
 export async function removeProperty(filePath: string, key: string): Promise<void> {
 	const runtime = getPropertiesRuntime()
-	const raw = await runtime.notes.readNote(filePath)
-	const updated = removeFrontmatterValue(raw, key)
-	if (updated !== raw) await runtime.notes.writeNote(filePath, updated)
+	await runtime.notes.updateNote(filePath, (raw) => removeFrontmatterValue(raw, key))
 	const vaultPath = runtime.notes.resolveVaultPath(filePath)
 	if (vaultPath) invalidatePropertySuggestions(vaultPath)
 }

@@ -1,9 +1,18 @@
 import { getPlatform } from "@cortex/platform"
+import { isPathOrDescendant, replacePathPrefix, VAULT_FILES } from "@cortex/platform/utils"
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
+import {
+	normalizeBookmarkPath,
+	normalizeSlashes,
+	normalizeVaultRoot,
+	trimPathBoundary,
+} from "../utils/bookmarkPaths"
 
-export const BOOKMARKS_FILE = ".cortex/bookmarks.json"
+export { normalizeBookmarkPath }
+
+export const BOOKMARKS_FILE = VAULT_FILES.bookmarks
 
 const BOOKMARKS_DOCUMENT_VERSION = 1
 
@@ -28,62 +37,8 @@ interface BookmarkSnapshot {
 	error: string | null
 }
 
-type BookmarkPathMode = "bookmark" | "reference"
-
-function normalizeSlashes(path: string): string {
-	return path.replaceAll("\\", "/").replace(/\/+/g, "/")
-}
-
-function trimPathBoundary(path: string): string {
-	return path
-		.replace(/^\.\/+/, "")
-		.replace(/^\/+/, "")
-		.replace(/\/+$/, "")
-}
-
-function isAbsolutePath(path: string): boolean {
-	return path.startsWith("/") || /^[A-Za-z]:\//.test(path)
-}
-
-function normalizeVaultRoot(vaultPath: string): string {
-	return normalizeSlashes(vaultPath).replace(/\/+$/, "")
-}
-
-export function normalizeBookmarkPath(
-	vaultPath: string,
-	filePath: string,
-	mode: BookmarkPathMode = "bookmark",
-): string | null {
-	const vaultRoot = normalizeVaultRoot(vaultPath)
-	const normalizedPath = normalizeSlashes(filePath.trim())
-	const relativePath =
-		normalizedPath === vaultRoot
-			? ""
-			: normalizedPath.startsWith(`${vaultRoot}/`)
-				? normalizedPath.slice(vaultRoot.length + 1)
-				: isAbsolutePath(normalizedPath)
-					? ""
-					: trimPathBoundary(normalizedPath)
-
-	if (!relativePath) return null
-	const normalizedRelativePath = trimPathBoundary(normalizeSlashes(relativePath))
-	if (!normalizedRelativePath || normalizedRelativePath.startsWith(".cortex/")) return null
-	const segments = normalizedRelativePath.split("/")
-	if (segments.some((segment) => !segment || segment === "." || segment === "..")) return null
-	if (mode === "bookmark" && !normalizedRelativePath.toLocaleLowerCase().endsWith(".md")) {
-		return null
-	}
-	return normalizedRelativePath
-}
-
 export function resolveBookmarkPath(vaultPath: string, bookmarkPath: string): string {
 	return `${normalizeVaultRoot(vaultPath)}/${normalizeBookmarkPath(vaultPath, bookmarkPath) ?? trimPathBoundary(normalizeSlashes(bookmarkPath))}`
-}
-
-function replacePathPrefix(path: string, oldPath: string, newPath: string): string | null {
-	if (path === oldPath) return newPath
-	if (!path.startsWith(`${oldPath}/`)) return null
-	return `${newPath}${path.slice(oldPath.length)}`
 }
 
 export function createBookmarkedPaths(bookmarks: BookmarkEntry[]): Record<string, true> {
@@ -157,6 +112,7 @@ export interface BookmarksState {
 		force?: boolean,
 	) => Promise<BookmarkToggleResult>
 	renameBookmarkPath: (vaultPath: string, oldPath: string, newPath: string) => Promise<void>
+	reorderBookmark: (vaultPath: string, filePath: string, toIndex: number) => Promise<void>
 	removeBookmarksUnderPath: (vaultPath: string, filePath: string) => Promise<void>
 	isBookmarked: (vaultPath: string, filePath: string) => boolean
 	reset: () => void
@@ -269,13 +225,25 @@ export const useBookmarksStore = create<BookmarksState>()(
 				await persistWithRollback(set, vaultPath, bookmarks, updated)
 			},
 
+			reorderBookmark: async (vaultPath, filePath, toIndex) => {
+				const path = normalizeBookmarkPath(vaultPath, filePath)
+				const { bookmarks } = get()
+				const fromIndex = bookmarks.findIndex((bookmark) => bookmark.path === path)
+				if (fromIndex === -1) return
+				const targetIndex = Math.max(0, Math.min(toIndex, bookmarks.length - 1))
+				if (targetIndex === fromIndex) return
+				const updated = bookmarks.slice()
+				const [moved] = updated.splice(fromIndex, 1)
+				updated.splice(targetIndex, 0, moved)
+				await persistWithRollback(set, vaultPath, bookmarks, updated)
+			},
+
 			removeBookmarksUnderPath: async (vaultPath, filePath) => {
 				const relativePath = normalizeBookmarkPath(vaultPath, filePath, "reference")
 				if (!relativePath) return
 				const { bookmarks } = get()
 				const updated = bookmarks.filter(
-					(bookmark) =>
-						bookmark.path !== relativePath && !bookmark.path.startsWith(`${relativePath}/`),
+					(bookmark) => !isPathOrDescendant(bookmark.path, relativePath),
 				)
 				if (updated.length === bookmarks.length) return
 				await persistWithRollback(set, vaultPath, bookmarks, updated)

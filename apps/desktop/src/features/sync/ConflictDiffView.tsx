@@ -1,17 +1,7 @@
+import { getBaseName } from "@cortex/core"
 import type { ConflictInfo, ConflictResolution } from "@cortex/platform"
-import { getThemeManager } from "@cortex/theme"
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from "@cortex/ui"
-import { parseDiffFromFile } from "@pierre/diffs"
-import { FileDiff } from "@pierre/diffs/react"
-import { useEffect, useMemo, useState } from "react"
-
-function useIsDarkTheme(): boolean {
-	const [isDark, setIsDark] = useState(() => getThemeManager().getActiveTheme().isDark)
-	useEffect(() => {
-		return getThemeManager().subscribe((theme) => setIsDark(theme.isDark))
-	}, [])
-	return isDark
-}
+import { DiffViewer } from "./DiffViewer"
 
 interface Props {
 	conflict: ConflictInfo
@@ -20,17 +10,7 @@ interface Props {
 }
 
 export function ConflictDiffView({ conflict, onResolve, onClose }: Props) {
-	const isDark = useIsDarkTheme()
 	const hasContent = conflict.localContent !== null && conflict.remoteContent !== null
-	const conflictFileName = conflict.filePath.split("/").pop() ?? conflict.filePath
-
-	const fileDiff = useMemo(() => {
-		if (!hasContent) return null
-		return parseDiffFromFile(
-			{ name: conflictFileName, contents: conflict.localContent ?? "" },
-			{ name: conflictFileName, contents: conflict.remoteContent ?? "" },
-		)
-	}, [hasContent, conflictFileName, conflict.localContent, conflict.remoteContent])
 
 	return (
 		<Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -43,20 +23,19 @@ export function ConflictDiffView({ conflict, onResolve, onClose }: Props) {
 				</DialogDescription>
 
 				<div className="flex-1 overflow-auto min-h-0">
-					{hasContent && fileDiff ? (
-						<FileDiff
-							fileDiff={fileDiff}
-							options={{
-								theme: { dark: "pierre-dark", light: "pierre-light" },
-								themeType: isDark ? "dark" : "light",
-								diffStyle: "split",
-								lineDiffType: "word",
-								disableFileHeader: true,
-								overflow: "wrap",
-							}}
+					{hasContent ? (
+						<DiffViewer
+							fileName={getBaseName(conflict.filePath)}
+							oldContents={conflict.localContent ?? ""}
+							newContents={conflict.remoteContent ?? ""}
+							diffStyle="split"
+							overflow="wrap"
 						/>
 					) : (
-						<p className="p-4 text-sm text-text-muted">(binary or unavailable)</p>
+						<p className="p-4 text-sm text-text-muted">
+							No side-by-side view for this file. Edit it to the version you want and choose Keep
+							Local, or take the remote copy.
+						</p>
 					)}
 				</div>
 
@@ -70,15 +49,6 @@ export function ConflictDiffView({ conflict, onResolve, onClose }: Props) {
 					<Button variant="secondary" size="sm" onClick={() => onResolve({ type: "keep_remote" })}>
 						Keep Remote
 					</Button>
-					{hasContent && (
-						<Button
-							variant="default"
-							size="sm"
-							onClick={() => onResolve({ type: "merged", content: conflict.localContent ?? "" })}
-						>
-							Keep Local as Merged
-						</Button>
-					)}
 				</div>
 			</DialogContent>
 		</Dialog>

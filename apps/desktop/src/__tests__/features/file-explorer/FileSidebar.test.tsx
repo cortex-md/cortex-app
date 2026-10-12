@@ -1,19 +1,18 @@
+import { registerCommands } from "@cortex/commands"
+import {
+	createFileCommandEntries,
+	useDragStore,
+	useTagsStore,
+	useVaultStore,
+	useWorkspaceStore,
+} from "@cortex/core"
 import { useHotkeysStore } from "@cortex/hotkeys"
 import { getPlatform } from "@cortex/platform"
 import { AppSettingsSchema, DEFAULT_APP_SETTINGS, useSettingsStore } from "@cortex/settings"
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-
-vi.mock("../../../features/sync/NoteHistoryPanel", () => ({
-	NoteHistoryPanel: () => null,
-}))
-
-import { useDragStore, useTagsStore, useVaultStore, useWorkspaceStore } from "@cortex/core"
 import { FileSidebar } from "../../../features/file-explorer/FileSidebar"
-import {
-	FILE_EXPLORER_COMMAND_EVENT,
-	FILE_EXPLORER_COMMAND_IDS,
-} from "../../../features/file-explorer/fileExplorerCommands"
 import {
 	FILE_TREE_ROW_HEIGHT,
 	FILE_TREE_ROW_STEP,
@@ -33,6 +32,12 @@ function resetWorkspace() {
 		mruOrder: [],
 		recentlyClosed: [],
 	})
+}
+
+async function chooseCreateMenuItem(name: string) {
+	const user = userEvent.setup()
+	await user.click(screen.getByRole("button", { name: "Create" }))
+	await user.click(await screen.findByRole("menuitem", { name: new RegExp(`^${name}`) }))
 }
 
 function renderFileSidebar() {
@@ -70,7 +75,6 @@ beforeEach(() => {
 	useHotkeysStore.setState({
 		bindings: [],
 		parsedBindings: [],
-		handlers: {},
 		overrides: {},
 	})
 })
@@ -271,32 +275,33 @@ describe("FileSidebar keyboard navigation", () => {
 	})
 
 	it("opens the focused context menu target from the editable shortcut", () => {
-		renderFileSidebar()
-		const tree = screen.getByRole("tree")
-		const note = screen.getByRole("treeitem", { name: "Note" })
-		const handleContextMenu = vi.fn()
-		note.addEventListener("contextmenu", handleContextMenu)
+		const restorePlatform = enableNativeMenuPlatform()
+		const showContextMenu = vi
+			.spyOn(NativeMenuActions.prototype, "showContextMenu")
+			.mockResolvedValue(undefined)
 
-		fireEvent.focus(tree)
-		fireEvent.keyDown(tree, { key: "ArrowDown" })
-		fireEvent.keyDown(tree, { key: "F10", shiftKey: true })
+		try {
+			renderFileSidebar()
+			const tree = screen.getByRole("tree")
 
-		expect(handleContextMenu).toHaveBeenCalled()
-	})
+			fireEvent.focus(tree)
+			fireEvent.keyDown(tree, { key: "ArrowDown" })
+			fireEvent.keyDown(tree, { key: "F10", shiftKey: true })
 
-	it("ignores file explorer command events when the tree is not focused", () => {
-		renderFileSidebar()
-
-		window.dispatchEvent(
-			new CustomEvent(FILE_EXPLORER_COMMAND_EVENT, {
-				detail: { commandId: FILE_EXPLORER_COMMAND_IDS.rename },
-			}),
-		)
-
-		expect(screen.queryByDisplayValue("Folder")).not.toBeInTheDocument()
+			expect(showContextMenu).toHaveBeenCalledTimes(1)
+			expect(
+				showContextMenu.mock.calls[0][0].items.map((item) =>
+					item.type === "separator" ? "separator" : item.id,
+				),
+			).toContain("open-new-tab")
+		} finally {
+			showContextMenu.mockRestore()
+			restorePlatform()
+		}
 	})
 
 	it("deletes the focused note from the editable shortcut", async () => {
+		const unregisterFileCommands = registerCommands(createFileCommandEntries({ openFile: vi.fn() }))
 		const deleteFile = vi.spyOn(useVaultStore.getState(), "deleteFile").mockResolvedValue(undefined)
 		vi.mocked(getPlatform).mockReturnValue({
 			capabilities: [],
@@ -314,6 +319,7 @@ describe("FileSidebar keyboard navigation", () => {
 		await waitFor(() => {
 			expect(deleteFile).toHaveBeenCalledWith("/vault/Note.md")
 		})
+		unregisterFileCommands()
 	})
 })
 
@@ -355,9 +361,9 @@ describe("FileSidebar layout", () => {
 		expect((nestedRow as HTMLElement).style.height).toBe("34px")
 	})
 
-	it("uses the same depth contract for inline creation rows", () => {
+	it("uses the same depth contract for inline creation rows", async () => {
 		renderFileSidebar()
-		fireEvent.click(screen.getByRole("button", { name: "New Folder" }))
+		await chooseCreateMenuItem("Folder")
 
 		const createInput = screen.getByDisplayValue("New Folder")
 		const createRow = createInput.closest(".file-tree-row")
@@ -371,9 +377,9 @@ describe("FileSidebar layout", () => {
 		).not.toBeNull()
 	})
 
-	it("omits the markdown extension from the inline note creation input", () => {
+	it("omits the markdown extension from the inline note creation input", async () => {
 		renderFileSidebar()
-		fireEvent.click(screen.getByRole("button", { name: "New Note" }))
+		await chooseCreateMenuItem("Note")
 
 		const createInput = screen.getByDisplayValue("Untitled")
 		const createContainer = createInput.closest(".file-tree-create-row")
@@ -390,7 +396,7 @@ describe("FileSidebar layout", () => {
 			.spyOn(useVaultStore.getState(), "createFile")
 			.mockResolvedValue("/vault/Untitled.md")
 		renderFileSidebar()
-		fireEvent.click(screen.getByRole("button", { name: "New Note" }))
+		await chooseCreateMenuItem("Note")
 		const createInput = screen.getByDisplayValue("Untitled")
 
 		fireEvent.keyDown(createInput, { key: "Enter" })

@@ -9,12 +9,18 @@ import {
 } from "../../stores/remoteVaultStore"
 import { useSubscriptionStore } from "../../stores/subscriptionStore"
 
-const updateSyncConfig = vi.fn().mockResolvedValue(undefined)
+const { updateSyncConfig } = vi.hoisted(() => ({ updateSyncConfig: vi.fn() }))
+
+vi.mock("../../sync/syncConfig", async (importOriginal) => ({
+	...(await importOriginal<typeof import("../../sync/syncConfig")>()),
+	updateSyncConfig,
+}))
 const getStatus = vi.fn()
 const getSubscriptionStatus = vi.fn()
 
 beforeEach(() => {
 	vi.clearAllMocks()
+	updateSyncConfig.mockResolvedValue(undefined)
 	useAuthStore.setState({
 		authenticated: false,
 		user: null,
@@ -41,9 +47,6 @@ beforeEach(() => {
 		},
 		subscription: {
 			getStatus: getSubscriptionStatus,
-		},
-		remoteVault: {
-			updateSyncConfig,
 		},
 	} as never)
 	getSubscriptionStatus.mockResolvedValue({
@@ -99,7 +102,7 @@ describe("remoteVaultStore sync config", () => {
 
 		await useRemoteVaultStore.getState().setSyncEnabled("/vault", true)
 
-		expect(updateSyncConfig).toHaveBeenCalledWith("/vault", "enabled", true)
+		expect(updateSyncConfig).toHaveBeenCalledWith("/vault", { enabled: true })
 		expect(useRemoteVaultStore.getState().syncConfig.enabled).toBe(true)
 	})
 

@@ -1,6 +1,7 @@
 import { markdown } from "@codemirror/lang-markdown"
 import { EditorState } from "@codemirror/state"
 import { EditorView } from "@codemirror/view"
+import { toIsoDate } from "@cortex/tasks"
 import { GFM } from "@lezer/markdown"
 import { afterEach, beforeAll, describe, expect, it } from "vitest"
 import { livePreviewExtension } from "../livePreview"
@@ -87,6 +88,8 @@ describe("live preview lists", () => {
 
 		checkboxes[0].dispatchEvent(new Event("pointerdown", { bubbles: true, cancelable: true }))
 
-		expect(view.state.doc.toString()).toBe("- [x] task\n- [x] done\n\ntail")
+		expect(view.state.doc.toString()).toBe(
+			`- [x] task ✅ ${toIsoDate(new Date())}\n- [x] done\n\ntail`,
+		)
 	})
 })

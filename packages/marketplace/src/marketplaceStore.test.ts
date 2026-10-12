@@ -1,6 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { setMarketplaceCallbacks, useMarketplaceStore } from "./marketplaceStore"
-import type { RegistryEntry } from "./types"
+import type { MarketplacePluginHost, RegistryEntry } from "./types"
+
+function createPluginHost(installed: boolean): MarketplacePluginHost {
+	return {
+		reloadCommunityPlugins: vi.fn(),
+		disablePlugin: vi.fn(),
+		unregisterCommunityPlugin: vi.fn(),
+		isPluginInstalled: () => installed,
+		getCommunityPluginLoadError: () => null,
+	}
+}
 
 const testState = vi.hoisted(() => ({
 	installPlugin: vi.fn(),
@@ -60,9 +70,8 @@ beforeEach(() => {
 	setMarketplaceCallbacks({
 		getPluginsDir: () => "/vault/.cortex/plugins",
 		getThemesDir: () => "/vault/.cortex/themes",
-		reloadPluginHost: vi.fn(),
+		pluginHost: createPluginHost(false),
 		reloadThemes: vi.fn(),
-		isPluginInstalled: () => false,
 		isThemeInstalled: () => false,
 		notify: testState.notify,
 	})
@@ -105,9 +114,8 @@ describe("marketplaceStore installEntry", () => {
 		setMarketplaceCallbacks({
 			getPluginsDir: () => "/vault/.cortex/plugins",
 			getThemesDir: () => "/vault/.cortex/themes",
-			reloadPluginHost: vi.fn(),
+			pluginHost: createPluginHost(true),
 			reloadThemes: vi.fn(),
-			isPluginInstalled: () => true,
 			isThemeInstalled: () => false,
 			notify: testState.notify,
 		})

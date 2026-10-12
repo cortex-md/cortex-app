@@ -42,7 +42,7 @@ function DropdownMenuContent({
 				data-popup-surface=""
 				sideOffset={sideOffset}
 				className={cn(
-					"z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-[var(--popup-radius,10px)] p-1 text-popover-foreground outline-hidden",
+					"z-[110] max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-[var(--popup-radius,10px)] p-1 text-popover-foreground outline-hidden",
 					nativePopupSurface,
 					nativePopupContentMotion,
 					className,
@@ -217,7 +217,7 @@ function DropdownMenuSubContent({
 			data-slot="dropdown-menu-sub-content"
 			data-popup-surface=""
 			className={cn(
-				"z-50 min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-[var(--popup-radius,10px)] p-1 text-popover-foreground outline-hidden",
+				"z-[110] min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-[var(--popup-radius,10px)] p-1 text-popover-foreground outline-hidden",
 				nativePopupSurface,
 				nativePopupContentMotion,
 				className,

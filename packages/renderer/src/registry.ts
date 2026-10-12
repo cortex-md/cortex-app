@@ -190,13 +190,23 @@ function registerEntry<T>(
 	}
 }
 
+const sortedEntriesCache = new WeakMap<
+	readonly RegistryEntry<unknown>[],
+	{ version: number; sorted: readonly RegistryEntry<unknown>[] }
+>()
+
 function sortEntries<T extends { priority?: number }>(
 	entries: RegistryEntry<T>[],
-): RegistryEntry<T>[] {
-	return [...entries].sort(
+): readonly RegistryEntry<T>[] {
+	if (entries.length < 2) return entries
+	const cached = sortedEntriesCache.get(entries)
+	if (cached?.version === registryVersion) return cached.sorted as readonly RegistryEntry<T>[]
+	const sorted = [...entries].sort(
 		(left, right) =>
 			(right.value.priority ?? 0) - (left.value.priority ?? 0) || left.order - right.order,
 	)
+	sortedEntriesCache.set(entries, { version: registryVersion, sorted })
+	return sorted
 }
 
 export function compileMarkdownInlineRegistration(
@@ -567,6 +577,9 @@ export function getMarkdownTextTransforms(
 	source: string,
 	surface: MarkdownSemanticSurface,
 ): MarkdownTextTransform[] {
+	if (semanticEntries.length === 0) {
+		return inlineEntries.length === 0 ? [] : getInlineTextTransforms(source)
+	}
 	let nodes: readonly MarkdownPortableNode[] = [{ type: "text", value: source }]
 	let semanticChanged = false
 	for (const entry of sortEntries(semanticEntries)) {

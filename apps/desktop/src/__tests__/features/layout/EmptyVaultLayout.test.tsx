@@ -8,7 +8,6 @@ let recentVaults: Array<{
 	uuid: string
 	lastOpened: number
 	icon: string | null
-	color: string | null
 }> = []
 
 const openAuth = vi.fn()
@@ -87,7 +86,6 @@ describe("EmptyVaultLayout", () => {
 				name: "Writing",
 				lastOpened: 1,
 				icon: null,
-				color: null,
 			},
 		]
 

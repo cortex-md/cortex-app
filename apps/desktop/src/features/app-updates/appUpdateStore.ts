@@ -1,4 +1,4 @@
-import { noteCache, useEditorStore } from "@cortex/core"
+import { flushPendingWrites, getErrorMessage } from "@cortex/core"
 import { type AppUpdateInstallEvent, type AppUpdateStatus, getPlatform } from "@cortex/platform"
 import { useSyncExternalStore } from "react"
 
@@ -19,10 +19,6 @@ function emit(nextSnapshot: AppUpdateStatus): AppUpdateStatus {
 	snapshot = nextSnapshot
 	for (const listener of listeners) listener()
 	return snapshot
-}
-
-function getErrorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error)
 }
 
 function getErroredStatus(error: unknown): AppUpdateStatus {
@@ -61,10 +57,6 @@ function applyInstallEvent(event: AppUpdateInstallEvent): void {
 		state: "installing",
 		lastError: null,
 	})
-}
-
-async function flushOpenNotesBeforeInstall(): Promise<void> {
-	await Promise.all([noteCache.flushAll(), useEditorStore.getState().flushActive()])
 }
 
 export function useAppUpdateSnapshot(): AppUpdateStatus {
@@ -110,7 +102,7 @@ export async function installPendingAppUpdate(): Promise<AppUpdateStatus> {
 		lastError: null,
 	})
 	try {
-		await flushOpenNotesBeforeInstall()
+		await flushPendingWrites()
 		return emit(await getPlatform().appUpdates.installUpdate(applyInstallEvent))
 	} catch (error) {
 		return emit(getErroredStatus(error))

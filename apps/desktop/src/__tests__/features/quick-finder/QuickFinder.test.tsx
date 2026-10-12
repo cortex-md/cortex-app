@@ -2,13 +2,15 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("@cortex/core", () => ({
+vi.mock("@cortex/core", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@cortex/core")>()),
 	useUIStore: vi.fn(),
 	useVaultStore: vi.fn(),
 	useWorkspaceStore: vi.fn(),
 }))
 
-vi.mock("@cortex/search", () => ({
+vi.mock("@cortex/search", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@cortex/search")>()),
 	useSearchStore: vi.fn(),
 }))
 
@@ -28,6 +30,11 @@ const vault = {
 }
 const quickFinderPlaceholder = "Find or create a note..."
 
+function quickFinderPath(path: string) {
+	return (_content: string, element: Element | null) =>
+		element?.classList.contains("quick-finder-path") === true && element.textContent === path
+}
+
 function setupQuickFinder({
 	recentlyClosed = [],
 	searchResults = [],
@@ -35,10 +42,14 @@ function setupQuickFinder({
 	recentlyClosed?: Array<{ filePath: string; title: string; closedAt: number }>
 	searchResults?: Array<{ id: string; title: string; folder: string }>
 } = {}) {
-	searchTitles.mockReturnValue(searchResults)
+	searchTitles.mockReturnValue(
+		searchResults.map((result) => ({ ...result, matchCount: 0, snippets: [] })),
+	)
 
 	const uiState = {
 		quickFinderOpen: true,
+		quickFinderRequest: { kind: "open" },
+		quickFinderPreview: false,
 		toggleQuickFinder,
 	}
 	vi.mocked(useUIStore).mockImplementation(((selector?: (state: typeof uiState) => unknown) =>
@@ -46,6 +57,7 @@ function setupQuickFinder({
 
 	const vaultState = {
 		vault,
+		files: [],
 		createFile,
 	}
 	vi.mocked(useVaultStore).mockImplementation(((
@@ -87,10 +99,13 @@ function setupQuickFinder({
 
 	const searchState = {
 		searchTitles,
+		findNotes: () => [],
+		loadMatches: async () => [],
 	}
 	vi.mocked(useSearchStore).mockImplementation(((
 		selector?: (state: typeof searchState) => unknown,
 	) => (selector ? selector(searchState) : searchState)) as never)
+	Object.assign(useSearchStore, { getState: () => searchState })
 }
 
 afterEach(() => {
@@ -107,9 +122,9 @@ describe("QuickFinder", () => {
 
 		render(<QuickFinder />)
 
-		expect(screen.getByText("Journal /Daily")).toBeInTheDocument()
-		expect(screen.getByText("Projects /Roadmap")).toBeInTheDocument()
-		expect(screen.getByText("Archive /Closed")).toBeInTheDocument()
+		expect(screen.getByText(quickFinderPath("Journal/Daily"))).toBeInTheDocument()
+		expect(screen.getByText(quickFinderPath("Projects/Roadmap"))).toBeInTheDocument()
+		expect(screen.getByText(quickFinderPath("Archive/Closed"))).toBeInTheDocument()
 		expect(screen.getByText("new tab")).toBeInTheDocument()
 		expect(screen.getByText("open right")).toBeInTheDocument()
 	})
@@ -121,7 +136,7 @@ describe("QuickFinder", () => {
 		render(<QuickFinder />)
 
 		await userEvent.type(screen.getByPlaceholderText(quickFinderPlaceholder), "plan")
-		await userEvent.click(screen.getByText("Projects /Plan"))
+		await userEvent.click(screen.getByText(quickFinderPath("Projects/Plan")))
 
 		expect(openTab).toHaveBeenCalledWith("/vault/Projects/Plan.md", undefined)
 		expect(toggleQuickFinder).toHaveBeenCalled()
@@ -146,8 +161,10 @@ describe("QuickFinder", () => {
 
 		await userEvent.type(screen.getByPlaceholderText(quickFinderPlaceholder), "contestacao")
 
-		expect(screen.getByText("Contestacao de fraude /Chargeback")).toBeInTheDocument()
-		expect(screen.getByText("Contestacao de fraude /Disputa")).toBeInTheDocument()
+		expect(
+			screen.getByText(quickFinderPath("Contestacao de fraude/Chargeback")),
+		).toBeInTheDocument()
+		expect(screen.getByText(quickFinderPath("Contestacao de fraude/Disputa"))).toBeInTheDocument()
 	})
 
 	it("opens the selected note in the active pane with Command Enter", async () => {
@@ -205,7 +222,7 @@ describe("QuickFinder", () => {
 
 		await userEvent.type(screen.getByPlaceholderText(quickFinderPlaceholder), "New Note")
 		expect(screen.getByText("Enter to create")).toBeInTheDocument()
-		expect(screen.queryByText("Journal /Daily")).not.toBeInTheDocument()
+		expect(screen.queryByText(quickFinderPath("Journal/Daily"))).not.toBeInTheDocument()
 		await userEvent.click(screen.getByText("New Note"))
 
 		await waitFor(() => {

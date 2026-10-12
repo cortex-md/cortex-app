@@ -1,8 +1,11 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { cleanup, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-const fetchMembers = vi.fn()
+const fetchOverview = vi.fn()
+const setAccessRule = vi.fn()
+const loadKeyTrustIssues = vi.fn()
+const ensureCapabilities = vi.fn()
 const updateMemberRole = vi.fn()
 const removeMember = vi.fn()
 const fetchInvites = vi.fn()
@@ -41,9 +44,13 @@ vi.mock("@cortex/core", () => ({
 		const state = {
 			members,
 			invites,
+			accessRules: [],
+			groups: [],
+			overviewVault: null,
 			loading: false,
 			error: null,
-			fetchMembers,
+			fetchOverview,
+			setAccessRule,
 			updateMemberRole,
 			removeMember,
 			fetchInvites,
@@ -53,9 +60,20 @@ vi.mock("@cortex/core", () => ({
 		}
 		return selector ? selector(state) : state
 	},
+	useAccountStore: (selector: (state: unknown) => unknown) => selector({ ensureCapabilities }),
+	useServerCapabilities: () => null,
+	useSyncStore: (selector: (state: unknown) => unknown) =>
+		selector({ keyTrustIssues: [], loadKeyTrustIssues, trustMemberKey: vi.fn() }),
 }))
 
+import { getPlatform } from "@cortex/platform"
 import { MembersPanel } from "../../../features/sync/MembersPanel"
+
+beforeEach(() => {
+	vi.mocked(getPlatform).mockReturnValue({
+		dialog: { showConfirm: vi.fn().mockResolvedValue(true) },
+	} as never)
+})
 
 afterEach(() => {
 	cleanup()
@@ -63,42 +81,48 @@ afterEach(() => {
 })
 
 describe("MembersPanel", () => {
-	it("shows member hierarchy and updates roles through a native select", async () => {
+	it("shows member hierarchy and updates roles through the role menu", async () => {
 		render(<MembersPanel vaultId="vault-id" currentUserRole="owner" />)
 
 		expect(screen.getByText("Ada Lovelace")).toBeInTheDocument()
-		expect(screen.getByText("ada@example.com")).toBeInTheDocument()
+		expect(screen.getByText(/ada@example\.com/)).toBeInTheDocument()
 		expect(screen.getByText("AL")).toBeInTheDocument()
-		expect(screen.getByRole("columnheader", { name: "Joined" })).toBeInTheDocument()
 
-		fireEvent.change(screen.getByRole("combobox", { name: "Role for Ada Lovelace" }), {
-			target: { value: "editor" },
-		})
+		await userEvent.click(screen.getByRole("button", { name: "Role for Ada Lovelace" }))
+		await userEvent.click(await screen.findByRole("menuitemradio", { name: "Editor" }))
 
 		expect(updateMemberRole).toHaveBeenCalledWith("vault-id", "user-1", "editor")
 
-		await userEvent.click(screen.getByRole("button", { name: "Remove Ada Lovelace" }))
-		expect(removeMember).toHaveBeenCalledWith("vault-id", "user-1")
+		await userEvent.click(screen.getByRole("button", { name: "More actions for Ada Lovelace" }))
+		await userEvent.click(await screen.findByRole("menuitem", { name: "Remove from vault" }))
+		await waitFor(() => expect(removeMember).toHaveBeenCalledWith("vault-id", "user-1"))
 	})
 
 	it("sends invitations with a selected role and exposes pending invite actions", async () => {
 		createInvite.mockResolvedValue(undefined)
 		render(<MembersPanel vaultId="vault-id" currentUserRole="owner" />)
 
-		await userEvent.type(screen.getByRole("textbox", { name: "Invite email" }), "new@example.com")
-		fireEvent.change(screen.getByRole("combobox", { name: "Invite role" }), {
-			target: { value: "viewer" },
-		})
+		await userEvent.click(screen.getByRole("button", { name: "Invite people" }))
+		await userEvent.type(await screen.findByRole("textbox", { name: "Email" }), "new@example.com")
+		await userEvent.click(screen.getByRole("button", { name: "Invite role" }))
+		await userEvent.click(await screen.findByRole("menuitemradio", { name: "Viewer" }))
 		await userEvent.click(screen.getByRole("button", { name: "Send invite" }))
 
 		await waitFor(() => {
-			expect(createInvite).toHaveBeenCalledWith("vault-id", "new@example.com", "viewer", "")
+			expect(createInvite).toHaveBeenCalledWith(
+				"vault-id",
+				"new@example.com",
+				"viewer",
+				"",
+				undefined,
+			)
 		})
+		await userEvent.keyboard("{Escape}")
 		expect(screen.getByText("grace@example.com")).toBeInTheDocument()
 
 		await userEvent.click(
 			screen.getByRole("button", { name: "Cancel invite for grace@example.com" }),
 		)
-		expect(deleteInvite).toHaveBeenCalledWith("vault-id", "invite-1")
+		await waitFor(() => expect(deleteInvite).toHaveBeenCalledWith("vault-id", "invite-1"))
 	})
 })

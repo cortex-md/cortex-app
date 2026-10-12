@@ -18,6 +18,8 @@ import type {
 	EditorRuntimeCompartment,
 	EditorRuntimeExtension,
 	EditorRuntimeModules,
+	EditorRuntimeState,
+	EditorRuntimeStateEffect,
 	EditorRuntimeView,
 	EditorScrollMode,
 	VimCommandProvider,
@@ -90,7 +92,11 @@ interface EditorCompartments {
 	folding: EditorRuntimeCompartment
 	pluginFolding: EditorRuntimeCompartment
 	pluginExtensions: EditorRuntimeCompartment
+	history: EditorRuntimeCompartment
+	collab: EditorRuntimeCompartment
 }
+
+const DOCUMENT_SCOPED_COMPARTMENTS = new Set<keyof EditorCompartments>(["history", "collab"])
 
 let editorCompartments: EditorCompartments | null = null
 
@@ -106,8 +112,32 @@ function getEditorCompartments(runtime: EditorRuntimeModules): EditorCompartment
 		folding: new runtime.state.Compartment(),
 		pluginFolding: new runtime.state.Compartment(),
 		pluginExtensions: new runtime.state.Compartment(),
+		history: new runtime.state.Compartment(),
+		collab: new runtime.state.Compartment(),
 	}
 	return editorCompartments
+}
+
+export function getEditorCollabCompartments(runtime: EditorRuntimeModules) {
+	const { history, collab } = getEditorCompartments(runtime)
+	return { history, collab }
+}
+
+export function isCollabCompartmentBound(
+	runtime: EditorRuntimeModules,
+	state: EditorRuntimeState,
+): boolean {
+	const extension = getEditorCompartments(runtime).collab.get(state)
+	return Array.isArray(extension) ? extension.length > 0 : extension !== undefined
+}
+
+export function detachCollabCompartmentEffects(
+	runtime: EditorRuntimeModules,
+	state: EditorRuntimeState,
+): EditorRuntimeStateEffect[] {
+	if (!isCollabCompartmentBound(runtime, state)) return []
+	const { history, collab } = getEditorCompartments(runtime)
+	return [collab.reconfigure([]), history.reconfigure(runtime.commands.history())]
 }
 
 export function buildEditorTypographyRules(
@@ -490,7 +520,8 @@ export function baseExtensions(
 	return [
 		compartments.vim.of(vimModeExtension(runtime, config.vimMode ?? false, vimCommands)),
 		compartments.filePath.of(editorFilePathExtension(runtime, filePath)),
-		runtime.commands.history(),
+		compartments.history.of(runtime.commands.history()),
+		compartments.collab.of([]),
 		runtime.view.dropCursor(),
 		runtime.language.indentOnInput(),
 		runtime.language.bracketMatching(),
@@ -580,6 +611,17 @@ export function reconfigureEditor(
 	})
 }
 
+export function copyEditorCompartments(
+	runtime: EditorRuntimeModules,
+	source: EditorRuntimeState,
+): EditorRuntimeStateEffect[] {
+	return Object.entries(getEditorCompartments(runtime)).flatMap(([name, compartment]) =>
+		DOCUMENT_SCOPED_COMPARTMENTS.has(name as keyof EditorCompartments)
+			? []
+			: [compartment.reconfigure(compartment.get(source) ?? [])],
+	)
+}
+
 function normalizePluginEditorContributions(
 	contributions: EditorRuntimeExtension | PluginEditorContributions,
 ): PluginEditorContributions {
@@ -612,6 +654,15 @@ export async function reconfigurePluginExtensions(
 			],
 		})
 	}
+}
+
+export const pluginEditorRuntime = {
+	reconfigure: (view: unknown, contributions: unknown, isCurrent: () => boolean) =>
+		reconfigurePluginExtensions(
+			view as EditorRuntimeView,
+			contributions as PluginEditorContributions,
+			isCurrent,
+		),
 }
 
 export async function readonlyExtension() {

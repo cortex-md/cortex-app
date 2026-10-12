@@ -18,7 +18,6 @@ vi.mock("@cortex/platform", () => ({
 		},
 		storage: {
 			getAppDataDir: vi.fn().mockResolvedValue("/mock"),
-			getVaultConfigDir: vi.fn().mockResolvedValue("/mock/.cortex"),
 		},
 		vault: {
 			openVault: vi.fn(),

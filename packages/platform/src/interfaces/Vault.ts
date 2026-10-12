@@ -16,7 +16,6 @@ export interface VaultRegistryEntry {
 	name: string
 	lastOpened: number
 	icon: string | null
-	color: string | null
 	displayPath?: string | null
 }
 
@@ -25,13 +24,6 @@ export interface Vault {
 	scanVault(path: string): Promise<FileEntry[]>
 	getVaultMetadata(path: string): Promise<VaultMetadata>
 	readVaultRegistry(): Promise<VaultRegistryEntry[]>
-	updateVaultRegistry(
-		uuid: string,
-		path: string,
-		name: string,
-		icon?: string | null,
-		color?: string | null,
-	): Promise<void>
+	updateVaultRegistry(uuid: string, path: string, name: string, icon?: string | null): Promise<void>
 	removeFromVaultRegistry(uuid: string): Promise<void>
-	refreshMenuRecents(): Promise<void>
 }

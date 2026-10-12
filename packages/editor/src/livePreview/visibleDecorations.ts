@@ -1,6 +1,7 @@
 import {
 	getMarkdownRegistryVersion,
 	getMarkdownTextTransforms,
+	hasMarkdownTextRegistrations,
 	resolveCalloutType,
 	subscribeCalloutTypes,
 	subscribeMarkdownRegistry,
@@ -322,6 +323,7 @@ function addSemanticTransforms(
 	hiddenBlocks: readonly MarkdownBlock[],
 	visibleRange: { from: number; to: number },
 ): void {
+	if (!hasMarkdownTextRegistrations()) return
 	const tree = runtime.language.syntaxTree(view.state)
 	let position = visibleRange.from
 	while (position <= visibleRange.to) {

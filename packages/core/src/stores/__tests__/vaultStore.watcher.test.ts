@@ -35,6 +35,10 @@ describe("vault watcher refresh coordination", () => {
 					return vi.fn()
 				}),
 			},
+			window: {
+				claimVault: vi.fn().mockResolvedValue("claimed"),
+				releaseVault: vi.fn().mockResolvedValue(undefined),
+			},
 			vault: {
 				openVault: vi.fn().mockResolvedValue({
 					uuid: "vault-id",
@@ -56,7 +60,7 @@ describe("vault watcher refresh coordination", () => {
 		for (let index = 0; index < 100; index++) {
 			watcherCallback?.({
 				path: `/vault/note-${index}.md`,
-				kind: "modified",
+				kind: "created",
 			})
 		}
 		await vi.advanceTimersByTimeAsync(199)

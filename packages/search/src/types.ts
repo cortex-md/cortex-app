@@ -1,3 +1,5 @@
+import type { SearchSnippet } from "./matches"
+
 export interface SearchDocument {
 	id: string
 	title: string
@@ -14,11 +16,13 @@ export interface SearchResult {
 	folder: string
 	score: number
 	matchedFields: string[]
-	snippet: string
+	matchCount: number
+	snippets: SearchSnippet[]
 }
 
 export interface SearchOptions {
 	folder?: string
+	folders?: string[]
 	tags?: string[]
 	files?: string[]
 	limit?: number

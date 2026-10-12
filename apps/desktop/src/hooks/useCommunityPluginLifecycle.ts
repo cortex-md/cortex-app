@@ -1,62 +1,48 @@
-import { getPlatform, type VaultMetadata, type WatchEvent } from "@cortex/platform"
-import { disableAllPlugins, loadEnabledPlugins } from "@cortex/plugin-host-core"
-import {
-	discoverCommunityPlugins,
-	reloadCommunityPlugins,
-	setCommunityPluginsDir,
-} from "@cortex/plugin-host-web"
-import { useEffect } from "react"
-import { reportAppError } from "../utils/reportAppError"
+import { reportAppError } from "@cortex/core"
+import type { VaultMetadata, WatchEvent } from "@cortex/platform"
+import { useSettingsStore } from "@cortex/settings"
+import { useEffect, useRef } from "react"
+import { pluginHost } from "../bootstrap/pluginHost"
+import { useWatchedDirectory } from "./useWatchedDirectory"
 
 export function useCommunityPluginLifecycle(vault: VaultMetadata | null): void {
+	const allowCommunity = useSettingsStore((state) => state.settings.plugins.allowCommunity)
+	const appliedAllowCommunity = useRef(allowCommunity)
+
 	useEffect(() => {
-		if (!vault) {
-			void disableAllPlugins()
-			return
-		}
-		let cancelled = false
-		let stopPluginsWatcher: (() => void) | null = null
-		let pluginReloadTimer: number | null = null
-		const getVaultPath = () => vault.path
-		const initializePlugins = async () => {
-			const pluginsDir = `${vault.path}/.cortex/plugins`
-			setCommunityPluginsDir(pluginsDir)
-			await getPlatform().fs.createDir(pluginsDir)
-			await discoverCommunityPlugins(pluginsDir)
-			if (cancelled) return
-			await loadEnabledPlugins(vault.path, getVaultPath)
-			if (cancelled) return
-			const stopWatching = await getPlatform().fs.startWatching(
-				pluginsDir,
-				(event) => {
-					if (!shouldReloadCommunityPluginsForEvent(pluginsDir, event)) return
-					if (pluginReloadTimer) window.clearTimeout(pluginReloadTimer)
-					pluginReloadTimer = window.setTimeout(() => {
-						void reloadCommunityPlugins(pluginsDir, getVaultPath)
-					}, 300)
-				},
-				{ includeHidden: true, followSymlinks: true },
-			)
-			if (cancelled) {
-				stopWatching()
-				return
-			}
-			stopPluginsWatcher = stopWatching
-		}
-		initializePlugins().catch((error) => {
+		if (!vault) void pluginHost.disableAllPlugins()
+	}, [vault])
+
+	useEffect(() => {
+		if (appliedAllowCommunity.current === allowCommunity) return
+		appliedAllowCommunity.current = allowCommunity
+		pluginHost.syncCommunityAccess().catch((error: unknown) => {
 			void reportAppError({
-				operation: "initialize-community-plugins",
+				operation: "sync-community-plugin-access",
 				source: "app-lifecycle",
 				cause: error,
 			})
 		})
-		return () => {
-			cancelled = true
-			if (pluginReloadTimer) window.clearTimeout(pluginReloadTimer)
-			stopPluginsWatcher?.()
-			void disableAllPlugins()
-		}
-	}, [vault])
+	}, [allowCommunity])
+
+	useWatchedDirectory(vault ? `${vault.path}/.cortex/plugins` : null, {
+		load: async (pluginsDir, signal) => {
+			await pluginHost.discoverCommunityPlugins(pluginsDir)
+			if (signal.aborted) return
+			await pluginHost.loadEnabledPlugins()
+		},
+		reload: (pluginsDir) => pluginHost.reloadCommunityPlugins(pluginsDir),
+		unload: () => void pluginHost.disableAllPlugins(),
+		shouldReload: shouldReloadCommunityPluginsForEvent,
+		onError: (operation, error) => {
+			void reportAppError({
+				operation:
+					operation === "load" ? "initialize-community-plugins" : "reload-community-plugins",
+				source: "app-lifecycle",
+				cause: error,
+			})
+		},
+	})
 }
 
 function shouldReloadCommunityPluginsForEvent(pluginsDir: string, event: WatchEvent): boolean {

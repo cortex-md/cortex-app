@@ -1,7 +1,13 @@
-import { parseFrontmatter } from "@cortex/properties"
+import { projectRawNote } from "@cortex/properties"
 
-export function stripMarkdown(raw: string): string {
-	let text = parseFrontmatter(raw).body
+export interface PreparedSearchContent {
+	tags: string[]
+	aliases: string[]
+	content: string
+}
+
+export function stripMarkdown(body: string): string {
+	let text = body
 
 	text = text.replace(/```[\s\S]*?```/g, "")
 	text = text.replace(/`[^`]+`/g, "")
@@ -25,15 +31,21 @@ export function stripMarkdown(raw: string): string {
 	return text.replace(/\n{3,}/g, "\n\n").trim()
 }
 
-export function extractFrontmatter(raw: string): {
-	tags: string[]
-	aliases: string[]
-	content: string
-} {
-	const parsed = parseFrontmatter(raw)
+const WORD_PATTERN = /[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu
+
+export function countWords(markdownBody: string): number {
+	return stripMarkdown(markdownBody).match(WORD_PATTERN)?.length ?? 0
+}
+
+function toStringArray(value: unknown): string[] {
+	return Array.isArray(value) ? value.map(String) : []
+}
+
+export function prepareSearchContent(raw: string): PreparedSearchContent {
+	const { meta, body } = projectRawNote(raw)
 	return {
-		tags: Array.isArray(parsed.meta.tags) ? parsed.meta.tags.map(String) : [],
-		aliases: Array.isArray(parsed.meta.aliases) ? parsed.meta.aliases.map(String) : [],
-		content: parsed.body,
+		tags: toStringArray(meta.tags),
+		aliases: toStringArray(meta.aliases),
+		content: stripMarkdown(body),
 	}
 }

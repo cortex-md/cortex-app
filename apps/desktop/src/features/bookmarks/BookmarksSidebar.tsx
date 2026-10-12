@@ -1,61 +1,87 @@
 import {
 	type BookmarkEntry,
-	getNotePathPresentation,
 	resolveBookmarkPath,
+	selectActiveTabFilePath,
 	useBookmarksStore,
+	useUIStore,
 	useVaultStore,
 	useWorkspaceStore,
 } from "@cortex/core"
-import {
-	Button,
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from "@cortex/ui"
-import { BookmarkIcon, SearchIcon } from "lucide-react"
-import { type ChangeEvent, useCallback, useDeferredValue, useMemo, useState } from "react"
+import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@cortex/ui"
+import { BookmarkIcon, FileTextIcon, GripVerticalIcon, SearchIcon } from "lucide-react"
+import { useCallback, useDeferredValue, useMemo, useState } from "react"
+import { useCommandHotkey } from "@/hooks/useCommandHotkey"
+import { formatCount } from "@/utils/format"
+import { SidebarNoVaultState, SidebarToolView } from "../sidebar/SidebarToolView"
+import { getSidebarNotePresentation } from "../sidebar/sidebarNotePresentation"
+import { type SortableItemProps, useSortableList } from "../sidebar/useSortableList"
+
+const BOOKMARK_TOGGLE_COMMAND_ID = "bookmarks.toggle"
 
 interface BookmarkRowModel {
 	bookmark: BookmarkEntry
 	filePath: string
 	title: string
+	folder: string
 	missing: boolean
 	active: boolean
 }
 
 interface BookmarkRowProps {
 	row: BookmarkRowModel
+	sortableProps?: SortableItemProps
 	onOpen: (filePath: string) => void
 	onRemove: (path: string) => void
 }
 
-function getBookmarkTitle(filePath: string, vaultPath: string) {
-	return getNotePathPresentation(filePath, vaultPath).title
+function findMovedNote(row: BookmarkRowModel) {
+	useUIStore.getState().openQuickFinder({
+		kind: "relink-bookmark",
+		bookmarkPath: row.filePath,
+		query: row.title,
+	})
 }
 
-function BookmarkRow({ row, onOpen, onRemove }: BookmarkRowProps) {
-	const missingLabel = row.missing ? "Not found" : null
-
+function BookmarkRow({ row, sortableProps, onOpen, onRemove }: BookmarkRowProps) {
 	return (
 		<div
 			className={`sidebar-bookmark-row${row.active ? " active" : ""}`}
 			data-missing={row.missing ? "true" : "false"}
+			{...sortableProps}
 		>
-			<button
-				type="button"
+			{sortableProps && (
+				<span className="sidebar-bookmark-grip" aria-hidden="true">
+					<GripVerticalIcon />
+				</span>
+			)}
+			<Button
+				variant="ghost"
 				className="sidebar-bookmark-open"
 				disabled={row.missing}
 				onClick={() => onOpen(row.filePath)}
 				aria-label={`Open ${row.title}`}
 				title={row.missing ? "This note is no longer in the vault" : row.filePath}
 			>
-				<span className="sidebar-bookmark-title">{row.title}</span>
-				{missingLabel && <span className="sidebar-bookmark-status">{missingLabel}</span>}
-			</button>
+				<FileTextIcon className="sidebar-bookmark-icon" aria-hidden="true" />
+				<span className="sidebar-bookmark-copy">
+					<span className="sidebar-bookmark-title">{row.title}</span>
+					{row.missing ? (
+						<span className="sidebar-bookmark-status">Moved or deleted</span>
+					) : (
+						row.folder && <span className="sidebar-bookmark-path">{row.folder}</span>
+					)}
+				</span>
+			</Button>
+			{row.missing && (
+				<span className="sidebar-bookmark-fix">
+					<Button variant="secondary" size="xs" onClick={() => findMovedNote(row)}>
+						Find note
+					</Button>
+					<Button variant="ghost" size="xs" onClick={() => onRemove(row.bookmark.path)}>
+						Remove
+					</Button>
+				</span>
+			)}
 			<Tooltip>
 				<TooltipTrigger asChild>
 					<Button
@@ -76,17 +102,19 @@ function BookmarkRow({ row, onOpen, onRemove }: BookmarkRowProps) {
 	)
 }
 
+function getBookmarkHint(hotkey: string | null): string {
+	const base = "Use Add Bookmark from a note menu"
+	return hotkey ? `${base} or press ${hotkey} on the active note.` : `${base}.`
+}
+
 export function BookmarksSidebar() {
 	const vault = useVaultStore((state) => state.vault)
 	const files = useVaultStore((state) => state.files)
 	const bookmarks = useBookmarksStore((state) => state.bookmarks)
 	const removeBookmark = useBookmarksStore((state) => state.removeBookmark)
 	const openTab = useWorkspaceStore((state) => state.openTab)
-	const activeFilePath = useWorkspaceStore((state) => {
-		const activePane = state.panes[state.activePaneId]
-		const activeTab = activePane?.tabs.find((tab) => tab.id === activePane.activeTabId)
-		return activeTab?.filePath
-	})
+	const activeFilePath = useWorkspaceStore(selectActiveTabFilePath)
+	const toggleBookmarkHotkey = useCommandHotkey(BOOKMARK_TOGGLE_COMMAND_ID)
 	const [filterQuery, setFilterQuery] = useState("")
 	const deferredFilterQuery = useDeferredValue(filterQuery)
 
@@ -100,7 +128,7 @@ export function BookmarksSidebar() {
 		const query = deferredFilterQuery.trim().toLocaleLowerCase()
 		return bookmarks.flatMap((bookmark) => {
 			const filePath = resolveBookmarkPath(vault.path, bookmark.path)
-			const title = getBookmarkTitle(filePath, vault.path)
+			const { title, folder } = getSidebarNotePresentation(filePath, vault.path)
 			const searchable = `${title}\n${bookmark.path}`.toLocaleLowerCase()
 			if (query && !searchable.includes(query)) return []
 			return [
@@ -108,19 +136,13 @@ export function BookmarksSidebar() {
 					bookmark,
 					filePath,
 					title,
+					folder,
 					missing: !filePaths.has(filePath),
 					active: filePath === activeFilePath,
 				},
 			]
 		})
 	}, [activeFilePath, bookmarks, deferredFilterQuery, filePaths, vault])
-
-	const handleOpen = useCallback(
-		(filePath: string) => {
-			openTab(filePath)
-		},
-		[openTab],
-	)
 
 	const handleRemove = useCallback(
 		(path: string) => {
@@ -130,73 +152,59 @@ export function BookmarksSidebar() {
 		[removeBookmark, vault],
 	)
 
-	if (!vault) {
-		return <div className="sidebar-tool-empty">No vault open</div>
-	}
+	const reorderable = !deferredFilterQuery.trim() && rows.length > 1
+	const handleReorder = useCallback(
+		(fromIndex: number, toIndex: number) => {
+			const row = rows[fromIndex]
+			if (vault && row) {
+				void useBookmarksStore.getState().reorderBookmark(vault.path, row.bookmark.path, toIndex)
+			}
+		},
+		[rows, vault],
+	)
+	const sortable = useSortableList(rows.length, handleReorder)
 
-	const bookmarkCountLabel =
-		bookmarks.length === 0
-			? "No bookmarks"
-			: `${bookmarks.length} bookmark${bookmarks.length !== 1 ? "s" : ""}`
+	if (!vault) return <SidebarNoVaultState />
 
 	return (
 		<TooltipProvider delayDuration={320}>
-			<div className="sidebar-bookmarks-view">
-				<div className="sidebar-tool-header">
-					<InputGroup variant="search" aria-label="Filter bookmarks">
-						<InputGroupAddon>
-							<SearchIcon />
-						</InputGroupAddon>
-						<InputGroupInput
-							type="text"
-							value={filterQuery}
-							onChange={(event: ChangeEvent<HTMLInputElement>) =>
-								setFilterQuery(event.target.value)
+			<SidebarToolView
+				title="Bookmarks"
+				filterLabel="Filter bookmarks"
+				filterIcon={<SearchIcon />}
+				filterPlaceholder="Filter bookmarks..."
+				filterValue={filterQuery}
+				onFilterChange={setFilterQuery}
+				count={bookmarks.length === 0 ? "No bookmarks" : formatCount(bookmarks.length, "bookmark")}
+				meta={reorderable && <span className="sidebar-tool-filters">Drag to reorder</span>}
+				empty={
+					rows.length === 0
+						? {
+								icon: <BookmarkIcon className="size-6 text-muted-foreground" />,
+								message: filterQuery ? "No bookmarks match your filter" : "No bookmarks yet",
+								description: getBookmarkHint(toggleBookmarkHotkey),
+								clearable: Boolean(filterQuery),
 							}
-							placeholder="Filter bookmarks..."
+						: null
+				}
+			>
+				<div
+					ref={sortable.listRef}
+					className="sidebar-tool-list"
+					role="tree"
+					aria-label="Bookmarks"
+				>
+					{rows.map((row, index) => (
+						<BookmarkRow
+							key={row.bookmark.path}
+							row={row}
+							sortableProps={reorderable ? sortable.getItemProps(index) : undefined}
+							onOpen={openTab}
+							onRemove={handleRemove}
 						/>
-					</InputGroup>
-					<div className="sidebar-tool-meta-row">
-						<span className="sidebar-tool-count">{bookmarkCountLabel}</span>
-					</div>
+					))}
 				</div>
-
-				<div className="sidebar-tool-scroll">
-					{rows.length === 0 ? (
-						<div className="sidebar-tool-empty sidebar-tool-empty-stacked">
-							<BookmarkIcon className="size-6 text-muted-foreground" />
-							<p className="text-xs text-muted-foreground">
-								{filterQuery ? "No bookmarks match your filter" : "No bookmarks yet"}
-							</p>
-							{filterQuery ? (
-								<Button
-									variant="ghost"
-									size="sm"
-									className="h-7 text-xs"
-									onClick={() => setFilterQuery("")}
-								>
-									Clear filter
-								</Button>
-							) : (
-								<p className="max-w-44 text-[10px] leading-4 text-muted-foreground">
-									Use Add Bookmark from a note menu or press ⌘⇧B on the active note.
-								</p>
-							)}
-						</div>
-					) : (
-						<div className="sidebar-bookmarks-list">
-							{rows.map((row) => (
-								<BookmarkRow
-									key={row.bookmark.path}
-									row={row}
-									onOpen={handleOpen}
-									onRemove={handleRemove}
-								/>
-							))}
-						</div>
-					)}
-				</div>
-			</div>
+			</SidebarToolView>
 		</TooltipProvider>
 	)
 }

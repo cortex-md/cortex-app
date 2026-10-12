@@ -1,7 +1,16 @@
 export type SubscriptionBlockCode = "subscription_required" | "subscription_expired"
 
+export type SubscriptionStatusKind =
+	| "active"
+	| "cancelled"
+	| "disabled"
+	| "expired"
+	| "none"
+	| "pending"
+	| "unknown"
+
 export interface SubscriptionStatus {
-	status: string
+	status: SubscriptionStatusKind
 	entitled: boolean
 	currentPeriodStart: string | null
 	currentPeriodEnd: string | null

@@ -7,7 +7,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 **Cortex** is a modular markdown platform with desktop app and developer tooling. The architecture is a monorepo using bun workspaces, with clear separation between:
 - **apps/cli** — Official Cortex CLI (Go) for plugin/theme create, validate, and publish workflows
 - **apps/desktop** — The Electron application entry point
-- **packages/** — Reusable modules (ui, core, platform, ipc, theme, editor, settings, sync-engine)
+- **packages/** — Reusable modules (ui, core, platform, theme, editor, settings, sync-api, sync-engine)
 
 ## Package responsibilities
 
@@ -18,7 +18,8 @@ cortex/
 │   │   ├── electron/               # Main process: IPC, native services, menus, protocols
 │   │   │   ├── main.ts             # Electron entry: single-instance, deep links, window lifecycle
 │   │   │   ├── preload.ts          # contextBridge window.cortex.invoke/on
-│   │   │   ├── ipc/register.ts     # Command name → Node service handlers
+│   │   │   ├── contract.ts         # MainApi/MainEvents: typed IPC contract shared with the renderer
+│   │   │   ├── ipc/register.ts     # MainApi object → single typed invoke handler
 │   │   │   ├── menu.ts             # macOS/Windows application menu + dock recents
 │   │   │   ├── protocols.ts        # cortex-file:// asset protocol
 │   │   │   └── services/           # FS, vault, registry, watcher, auth, keychain, sync host, …
@@ -28,6 +29,7 @@ cortex/
 │   │       ├── main.tsx            # initPlatform(electronPlatform), monta React app
 │   │       └── App.tsx             # Composição de layout, providers, workspace
 │   └── mobile/                     # Expo/React Native app — consome packages/core e packages/platform
+│       └── src/                    # app/ (thin routes), bootstrap/, hooks/, features/, components/ui/, platform/
 ├── packages/
 │   ├── core/                       # Lógica pura: vault, metadata, eventos, Note Cache, índice; usa a abstração de plataforma.
 │   ├── commands/                   # Registry agnóstico de comandos, hotkeys associadas e nomes Vim
@@ -39,14 +41,12 @@ cortex/
 │   ├── templates/                  # Linguagem segura e renderização de templates de notas
 │   ├── search/                     # MiniSearch: indexação, serialização, queries
 │   ├── theme/                      # Engine de temas e variáveis CSS para superfícies web
-│   ├── theme-mobile/               # Extrator opt-in CSS→tokens para o futuro app React Native
+│   ├── sync-api/                   # Fetch-only Cortex server client shared by desktop main, mobile, web
 │   ├── sync-engine/                # Sync engine Node (UtilityProcess): sync.db, SSE, queue, merge
 │   ├── sync-client/                # Estado reativo do sync no frontend: status, conflitos, UI bridge
-│   └── ipc/                        # electronPlatform + typed invoke/listen over contextBridge
-├── plugins/                        # Plugins core bundled
-│   ├── file-explorer/
-│   ├── quick-switcher/
-│   └── ...
+├── plugins/                        # @cortex/plugins: bundled definePlugin modules
+│   ├── index.ts                    # bundledPlugins list (one line per plugin)
+│   └── github-emoji/               # index.ts + data
 ├── bun.lockb
 └── bunfig.toml
 ```
@@ -77,6 +77,14 @@ entry, configurable hotkey, and Vim command-line name should be described in the
 hotkeys are reconfigured into CodeMirror; Vim mode reads the same registry only while Vim is
 enabled. Use `CommandExecutionContext.payload` for explicit menu/context targets. Do not add
 separate command lists for the palette, hotkeys, native menus, context menus, or Vim.
+Context menus (editor, file tree, note header, tabs) are `MenuItem[]` lists built at open time from
+`commandMenuItem(commandId, { text, payload })` in `apps/desktop/src/utils/context-menu.ts`: the
+command supplies the action, icon, and the user's effective hotkey (shown with
+`formatHotkeyDisplay`), `getPluginMenuItems` merges plugin `contextMenuItems`, and
+`useContextMenu()` renders the list through the single native menu instance or a Radix fallback.
+Shared builders live in `features/file-explorer/fileMenu.ts` and `features/split-view/tabMenu.ts`;
+file actions such as open in split, duplicate, delete, copy path, reveal, export, and version
+history are payload commands (`{ filePath }`) registered in `bootstrap/appCommands.ts`.
 Desktop Markdown controls such as slash commands and the optional formatting toolbar should execute
 the existing `format.*` `CommandEntry` objects from the registry instead of importing Markdown
 command functions directly.
@@ -96,6 +104,18 @@ the event handler, wrap that callback with `useEffectEvent` instead of adding it
 dependencies and re-subscribing.
 Do not call `renderSomething()` helpers from JSX when they return UI. Extract a named component and
 render it as JSX so React can preserve state and show it in DevTools.
+Keep the desktop root render-cheap: `App` subscribes only to `hasVault` and the window-effects flag;
+lifecycle hooks live in the null-rendering `AppLifecycle`, and each shell piece (`AppTitlebar`,
+`SidebarShell`, `WorkspaceShell`, `AppOverlays`) subscribes to its own slice. Rarely used surfaces
+(Settings, Auth, Create from template, template editor, note history, Marketplace view, diff views,
+vault link, date property editor) are `React.lazy` and mount only after first open (`useHasOpened`).
+Drag interactions (sidebar width, split sizes) update the DOM imperatively and commit to the store
+once on pointer release.
+Desktop shared helpers live in one place: formatting (`getInitials`, dates, `formatBytes`,
+`pluralize`, `toggleSetItem`) in `apps/desktop/src/utils/format.ts`; `useDebouncedCallback`,
+`useCopyFeedback`, `useWatchedDirectory`, and `useCommandHotkey` in `apps/desktop/src/hooks`.
+Global modal targets use `createModalStore<T>()` (`utils/createModalStore.ts`) with one mounted host.
+Bookmarks, Tags, and Search sidebars compose `SidebarToolView` from `features/sidebar`.
 For commit-on-blur text fields, prefer an uncontrolled input with `defaultValue`, a `key` tied to
 the external value, and an `onBlur` commit. Do not mirror the prop into local state with
 `useEffect`.
@@ -134,9 +154,9 @@ clear.
 - **Semicolons**: Not used (Biome removes them)
 - **Import organization**: Automatic via Biome (`organizeImports: "on"`)
 
-Run `bun run check` for the current desktop quality gate: Biome lint, format, and import checks on
-desktop plus desktop-owned shared packages. Use `bun run check:fix` to auto-fix that same desktop
-scope. Use `bun run check:all` only when intentionally auditing mobile and web too.
+Run `bun run check` for the desktop quality gate: Biome lint, format, and import checks on
+`apps/desktop`, every package under `packages/`, `plugins/`, `scripts/`, and `tools/`. Use
+`bun run check:fix` to auto-fix that same scope. Mobile and web keep their own `check:*` scripts.
 
 ### Type-First Approach
 Always define types/interfaces before implementation. Props interfaces extend HTML attributes for consistency:
@@ -155,42 +175,35 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 ```bash
 bun install                # Install dependencies
-bun run check             # Desktop Biome lint + format + organize imports
-bun run check:fix         # Auto-fix the desktop Biome scope
-bun run check:all         # Biome check for desktop, mobile, web, packages, and plugins
+bun run dev:desktop       # Start Electron + Vite
+bun run dev:mobile        # Start Expo for apps/mobile
+bun run build             # Production desktop bundles in apps/desktop/out
+bun run check             # Biome lint + format + organize imports (desktop scope)
+bun run check:fix         # Auto-fix the same Biome scope
 bun run check:boundaries  # Validate workspace dependencies, layers, and cycles
-bun run typecheck         # TypeScript compilation check for desktop and desktop shared packages
-bun run typecheck:all     # TypeScript compilation check across the full monorepo
-bun run lint:desktop      # Biome lint for desktop and desktop shared packages
-bun run lint:web          # Biome lint for apps/web
-bun run lint:mobile       # Run Expo lint for apps/mobile
-bun run typecheck:web     # Run TypeScript for apps/web
-bun run typecheck:mobile  # Run TypeScript for apps/mobile
-bun run check:web         # Run apps/web Biome check
-bun run check:mobile      # Run mobile lint + typecheck
-bun run test:desktop      # Run desktop frontend suites and sync-engine tests
-bun run test:web          # Run apps/web tests
-bun run test:mobile       # Run the mobile deterministic gate
-bun run doctor            # Run React Doctor changed-scope scan for apps/desktop
-bun run doctor:mobile     # Run React Doctor changed-scope scan for apps/mobile when needed
-bun run test:frontend     # Run deterministic desktop frontend suites
-bun run test:frontend:all # Run deterministic desktop frontend, theme-mobile, and web suites
-bun run test:sync-engine  # Run packages/sync-engine vitest suite
-bun run test              # Run the desktop gate
-bun run mobile:start      # Start Expo for apps/mobile
-bun run mobile:ios        # Start Expo and open iOS
-bun run mobile:android    # Start Expo and open Android
-bun run benchmark:editor  # Run editor performance benchmarks from tools/benchmarks
-bun run benchmark:file-explorer # Run desktop file tree benchmarks from tools/benchmarks
-bun run benchmark:large-vault # Run desktop large-vault diagnostic workbench
-bun run dev:desktop       # Start Electron + Vite (from apps/desktop/)
+bun run typecheck         # TypeScript for desktop, its packages, and tools/benchmarks
+bun run typecheck:all     # TypeScript across the full monorepo
+bun run test              # Every desktop-scoped Vitest project in one run (root vitest.config.ts)
+bun run test:watch        # Same projects in watch mode; filter with --project <name>
+bun run test:coverage     # Same projects with V8 coverage
+bun run check:mobile      # Mobile lint + typecheck
+bun run test:mobile       # Mobile deterministic gate
+bun run check:web         # apps/web Biome check
+bun run test:web          # apps/web tests
+bun run doctor            # React Doctor changed-scope scan for apps/desktop
+bun run doctor:mobile     # React Doctor changed-scope scan for apps/mobile
+bun run bench             # Micro benchmarks in tools/benchmarks (vitest bench)
+bun run bench:large-vault # Large-vault workbench (file tree, search, renderer)
+bun run perf              # Real-app budgets from the roadmap (needs `bun run build`)
+bun run perf:monitor      # Live FPS, long tasks, JS heap, RAM, and CPU of the built app
 ```
 
-GitHub Actions are desktop-scoped by default while mobile is in active development. Automatic CI
-should run desktop Biome, desktop TypeScript, desktop frontend tests, sync-engine tests, workspace
-boundaries, and desktop React Doctor only. Mobile and web checks stay available through explicit scripts
-but should not block default CI until those products are promoted back into the main gate. The
-plugin API publish workflow is manual-only while the default workflow set remains desktop-focused.
+GitHub Actions are desktop-scoped by default while mobile is in active development. `ci.yml` runs
+Biome, TypeScript, workspace boundaries, and every desktop Vitest project; it ignores changes that
+only touch `apps/mobile`, `apps/web`, or `docs`. `release.yml` calls `ci.yml` as a reusable workflow
+before packaging, so a release never builds from a red commit. React Doctor runs on pull requests.
+`perf.yml` and the plugin API publish workflow are manual-only. Mobile and web checks stay
+available through explicit scripts but do not block default CI.
 
 ### Running the App
 ```bash
@@ -216,7 +229,8 @@ bun run dist              # Build + package release binaries
 | **commands** | Platform-agnostic command registry | CommandRegistry, CommandEntry, Vim-safe name helpers |
 | **properties** | Framework-free note property engine | Schemas, YAML codecs, validation, suggestions, system metadata, CM6 extension |
 | **platform** | Abstract platform interface | FileSystem, Dialog, Vault, Storage interfaces + Electron/RN adapters |
-| **ipc** | Electron platform bridge | electronPlatform, invoke/listen over contextBridge |
+| **sync-api** | Fetch-only server client | ApiClient, AuthSession, mappers, createServerApiServices |
+| **collab** | Portable E2EE real-time collaboration (Yjs) | `./wire`: frames, control messages, collab key + AES-GCM envelope |
 | **sync-engine** | Desktop sync worker | SyncDb, SSE, queue, merge, UtilityProcess entry |
 | **editor** | CodeMirror 6 setup | EditorView, extensions, syntax highlighting |
 | **theme** | CSS theme system | ThemeManager, CSS variable generation, paper/ink themes |
@@ -232,7 +246,6 @@ bun run dist              # Build + package release binaries
 - **src/components/shared/** — Cross-feature desktop helpers only
 - **src/styles.css** — Design system CSS (primitives, layout, components)
 - **electron/** — Electron main/preload (IPC handlers, native services, menus)
-- **src-tauri/** — Removed; desktop shell is Electron + TypeScript only
 
 
 ## Architecture Patterns
@@ -307,11 +320,11 @@ const platform = getPlatform()
 const files = await platform.vault.scanVault(path)
 
 // ❌ DON'T
-import { scanVault } from "@cortex/ipc"
-const files = await scanVault(path)
+import { main } from "../platform/electron-platform"
+const files = await main.vault.scanVault(path)
 ```
 
-The Electron adapter (`packages/ipc` → `electronPlatform`) bridges to `window.cortex.invoke/on`.
+The desktop adapter (`apps/desktop/src/platform/electron-platform.ts`) bridges to `window.cortex.invoke/on`. Mobile's `apps/mobile/src/platform/expo-platform.ts` assembles one Expo module per platform domain (`fs.ts`, `vault.ts`, `dialog.ts`, …), following the desktop `electron/services` pattern.
 
 ### NoteCache: Cache-First File Handling
 The `NoteCache` class (in `@cortex/core`) manages editor file state:
@@ -326,7 +339,7 @@ UI doesn't directly access files; it reads/writes through noteCache.
 ### New Vault Onboarding
 New-vault onboarding note content and first-run/vault marker rules live in `@cortex/core`, under
 `packages/core/src/onboarding`. The visible welcome note is normal vault Markdown; app-level and
-vault-level markers are stored through `@cortex/platform` storage paths, not Tauri-specific APIs.
+vault-level markers are stored through `@cortex/platform` storage paths, not Electron-specific APIs.
 Desktop owns only the presentation flow and opening `pendingOnboardingNotePath` after workspace
 restore.
 
@@ -354,7 +367,7 @@ restore.
   `--editor-search-match-bg`, and `--editor-search-match-active-bg`. Built-in themes define these
   through `ThemeTokens.semantic.selection`; community themes may override the CSS variables.
 - Callout definitions are shared by Live Preview and the renderer through `@cortex/renderer`.
-  Plugins register or override callout types with `api.markdown.registerCalloutType(...)`; later
+  Plugins register or override callout types with `contributes.markdown.callouts`; later
   registrations win and disposing restores the previous definition. Keep standard aliases intact,
   use `--callout-<type>-color` and `--callout-<type>-bg` for theme defaults, and let explicit plugin
   colors take precedence.
@@ -381,15 +394,15 @@ restore.
   perform one block traversal; visual updates perform one viewport traversal. Selection changes
   rebuild block decorations only when a block changes source/widget mode. Do not override
   CodeMirror's default arrow-key, pointer, or cursor placement behavior for Live Preview.
-- Plugins extend every Markdown surface through `api.markdown.registerInline(...)` and
-  `api.markdown.registerSemantic(...)`. Semantic output is limited to validated portable nodes;
+- Plugins extend every Markdown surface through `contributes.markdown.inline` and
+  `contributes.markdown.semantic`. Semantic output is limited to validated portable nodes;
   arbitrary DOM, HAST, CodeMirror widgets, event handlers, and inline styles are not public API.
-- Semantic registrations compose by priority over portable text nodes. `registerInline(...)` is the
-  regex convenience layer over the same portable-node transformation path.
-- `api.markdown.registerProcessor(...)` is the advanced Unified escape hatch for explicitly selected
+- Semantic registrations compose by priority over portable text nodes. Inline rules are the regex
+  convenience layer over the same portable-node transformation path.
+- `contributes.markdown.processors` is the advanced Unified escape hatch for explicitly selected
   `reading-view` and `export` surfaces. Processors declare one `remark` or `rehype` phase, run in
   priority order on cloned trees, and always run before HTML sanitization. Live Preview-specific
-  behavior belongs in semantic registrations or `api.editor.registerExtension(...)`.
+  behavior belongs in semantic registrations or `contributes.editorExtensions`.
 - Live Preview block state keeps ordered indexes for callouts, blockquotes, code, and replacement
   blocks. Visual passes query only visible ranges and record syntax-node, candidate-block, and
   decoration metrics; do not reintroduce full-block filters in the visible `ViewPlugin`.
@@ -424,7 +437,7 @@ restore.
   panel through the existing editor and semantic CSS variables.
 - In parent-scroll note editors, the Vim command-line panel must remain at the bottom of the note
   surface like Vim, not immediately after short document content.
-- Community plugin `styles.css` files require the `markdown:extensions` capability. The runtime
+- Community plugin `styles.css` files require `contributes.markdown` in the plugin. The runtime
   parses and scopes them to `.markdown-surface`, installs them only while the plugin is enabled,
   and rejects global at-rules.
 - Community theme manifests contain identity and light/dark stylesheet paths without API
@@ -432,9 +445,8 @@ restore.
   parse selectors, require tokens, or reject CSS based on future mobile compatibility.
 - Theme installation validates paths and assets in staging and restores the previous theme if
   promotion or reload fails. These filesystem protections remain independent from CSS parsing.
-- `@cortex/theme-mobile` is the only package allowed to parse theme CSS into portable tokens. It is
-  opt-in for the future React Native app and must never be imported by `@cortex/theme`,
-  Marketplace, or desktop code. Desktop never generates `.tokens.json`.
+- No package parses theme CSS into portable tokens. Mobile reads `paperTheme`/`inkTheme` tokens
+  from `@cortex/theme` directly. Desktop never generates `.tokens.json`.
 - Theme adapters set `data-theme-scheme` from the effective scheme. Dark variants, charts, and
   platform-specific dark styling must use that attribute instead of `.theme-ink`.
 - Custom accents resolve light or dark foregrounds at 4.5:1 and derive focus colors at 3:1.
@@ -477,17 +489,17 @@ restore.
 
 ### Adding a New Electron IPC Command
 1. Implement the service in `apps/desktop/electron/services/`
-2. Register the command name in `apps/desktop/electron/ipc/register.ts`
-3. Expose it through `@cortex/ipc` / `@cortex/platform` if renderer code needs it
+2. Add it to `MainApi` (`apps/desktop/electron/contract.ts`) and implement it in the main service object
+3. Override it in `apps/desktop/src/platform/electron-platform.ts` only if it needs callbacks or local logic
 
 ### Debugging
-- **DevTools**: Open with keyboard shortcuts in Tauri
+- **DevTools**: View → Toggle Developer Tools in unpackaged builds
 - **Store inspection**: Zustand devtools shows in browser console
 - **CSS issues**: Check computed styles for theme variables
 - **Type errors**: Run `bun run typecheck` to catch TS issues across monorepo
-- **Performance benchmarks**: Keep benchmark-only files outside production source trees under
-  `tools/benchmarks/` or app-local benchmark folders such as `apps/desktop/benchmarks/`, and expose
-  them through root `benchmark:*` scripts.
+- **Performance benchmarks**: Keep benchmark and profiling code in `tools/benchmarks/` only (see its
+  README). It drives the built app from outside through Playwright, so nothing it injects reaches
+  the desktop bundle. Expose new entry points through the root `bench`/`perf` scripts.
 
 ## Important Implementation Details
 
@@ -506,28 +518,47 @@ leaf tab bar via `data-left-sidebar-collapsed` and `data-split-start-pane`; do n
 workspace down.
 MacOS dialog overlays must not add CSS backdrop blur. Keep the backdrop visually consistent with
 the active modal style while making sure modal content stacks above app chrome and editor surfaces.
-Left-sidebar view navigation lives in `SidebarViewCarousel`: core views precede plugin views, the
-active item reveals its label, and the fixed `All views` Command picker provides direct access.
-Settings stays outside the carousel in the footer while the active view owns the flexible scroll
-region. Do not add CSS backdrop blur over the native sidebar material.
+Left-sidebar view navigation lives in `SidebarRail`: a vertical icon rail where core views precede
+plugin views and Marketplace and Settings sit at the bottom; the active view owns the panel beside
+it. Do not add CSS backdrop blur over the native sidebar material.
 
 ### Native Desktop Shell
 Keep Electron main-process chrome platform-aware in `apps/desktop/electron/window.ts` and
 `menu.ts`. Window-level materials should come from Electron window effects (vibrancy/Mica), not CSS
-blur layered over opaque web surfaces. Settings opens as the in-app `SettingsModal`; do not route
-it through a separate BrowserWindow. Shared settings layout lives in `SettingsContent`.
+blur layered over opaque web surfaces. Main windows are one per vault (`electron/windows.ts`). Settings opens in its own prewarmed BrowserWindow
+(`electron/windows.ts`); it shares state with the main window only through the desktop window bridge
+(`src/windows/`). Shared settings layout lives in `SettingsView`.
 
 ### Native Notifications
 All app and plugin notifications must go through `getPlatform().notifications`, never DOM toasts
-or browser notification APIs. Desktop delivery is implemented by `@cortex/ipc` through Electron's
+or browser notification APIs. Desktop delivery is implemented by the desktop platform adapter through Electron's
 notification APIs; future mobile adapters should implement the same `Platform.notifications`
 interface and no-op unsupported feature fields instead of throwing. Core app notifications bypass
 plugin permission checks but still respect OS permission and platform support.
 
-Plugins must declare `"notifications"` in `PluginManifest.capabilities` before calling
-`api.notifications.send(...)` or `api.ui.showNotice(...)`. `@cortex/plugin-host-core` validates
-unknown capabilities during discovery and enforces the notification capability at call time. Plugins
-cannot request OS notification permission directly; permission prompts are owned by the host app.
+Plugins must declare `"notifications"` in `manifest.permissions` before calling
+`ctx.notifications.send(...)` or `ctx.ui.showNotice(...)`. `@cortex/plugin-host-core` validates
+unknown permissions during discovery and enforces them at call time. Plugins cannot request OS
+notification permission directly; permission prompts are owned by the host app.
+
+### Plugins
+Bundled and community plugins export `definePlugin({ manifest, settings, contributes, activate,
+load })` from `@cortex.md/api`. Hosts register contributions without running plugin code and
+activate lazily on first use. Bundled plugins live in `plugins/<id>/` inside the single
+`@cortex/plugins` package and are listed once in `plugins/index.ts`; adding one needs no tsconfig,
+Biome, CI, or boundary edits. Desktop and mobile build the host with
+`createPluginHost({ ...createCoreServices(), ...hostServices })`. Core desktop sidebar views, tab
+views, settings pages, and status bar items register in the same contribution store with owner
+`"core"` (`apps/desktop/src/bootstrap/coreContributions.tsx`); do not add parallel registries.
+
+Community plugins follow the Obsidian model: they run in the same realm as the editor (desktop
+renderer, mobile workspace WebView) with no isolation. Safety rests on opt-in, marketplace review,
+and scanning. Restricted mode is the app-level setting `plugins.allowCommunity` (`@cortex/settings`,
+off by default, stored in the app data `settings.json`, never in a vault). It is enforced only in
+`@cortex/plugin-host-core` through `services.community.isAllowed()`; hosts wire it from the settings
+store (desktop) or the mirrored workspace state (mobile) and call `syncCommunityAccess()` when it
+changes. Enabling a community plugin first confirms its declared `manifest.permissions` through
+`@cortex/marketplace` `getPluginEnableConfirmation`.
 
 ### Workspace Marketplace
 Marketplace is a first-class desktop workspace view, not a Settings section. Community plugin/theme
@@ -543,7 +574,7 @@ plugins/themes into those vault directories with `--vault`, `CORTEX_VAULT`, or v
 detection. Marketplace release assets must include `manifest.json` plus the installable bundle/CSS
 assets as individual GitHub Release assets, not only a ZIP archive.
 Plugins that need temporary read-only Markdown notes, such as onboarding or plugin changelogs,
-should call `api.workspace.openMarkdownTab(...)` with the `ui:views` capability. Desktop renders the
+should call `ctx.workspace.openMarkdownTab(...)` with the `workspace:tabs` permission. Desktop renders the
 content as an ephemeral workspace tab and must not write it to the vault, `noteCache`, or
 `.cortex/workspace.json`.
 
@@ -555,7 +586,8 @@ content as an ephemeral workspace tab and must not write it to the vault, `noteC
 - Syntax highlighting colors resolve from CSS variables when the editor runtime mounts.
 
 ### Keyboard Shortcuts
-- App command and hotkey wiring lives in `apps/desktop/src/hooks/useAppCommands.ts`
+- App commands register once at bootstrap in `apps/desktop/src/bootstrap/appCommands.ts`; editor
+  and table commands come from `@cortex/editor/editor-command-entries` so mobile shares them
 - Feature-local shortcuts remain in their owning component files
 - Use native event handlers (`onKeyDown` checks `event.key`, `event.metaKey`)
 - No library (too opinionated for this app)
@@ -600,14 +632,16 @@ Sync logs follow a **single-source-of-truth** model — the sync-engine UtilityP
 ### Sync Ignore Preferences
 Vault-scoped sync ignore preferences live in `<vault>/.cortex/sync-preferences.json`.
 `excludedPaths` handles explicit file/folder ignores and `ignoreImages` skips image file paths
-globally. Rust `sync/ignore.rs` is the authority used by local watcher events, remote events,
-initial sync, reconciliation, and queued operations. Frontend helpers in `syncStore` mirror this
-policy only for UI state and menu affordances.
+globally. `@cortex/platform/sync-rules` is the single policy: the sync engine uses it for local
+watcher events, remote events, initial sync, reconciliation, and queued operations, and `syncStore`
+re-exports the same functions for UI state and menu affordances.
 
 ### File Watching
-- Rust `notify` crate emits `vault-file-changed` events → Electron chokidar watcher emits the same
-  event names to the renderer
-- `vaultStore.refreshFiles()` polls vault on file changes
+- The main-process chokidar watcher (`electron/services/watcher.ts`) emits `vault-file-changed` to the
+  renderer and feeds local changes to the sync worker (`notifyLocalFileChange`)
+- `vaultStore` batches watcher events: only unknown created paths rescan, deletions update `files`
+  in place, and `modified` events never touch `files`; search/tag indexes update incrementally
+  through `@cortex/core` `startAppRuntime`
 - Prevents editor from overwriting external changes
 - `FileSystem.startWatching` supports multiple watcher IDs plus `includeHidden` and
   `followSymlinks` options; keep the main vault watcher hidden-path-safe, and use dedicated hidden
@@ -618,8 +652,9 @@ policy only for UI state and menu affordances.
 
 ### Workspace Persistence
 - Tracks open tabs, pane splits, and positions
-- Saved to `vault/.cortex/workspace.json` with 500ms debounce
-- Restored on vault open via `loadWorkspace()`
+- Saved to `vault/.cortex/workspace.json` with 500ms debounce by `@cortex/core` `startAppRuntime`
+- Restored on vault open via `loadWorkspace()`; app shells must not subscribe React roots to vault
+  files or lifecycle state just to drive these side effects
 
 ## TypeScript Configuration
 
@@ -644,7 +679,7 @@ policy only for UI state and menu affordances.
 
 ## Phases (Implementation Progress)
 
-- **Phase 1**: Monorepo + Tauri shell ✅
+- **Phase 1**: Monorepo + desktop shell (Electron) ✅
 - **Phase 2**: Vault ops, FileSystem, Watcher, Dialog ✅
 - **Phase 3**: Editor (CodeMirror 6), NoteCache ✅
 - **Phase 4**: UI primitives, multi-tab/split-pane layout ✅

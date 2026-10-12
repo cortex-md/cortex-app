@@ -166,10 +166,12 @@ describe("write()", () => {
 		expect(noteCache.isDirty(FILE_PATH)).toBe(true)
 	})
 
-	it("does NOT mark dirty when content is same as disk", async () => {
+	it("does not write to disk when the flushed content matches disk", async () => {
 		await seedEntry("initial content")
 		noteCache.write(FILE_PATH, "initial content")
+		await noteCache.flush(FILE_PATH)
 		expect(noteCache.isDirty(FILE_PATH)).toBe(false)
+		expect(mockWriteFile).not.toHaveBeenCalled()
 	})
 
 	it("does not flush immediately after write", async () => {

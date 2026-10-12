@@ -22,7 +22,6 @@ export interface CommandEntry {
 	category: string
 	aliases?: string[]
 	icon?: CommandIcon
-	shortcut?: string
 	hotkey?: CommandHotkey
 	execute: (context: CommandExecutionContext) => void | Promise<void>
 }

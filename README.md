@@ -5,7 +5,7 @@ notes, vaults, sync, themes, and community extensions, with shared packages that
 logic portable over time.
 
 The repository is currently desktop-first. Mobile and web packages exist in the monorepo, but the
-default development and CI gates focus on the Tauri desktop app and the shared packages it uses.
+default development and CI gates focus on the Electron desktop app and the shared packages it uses.
 
 ## Project Goals
 
@@ -28,17 +28,17 @@ and local validation commands.
 
 ```text
 apps/
-  desktop/          Tauri desktop app, React shell, desktop features, Rust commands
+  desktop/          Electron desktop app: main process, preload, React shell and features
   mobile/           Expo mobile app, currently outside the default CI gate
   web/              Public web app, validated through explicit web scripts
 packages/
   core/             Pure app logic, stores, NoteCache, vault state, sync state
   platform/         Cross-platform interfaces for filesystem, dialogs, windows, services
-  ipc/              Tauri IPC implementation of the platform contracts
+  sync-engine/      Sync engine (utilityProcess) and the shared server API client
   editor/           CodeMirror editor runtime and Markdown editing behavior
   ui/               Shared React primitives
   plugin-api/       Public API package for community plugins
-  plugin-host-*/    Plugin lifecycle, capability enforcement, and desktop/web loading
+  plugin-host-*/    Declarative plugin host, permissions, and React rendering of contributions
   renderer/         Sanitized Markdown rendering pipeline
   theme/            Desktop/web theme tokens and community theme manifests
   marketplace/      Extension install, update, staging, and rollback logic
@@ -50,25 +50,9 @@ tools/              Benchmarks and development tooling
 ## Prerequisites
 
 - [Bun](https://bun.sh/) 1.3.3, matching the repository `packageManager`.
-- Rust stable, including Cargo and rustfmt.
-- Tauri desktop prerequisites for your operating system.
 
-On Ubuntu-like systems, the CI uses these desktop dependencies:
-
-```bash
-sudo apt-get install -y \
-  build-essential \
-  curl \
-  file \
-  libayatana-appindicator3-dev \
-  libfuse2 \
-  libssl-dev \
-  libwebkit2gtk-4.1-dev \
-  libxdo-dev \
-  librsvg2-dev \
-  patchelf \
-  wget
-```
+Electron downloads its own runtime during `bun install`; no native toolchain is required for
+development.
 
 ## Run The Desktop App
 
@@ -85,7 +69,7 @@ Useful desktop commands:
 bun run check              # Desktop Biome lint, format, and import checks
 bun run typecheck          # Desktop TypeScript project references
 bun run check:boundaries   # Workspace dependency boundaries
-bun run test               # Desktop frontend suites plus Rust tests
+bun run test               # Desktop frontend suites plus sync-engine tests
 bun run doctor             # React Doctor on apps/desktop changed scope
 ```
 

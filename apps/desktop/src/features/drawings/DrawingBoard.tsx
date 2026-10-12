@@ -1,5 +1,6 @@
 import { Button } from "@cortex/ui"
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useDebouncedCallback } from "@/hooks/useDebouncedCallback"
 import {
 	type CortexDrawingDocumentV1,
 	type ExcalidrawSerializedScene,
@@ -25,6 +26,16 @@ interface ExcalidrawCanvasProps {
 type ExcalidrawModule = typeof import("@excalidraw/excalidraw")
 
 const SAVE_DEBOUNCE_MS = 1000
+
+const EXCALIDRAW_UI_OPTIONS = {
+	tools: { image: false },
+	canvasActions: {
+		export: false,
+		loadScene: false,
+		saveAsImage: false,
+		saveToActiveFile: false,
+	},
+} as const
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -68,22 +79,17 @@ const LazyExcalidrawCanvas = lazy(async () => {
 				),
 			[document.scene],
 		)
+		const handleChange = useCallback(
+			(elements: unknown, appState: unknown, files: unknown) =>
+				onSceneChange(excalidrawModule, elements, appState, files),
+			[onSceneChange],
+		)
 
 		return (
 			<Excalidraw
 				initialData={initialData}
-				onChange={(elements, appState, files) =>
-					onSceneChange(excalidrawModule, elements, appState, files)
-				}
-				UIOptions={{
-					tools: { image: false },
-					canvasActions: {
-						export: false,
-						loadScene: false,
-						saveAsImage: false,
-						saveToActiveFile: false,
-					},
-				}}
+				onChange={handleChange}
+				UIOptions={EXCALIDRAW_UI_OPTIONS}
 			/>
 		)
 	}
@@ -97,7 +103,6 @@ export function DrawingBoard({ filePath, drawingId }: DrawingBoardProps) {
 	const [loading, setLoading] = useState(true)
 	const latestDocumentRef = useRef<CortexDrawingDocumentV1 | null>(null)
 	const pendingDocumentRef = useRef<CortexDrawingDocumentV1 | null>(null)
-	const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	const lastSceneVersionRef = useRef<number | null>(null)
 	const lastSceneJsonRef = useRef<string | null>(null)
 
@@ -106,10 +111,6 @@ export function DrawingBoard({ filePath, drawingId }: DrawingBoardProps) {
 			const pendingDocument = pendingDocumentRef.current
 			if (!pendingDocument) return
 			pendingDocumentRef.current = null
-			if (saveTimerRef.current) {
-				clearTimeout(saveTimerRef.current)
-				saveTimerRef.current = null
-			}
 			const written = await writeDrawingDocumentToNote(filePath, drawingId, pendingDocument, {
 				flush: flushFile,
 			})
@@ -118,16 +119,7 @@ export function DrawingBoard({ filePath, drawingId }: DrawingBoardProps) {
 		[filePath, drawingId],
 	)
 
-	const scheduleSave = useCallback(
-		(nextDocument: CortexDrawingDocumentV1) => {
-			pendingDocumentRef.current = nextDocument
-			if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-			saveTimerRef.current = setTimeout(() => {
-				void flushPending()
-			}, SAVE_DEBOUNCE_MS)
-		},
-		[flushPending],
-	)
+	const scheduleFlush = useDebouncedCallback(() => void flushPending(), SAVE_DEBOUNCE_MS)
 
 	const handleSceneChange = useCallback(
 		(module: ExcalidrawModule, elements: unknown, appState: unknown, files: unknown) => {
@@ -141,14 +133,13 @@ export function DrawingBoard({ filePath, drawingId }: DrawingBoardProps) {
 				files as never,
 				"local",
 			)
-			if (lastSceneJsonRef.current === serializedSceneJson) return
-			lastSceneJsonRef.current = serializedSceneJson
-
 			const currentDocument = latestDocumentRef.current
 			const scene = createSceneFromSerializedJson(serializedSceneJson)
 			if (!currentDocument || !scene) return
 
-			if (JSON.stringify(currentDocument.scene) === JSON.stringify(scene)) return
+			const sceneJson = JSON.stringify(scene)
+			if (lastSceneJsonRef.current === sceneJson) return
+			lastSceneJsonRef.current = sceneJson
 
 			const nextDocument: CortexDrawingDocumentV1 = {
 				...currentDocument,
@@ -156,10 +147,11 @@ export function DrawingBoard({ filePath, drawingId }: DrawingBoardProps) {
 				scene,
 			}
 			latestDocumentRef.current = nextDocument
+			pendingDocumentRef.current = nextDocument
 			setError(null)
-			scheduleSave(nextDocument)
+			scheduleFlush()
 		},
-		[scheduleSave],
+		[scheduleFlush],
 	)
 
 	const reloadDocument = useCallback(() => {

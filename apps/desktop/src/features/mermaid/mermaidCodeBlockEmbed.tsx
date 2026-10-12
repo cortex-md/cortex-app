@@ -1,8 +1,9 @@
 import type { CodeBlockEmbedDefinition } from "@cortex/editor/code-block-embeds"
+import { mountEmbedPortal } from "../embeds/embeds"
+import { MermaidDiagramSurface } from "./MermaidDiagramSurface"
 import { MermaidEmbedCard } from "./MermaidEmbedCard"
-import { mountMermaidLivePreview } from "./MermaidLivePreview"
 import { createMermaidDiagramReference, MERMAID_FENCE_LANGUAGE } from "./mermaidDocument"
-import { openMermaidModal } from "./mermaidModalStore"
+import { openMermaidModal } from "./mermaidWorkspace"
 
 export function createMermaidCodeBlockEmbed(filePath: string): CodeBlockEmbedDefinition {
 	return {
@@ -23,7 +24,18 @@ export function createMermaidCodeBlockEmbed(filePath: string): CodeBlockEmbedDef
 				title: reference.title,
 				className: "is-mermaid-diagram",
 				signature: reference.sourceHash,
-				mount: (container) => mountMermaidLivePreview(container, reference),
+				mount: (container) =>
+					mountEmbedPortal(
+						container,
+						<div className="mermaid-live-preview">
+							<MermaidDiagramSurface
+								source={reference.source}
+								title={reference.title}
+								className="is-live-preview"
+								onOpen={() => openMermaidModal(reference)}
+							/>
+						</div>,
+					),
 			}
 		},
 		canOpenLivePreview: ({ content }) => content.trim().length > 0,

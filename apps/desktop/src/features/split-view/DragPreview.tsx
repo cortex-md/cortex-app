@@ -1,9 +1,4 @@
-import { useDragStore, useWorkspaceStore } from "@cortex/core"
-
-function titleFromPath(filePath: string): string {
-	const name = filePath.split("/").pop() ?? filePath
-	return name.endsWith(".md") ? name.slice(0, -3) : name
-}
+import { getNoteTitle, useDragStore, useWorkspaceStore } from "@cortex/core"
 
 export function DragPreview() {
 	const dragSource = useDragStore((s) => s.dragSource)
@@ -14,7 +9,7 @@ export function DragPreview() {
 
 	const label =
 		dragSource.type === "file"
-			? titleFromPath(dragSource.filePath)
+			? getNoteTitle(dragSource.filePath)
 			: dragSource.type === "sidebar-view"
 				? dragSource.viewTitle
 				: (Object.values(panes)

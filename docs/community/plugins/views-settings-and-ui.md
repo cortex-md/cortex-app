@@ -1,104 +1,107 @@
 # Views, Settings, and UI
 
-Plugins render UI through portable descriptors. Cortex owns the actual React/web rendering so plugin
-UI can remain portable across hosts.
+Views, sidebar items, status bar items, context menu items, and settings are declared data. Cortex
+renders them with host components; plugins never ship React or DOM code.
 
-## Register a View
+## Declare a View
 
 ```ts
-import type { ViewDescriptor, ViewDispatch, ViewState } from "@cortex.md/api"
+type CounterState = { count: number }
 
-function renderCounter(state: ViewState, _dispatch: ViewDispatch): ViewDescriptor {
-	const count = Number(state.state.count ?? 0)
-	return {
-		type: "stack",
-		gap: "sm",
-		children: [
-			{ type: "heading", value: "Counter" },
-			{ type: "text", value: `Count: ${count}` },
-			{ type: "button", label: "Increment", action: "increment", variant: "primary" },
-		],
-	}
-}
-
-this.registerView({
-	id: "counter",
-	label: "Counter",
-	icon: "plus",
-	location: "sidebar-left",
-	initialState: { count: 0 },
-	reduce: (state, action) => {
-		if (action === "increment") return { ...state, count: Number(state.count ?? 0) + 1 }
-		return state
-	},
-	render: renderCounter,
-})
+contributes: {
+	views: [
+		{
+			id: "counter",
+			label: "Counter",
+			icon: "plus",
+			location: "sidebar-left",
+			initialState: { count: 0 },
+			render: (state: CounterState) => ({
+				type: "stack",
+				gap: "md",
+				children: [
+					{ type: "heading", value: "Counter" },
+					{ type: "text", value: `Count: ${state.count}` },
+					{ type: "button", label: "Increment", action: "increment", variant: "primary" },
+					{ type: "button", label: "Insert", action: "insert" },
+				],
+			}),
+			reduce: (state: CounterState, action) =>
+				action === "increment" ? { count: state.count + 1 } : state,
+			onAction(ctx, action, _payload, state) {
+				if (action === "insert") ctx.editor.insertAtCursor(String(state.count))
+			},
+		},
+	],
+},
 ```
 
-Declare `ui:views`.
+- `render(state, ctx)` returns portable descriptors. Annotate `state` with a type alias for typed
+  views.
+- `reduce(state, action, payload)` is pure and updates host-owned state.
+- `onAction(ctx, action, payload, state)` runs side effects after `reduce` (editor writes, opening
+  tabs, persisting data). Permissions still apply.
+- Omit `render` to resolve `views[id]` from `load()`; Cortex shows a spinner until it loads.
+- Each view renders inside an error boundary, so a throwing view cannot crash the app.
 
-## View Locations
-
-Views can render in:
-
-- `tab`
-- `sidebar-left`
-- `sidebar-right`
-- `modal`
-
-Modal views also require `ui:modals`.
+Locations: `tab`, `sidebar-left`, `sidebar-right`, `modal`. Open views with
+`ctx.workspace.openView(id)` (requires `workspace:tabs`) or modal views with
+`ctx.ui.openModal(id)`. View ids are type-checked.
 
 ## Sidebar, Status Bar, and Context Menus
 
 ```ts
-this.registerSidebarItem({
-	id: "counter",
-	label: "Counter",
-	icon: "plus",
-	viewId: "counter",
-})
-
-this.registerStatusBarItem({
-	id: "counter-status",
-	position: "right",
-	icon: "plus",
-	text: "Counter",
-	tooltip: "Open counter",
-	onClick: () => this.api.workspace.openView("counter"),
-})
-
-this.registerContextMenuItem({
-	id: "copy-path",
-	label: "Copy Path",
-	location: "file",
-	action: async (context) => {
-		if (context.location === "file") await this.api.data.write("last-path.txt", context.filePath)
-	},
-})
-```
-
-Required capabilities are `ui:sidebar`, `ui:statusbar`, and `ui:contextmenu`.
-
-## Settings Tabs
-
-```ts
-this.registerSettingsTab({
-	id: "counter-settings",
-	label: "Counter",
-	icon: "settings",
-	settings: [
+contributes: {
+	sidebarItems: [{ id: "counter", label: "Counter", icon: "plus", view: "counter" }],
+	statusBarItems: [
 		{
-			key: "enabled",
-			label: "Enabled",
-			type: "boolean",
-			default: true,
+			id: "counter-status",
+			position: "right",
+			icon: "plus",
+			text: "Counter",
+			tooltip: "Open counter",
+			command: "open-counter",
+			when: "showStatus",
 		},
 	],
-})
+	contextMenuItems: [
+		{ id: "count-file", label: "Count words", location: "file", command: "count-words" },
+	],
+},
 ```
 
-Supported setting field types are `text`, `number`, `boolean`, `select`, `slider`, `color`, and
-`folder-path`.
+Status bar and context menu items execute one of the plugin's command ids. Context menu commands
+receive a `ContextMenuActionContext` payload (`file`, `editor`, or `tab` target). `when` shows a
+status bar item only while a boolean setting is `true`.
+
+## Settings
+
+Declare a settings schema once; Cortex renders a settings page titled with the plugin name,
+persists values to `<vault>/.cortex/plugins/<plugin-id>/settings.json`, and applies defaults.
+
+```ts
+settings: {
+	showStatus: { type: "boolean", label: "Show status item", default: true },
+	maxItems: { type: "slider", label: "Maximum items", default: 5, min: 1, max: 20, step: 1 },
+	mode: {
+		type: "select",
+		label: "Mode",
+		default: "compact",
+		options: [
+			{ value: "compact", label: "Compact" },
+			{ value: "full", label: "Full" },
+		],
+	},
+},
+activate(ctx) {
+	const mode = ctx.settings.get("mode")
+	ctx.settings.onChange("maxItems", (value, oldValue) => console.log(value, oldValue))
+},
+```
+
+`ctx.settings.get(key)` returns the stored value or the schema default, typed from the schema
+(`"compact" | "full"` above). `set`, `getAll`, and `onChange` are typed the same way. Field types:
+`text`, `number`, `boolean`, `select`, `slider`, `color`, `folder-path`.
 
 ## Portable UI Nodes
 
@@ -108,4 +111,3 @@ scroll-area, badge, progress, empty, markdown, setting-row, item, alert, tabs, a
 
 Do not expose React components, DOM nodes, inline styles, arbitrary event handlers, or free
 `className` values.
-

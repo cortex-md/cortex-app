@@ -1,32 +1,27 @@
-import { useWorkspaceStore, type VaultMetadata } from "@cortex/core"
+import type { VaultMetadata } from "@cortex/core"
+import { getPlatform } from "@cortex/platform"
 import { useEffect, useRef } from "react"
 import {
 	readLastSeenAppVersion,
 	writeLastSeenAppVersion,
 } from "../features/app-updates/appUpdateChangelogMarker"
-import {
-	checkForAppUpdate,
-	fetchAppUpdateChangelog,
-	refreshAppUpdateStatus,
-} from "../features/app-updates/appUpdateStore"
+import { checkForAppUpdate, refreshAppUpdateStatus } from "../features/app-updates/appUpdateStore"
+import { openChangelogTab } from "../features/app-updates/openChangelog"
 import { sendCoreNotification } from "../utils/nativeNotifications"
-
-function normalizeChangelogContent(version: string, content: string): string {
-	const trimmed = content.trim()
-	if (trimmed.startsWith("#")) return trimmed
-	return `# What's new in Cortex v${version}\n\n${trimmed}`
-}
 
 export function useAppUpdateLifecycle(version: string | null, vault: VaultMetadata | null) {
 	const startupCheckAttempted = useRef(false)
 	const handledChangelogVersions = useRef<Set<string> | null>(null)
 	handledChangelogVersions.current ??= new Set()
-	const openViewTab = useWorkspaceStore((state) => state.openViewTab)
 
 	useEffect(() => {
 		if (!version || startupCheckAttempted.current) return
 		startupCheckAttempted.current = true
-		void checkForAppUpdate("startup")
+		void getPlatform()
+			.window.claimOnce("app-update-startup-check")
+			.then((claimed) => {
+				if (claimed) void checkForAppUpdate("startup")
+			})
 	}, [version])
 
 	useEffect(() => {
@@ -42,25 +37,16 @@ export function useAppUpdateLifecycle(version: string | null, vault: VaultMetada
 		const openChangelog = async () => {
 			const lastSeenVersion = await readLastSeenAppVersion()
 			if (cancelled || lastSeenVersion === version) return
+			if (!(await getPlatform().window.claimOnce(`app-update-changelog:${version}`))) return
 
-			const changelog = await fetchAppUpdateChangelog(version)
+			const opened = await openChangelogTab(version)
 			if (cancelled) return
-
-			if (changelog) {
-				openViewTab("app-update-changelog", `What's new in v${version}`, {
-					ephemeral: true,
-					viewState: {
-						version,
-						content: normalizeChangelogContent(version, changelog),
-					},
-				})
-			}
 
 			void sendCoreNotification({
 				id: `app-updated:${version}`,
 				tag: "app-update",
 				title: `Cortex updated to v${version}`,
-				body: changelog ? "Release notes are open in Cortex." : undefined,
+				body: opened ? "Release notes are open in Cortex." : undefined,
 				kind: "success",
 				urgency: "normal",
 			})
@@ -79,5 +65,5 @@ export function useAppUpdateLifecycle(version: string | null, vault: VaultMetada
 		return () => {
 			cancelled = true
 		}
-	}, [openViewTab, vault, version])
+	}, [vault, version])
 }

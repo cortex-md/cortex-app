@@ -27,8 +27,9 @@ function setMemoryPlatform() {
 			hashFile: vi.fn().mockResolvedValue("hash"),
 			startWatching: vi.fn().mockResolvedValue(vi.fn()),
 		},
-		storage: {
-			getVaultConfigDir: vi.fn(async (vaultPath: string) => `${vaultPath}/.cortex`),
+		window: {
+			claimVault: vi.fn().mockResolvedValue("claimed"),
+			releaseVault: vi.fn().mockResolvedValue(undefined),
 		},
 		vault: {
 			openVault: vi.fn().mockResolvedValue({

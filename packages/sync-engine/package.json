@@ -4,26 +4,21 @@
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts",
-		"./worker": "./src/worker.ts"
+		".": "./src/index.ts"
 	},
 	"scripts": {
 		"test": "vitest run",
 		"typecheck": "tsc -b --pretty false"
 	},
 	"dependencies": {
-		"@noble/hashes": "1.8.0",
-		"argon2": "^0.41.1",
-		"better-sqlite3": "^11.8.1",
-		"diff-match-patch": "^1.0.5",
-		"eventsource": "^3.0.6",
-		"write-file-atomic": "^5.0.1"
+		"@cortex/platform": "workspace:*",
+		"@cortex/sync-api": "workspace:*",
+		"argon2": "^0.45.1",
+		"diff-match-patch": "^1.0.5"
 	},
 	"devDependencies": {
-		"@types/better-sqlite3": "^7.6.12",
 		"@types/diff-match-patch": "^1.0.36",
 		"@types/node": "^25.3.5",
-		"@types/write-file-atomic": "^4.0.3",
 		"typescript": "~5.8.3",
 		"vitest": "^4.1.9"
 	}

@@ -4,23 +4,22 @@ This guide summarizes the day-to-day rules contributors should follow when chang
 
 ## Package Ownership
 
-- `apps/desktop` owns Tauri desktop composition, desktop feature UI, shell layout, settings windows,
+- `apps/desktop` owns Electron desktop composition, desktop feature UI, shell layout, settings windows,
   and native app integration.
 - `@cortex/core` owns pure app logic, stores, NoteCache, vault state, sync state, onboarding logic,
   and shared domain behavior.
 - `@cortex/platform` defines cross-platform contracts for filesystem, dialogs, windows, storage,
   notifications, and app services.
-- `@cortex/ipc` implements the Tauri desktop adapter for platform contracts.
 - `@cortex/editor` owns CodeMirror setup, Markdown editing, Live Preview, keymaps, and editor
   runtime loading.
 - `@cortex/renderer` owns sanitized rendered Markdown semantics.
 - `@cortex/ui` owns shared React primitives only.
-- `@cortex.md/api` is the public plugin API. Keep it free of React, DOM, Tauri, CodeMirror, and
+- `@cortex.md/api` is the public plugin API. Keep it free of React, DOM, Electron, CodeMirror, and
   internal implementation packages.
 
 ## Platform Boundaries
 
-React desktop code should not call Tauri APIs directly. Use the platform abstraction:
+React desktop code should not call Electron APIs directly. Use the platform abstraction:
 
 ```ts
 import { getPlatform } from "@cortex/platform"
@@ -32,8 +31,8 @@ const files = await platform.vault.scanVault(vaultPath)
 If a feature needs new native behavior:
 
 1. Add or extend the `@cortex/platform` contract.
-2. Implement the desktop adapter in `@cortex/ipc`.
-3. Add the Rust command in `apps/desktop/src-tauri`.
+2. Implement it in the main-process service object typed by `MainApi` (`apps/desktop/electron/services`).
+3. Override it in `apps/desktop/src/platform/electron-platform.ts` only when it needs callbacks or local logic.
 4. Call the platform method from desktop or core code.
 
 ## React And UI
@@ -65,16 +64,16 @@ If a feature needs new native behavior:
 - Desktop CSS owns Reading View, Side-by-Side, and app shell layout. Live Preview projection styles
   belong with the editor package.
 
-## Rust
+## Main Process
 
-- Keep Rust changes limited to native OS work, IPC commands, sync internals, filesystem behavior,
-  file watching, keychain, protocol handling, menu integration, and window behavior.
+- Keep main-process code limited to native OS work: filesystem, file watching, keychain, protocol
+  handling, menus, windows, updates, and the sync worker bridge.
+- Validate renderer input at the boundary (`assertAllowedPath`, restricted keychain keys).
 - Keep fatal errors scoped. For vault scans, inaccessible roots are fatal; unreadable children should
   be skipped when possible so one locked file does not make the vault appear empty.
-- Add Rust tests for command behavior and sync/file edge cases.
 
 ## Tests And Documentation
 
-- Add focused tests for new behavior, bug fixes, and cross-package contracts.
+- Keep the test suite lean: test critical behavior and regressions, not every code path.
 - Update docs when setup, commands, public APIs, package ownership, or contribution workflow changes.
 - Avoid unrelated refactors in bug-fix pull requests.

@@ -1,30 +1,32 @@
+import { type CommandEntry, commandRegistry } from "@cortex/commands"
 import { getPlatform } from "@cortex/platform"
+import { getVaultFilePath, VAULT_CONFIG_DIR } from "@cortex/platform/utils"
 import { create } from "zustand"
 import { matchesEvent, parseHotkey } from "./parser"
 import type { HotkeyBinding, HotkeyOverrides, ParsedHotkey } from "./types"
 
-type HotkeyHandler = () => void
-
-interface ParsedHotkeyBinding extends HotkeyBinding {
+interface ParsedHotkeyBinding {
+	binding: HotkeyBinding
 	parsedKeys: ParsedHotkey
 }
 
 interface HotkeysState {
 	bindings: HotkeyBinding[]
 	parsedBindings: ParsedHotkeyBinding[]
-	handlers: Record<string, HotkeyHandler>
 	overrides: HotkeyOverrides
 
+	syncCommands: (commands: readonly CommandEntry[]) => void
+	applyBindings: (bindings: HotkeyBinding[], overrides: HotkeyOverrides) => void
 	loadOverrides: (vaultPath: string) => Promise<void>
 	saveOverrides: (vaultPath: string) => Promise<void>
 	updateBinding: (id: string, keys: string) => void
 	resetBinding: (id: string) => void
 	resetAll: () => void
-	registerHandler: (id: string, handler: HotkeyHandler) => void
-	unregisterHandler: (id: string) => void
 	handleKeyEvent: (event: KeyboardEvent) => boolean
-	addBinding: (binding: HotkeyBinding) => void
-	removeBinding: (id: string) => void
+}
+
+function getHotkeysPath(vaultPath: string): string {
+	return getVaultFilePath(vaultPath, `${VAULT_CONFIG_DIR}/hotkeys.json`)
 }
 
 function applyOverride(binding: HotkeyBinding, overrides: HotkeyOverrides): HotkeyBinding {
@@ -37,45 +39,83 @@ function applyOverride(binding: HotkeyBinding, overrides: HotkeyOverrides): Hotk
 	}
 }
 
-function toParsedBinding(binding: HotkeyBinding): ParsedHotkeyBinding {
+function toBinding(command: CommandEntry): HotkeyBinding {
+	const defaultKeys = command.hotkey?.defaultKeys ?? ""
 	return {
-		...binding,
-		parsedKeys: parseHotkey(binding.keys),
+		id: command.id,
+		label: command.label,
+		category: command.category,
+		scope: command.hotkey?.scope ?? "global",
+		defaultKeys,
+		keys: defaultKeys,
+		enabled: command.hotkey?.enabled ?? true,
 	}
 }
 
-function applyBindingList(bindings: HotkeyBinding[]): {
-	bindings: HotkeyBinding[]
-	parsedBindings: ParsedHotkeyBinding[]
-} {
+function isSameCommandBinding(existing: HotkeyBinding, next: HotkeyBinding): boolean {
+	return (
+		existing.label === next.label &&
+		existing.category === next.category &&
+		existing.scope === next.scope &&
+		existing.defaultKeys === next.defaultKeys
+	)
+}
+
+function withBindings(
+	bindings: HotkeyBinding[],
+	previous: ParsedHotkeyBinding[] = [],
+): Pick<HotkeysState, "bindings" | "parsedBindings"> {
+	const parsedByBinding = new Map(previous.map((parsed) => [parsed.binding, parsed]))
 	return {
 		bindings,
-		parsedBindings: bindings.map(toParsedBinding),
+		parsedBindings: bindings.map(
+			(binding) =>
+				parsedByBinding.get(binding) ?? { binding, parsedKeys: parseHotkey(binding.keys) },
+		),
 	}
 }
 
 export const useHotkeysStore = create<HotkeysState>((set, get) => ({
 	bindings: [],
 	parsedBindings: [],
-	handlers: {},
 	overrides: {},
 
-	loadOverrides: async (vaultPath) => {
-		try {
-			const platform = getPlatform()
-			const configDir = await platform.storage.getVaultConfigDir(vaultPath)
-			const raw = await platform.fs.readFile(`${configDir}/hotkeys.json`)
-			const overrides: HotkeyOverrides = JSON.parse(raw)
+	syncCommands: (commands) => {
+		const { bindings, parsedBindings, overrides } = get()
+		const existingById = new Map(bindings.map((binding) => [binding.id, binding]))
+		let changed = commands.length !== bindings.length
+		const nextBindings = commands.map((command, index) => {
+			const next = toBinding(command)
+			const existing = existingById.get(command.id)
+			if (existing && isSameCommandBinding(existing, next)) {
+				if (bindings[index] !== existing) changed = true
+				return existing
+			}
+			changed = true
+			return applyOverride(next, overrides)
+		})
+		if (changed) set(withBindings(nextBindings, parsedBindings))
+	},
 
+	applyBindings: (bindings, overrides) => {
+		set({ ...withBindings(bindings, get().parsedBindings), overrides })
+	},
+
+	loadOverrides: async (vaultPath) => {
+		const resetBindings = get().bindings.map((binding) => ({
+			...binding,
+			keys: binding.defaultKeys,
+			enabled: true,
+		}))
+		try {
+			const raw = await getPlatform().fs.readFile(getHotkeysPath(vaultPath))
+			const overrides: HotkeyOverrides = JSON.parse(raw)
 			set({
-				...applyBindingList(get().bindings.map((binding) => applyOverride(binding, overrides))),
+				...withBindings(resetBindings.map((binding) => applyOverride(binding, overrides))),
 				overrides,
 			})
-		} catch (_e) {
-			set({
-				...applyBindingList(get().bindings),
-				overrides: {},
-			})
+		} catch {
+			set({ ...withBindings(resetBindings), overrides: {} })
 		}
 	},
 
@@ -97,30 +137,38 @@ export const useHotkeysStore = create<HotkeysState>((set, get) => ({
 		set({ overrides })
 
 		try {
-			const platform = getPlatform()
-			const configDir = await platform.storage.getVaultConfigDir(vaultPath)
-			await platform.fs.writeFile(
-				`${configDir}/hotkeys.json`,
+			await getPlatform().fs.writeFile(
+				getHotkeysPath(vaultPath),
 				JSON.stringify(overrides, null, "\t"),
 			)
-		} catch (_e) {}
+		} catch {}
 	},
 
 	updateBinding: (id, keys) => {
-		set(applyBindingList(get().bindings.map((b) => (b.id === id ? { ...b, keys } : b))))
+		const { bindings, parsedBindings } = get()
+		set(
+			withBindings(
+				bindings.map((binding) => (binding.id === id ? { ...binding, keys } : binding)),
+				parsedBindings,
+			),
+		)
 	},
 
 	resetBinding: (id) => {
+		const { bindings, parsedBindings } = get()
 		set(
-			applyBindingList(
-				get().bindings.map((b) => (b.id === id ? { ...b, keys: b.defaultKeys, enabled: true } : b)),
+			withBindings(
+				bindings.map((binding) =>
+					binding.id === id ? { ...binding, keys: binding.defaultKeys, enabled: true } : binding,
+				),
+				parsedBindings,
 			),
 		)
 	},
 
 	resetAll: () => {
 		set(
-			applyBindingList(
+			withBindings(
 				get().bindings.map((binding) => ({
 					...binding,
 					keys: binding.defaultKeys,
@@ -130,52 +178,14 @@ export const useHotkeysStore = create<HotkeysState>((set, get) => ({
 		)
 	},
 
-	registerHandler: (id, handler) => {
-		set({ handlers: { ...get().handlers, [id]: handler } })
-	},
-
-	unregisterHandler: (id) => {
-		const { [id]: _, ...rest } = get().handlers
-		set({ handlers: rest })
-	},
-
-	addBinding: (binding) => {
-		const { bindings, overrides } = get()
-		const nextBinding = applyOverride(binding, overrides)
-		const existingIndex = bindings.findIndex((b) => b.id === binding.id)
-		if (existingIndex >= 0) {
-			set({
-				...applyBindingList(
-					bindings.map((existingBinding, index) =>
-						index === existingIndex ? nextBinding : existingBinding,
-					),
-				),
-			})
-			return
-		}
-		set(applyBindingList([...bindings, nextBinding]))
-	},
-
-	removeBinding: (id) => {
-		const { bindings } = get()
-		set(applyBindingList(bindings.filter((binding) => binding.id !== id)))
-	},
-
 	handleKeyEvent: (event) => {
-		const { parsedBindings, handlers } = get()
-
-		for (const binding of parsedBindings) {
-			if (!binding.enabled || binding.scope !== "global") continue
-			const handler = handlers[binding.id]
-			if (!handler) continue
-
-			if (matchesEvent(binding.parsedKeys, event)) {
-				event.preventDefault()
-				handler()
-				return true
-			}
+		for (const { binding, parsedKeys } of get().parsedBindings) {
+			if (!binding.enabled || binding.scope !== "global" || !binding.keys) continue
+			if (!matchesEvent(parsedKeys, event)) continue
+			if (!commandRegistry.execute(binding.id, { source: "hotkey" })) continue
+			event.preventDefault()
+			return true
 		}
-
 		return false
 	},
 }))

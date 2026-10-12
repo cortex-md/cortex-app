@@ -1,4 +1,5 @@
 import { getPlatform } from "@cortex/platform"
+import { getVaultFilePath, VAULT_FILES } from "@cortex/platform/utils"
 import type { AppSettings, GlobalAppSettings, SettingsChangeEvent } from "./types"
 import { AppSettingsSchema, GlobalAppSettingsSchema } from "./types"
 
@@ -21,7 +22,9 @@ export class SettingsManager {
 		let parsed: unknown = {}
 		try {
 			const platform = getPlatform()
-			const content = await platform.fs.readFile(`${vaultPath}/.cortex/app.json`)
+			const content = await platform.fs.readFile(
+				getVaultFilePath(vaultPath, VAULT_FILES.appSettings),
+			)
 			parsed = JSON.parse(content)
 		} catch {
 			parsed = {}
@@ -70,14 +73,12 @@ export class SettingsManager {
 		value: unknown,
 	): Promise<void> {
 		const oldValue = this.get(section, key)
-		const nextCache = AppSettingsSchema.parse({
-			...this.cache,
-			[section]: {
-				...this.cache[section],
-				[key]: value,
-			},
-		})
-		const newValue = nextCache[section][key]
+		const nextSection = AppSettingsSchema.shape[section].parse({
+			...this.cache[section],
+			[key]: value,
+		}) as AppSettings[K]
+		const nextCache = { ...this.cache, [section]: nextSection }
+		const newValue = nextSection[key]
 
 		this.cache = nextCache
 
@@ -90,15 +91,24 @@ export class SettingsManager {
 			})
 		})
 
-		if (section === "appearance" && key === "nativeWindowEffects") {
+		if (isGlobalSetting(section, key as string)) {
 			this.globalSettings = GlobalAppSettingsSchema.parse({
-				appearance: { nativeWindowEffects: newValue },
+				appearance: { nativeWindowEffects: nextCache.appearance.nativeWindowEffects },
+				plugins: nextCache.plugins,
 			})
 			await this.flushGlobalSettings()
 			return
 		}
 
 		this.scheduleFlush()
+	}
+
+	applyExternalSettings(settings: AppSettings): void {
+		this.cache = settings
+		this.globalSettings = GlobalAppSettingsSchema.parse({
+			appearance: { nativeWindowEffects: settings.appearance.nativeWindowEffects },
+			plugins: settings.plugins,
+		})
 	}
 
 	private scheduleFlush(): void {
@@ -112,7 +122,10 @@ export class SettingsManager {
 		try {
 			const platform = getPlatform()
 			const content = JSON.stringify(this.getVaultSettingsSnapshot(), null, 2)
-			await platform.fs.writeFile(`${this.vaultPath}/.cortex/app.json`, content)
+			await platform.fs.writeFile(
+				getVaultFilePath(this.vaultPath, VAULT_FILES.appSettings),
+				content,
+			)
 		} catch (error) {
 			console.error("Failed to save settings:", error)
 		}
@@ -152,16 +165,19 @@ export class SettingsManager {
 				...this.cache.appearance,
 				nativeWindowEffects: this.globalSettings.appearance.nativeWindowEffects,
 			},
+			plugins: this.globalSettings.plugins,
 		})
 	}
 
-	private getVaultSettingsSnapshot(): AppSettings {
-		const { nativeWindowEffects: _nativeWindowEffects, ...appearance } = this.cache.appearance
-		return {
-			...this.cache,
-			appearance,
-		} as AppSettings
+	private getVaultSettingsSnapshot(): Omit<AppSettings, "plugins"> {
+		const { plugins: _plugins, ...cache } = this.cache
+		const { nativeWindowEffects: _nativeWindowEffects, ...appearance } = cache.appearance
+		return { ...cache, appearance } as Omit<AppSettings, "plugins">
 	}
+}
+
+function isGlobalSetting(section: keyof AppSettings, key: string): boolean {
+	return section === "plugins" || (section === "appearance" && key === "nativeWindowEffects")
 }
 
 function readLegacyNativeWindowEffects(settings: unknown): boolean | null {

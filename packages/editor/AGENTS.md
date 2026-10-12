@@ -15,6 +15,15 @@
 - `EditorView` must reconfigure the Live Preview projection when `livePreview`, file path, or image
   URL resolution props change. Mode switches must not leave an existing CodeMirror view in raw
   source mode.
+- `EditorView`'s optional `documentKey` keeps one CodeMirror view across notes: a key change caches
+  the outgoing `EditorState` plus scroll snapshot (LRU of 5 per view) and restores the incoming one
+  only when its doc equals `content`, otherwise creates a fresh state from the mount extensions.
+  Swapped-in states always copy every editor compartment (config, Live Preview, plugins) from the
+  outgoing state via `copyEditorCompartments`. Same-key content changes stay remote/no-history
+  replacements; hosts call `evictEditorDocument(view, key)` when a note closes or is deleted.
+  Without `documentKey` (desktop) the doc is replaced in place as before.
+- `ReadingView` loads the unified pipeline lazily from `@cortex/renderer/pipeline`; static imports
+  in this package must use the light `@cortex/renderer`, `/callouts`, or `/math` entry points.
 - `ReadingView` receives `SanitizedMarkdownHtml` from `@cortex/renderer`; keep
   `sanitizeRenderedMarkdownHtml(...)` at the React HTML sink so the trust boundary stays explicit.
 - Components that render `.markdown-surface` must import `src/markdown.css` directly, because
@@ -73,6 +82,21 @@
   are exported as `@cortex/editor/markdown-format-commands`. Desktop and mobile hosts may register
   those entries in their own command registry context, but must not duplicate the `format.*`
   catalog.
+- The Markdown toolbar layout (`markdownToolbarLayout` visible/overflow ids,
+  `markdownToolbarCommandIds`, and compact `markdownToolbarShortLabels`) also lives in
+  `@cortex/editor/markdown-format-commands`. Desktop renders it with icons and command labels;
+  mobile renders the short labels. Hosts skip ids their registry does not provide (`format.drawing`
+  is desktop-only).
+- `createEditorConfig(settings)` (`@cortex/editor/editor-config`) is the only settings → `EditorConfig`
+  mapping (desktop panes, template editor, mobile). It takes a structural slice of `AppSettings`
+  so the editor does not depend on `@cortex/settings`, and imports no CodeMirror values.
+- `resolveNoteAssetPath(src, notePath)` (`@cortex/editor/note-assets`) is the single image/asset
+  rule: `http(s):`, `data:`, and `blob:` are `{ kind: "url" }`; absolute paths and other URI
+  schemes (`file:`, `content:`, `asset:`) are passed to the platform unchanged as
+  `{ kind: "vaultPath" }` so desktop's allowlisted `cortex-file://` protocol still guards them;
+  relative paths join the note's folder. Hosts call `platform.app.resolveFileAssetUrl` for vault paths.
+- `pluginEditorRuntime` in `extensions.ts` is the shared `PluginHostServices.editorRuntime`
+  (`reconfigurePluginExtensions`) for desktop and the mobile DOM editor.
 - Math insertion stays in the same `format.*` command catalog. Toolbar, slash menu, context menu,
   and palette surfaces should execute `format.inline-math` and `format.math-block` rather than
   calling math insertion helpers directly.
@@ -86,6 +110,22 @@
   so source graph tooling does not treat them as production files.
 - Keep CodeMirror/theme dependencies in `package.json` only when runtime code, tests, or benchmarks
   import them directly.
+
+## Live Collaboration
+
+- `@cortex/editor/collab` exports `attachCollabBinding(view, binding, isCurrent)`,
+  `readOnlyDocumentExtension(runtime)`, and `isExternalEditorTransaction`. `y-codemirror.next` is
+  imported dynamically on first attach; `yjs` and `y-protocols` are type-only imports here.
+- `history` and `collab` are document-scoped compartments: `copyEditorCompartments` skips them and
+  `swapDocument` detaches a cached state's binding. Attaching swaps `history()` out, installs
+  `yCollab(body, awareness, { undoManager })` plus the Yjs undo keymap at `Prec.high`, and replaces
+  the document with the `Y.Text` content in one remote, non-history transaction. Detaching restores
+  `history()`.
+- `EditorView`/`SideBySideView` accept `collab`. While bound, the `content` prop never replaces the
+  document and `onChange` fires only for local, non-sync transactions. Vim `u`/`<C-r>` route to the
+  Yjs undo manager while a binding is attached.
+- Read-only editors use `readOnlyDocumentExtension`, which accepts `Transaction.remote` and
+  y-codemirror sync transactions (through an internal sync facet) so viewers still receive live edits.
 
 ## Table Editing
 
@@ -159,3 +199,28 @@
 - Live Preview table borders should be a connected grid: the wrapper owns the outer perimeter and
   cells own internal dividers. Do not reintroduce per-cell outer borders that create disconnected
   corners or stray right-side lines.
+
+## Selection Toolbar, Search Highlight, and Reveal
+
+- `selectionToolbarExtension` emits the floating toolbar position for non-empty selections; hosts
+  render the toolbar and run the same format command ids as the slash menu.
+- `searchHighlightExtension` plus `setSearchHighlight`/`stepSearchHighlight` highlight a query in a
+  note without opening the CodeMirror search panel.
+- `revealLine(view, line)` scrolls to and selects a line; it backs outline and backlink navigation.
+
+## Comments and Mentions
+
+- `@cortex/editor/comments`: `commentsExtension(runtime, { onAnchorClick, getThreadPreview,
+  onExternalDocChange, onLocalDocChange, onViewReady })` keeps comment anchors in a `StateField` of mark decorations that map through
+  local edits. Hosts push anchors with `setCommentAnchors`, read mapped positions with
+  `getCommentAnchorRanges`, and scroll with `revealCommentAnchor`. Full document replacements
+  (`Transaction.remote`) call `onExternalDocChange` so the host re-resolves anchors by quote, and
+  `onViewReady` lets the host push anchors loaded before the view existed. Clicks resolve the
+  anchor from `posAtCoords`; hovering shows a preview tooltip built from `getThreadPreview`.
+- `@cortex/editor/mentions`: `mentionAutocompleteExtension` reuses `slashCommandExtension` with
+  `trigger: "@"` and `insertText`, inserting `@[[Name]] `. `slashCommandExtension` accepts any
+  single-character trigger; without `insertText` it deletes the query and runs the command.
+- Live Preview renders `@[[Name]]` as a `.cm-mention` widget chip (`livePreview/mentionChips.ts`),
+  revealing the raw syntax only while the selection is inside it. The editor has no wiki-link parser,
+  so mentions must not rely on `WikiLink` nodes. `mentionHoverExtension` shows a person card. The selection
+  toolbar layout includes `annotate: ["comments.add"]`.

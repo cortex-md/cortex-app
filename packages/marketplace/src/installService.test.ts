@@ -1,7 +1,12 @@
 import type { FileEntry } from "@cortex/platform"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { installPlugin, installTheme, uninstallPlugin } from "./installService"
-import type { GitHubRelease, GitHubReleaseAsset, RegistryEntry } from "./types"
+import type {
+	GitHubRelease,
+	GitHubReleaseAsset,
+	MarketplacePluginHost,
+	RegistryEntry,
+} from "./types"
 
 const testState = vi.hoisted(() => ({
 	files: new Map<string, string>(),
@@ -20,15 +25,6 @@ const testState = vi.hoisted(() => ({
 
 vi.mock("@cortex/platform", () => ({
 	getPlatform: () => testState.platform,
-}))
-
-vi.mock("@cortex/plugin-host-core", () => ({
-	disablePlugin: testState.disablePlugin,
-	getCommunityPluginLoadError: vi.fn(() => null),
-	pluginStore: {
-		getState: () => testState.pluginState,
-	},
-	unregisterCommunityPlugin: testState.unregisterCommunityPlugin,
 }))
 
 vi.mock("@cortex/theme", async (importOriginal) => {
@@ -235,6 +231,18 @@ function registerDownloads(files: Record<string, string>) {
 	}
 }
 
+function createPluginHost(
+	reloadCommunityPlugins: (dir: string) => Promise<void> = vi.fn(async () => {}),
+): MarketplacePluginHost {
+	return {
+		reloadCommunityPlugins,
+		disablePlugin: testState.disablePlugin,
+		unregisterCommunityPlugin: testState.unregisterCommunityPlugin,
+		isPluginInstalled: (id) => id in testState.pluginState.plugins,
+		getCommunityPluginLoadError: () => null,
+	}
+}
+
 function createReloadPluginHost() {
 	return vi.fn(async () => {
 		const manifestPath = `${pluginsDir}/test-plugin/manifest.json`
@@ -294,7 +302,7 @@ describe("installPlugin", () => {
 	it("downloads release assets, promotes the plugin, and reloads the plugin host", async () => {
 		const reloadPluginHost = createReloadPluginHost()
 
-		await installPlugin(entry, pluginsDir, reloadPluginHost)
+		await installPlugin(entry, pluginsDir, createPluginHost(reloadPluginHost))
 
 		expect(hasInstalledPath("manifest.json")).toBe(true)
 		expect(hasInstalledPath("main.js")).toBe(true)
@@ -309,7 +317,7 @@ describe("installPlugin", () => {
 		testState.downloads.delete("styles.css-url")
 		const reloadPluginHost = createReloadPluginHost()
 
-		await installPlugin(entry, pluginsDir, reloadPluginHost)
+		await installPlugin(entry, pluginsDir, createPluginHost(reloadPluginHost))
 
 		expect(hasInstalledPath("manifest.json")).toBe(true)
 		expect(hasInstalledPath("main.js")).toBe(true)
@@ -324,7 +332,7 @@ describe("installPlugin", () => {
 		testState.archiveFiles.set("package/styles.css", ".test-plugin {}")
 		const reloadPluginHost = createReloadPluginHost()
 
-		await installPlugin(entry, pluginsDir, reloadPluginHost)
+		await installPlugin(entry, pluginsDir, createPluginHost(reloadPluginHost))
 
 		expect(hasInstalledPath("manifest.json")).toBe(true)
 		expect(hasInstalledPath("main.js")).toBe(true)
@@ -338,9 +346,9 @@ describe("installPlugin", () => {
 			"main.js": "module.exports = class TestPlugin {}",
 		})
 
-		await expect(installPlugin(entry, pluginsDir, createReloadPluginHost())).rejects.toThrow(
-			'Release manifest id must be "test-plugin"',
-		)
+		await expect(
+			installPlugin(entry, pluginsDir, createPluginHost(createReloadPluginHost())),
+		).rejects.toThrow('Release manifest id must be "test-plugin"')
 
 		expect(hasInstalledPath("manifest.json")).toBe(false)
 		expect(hasPartialInstallWorkspace()).toBe(false)
@@ -352,9 +360,9 @@ describe("installPlugin", () => {
 			"main.js": "module.exports = class TestPlugin {}",
 		})
 
-		await expect(installPlugin(entry, pluginsDir, createReloadPluginHost())).rejects.toThrow(
-			"Invalid plugin main path",
-		)
+		await expect(
+			installPlugin(entry, pluginsDir, createPluginHost(createReloadPluginHost())),
+		).rejects.toThrow("Invalid plugin main path")
 
 		expect(hasInstalledPath("manifest.json")).toBe(false)
 		expect(hasPartialInstallWorkspace()).toBe(false)
@@ -363,9 +371,9 @@ describe("installPlugin", () => {
 	it("cleans the promoted plugin when discovery does not register it", async () => {
 		const reloadPluginHost = vi.fn(async () => {})
 
-		await expect(installPlugin(entry, pluginsDir, reloadPluginHost)).rejects.toThrow(
-			"could not be loaded",
-		)
+		await expect(
+			installPlugin(entry, pluginsDir, createPluginHost(reloadPluginHost)),
+		).rejects.toThrow("could not be loaded")
 
 		expect(hasInstalledPath("manifest.json")).toBe(false)
 		expect(testState.pluginState.plugins["test-plugin"]).toBeUndefined()
@@ -386,9 +394,9 @@ describe("installPlugin", () => {
 			throw new Error("reload failed")
 		})
 
-		await expect(installPlugin(entry, pluginsDir, reloadPluginHost)).rejects.toThrow(
-			"reload failed",
-		)
+		await expect(
+			installPlugin(entry, pluginsDir, createPluginHost(reloadPluginHost)),
+		).rejects.toThrow("reload failed")
 
 		expect(testState.files.get(`${pluginsDir}/test-plugin/manifest.json`)).toContain('"1.0.0"')
 		expect(testState.files.get(`${pluginsDir}/test-plugin/main.js`)).toContain("OldPlugin")
@@ -405,7 +413,7 @@ describe("installPlugin", () => {
 			status: "enabled",
 		}
 
-		await uninstallPlugin("test-plugin", pluginsDir)
+		await uninstallPlugin("test-plugin", pluginsDir, createPluginHost())
 
 		expect(testState.disablePlugin).toHaveBeenCalledWith("test-plugin")
 		expect(

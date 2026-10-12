@@ -1,10 +1,5 @@
 import { MembersPanel } from "../../sync/MembersPanel"
-import {
-	SettingsGroup,
-	SettingsGroupContent,
-	SettingsPage,
-	SettingsSection,
-} from "../SettingsPrimitives"
+import { SettingsPage } from "../SettingsPrimitives"
 import { SignedOutNotice } from "./SignedOutNotice"
 import { SyncDisabledNotice } from "./SyncDisabledNotice"
 import { VaultLinkSection } from "./SyncOverview"
@@ -44,13 +39,7 @@ export function SyncMembersPage({
 				<VaultLinkSection
 					linkedVaultId={null}
 					vaultName="Remote vault"
-					remoteVaultRole={linkedVaultRole}
-					engineState="idle"
-					lastSyncedAt={null}
-					connectedDeviceCount={0}
 					devicesError={null}
-					devicesLoading={false}
-					noteCount={0}
 					onOpenLink={onOpenLink}
 				/>
 			</SettingsPage>
@@ -58,16 +47,7 @@ export function SyncMembersPage({
 	}
 	return (
 		<SettingsPage>
-			<SettingsSection
-				title="Members"
-				description="Manage access and invitations for the linked remote vault."
-			>
-				<SettingsGroup>
-					<SettingsGroupContent>
-						<MembersPanel vaultId={linkedVaultId} currentUserRole={linkedVaultRole} />
-					</SettingsGroupContent>
-				</SettingsGroup>
-			</SettingsSection>
+			<MembersPanel vaultId={linkedVaultId} currentUserRole={linkedVaultRole} />
 		</SettingsPage>
 	)
 }

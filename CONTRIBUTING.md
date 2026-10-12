@@ -27,7 +27,6 @@ Run the desktop app:
 bun run dev:desktop
 ```
 
-If you are on Linux, install the Tauri desktop dependencies listed in [README.md](README.md).
 
 ## Default Validation
 

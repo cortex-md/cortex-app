@@ -1,975 +1,1007 @@
-import { existsSync, readFileSync } from "node:fs"
-import { join } from "node:path"
-import { ConflictResolver } from "./conflict"
-import { loadVek } from "./crypto"
-import { type NoteSyncMetadata, SyncDb } from "./db"
-import { Downloader } from "./downloader"
-import { hashContent } from "./hash"
+import { existsSync } from "node:fs"
+import { readFile, stat } from "node:fs/promises"
+import { resolve } from "node:path"
+import type {
+	CollabFileSyncRole,
+	EffectiveAccess,
+	KeyTrustIssue,
+	SyncEngineState,
+	SyncPreferences,
+	VaultMember,
+	VaultOverview,
+} from "@cortex/platform"
+import { hashBytes } from "@cortex/platform/hash"
 import {
-	type DeviceLike,
-	isSubscriptionAccessError,
-	type KeychainLike,
-	type SyncHttpClient,
+	CORTEX_SYNCABLE_FILES,
+	createDefaultSyncPreferences,
+	shouldIgnoreSyncPath,
+} from "@cortex/platform/sync-rules"
+import { toVaultRelativePath } from "@cortex/platform/utils"
+import {
+	ApiClient,
+	getSubscriptionStatus,
+	getVaultOverview,
+	grantVaultKey,
+	isRetriable,
+	listChanges,
+	listPendingVaultKeys,
+	type RemoteChange,
+	SyncError,
 	subscriptionAccessMessage,
-	subscriptionCodeFromText,
-} from "./http"
-import { defaultSyncPreferences, type SyncPreferences, shouldIgnorePath } from "./ignore"
-import { InitialSync } from "./initial"
-import { toVaultRelativePath } from "./paths"
-import { type QueueItem, type SyncOp, SyncQueue } from "./queue"
-import { Reconciler } from "./reconcile"
+	type TokenProvider,
+	updateVaultCursor,
+} from "@cortex/sync-api"
+import { accessFor, READ_ONLY_ACCESS, type SyncAccess } from "./access"
+import { getAllConflicts } from "./conflict"
+import { EventCursor } from "./cursor"
+import { SyncDb, syncDbPath } from "./db"
+import { keyFingerprint, sealVaultKey } from "./keys"
+import { planRemoteChange } from "./planner"
+import type { EmitSyncEvent, RpcRequest, SyncCommand, VaultRef, WorkerMethods } from "./protocol"
+import { opPath, opTargetPath, type QueueItem, type SyncOp, SyncQueue } from "./queue"
+import { downloadMany, executeOp, fileEvent, log, runFullSync } from "./runner"
 import { SseClient } from "./sse"
+import type { SyncContext } from "./transfer"
+import * as transfer from "./transfer"
 import {
-	type ConnectionMode,
-	isRetriableSyncErrorMessage,
-	type SyncCommand,
-	type SyncEngineState,
-} from "./state"
-import { Uploader } from "./uploader"
+	type AccessDenial,
+	type AccessScope,
+	accessDenial,
+	errorMessage,
+	isPathForbidden,
+	normalizeRelativePath,
+	nowSeconds,
+	resolveInVault,
+} from "./util"
 
 const UPLOAD_DEBOUNCE_MS = 5_000
 const DELETE_CORRELATION_WINDOW_MS = 1_000
+const FLUSH_INTERVAL_MS = 1_000
 const POLL_INTERVAL_MS = 30_000
 const RETRY_RELOAD_INTERVAL_MS = 60_000
-const QUEUE_INTERVAL_MS = 25
-const DEBOUNCE_INTERVAL_MS = 1_000
+const CURSOR_REPORT_INTERVAL_MS = 30_000
+const CHANGES_PAGE_SIZE = 100
+const DOWNLOAD_DRAIN_BATCH = 100
+const LONG_OFFLINE_SECONDS = 30 * 24 * 60 * 60
+const LAST_RECONCILE_AT = "lastReconcileAt"
+const LAST_EFFECTIVE_ACCESS = "lastEffectiveAccess"
+const KEY_GRANT_ROLES = new Set(["owner", "admin"])
+const ACCESS_REFRESH_EVENTS = new Set(["access_changed", "member_role_changed", "member_removed"])
+const KEY_GRANT_EVENTS = new Set(["member_joined", "member_key_changed", "access_changed"])
 
-export type SyncEngineEventEmitter = (name: string, payload?: unknown) => void
+interface LoadedAccess {
+	access: SyncAccess
+	effective: EffectiveAccess | null
+	overview: VaultOverview | null
+	cached: EffectiveAccess | null
+}
+
+function readCachedAccess(db: SyncDb): EffectiveAccess | null {
+	const raw = db.getMeta(LAST_EFFECTIVE_ACCESS)
+	if (!raw) return null
+	try {
+		return JSON.parse(raw) as EffectiveAccess
+	} catch {
+		return null
+	}
+}
 
 export interface SyncEngineDeps {
-	client: SyncHttpClient
-	keychain: KeychainLike
-	device: DeviceLike
-	onEvent: SyncEngineEventEmitter
+	emit: EmitSyncEvent
+	deviceId: () => string
+	tokens: TokenProvider
+	loadVek: (vaultId: string) => Promise<Buffer | null>
 }
 
-interface PollEvent {
-	id: number
-	event_type: string
-	file_path: string
-	version?: number | null
-	device_id: string
-	actor_id: string
-	created_at: string
-	metadata?: { old_path?: string } | null
+interface Session extends SyncContext {
+	queue: SyncQueue
+	cursor: EventCursor
+	sse: SseClient | null
+	seenEventId: string | null
+	reportedEventId: string | null
+	timers: NodeJS.Timeout[]
+	needsFullSync: boolean
+	userId: string | null
+	myRole: string
+	members: VaultMember[]
+	effective: EffectiveAccess | null
+	readOnlyLogged: Set<string>
+	keyGrants: Promise<void>
 }
 
-function matchesSyncedHash(db: SyncDb | null, path: string, hash: string): boolean {
-	return db?.getSyncState(path)?.localHash === hash
+function sameAccess(left: EffectiveAccess, right: EffectiveAccess): boolean {
+	return JSON.stringify(left) === JSON.stringify(right)
 }
 
-function completeCreationLookup(db: SyncDb, path: string): void {
-	db.upsertNoteMetadata(path, {
-		createdAt: null,
-		createdBy: null,
-		lastEditedAt: null,
-		lastEditedBy: null,
-		lastDeviceId: null,
-		synced: true,
-		creationLookupComplete: true,
-	})
+function isFileSystemError(error: unknown): boolean {
+	return error instanceof Error && "syscall" in error && "path" in error
 }
 
-function parseSyncEventId(eventId: string, label: string): number {
-	const parsed = Number(eventId)
-	if (!Number.isFinite(parsed)) {
-		throw new Error(`${label} event ID is not numeric: ${eventId}`)
-	}
-	return parsed
-}
-
-function currentProcessedEventId(lastEventId: string | null): number {
-	if (!lastEventId) return 0
-	return parseSyncEventId(lastEventId, "stored")
-}
-
-function queuedSourceEventIds(db: SyncDb | null): number[] {
-	if (!db) return []
-	return db.listQueuedSourceEventIds().map((eventId) => parseSyncEventId(eventId, "queued source"))
-}
-
-function recordProcessedEvent(
-	lastEventId: { value: string | null },
-	processedEventIds: Set<number>,
-	db: SyncDb | null,
-	eventId: string,
-): boolean {
-	if (!eventId) return false
-	const processedEventId = parseSyncEventId(eventId, "processed")
-	const currentEventId = currentProcessedEventId(lastEventId.value)
-	if (processedEventId <= currentEventId) return false
-
-	processedEventIds.add(processedEventId)
-	const queued = queuedSourceEventIds(db)
-	let nextEventId: number | null = null
-	for (const candidate of processedEventIds) {
-		if (candidate <= currentEventId) continue
-		const blocked = queued.some((queuedId) => queuedId > currentEventId && queuedId <= candidate)
-		if (blocked) continue
-		if (nextEventId === null || candidate > nextEventId) nextEventId = candidate
-	}
-	if (nextEventId === null) return false
-
-	lastEventId.value = String(nextEventId)
-	db?.setMetadata("last_event_id", lastEventId.value)
-	for (const id of [...processedEventIds]) {
-		if (id <= nextEventId) processedEventIds.delete(id)
-	}
-	return true
+function shouldRetry(error: unknown): boolean {
+	if (isFileSystemError(error)) return false
+	return isRetriable(error) || (error instanceof SyncError && error.kind === "auth")
 }
 
 export class SyncEngine {
 	private state: SyncEngineState = "idle"
-	private queue = new SyncQueue()
-	private vaultId: string | null = null
-	private vaultPath: string | null = null
-	private serverUrl: string | null = null
-	private db: SyncDb | null = null
-	private vek: Buffer | null = null
-	private pendingUploads = new Map<string, number>()
-	private pendingDeletes = new Map<string, { at: number; hash: string | null }>()
-	private sseClient: SseClient | null = null
-	private connectionMode: ConnectionMode = "disconnected"
-	private lastEventId: string | null = null
-	private processedRemoteEventIds = new Set<number>()
-	private syncPreferences = defaultSyncPreferences()
-	private running = false
-	private commandQueue: SyncCommand[] = []
-	private commandWaiters: Array<() => void> = []
-	private timers: NodeJS.Timeout[] = []
+	private session: Session | null = null
+	private cachedDb: SyncDb | null = null
+	private preferences: SyncPreferences = createDefaultSyncPreferences()
+	private polling = false
+	private lane: Promise<void> = Promise.resolve()
+	private drainScheduled = false
+	private readonly pendingUploads = new Map<string, number>()
+	private readonly pendingDeletes = new Map<string, { at: number; hash: string | null }>()
+	private readonly collabRoles = new Map<string, CollabFileSyncRole>()
 
 	constructor(private readonly deps: SyncEngineDeps) {}
 
-	enqueue(command: SyncCommand): void {
-		this.commandQueue.push(command)
-		const waiter = this.commandWaiters.shift()
-		waiter?.()
+	dispatch(command: SyncCommand): void {
+		this.serial(() => this.handleCommand(command))
 	}
 
-	async run(): Promise<void> {
-		this.running = true
-		this.timers = [
-			setInterval(() => {
-				this.flushPendingUploads()
-				this.flushPendingDeletes()
-			}, DEBOUNCE_INTERVAL_MS),
-			setInterval(() => {
-				if (this.connectionMode === "polling" && this.vaultId) {
-					this.enqueue({ type: "pollTick" })
-				}
-			}, POLL_INTERVAL_MS),
-			setInterval(() => {
-				if (this.vaultId) this.queue.reloadReady()
-			}, RETRY_RELOAD_INTERVAL_MS),
-			setInterval(() => {
-				if (!this.queue.isEmpty()) {
-					void this.processNextQueueItem()
-				}
-			}, QUEUE_INTERVAL_MS),
-		]
-
-		while (this.running) {
-			const command = await this.nextCommand()
-			if (!command) break
-			await this.handleCommand(command)
-		}
-	}
-
-	stopLoop(): void {
-		this.running = false
-		for (const timer of this.timers) clearInterval(timer)
-		this.timers = []
-		this.sseClient?.stop()
-		const waiter = this.commandWaiters.shift()
-		waiter?.()
-	}
-
-	private nextCommand(): Promise<SyncCommand | null> {
-		if (this.commandQueue.length > 0) {
-			return Promise.resolve(this.commandQueue.shift() ?? null)
-		}
-		if (!this.running) return Promise.resolve(null)
-		return new Promise((resolve) => {
-			this.commandWaiters.push(() => {
-				resolve(this.commandQueue.shift() ?? null)
-			})
+	private serial(task: () => Promise<void> | void): void {
+		this.lane = this.lane.then(task).catch((error) => {
+			log(this.deps.emit, "error", `Sync engine error: ${errorMessage(error)}`)
 		})
 	}
 
 	private async handleCommand(command: SyncCommand): Promise<void> {
 		switch (command.type) {
 			case "start":
-				await this.handleStart(
-					command.vaultId,
-					command.vaultPath,
-					command.serverUrl,
-					command.requiresEntitlement,
-				)
+				await this.start(command)
 				return
 			case "stop":
-				this.handleStop()
-				return
-			case "localFileChanged": {
-				const relative = this.toRelativePath(command.path)
-				if (!shouldIgnorePath(relative, this.syncPreferences)) {
-					this.handleLocalFileChanged(relative)
-				}
-				return
-			}
-			case "localFileDeleted": {
-				const relative = this.toRelativePath(command.path)
-				if (!shouldIgnorePath(relative, this.syncPreferences)) {
-					this.handleLocalFileDeleted(relative)
-				}
-				return
-			}
-			case "forceSyncFile": {
-				const relative = this.toRelativePath(command.path)
-				if (!shouldIgnorePath(relative, this.syncPreferences)) {
-					this.pendingUploads.delete(relative)
-					const [op, priority] = SyncQueue.upload(relative)
-					this.queue.push(op, priority)
-				}
-				return
-			}
-			case "remoteFileChanged":
-				if (!shouldIgnorePath(command.path, this.syncPreferences)) {
-					this.db?.upsertNoteMetadata(command.path, {
-						createdAt: command.created ? (command.editedAt ?? null) : null,
-						createdBy: command.created ? command.actorId : null,
-						lastEditedAt: command.editedAt ?? null,
-						lastEditedBy: command.actorId,
-						lastDeviceId: command.deviceId,
-						synced: true,
-						creationLookupComplete: command.created,
-					})
-					const [op, priority] = SyncQueue.download(command.path, command.version)
-					if (command.eventId) {
-						try {
-							this.queue.pushFromEvent(op, priority, command.eventId)
-						} catch (error) {
-							this.emitLog(
-								"warn",
-								`Skipping queued remote event: ${error instanceof Error ? error.message : String(error)}`,
-							)
-						}
-					} else {
-						this.queue.push(op, priority)
-					}
-				} else if (command.eventId) {
-					this.markEventProcessed(command.eventId)
-				}
-				return
-			case "remoteFileDeleted":
-				if (!shouldIgnorePath(command.path, this.syncPreferences)) {
-					const op: SyncOp = { type: "delete", path: command.path }
-					if (command.eventId) {
-						try {
-							this.queue.pushFromEvent(op, 80, command.eventId)
-						} catch (error) {
-							this.emitLog(
-								"warn",
-								`Skipping queued remote event: ${error instanceof Error ? error.message : String(error)}`,
-							)
-						}
-					} else {
-						this.queue.push(op, 80)
-					}
-				} else if (command.eventId) {
-					this.markEventProcessed(command.eventId)
-				}
-				return
-			case "remoteFileRenamed":
-				if (!shouldIgnorePath(command.newPath, this.syncPreferences)) {
-					const op: SyncOp = {
-						type: "rename",
-						oldPath: command.oldPath,
-						newPath: command.newPath,
-					}
-					if (command.eventId) {
-						try {
-							this.queue.pushFromEvent(op, 80, command.eventId)
-						} catch (error) {
-							this.emitLog(
-								"warn",
-								`Skipping queued remote event: ${error instanceof Error ? error.message : String(error)}`,
-							)
-						}
-					} else {
-						this.queue.push(op, 80)
-					}
-				} else if (command.eventId) {
-					this.markEventProcessed(command.eventId)
-				}
-				return
-			case "remoteEventProcessed":
-				this.markEventProcessed(command.eventId)
-				return
-			case "resolveConflict": {
-				const [, priority] = SyncQueue.conflict(command.path)
-				this.queue.push(
-					{
-						type: "resolveConflict",
-						path: command.path,
-						resolution: command.resolution,
-					},
-					priority,
-				)
-				return
-			}
-			case "accessDenied":
-				this.handleAccessDenied(command.reason, command.kind, command.code ?? null)
-				return
-			case "sseConnected":
-				await this.handleSseConnected()
-				return
-			case "sseDisconnected":
-				this.handleSseDisconnected()
-				return
-			case "reconcile":
-				await this.handleReconcile()
-				return
-			case "pollTick":
-				await this.handlePollTick()
-				return
-			case "updateSyncPreferences":
-				this.handleUpdateSyncPreferences({
-					syncSettings: command.syncSettings,
-					syncHotkeys: command.syncHotkeys,
-					syncWorkspace: command.syncWorkspace,
-					syncPluginMetadata: command.syncPluginMetadata,
-					syncThemeMetadata: command.syncThemeMetadata,
-					syncBookmarks: command.syncBookmarks,
-					ignoreImages: command.ignoreImages,
-					excludedPaths: command.excludedPaths,
-				})
-				return
-		}
-	}
-
-	private setState(newState: SyncEngineState): void {
-		if (this.state === newState) return
-		this.state = newState
-		this.emitLog("info", `Sync state: ${newState}`)
-		this.deps.onEvent("sync-state-changed", { state: newState })
-	}
-
-	private emitLog(level: string, message: string): void {
-		this.deps.onEvent("sync-log", { level, message })
-	}
-
-	private emitFileEvent(path: string, status: string): void {
-		this.deps.onEvent("sync-file-event", { path, status })
-	}
-
-	private markEventProcessed(eventId: string): void {
-		const holder = { value: this.lastEventId }
-		try {
-			recordProcessedEvent(holder, this.processedRemoteEventIds, this.db, eventId)
-			this.lastEventId = holder.value
-		} catch (error) {
-			this.emitLog(
-				"warn",
-				`Skipping sync cursor advancement: ${error instanceof Error ? error.message : String(error)}`,
-			)
-		}
-	}
-
-	private async handleStart(
-		vaultId: string,
-		vaultPath: string,
-		serverUrl: string,
-		requiresEntitlement: boolean,
-	): Promise<void> {
-		this.setState("connecting")
-		this.deps.client.setServerUrl(serverUrl)
-
-		if (requiresEntitlement) {
-			try {
-				await this.validateSubscription()
-			} catch (error) {
-				const reason = error instanceof Error ? error.message : String(error)
-				this.handleAccessDenied(reason, "subscription", subscriptionCodeFromText(reason))
-				return
-			}
-		}
-
-		try {
-			this.db = SyncDb.open(vaultPath)
-			this.queue.setDb(this.db)
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error)
-			this.emitLog("error", `Sync database error: ${message}`)
-			this.emitFileEvent("", `db-error: ${message}`)
-			this.setState("idle")
-			return
-		}
-
-		try {
-			const vek = loadVek(this.deps.keychain, vaultId)
-			if (!vek) {
-				this.emitLog("warn", "Vault encryption key required")
-				this.deps.onEvent("sync-vek-required")
+				this.closeSession()
+				this.collabRoles.clear()
 				this.setState("idle")
 				return
+			case "localFileChanged":
+				await this.onLocalChange(command.path)
+				return
+			case "localFileDeleted":
+				this.onLocalDelete(command.path)
+				return
+			case "forceSyncFile": {
+				const path = this.relativePath(command.path)
+				if (!path || shouldIgnoreSyncPath(path, this.preferences)) return
+				this.pendingUploads.delete(path)
+				this.push({ type: "upload", path })
+				return
 			}
-			this.vek = vek
+			case "resolveConflict": {
+				const path = this.relativePath(command.path)
+				if (path) this.push({ type: "resolveConflict", path, resolution: command.resolution })
+				return
+			}
+			case "updateSyncPreferences":
+				this.updatePreferences(command.preferences)
+				return
+			case "setCollabRole":
+				this.setCollabRole(command.path, command.role)
+				return
+		}
+	}
+
+	private setCollabRole(path: string, role: CollabFileSyncRole | null): void {
+		const relative = this.relativePath(path) ?? normalizeRelativePath(path)
+		if (role) {
+			this.collabRoles.set(relative, role)
+			if (role === "follower") {
+				this.pendingUploads.delete(relative)
+				this.pendingDeletes.delete(relative)
+			}
+			return
+		}
+		if (!this.collabRoles.delete(relative) || !this.session) return
+		if (!shouldIgnoreSyncPath(relative, this.preferences))
+			this.push({ type: "settle", path: relative })
+	}
+
+	private isCollabFollower(path: string): boolean {
+		return this.collabRoles.get(path) === "follower"
+	}
+
+	private setState(state: SyncEngineState): void {
+		if (this.state === state) return
+		this.state = state
+		log(this.deps.emit, "info", `Sync state: ${state}`)
+		this.deps.emit("sync-state-changed", { state })
+	}
+
+	private relativePath(path: string): string | null {
+		if (!this.session) return null
+		return (
+			toVaultRelativePath(path, this.session.vaultPath) ??
+			(/^([a-zA-Z]:)?[\\/]/.test(path) ? null : normalizeRelativePath(path))
+		)
+	}
+
+	private async start(command: Extract<SyncCommand, { type: "start" }>): Promise<void> {
+		this.closeSession()
+		this.setState("connecting")
+		const emit = this.deps.emit
+		const api = new ApiClient(command.serverUrl, {
+			deviceId: this.deps.deviceId(),
+			tokens: this.deps.tokens,
+		})
+
+		if (command.requiresEntitlement) {
+			const denial = await this.checkEntitlement(api)
+			if (denial) {
+				this.denyAccess(denial)
+				return
+			}
+		}
+
+		let db: SyncDb
+		try {
+			db = this.openDb(command.vaultPath)
 		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error)
-			this.emitLog("error", `Vault encryption key error: ${message}`)
-			this.emitFileEvent("", `vek-error: ${message}`)
+			log(emit, "error", `Sync database error: ${errorMessage(error)}`)
+			fileEvent(emit, "", `db-error: ${errorMessage(error)}`)
 			this.setState("idle")
 			return
 		}
 
-		this.lastEventId = this.db.getMetadata("last_event_id")
-		const loaded = this.queue.loadFromDb()
-		if (loaded > 0) {
-			this.emitFileEvent("", `resumed ${loaded} queued ops`)
+		let vek: Buffer | null
+		try {
+			vek = await this.deps.loadVek(command.vaultId)
+		} catch (error) {
+			log(emit, "error", `Vault encryption key error: ${errorMessage(error)}`)
+			fileEvent(emit, "", `vek-error: ${errorMessage(error)}`)
+			this.releaseDb(db)
+			this.setState("idle")
+			return
+		}
+		if (!vek) {
+			log(emit, "warn", "Vault encryption key required")
+			emit("sync-vek-required", undefined)
+			this.releaseDb(db)
+			this.setState("idle")
+			return
 		}
 
-		this.vaultId = vaultId
-		this.vaultPath = vaultPath
-		this.serverUrl = serverUrl
+		let loaded: LoadedAccess
+		try {
+			loaded = await this.loadAccess(api, command.vaultId, db)
+		} catch (error) {
+			this.releaseDb(db)
+			if (!this.denyOnAccessError(error)) throw error
+			return
+		}
+
+		const session: Session = {
+			api,
+			db,
+			vaultId: command.vaultId,
+			vaultPath: command.vaultPath,
+			vek,
+			access: loaded.access,
+			queue: new SyncQueue(db),
+			cursor: new EventCursor(db),
+			sse: null,
+			seenEventId: null,
+			reportedEventId: null,
+			timers: [],
+			needsFullSync: true,
+			userId: command.userId ?? null,
+			myRole: "unknown",
+			members: [],
+			effective: null,
+			readOnlyLogged: new Set(),
+			keyGrants: Promise.resolve(),
+			collabRoles: this.collabRoles,
+		}
+		this.session = session
+		this.applyAccess(session, loaded)
+		if (!loaded.effective && loaded.cached) this.deps.emit("sync-access-changed", loaded.cached)
+		const resumed = session.queue.load()
+		if (resumed > 0) fileEvent(emit, "", `resumed ${resumed} queued ops`)
 
 		let initialOk = false
 		try {
-			await this.runInitialSync()
+			log(emit, "info", `Initial sync starting for vault ${session.vaultId}`)
+			const { latestEventId, readOnlyLocal } = await runFullSync(
+				session,
+				this.preferences,
+				"initial",
+				emit,
+			)
+			session.cursor.reset(latestEventId)
+			this.logReadOnly(session, readOnlyLocal)
+			session.needsFullSync = false
+			session.db.setMeta(LAST_RECONCILE_AT, String(nowSeconds()))
+			log(emit, "info", "Initial sync completed successfully")
 			initialOk = true
 		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error)
-			if (isSubscriptionAccessError(message)) {
-				this.handleAccessDenied(
-					subscriptionAccessMessage(subscriptionCodeFromText(message)),
-					"subscription",
-					subscriptionCodeFromText(message),
-				)
-				return
-			}
-			this.emitLog("error", `Initial sync failed: ${message}`)
-			this.emitFileEvent("", `initial-sync-error: ${message}`)
+			if (this.denyOnAccessError(error)) return
+			log(emit, "error", `Initial sync failed: ${errorMessage(error)}`)
+			fileEvent(emit, "", `initial-sync-error: ${errorMessage(error)}`)
 		}
 
-		if (initialOk) this.enqueueIncompleteCreationMetadata()
-		const sseStarted = this.startSseListener()
-		if (initialOk && sseStarted) {
+		this.startTimers(session)
+		this.startSse(session)
+		if (initialOk) {
 			this.setState("live")
 		} else {
-			this.connectionMode = "polling"
+			this.polling = true
 			this.setState("offline")
 		}
+		this.scheduleDrain()
+		this.scheduleKeyGrants(session)
 	}
 
-	private resetEngine(): void {
-		this.sseClient?.stop()
-		this.sseClient = null
-		this.db?.removeQueueOpsByType("lookup_creation_metadata")
-		this.db?.close()
-		this.vaultId = null
-		this.vaultPath = null
-		this.serverUrl = null
-		this.db = null
-		this.vek = null
+	private async loadAccess(api: ApiClient, vaultId: string, db: SyncDb): Promise<LoadedAccess> {
+		try {
+			const overview = await getVaultOverview(api, vaultId)
+			return {
+				access: accessFor(overview.myAccess),
+				effective: overview.myAccess,
+				overview,
+				cached: null,
+			}
+		} catch (error) {
+			if (accessDenial(error)) throw error
+			const cached = readCachedAccess(db)
+			log(
+				this.deps.emit,
+				"warn",
+				`Vault access lookup failed (${cached ? "using last known access" : "read-only until it succeeds"}): ${errorMessage(error)}`,
+			)
+			return {
+				access: cached ? accessFor(cached) : READ_ONLY_ACCESS,
+				effective: null,
+				overview: null,
+				cached,
+			}
+		}
+	}
+
+	private applyAccess(session: Session, loaded: LoadedAccess): boolean {
+		if (loaded.overview) {
+			session.myRole = loaded.overview.myRole
+			session.members = loaded.overview.members
+			this.pinMemberKeys(session)
+		}
+		if (!loaded.effective) return false
+		if (session.effective && sameAccess(session.effective, loaded.effective)) return false
+		const initial = session.effective === null
+		session.effective = loaded.effective
+		session.access = loaded.access
+		session.db.setMeta(LAST_EFFECTIVE_ACCESS, JSON.stringify(loaded.effective))
+		this.deps.emit("sync-access-changed", loaded.effective)
+		return !initial
+	}
+
+	private async refreshAccess(session: Session): Promise<void> {
+		let loaded: LoadedAccess
+		try {
+			loaded = await this.loadAccess(session.api, session.vaultId, session.db)
+		} catch (error) {
+			this.denyOnAccessError(error)
+			return
+		}
+		if (this.session !== session) return
+		const wasUnknown = session.effective === null
+		const changed = this.applyAccess(session, loaded)
+		if (!changed && !(wasUnknown && session.effective)) return
+		log(this.deps.emit, "info", "Vault access changed; resynchronizing")
+		try {
+			const { latestEventId, readOnlyLocal } = await runFullSync(
+				session,
+				this.preferences,
+				"reconcile",
+				this.deps.emit,
+			)
+			session.cursor.reset(latestEventId)
+			this.logReadOnly(session, readOnlyLocal)
+		} catch (error) {
+			if (this.denyOnAccessError(error)) return
+			log(this.deps.emit, "error", `Access resync failed: ${errorMessage(error)}`)
+		}
+	}
+
+	private logReadOnly(session: Session, paths: string[]): void {
+		for (const path of paths) {
+			if (session.readOnlyLogged.has(path)) continue
+			session.readOnlyLogged.add(path)
+			log(this.deps.emit, "info", `${path} not synced (read-only)`)
+		}
+	}
+
+	private onVaultEvent(session: Session, event: string, payload: Record<string, unknown>): void {
+		if (this.session !== session) return
+		if (ACCESS_REFRESH_EVENTS.has(event)) {
+			this.serial(() => (this.session === session ? this.refreshAccess(session) : undefined))
+		}
+		if (KEY_GRANT_EVENTS.has(event)) {
+			const userId = event === "member_joined" && typeof payload.user_id === "string"
+			this.scheduleKeyGrants(session, userId ? (payload.user_id as string) : null)
+		}
+	}
+
+	private scheduleKeyGrants(session: Session, joinedUserId: string | null = null): void {
+		session.keyGrants = session.keyGrants
+			.then(() => this.grantPendingKeys(session, joinedUserId))
+			.catch((error) => {
+				if (accessDenial(error)) return
+				log(this.deps.emit, "warn", `Vault key grant failed: ${errorMessage(error)}`)
+			})
+	}
+
+	private pinMemberKeys(session: Session): void {
+		if (!KEY_GRANT_ROLES.has(session.myRole)) return
+		for (const member of session.members) {
+			if (!member.publicKey || member.userId === session.userId) continue
+			if (session.db.getMemberKeyPin(member.userId)) continue
+			session.db.setMemberKeyPin({
+				userId: member.userId,
+				fingerprint: keyFingerprint(Buffer.from(member.publicKey, "base64")),
+				pendingFingerprint: null,
+			})
+		}
+	}
+
+	private trustedMemberKey(session: Session, userId: string, publicKey: string): boolean {
+		const fingerprint = keyFingerprint(Buffer.from(publicKey, "base64"))
+		const pin = session.db.getMemberKeyPin(userId)
+		if (!pin) {
+			session.db.setMemberKeyPin({ userId, fingerprint, pendingFingerprint: null })
+			return true
+		}
+		if (pin.fingerprint === fingerprint) {
+			if (pin.pendingFingerprint) session.db.setMemberKeyPin({ ...pin, pendingFingerprint: null })
+			return true
+		}
+		if (pin.pendingFingerprint !== fingerprint) {
+			session.db.setMemberKeyPin({ ...pin, pendingFingerprint: fingerprint })
+			log(
+				this.deps.emit,
+				"warn",
+				`Encryption key changed for member ${userId}; verify it to grant access`,
+			)
+			this.deps.emit("sync-key-trust-issue", {
+				vaultId: session.vaultId,
+				userId,
+				fingerprint,
+				previousFingerprint: pin.fingerprint,
+			})
+		}
+		return false
+	}
+
+	private async grantPendingKeys(session: Session, joinedUserId: string | null): Promise<void> {
+		if (this.session !== session || !KEY_GRANT_ROLES.has(session.myRole)) return
+		const pending = await listPendingVaultKeys(session.api, session.vaultId)
+		const targets = new Map<string, string>()
+		for (const member of pending) {
+			if (member.publicKey) targets.set(member.userId, member.publicKey)
+		}
+		if (joinedUserId && !targets.has(joinedUserId)) {
+			const overview = await getVaultOverview(session.api, session.vaultId)
+			session.members = overview.members
+			const joined = overview.members.find((member) => member.userId === joinedUserId)
+			if (joined?.publicKey) targets.set(joinedUserId, joined.publicKey)
+		}
+		for (const [userId, publicKey] of targets) {
+			if (this.session !== session) return
+			if (userId === session.userId || !this.trustedMemberKey(session, userId, publicKey)) continue
+			const sealed = sealVaultKey(session.vek, Buffer.from(publicKey, "base64"))
+			await grantVaultKey(session.api, session.vaultId, userId, sealed.toString("base64"))
+			log(this.deps.emit, "info", `Granted vault key to member ${userId}`)
+		}
+	}
+
+	private keyTrustIssues(vaultId: string): KeyTrustIssue[] {
+		const session = this.session
+		if (!session || session.vaultId !== vaultId) return []
+		return session.db.listMemberKeyIssues().map((pin) => ({
+			vaultId,
+			userId: pin.userId,
+			fingerprint: pin.pendingFingerprint ?? pin.fingerprint,
+			previousFingerprint: pin.fingerprint,
+		}))
+	}
+
+	private trustMemberKey(vaultId: string, userId: string, fingerprint: string): void {
+		const session = this.session
+		if (!session || session.vaultId !== vaultId) {
+			throw new Error("Start sync for this vault before verifying member keys.")
+		}
+		session.db.setMemberKeyPin({ userId, fingerprint, pendingFingerprint: null })
+		this.scheduleKeyGrants(session)
+	}
+
+	private async reportCursor(session: Session): Promise<void> {
+		const current = session.cursor.value
+		if (!current || current === session.reportedEventId) return
+		try {
+			await updateVaultCursor(session.api, session.vaultId, Number(current))
+			session.reportedEventId = current
+		} catch (error) {
+			if (accessDenial(error) && this.session === session) {
+				this.serial(() => {
+					if (this.session === session) this.denyOnAccessError(error)
+				})
+				return
+			}
+			log(this.deps.emit, "warn", `Cursor report failed: ${errorMessage(error)}`)
+		}
+	}
+
+	private async checkEntitlement(api: ApiClient): Promise<AccessDenial | null> {
+		try {
+			const status = await getSubscriptionStatus(api)
+			if (status.entitled) return null
+			const code =
+				status.status === "expired" || status.status === "cancelled"
+					? "subscription_expired"
+					: "subscription_required"
+			return { reason: subscriptionAccessMessage(code), kind: "subscription", code }
+		} catch (error) {
+			const denial = accessDenial(error)
+			if (denial?.kind === "subscription") return denial
+			log(this.deps.emit, "warn", `Subscription check failed: ${errorMessage(error)}`)
+			return null
+		}
+	}
+
+	private openDb(vaultPath: string): SyncDb {
+		const cached = this.cachedDb
+		if (cached && resolve(cached.vaultPath) === resolve(vaultPath)) {
+			this.cachedDb = null
+			return cached
+		}
+		return new SyncDb(vaultPath)
+	}
+
+	private releaseDb(db: SyncDb): void {
+		if (db === this.session?.db || db === this.cachedDb) return
+		this.cachedDb?.close()
+		this.cachedDb = db
+	}
+
+	private dbFor(vaultPath: string): SyncDb | null {
+		const target = resolve(vaultPath)
+		if (this.session && resolve(this.session.vaultPath) === target) return this.session.db
+		if (this.cachedDb && resolve(this.cachedDb.vaultPath) === target) return this.cachedDb
+		if (!existsSync(syncDbPath(vaultPath))) return null
+		const db = new SyncDb(vaultPath)
+		this.releaseDb(db)
+		return db
+	}
+
+	private closeSession(): void {
+		const session = this.session
+		if (!session) return
+		this.session = null
+		this.deps.emit("sync-access-changed", null)
+		session.sse?.stop()
+		for (const timer of session.timers) clearInterval(timer)
+		void this.reportCursor(session)
+		this.releaseDb(session.db)
 		this.pendingUploads.clear()
 		this.pendingDeletes.clear()
-		this.connectionMode = "disconnected"
-		this.lastEventId = null
-		this.processedRemoteEventIds.clear()
-		this.queue = new SyncQueue()
+		this.polling = false
 	}
 
-	private handleStop(): void {
-		this.resetEngine()
-		this.setState("idle")
-	}
-
-	private async validateSubscription(): Promise<void> {
-		const response = await this.deps.client.get("/subscription/v1/status")
-		if (response.status === 404) return
-		const body = await response.text()
-		if (!response.ok) {
-			if (response.status === 402 || isSubscriptionAccessError(body)) {
-				throw new Error(subscriptionAccessMessage(subscriptionCodeFromText(body)))
-			}
-			throw new Error(`Subscription status failed: HTTP ${response.status}: ${body}`)
-		}
-		const parsed = JSON.parse(body) as { entitled?: boolean; status?: string }
-		if (parsed.entitled) return
-		const code =
-			parsed.status === "expired" || parsed.status === "cancelled"
-				? "subscription_expired"
-				: "subscription_required"
-		throw new Error(subscriptionAccessMessage(code))
-	}
-
-	private handleAccessDenied(reason: string, kind: string, code: string | null): void {
-		this.deps.onEvent("sync-vault-access-denied", { reason, kind, code })
-		this.resetEngine()
+	private denyAccess({ reason, kind, code }: AccessDenial): void {
+		log(this.deps.emit, "error", `Sync access denied: ${reason}`)
+		this.deps.emit("sync-vault-access-denied", code ? { reason, kind, code } : { reason, kind })
+		this.closeSession()
 		this.setState("denied")
 	}
 
-	private handleUpdateSyncPreferences(preferences: SyncPreferences): void {
-		const old = this.syncPreferences
-		this.syncPreferences = preferences
-		for (const path of [...this.pendingUploads.keys()]) {
-			if (shouldIgnorePath(path, preferences)) this.pendingUploads.delete(path)
-		}
-		for (const path of [...this.pendingDeletes.keys()]) {
-			if (shouldIgnorePath(path, preferences)) this.pendingDeletes.delete(path)
-		}
-		if (!this.vaultPath) return
-
-		const newlyEnabled = [
-			!old.syncSettings && preferences.syncSettings ? ".cortex/app.json" : null,
-			!old.syncHotkeys && preferences.syncHotkeys ? ".cortex/hotkeys.json" : null,
-			!old.syncWorkspace && preferences.syncWorkspace ? ".cortex/workspace.json" : null,
-			!old.syncPluginMetadata && preferences.syncPluginMetadata
-				? ".cortex/sync-plugins.json"
-				: null,
-			!old.syncThemeMetadata && preferences.syncThemeMetadata ? ".cortex/sync-themes.json" : null,
-			!old.syncBookmarks && preferences.syncBookmarks ? ".cortex/bookmarks.json" : null,
-		].filter((value): value is string => value !== null)
-
-		for (const filePath of newlyEnabled) {
-			const [op, priority] = SyncQueue.upload(filePath)
-			this.queue.push(op, priority)
-		}
+	private denyOnAccessError(error: unknown, scope: AccessScope = "vault"): boolean {
+		const denial = accessDenial(error, scope)
+		if (denial) this.denyAccess(denial)
+		return denial !== null
 	}
 
-	private async handleSseConnected(): Promise<void> {
-		this.connectionMode = "sse"
-		if (this.state === "offline") {
-			this.setState("recovering")
-			await this.handleReconcile()
-			this.setState("live")
-		} else {
-			this.setState("live")
-		}
-	}
-
-	private handleSseDisconnected(): void {
-		this.connectionMode = "polling"
-		this.setState("offline")
-	}
-
-	private async handleReconcile(): Promise<void> {
-		if (!this.db || !this.vek || !this.vaultId || !this.vaultPath) return
-		const reconciler = new Reconciler(
-			this.deps.onEvent,
-			this.deps.client,
-			this.db,
-			this.vaultId,
-			this.vaultPath,
-			this.vek,
-			this.deps.device.getDeviceId(),
-			this.syncPreferences,
-		)
-		try {
-			const newEventId = await reconciler.run(this.lastEventId)
-			if (newEventId) {
-				this.lastEventId = newEventId
-				this.db.setMetadata("last_event_id", newEventId)
-			}
-			this.enqueueIncompleteCreationMetadata()
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error)
-			this.emitLog("error", `Reconciliation failed: ${message}`)
-			this.emitFileEvent("", `reconcile-error: ${message}`)
-		}
-	}
-
-	private enqueueIncompleteCreationMetadata(): void {
-		if (!this.db) return
-		for (const path of this.db.listIncompleteCreationMetadata()) {
-			const [operation, priority] = SyncQueue.lookupCreationMetadata(path)
-			this.queue.push(operation, priority)
-		}
-	}
-
-	private async handlePollTick(): Promise<void> {
-		if (!this.db || !this.vek || !this.vaultId || !this.vaultPath) return
-		const since = this.lastEventId ?? "0"
-		const apiPath = `/sync/v1/vaults/${this.vaultId}/changes?since=${since}&limit=50`
-		let response: Awaited<ReturnType<SyncHttpClient["get"]>>
-		try {
-			response = await this.deps.client.get(apiPath)
-		} catch {
-			return
-		}
-
-		if (response.status === 402) {
-			const body = await response.text()
-			this.handleAccessDenied(
-				subscriptionAccessMessage(subscriptionCodeFromText(body)),
-				"subscription",
-				subscriptionCodeFromText(body),
-			)
-			return
-		}
-		if (response.status === 403) {
-			const body = await response.text()
-			this.handleAccessDenied(`HTTP 403: ${body}`, "vault", null)
-			return
-		}
-		if (!response.ok) return
-
-		const ownDeviceId = this.deps.device.getDeviceId()
-		const events = await response.json<PollEvent[]>()
-		for (const event of events) {
-			const planned = planPollEvent(event, ownDeviceId, this.syncPreferences)
-			if (planned.noteMetadata) {
-				this.db.upsertNoteMetadata(planned.noteMetadata.path, planned.noteMetadata.metadata)
-			}
-			if (planned.queueItem) {
+	private startTimers(session: Session): void {
+		session.timers = [
+			setInterval(() => this.flushPending(), FLUSH_INTERVAL_MS),
+			setInterval(() => {
+				if (this.polling) this.serial(() => this.pollChanges(session))
+			}, POLL_INTERVAL_MS),
+			setInterval(() => {
+				if (this.session !== session) return
+				if (session.effective === null) this.serial(() => this.refreshAccess(session))
 				try {
-					this.queue.pushFromEvent(
-						planned.queueItem.op,
-						planned.queueItem.priority,
-						planned.queueItem.eventId,
-					)
+					session.queue.load()
 				} catch (error) {
-					this.emitLog(
-						"warn",
-						`Skipping queued remote event: ${error instanceof Error ? error.message : String(error)}`,
-					)
-				}
-			}
-			if (planned.processedEventId) {
-				this.markEventProcessed(planned.processedEventId)
-			}
-		}
-	}
-
-	private handleLocalFileChanged(relative: string): void {
-		if (this.vaultPath) {
-			const fullPath = join(this.vaultPath, relative)
-			try {
-				const content = readFileSync(fullPath)
-				const newHash = hashContent(content)
-				if (matchesSyncedHash(this.db, relative, newHash)) return
-
-				let matchedOldPath: string | null = null
-				const now = Date.now()
-				for (const [delPath, pending] of this.pendingDeletes) {
-					if (now - pending.at <= DELETE_CORRELATION_WINDOW_MS && pending.hash === newHash) {
-						matchedOldPath = delPath
-						break
-					}
-				}
-				if (matchedOldPath) {
-					this.pendingDeletes.delete(matchedOldPath)
-					const [op, priority] = SyncQueue.renameRemote(matchedOldPath, relative)
-					this.queue.push(op, priority)
+					log(this.deps.emit, "error", `Sync queue reload failed: ${errorMessage(error)}`)
 					return
 				}
-			} catch {
-				// Fall through to upload debounce.
+				this.scheduleDrain()
+			}, RETRY_RELOAD_INTERVAL_MS),
+			setInterval(() => void this.reportCursor(session), CURSOR_REPORT_INTERVAL_MS),
+		]
+	}
+
+	private startSse(session: Session): void {
+		const onSession = (task: () => Promise<void> | void) => () => {
+			this.serial(() => (this.session === session ? task() : undefined))
+		}
+		session.sse = new SseClient(session.api, session.vaultId, session.cursor.value, {
+			onConnected: onSession(() => this.onSseConnected(session)),
+			onDisconnected: onSession(() => {
+				this.polling = true
+				this.setState("offline")
+			}),
+			onChange: (change) => onSession(() => this.acceptRemoteChange(session, change))(),
+			onVaultEvent: (event, payload) => this.onVaultEvent(session, event, payload),
+			onAccessDenied: (denial) => onSession(() => this.denyAccess(denial))(),
+		})
+		session.sse.start()
+	}
+
+	private async onSseConnected(session: Session): Promise<void> {
+		this.polling = false
+		let accessChanged: boolean
+		try {
+			const wasUnknown = session.effective === null
+			const loaded = await this.loadAccess(session.api, session.vaultId, session.db)
+			accessChanged =
+				this.applyAccess(session, loaded) || (wasUnknown && session.effective !== null)
+		} catch (error) {
+			this.denyOnAccessError(error)
+			return
+		}
+		if (accessChanged) {
+			session.needsFullSync = true
+			if (this.state !== "offline") await this.reconcile(session)
+		}
+		if (this.state === "offline") {
+			this.setState("recovering")
+			session.db.retryQueueNow()
+			session.queue.load()
+			await this.reconcile(session)
+			this.scheduleDrain()
+		}
+		if (this.session === session) this.setState("live")
+	}
+
+	private async reconcile(session: Session): Promise<void> {
+		try {
+			const lastReconcileAt = Number(session.db.getMeta(LAST_RECONCILE_AT) ?? "0")
+			const longOffline = nowSeconds() - lastReconcileAt >= LONG_OFFLINE_SECONDS
+			if (!session.needsFullSync && session.cursor.value && !longOffline) {
+				await this.pullChanges(session)
+			} else {
+				const { latestEventId, readOnlyLocal } = await runFullSync(
+					session,
+					this.preferences,
+					"reconcile",
+					this.deps.emit,
+				)
+				session.cursor.reset(latestEventId)
+				session.needsFullSync = false
+				this.logReadOnly(session, readOnlyLocal)
+			}
+			session.db.setMeta(LAST_RECONCILE_AT, String(nowSeconds()))
+		} catch (error) {
+			if (this.denyOnAccessError(error)) return
+			log(this.deps.emit, "error", `Reconciliation failed: ${errorMessage(error)}`)
+			fileEvent(this.deps.emit, "", `reconcile-error: ${errorMessage(error)}`)
+		}
+	}
+
+	private async pollChanges(session: Session): Promise<void> {
+		if (this.session !== session) return
+		try {
+			await this.pullChanges(session)
+		} catch (error) {
+			if (!this.denyOnAccessError(error)) {
+				log(this.deps.emit, "warn", `Polling changes failed: ${errorMessage(error)}`)
 			}
 		}
-		this.pendingUploads.set(relative, Date.now())
 	}
 
-	private handleLocalFileDeleted(relative: string): void {
-		this.pendingUploads.delete(relative)
-		const lastHash = this.db?.getSyncState(relative)?.localHash ?? null
-		this.pendingDeletes.set(relative, { at: Date.now(), hash: lastHash })
+	private async pullChanges(session: Session): Promise<void> {
+		while (this.session === session) {
+			const since = session.seenEventId ?? session.cursor.value ?? "0"
+			const changes = await listChanges(session.api, session.vaultId, since, CHANGES_PAGE_SIZE)
+			for (const change of changes) this.acceptRemoteChange(session, change)
+			if (changes.length < CHANGES_PAGE_SIZE) return
+		}
 	}
 
-	private flushPendingDeletes(): void {
+	private acceptRemoteChange(session: Session, change: RemoteChange): void {
+		if (change.id) {
+			const seen = Number(session.seenEventId ?? "0")
+			if (Number(change.id) > seen) session.seenEventId = change.id
+		}
+		const planned = planRemoteChange(change, this.deps.deviceId(), this.preferences)
+		if (!session.access.canRead(change.path)) {
+			const movedOutOfReach =
+				change.type === "file_renamed" && change.oldPath && session.access.canRead(change.oldPath)
+			if (movedOutOfReach && change.oldPath) {
+				this.queueRemoteOp(session, { type: "delete", path: change.oldPath }, change.id)
+			} else if (change.id) {
+				this.markEventProcessed(session, change.id)
+			}
+			return
+		}
+		if (planned.metadata) session.db.upsertNoteMetadata(change.path, planned.metadata)
+		if (!planned.op) {
+			if (change.id) this.markEventProcessed(session, change.id)
+			return
+		}
+		this.queueRemoteOp(session, planned.op, change.id)
+	}
+
+	private queueRemoteOp(session: Session, op: SyncOp, sourceEventId: string | null): void {
+		try {
+			session.queue.push(op, sourceEventId)
+			this.scheduleDrain()
+		} catch (error) {
+			log(this.deps.emit, "warn", `Skipping queued remote event: ${errorMessage(error)}`)
+		}
+	}
+
+	private markEventProcessed(session: Session, eventId: string): void {
+		try {
+			session.cursor.markProcessed(eventId)
+		} catch (error) {
+			log(this.deps.emit, "warn", `Skipping sync cursor advancement: ${errorMessage(error)}`)
+		}
+	}
+
+	private push(op: SyncOp): void {
+		this.session?.queue.push(op)
+		this.scheduleDrain()
+	}
+
+	private scheduleDrain(): void {
+		if (this.drainScheduled || !this.session) return
+		this.drainScheduled = true
+		this.serial(async () => {
+			this.drainScheduled = false
+			const session = this.session
+			if (!session) return
+			const downloads = session.queue.popWhile("download", DOWNLOAD_DRAIN_BATCH)
+			if (downloads.length > 1) {
+				await this.executeDownloads(session, downloads)
+			} else {
+				const item = downloads[0] ?? session.queue.pop()
+				if (!item) return
+				await this.execute(session, item)
+			}
+			if (this.session === session && session.queue.size > 0) this.scheduleDrain()
+		})
+	}
+
+	private async execute(session: Session, item: QueueItem): Promise<void> {
+		if (shouldIgnoreSyncPath(opTargetPath(item.op), this.preferences)) {
+			this.complete(session, item)
+			return
+		}
+		try {
+			await executeOp(session, item.op, this.deps.emit)
+			this.complete(session, item)
+		} catch (error) {
+			this.fail(session, item, error)
+		}
+	}
+
+	private async executeDownloads(session: Session, items: QueueItem[]): Promise<void> {
+		const byPath = new Map<string, QueueItem>()
+		const pending: Array<{ path: string; version: number }> = []
+		for (const item of items) {
+			if (item.op.type !== "download") continue
+			const { path, version } = item.op
+			if (
+				shouldIgnoreSyncPath(path, this.preferences) ||
+				!transfer.needsDownload(session, path, version)
+			) {
+				this.complete(session, item)
+				continue
+			}
+			byPath.set(path, item)
+			pending.push({ path, version })
+		}
+		await downloadMany(
+			session,
+			pending,
+			this.deps.emit,
+			(path, error) => {
+				const item = byPath.get(path)
+				if (!item || this.session !== session) return
+				if (error) this.fail(session, item, error)
+				else this.complete(session, item)
+			},
+			() => this.session !== session,
+		)
+	}
+
+	private complete(session: Session, item: QueueItem): void {
+		session.queue.complete(item)
+		if (item.sourceEventId) this.markEventProcessed(session, item.sourceEventId)
+	}
+
+	private fail(session: Session, item: QueueItem, error: unknown): void {
+		if (this.denyOnAccessError(error, "path")) return
+		if (isPathForbidden(error)) {
+			log(this.deps.emit, "warn", `${opPath(item.op)} skipped: no access on the server`)
+			session.queue.fail(item, false)
+			if (item.sourceEventId) this.markEventProcessed(session, item.sourceEventId)
+			return
+		}
+		log(this.deps.emit, "error", `Sync operation failed: ${errorMessage(error)}`)
+		const retrying = session.queue.fail(item, shouldRetry(error))
+		if (!retrying && item.sourceEventId) this.markEventProcessed(session, item.sourceEventId)
+	}
+
+	private async onLocalChange(path: string): Promise<void> {
+		const session = this.session
+		const relative = this.relativePath(path)
+		if (!session || !relative || shouldIgnoreSyncPath(relative, this.preferences)) return
+		if (this.isCollabFollower(relative) || !session.access.canRead(relative)) return
+		const writable = session.access.canWrite(relative)
 		const now = Date.now()
-		for (const [path, pending] of [...this.pendingDeletes]) {
+		try {
+			const fullPath = resolveInVault(session.vaultPath, relative)
+			const stats = await stat(fullPath)
+			if (!stats.isFile()) return
+			const state = session.db.getFileState(relative)
+			if (state?.syncStatus === "conflict") return
+			if (state?.localMtime === Math.trunc(stats.mtimeMs) && state.localSize === stats.size) return
+			if (!writable && !state) {
+				this.logReadOnly(session, [relative])
+				return
+			}
+			if (writable && this.pendingDeletes.size > 0) {
+				const hash = hashBytes(await readFile(fullPath))
+				if (state?.localHash === hash) return
+				for (const [oldPath, pending] of this.pendingDeletes) {
+					if (now - pending.at > DELETE_CORRELATION_WINDOW_MS || pending.hash !== hash) continue
+					this.pendingDeletes.delete(oldPath)
+					this.push({ type: "renameRemote", oldPath, newPath: relative })
+					return
+				}
+			}
+		} catch {
+			return
+		}
+		this.pendingUploads.set(relative, now)
+	}
+
+	private onLocalDelete(path: string): void {
+		const relative = this.relativePath(path)
+		if (!this.session || !relative || shouldIgnoreSyncPath(relative, this.preferences)) return
+		if (this.isCollabFollower(relative)) return
+		if (!this.session.access.canWrite(relative)) {
+			if (this.session.access.canRead(relative) && this.session.db.getFileState(relative)) {
+				this.pendingUploads.set(relative, Date.now())
+			}
+			return
+		}
+		this.pendingUploads.delete(relative)
+		const hash = this.session.db.getFileState(relative)?.localHash ?? null
+		this.pendingDeletes.set(relative, { at: Date.now(), hash })
+	}
+
+	private flushPending(): void {
+		const session = this.session
+		if (!session) return
+		const now = Date.now()
+		for (const [path, pending] of this.pendingDeletes) {
 			if (now - pending.at <= DELETE_CORRELATION_WINDOW_MS) continue
 			this.pendingDeletes.delete(path)
-			if (shouldIgnorePath(path, this.syncPreferences)) continue
-			const [op, priority] = SyncQueue.deleteRemote(path)
-			this.queue.push(op, priority)
+			if (!shouldIgnoreSyncPath(path, this.preferences)) this.push({ type: "deleteRemote", path })
 		}
-	}
-
-	private flushPendingUploads(): void {
-		const now = Date.now()
-		for (const [path, when] of [...this.pendingUploads]) {
-			if (now - when < UPLOAD_DEBOUNCE_MS) continue
+		for (const [path, at] of this.pendingUploads) {
+			if (now - at < UPLOAD_DEBOUNCE_MS) continue
 			this.pendingUploads.delete(path)
-			if (shouldIgnorePath(path, this.syncPreferences)) continue
-			if (this.vaultPath && !existsSync(join(this.vaultPath, path))) continue
-			const [op, priority] = SyncQueue.upload(path)
-			this.queue.push(op, priority)
+			if (!shouldIgnoreSyncPath(path, this.preferences)) this.push({ type: "upload", path })
 		}
 	}
 
-	private toRelativePath(absolutePath: string): string {
-		if (this.vaultPath) return toVaultRelativePath(this.vaultPath, absolutePath)
-		return absolutePath.replaceAll("\\", "/")
+	private updatePreferences(preferences: SyncPreferences): void {
+		const previous = this.preferences
+		this.preferences = preferences
+		for (const path of this.pendingUploads.keys()) {
+			if (shouldIgnoreSyncPath(path, preferences)) this.pendingUploads.delete(path)
+		}
+		for (const path of this.pendingDeletes.keys()) {
+			if (shouldIgnoreSyncPath(path, preferences)) this.pendingDeletes.delete(path)
+		}
+		const session = this.session
+		if (!session) return
+		for (const [file, key] of Object.entries(CORTEX_SYNCABLE_FILES)) {
+			if (!previous[key] && preferences[key]) this.push({ type: "upload", path: `.cortex/${file}` })
+		}
 	}
 
-	private startSseListener(): boolean {
-		if (!this.vaultId || !this.serverUrl) return false
-		let deviceId: string
+	async handleRequest(request: RpcRequest<WorkerMethods>): Promise<unknown> {
+		const session = this.session
 		try {
-			deviceId = this.deps.device.getDeviceId()
-		} catch {
-			return false
-		}
-		const url = `${this.serverUrl}/sync/v1/vaults/${this.vaultId}/events`
-		this.sseClient?.stop()
-		this.sseClient = new SseClient(
-			(command) => this.enqueue(command),
-			deviceId,
-			this.deps.keychain,
-			this.lastEventId,
-		)
-		void this.sseClient.connect(url, this.serverUrl, deviceId)
-		return true
-	}
-
-	private async runInitialSync(): Promise<void> {
-		if (!this.db || !this.vek || !this.vaultId || !this.vaultPath) {
-			throw new Error("Sync engine is not ready")
-		}
-		this.emitLog("info", `Initial sync starting for vault ${this.vaultId}`)
-		const initial = new InitialSync(
-			this.deps.onEvent,
-			this.deps.client,
-			this.db,
-			this.vaultId,
-			this.vaultPath,
-			this.vek,
-			this.syncPreferences,
-		)
-		await initial.run()
-		this.emitLog("info", "Initial sync completed successfully")
-	}
-
-	private async processNextQueueItem(): Promise<boolean> {
-		if (!this.db || !this.vek || !this.vaultId || !this.vaultPath) return false
-		const item = this.queue.pop()
-		if (!item) return false
-
-		const creationLookupPath = item.op.type === "lookupCreationMetadata" ? item.op.path : null
-
-		if (this.shouldIgnoreQueueItem(item.op)) {
-			this.completeQueueItem(item)
-			return true
-		}
-
-		const client = this.deps.client
-		const db = this.db
-		const vek = this.vek
-		const vaultId = this.vaultId
-		const vaultPath = this.vaultPath
-
-		try {
-			switch (item.op.type) {
-				case "upload": {
-					this.emitFileEvent(item.op.path, "uploading")
-					const uploader = new Uploader(client, db, vaultId, vaultPath, vek)
-					await uploader.uploadFile(item.op.path)
-					this.emitLog("info", `Pushed: ${item.op.path}`)
-					this.emitFileEvent(item.op.path, "synced")
-					break
-				}
-				case "download": {
-					this.emitFileEvent(item.op.path, "downloading")
-					const downloader = new Downloader(client, db, vaultId, vaultPath, vek)
-					const result = await downloader.downloadFile(item.op.path)
-					if (result.kind === "synced") {
-						this.emitLog("info", `Pulled: ${item.op.path}`)
-						this.emitFileEvent(item.op.path, "synced")
-					} else if (result.kind === "merged") {
-						this.emitLog("info", `Merged: ${item.op.path}`)
-						this.emitFileEvent(item.op.path, "merged")
-					} else {
-						this.emitFileEvent(item.op.path, "conflict")
-						this.emitLog("warn", `Conflict detected: ${item.op.path}`)
-						this.deps.onEvent("sync-conflict", { path: item.op.path })
-					}
-					break
-				}
-				case "delete": {
-					this.emitFileEvent(item.op.path, "deleting")
-					const downloader = new Downloader(client, db, vaultId, vaultPath, vek)
-					await downloader.deleteLocalFile(item.op.path)
-					this.emitLog("info", `Deleted locally: ${item.op.path}`)
-					this.emitFileEvent(item.op.path, "deleted")
-					break
-				}
-				case "deleteRemote": {
-					this.emitFileEvent(item.op.path, "deleting-remote")
-					const uploader = new Uploader(client, db, vaultId, vaultPath, vek)
-					await uploader.deleteRemoteFile(item.op.path)
-					this.emitLog("info", `Deleted remote: ${item.op.path}`)
-					this.emitFileEvent(item.op.path, "deleted")
-					break
-				}
-				case "rename": {
-					this.emitFileEvent(item.op.oldPath, "renaming")
-					const downloader = new Downloader(client, db, vaultId, vaultPath, vek)
-					await downloader.renameLocalFile(item.op.oldPath, item.op.newPath)
-					this.emitFileEvent(item.op.newPath, "synced")
-					break
-				}
-				case "renameRemote": {
-					this.emitFileEvent(item.op.oldPath, "renaming-remote")
-					const uploader = new Uploader(client, db, vaultId, vaultPath, vek)
-					await uploader.renameRemoteFile(item.op.oldPath, item.op.newPath)
-					this.emitFileEvent(item.op.newPath, "synced")
-					break
-				}
-				case "resolveConflict": {
-					if (item.op.resolution) {
-						this.emitFileEvent(item.op.path, "resolving")
-						const resolver = new ConflictResolver(client, db, vaultId, vaultPath, vek)
-						await resolver.applyResolution(item.op.path, item.op.resolution)
-						this.emitFileEvent(item.op.path, "synced")
-					}
-					break
-				}
-				case "lookupCreationMetadata": {
-					const downloader = new Downloader(client, db, vaultId, vaultPath, vek)
-					try {
-						const versions = await downloader.getVersionHistory(item.op.path)
-						versions.sort((left, right) => left.version - right.version)
-						const first = versions[0]
-						db.upsertNoteMetadata(item.op.path, {
-							createdAt: first?.createdAt ?? null,
-							createdBy: first?.authorId ?? null,
-							lastEditedAt: null,
-							lastEditedBy: null,
-							lastDeviceId: null,
-							synced: true,
-							creationLookupComplete: true,
-						})
-					} catch (error) {
-						const message = error instanceof Error ? error.message : String(error)
-						if (message.includes("HTTP 404")) {
-							completeCreationLookup(db, item.op.path)
-						} else {
-							throw error
-						}
-					}
-					break
-				}
-				case "initialSync":
-				case "reconcile":
-					break
-			}
-			this.completeQueueItem(item)
+			return await this.handleRpc(request)
 		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error)
-			if (isSubscriptionAccessError(message)) {
-				this.emitLog("error", `Sync plan validation failed: ${message}`)
-				this.handleAccessDenied(
-					subscriptionAccessMessage(subscriptionCodeFromText(message)),
-					"subscription",
-					subscriptionCodeFromText(message),
+			if (session && this.session === session && accessDenial(error, "path")) {
+				this.serial(() => {
+					if (this.session === session) this.denyOnAccessError(error, "path")
+				})
+			}
+			throw error
+		}
+	}
+
+	private async handleRpc(request: RpcRequest<WorkerMethods>): Promise<unknown> {
+		switch (request.method) {
+			case "getConflicts": {
+				const db = this.dbFor(request.args.vaultPath)
+				return db ? await getAllConflicts(db, request.args.vaultPath) : []
+			}
+			case "getNoteMetadata": {
+				const { vaultPath, filePath } = request.args
+				const db = this.dbFor(vaultPath)
+				const relative = toVaultRelativePath(filePath, vaultPath) ?? normalizeRelativePath(filePath)
+				return db?.getNoteMetadata(relative) ?? null
+			}
+			case "getVersionHistory": {
+				const ctx = await this.contextFor(request.args.vault)
+				return await transfer.getVersionHistory(ctx, request.args.filePath)
+			}
+			case "downloadVersion": {
+				const ctx = await this.contextFor(request.args.vault)
+				const content = await transfer.downloadVersion(
+					ctx,
+					request.args.filePath,
+					Number(request.args.version),
 				)
-				return true
+				return content.toString("utf8")
 			}
-			this.emitLog("error", `Sync operation failed: ${message}`)
-			const retriable = isRetriableSyncErrorMessage(message)
-			const exhausted = item.retryCount + 1 >= item.maxRetries
-			if (creationLookupPath && (!retriable || exhausted)) {
-				completeCreationLookup(db, creationLookupPath)
+			case "restoreVersion": {
+				const ctx = await this.contextFor(request.args.vault)
+				await transfer.restoreVersion(ctx, request.args.filePath, Number(request.args.version))
+				return null
 			}
-			this.queue.markFailed(item, message, retriable)
-		}
-		return true
-	}
-
-	private completeQueueItem(item: QueueItem): void {
-		this.queue.markCompleted(item)
-		if (!item.sourceEventId) return
-		this.markEventProcessed(item.sourceEventId)
-	}
-
-	private shouldIgnoreQueueItem(op: SyncOp): boolean {
-		switch (op.type) {
-			case "upload":
-			case "download":
-			case "delete":
-			case "deleteRemote":
-			case "resolveConflict":
-			case "lookupCreationMetadata":
-				return shouldIgnorePath(op.path, this.syncPreferences)
-			case "rename":
-			case "renameRemote":
-				return shouldIgnorePath(op.newPath, this.syncPreferences)
-			case "initialSync":
-			case "reconcile":
-				return false
-		}
-	}
-}
-
-function planPollEvent(
-	event: PollEvent,
-	ownDeviceId: string,
-	syncPreferences: SyncPreferences,
-): {
-	queueItem: { op: SyncOp; priority: number; eventId: string } | null
-	noteMetadata: { path: string; metadata: NoteSyncMetadata } | null
-	processedEventId: string | null
-} {
-	const eventId = String(event.id)
-	if (event.device_id === ownDeviceId || shouldIgnorePath(event.file_path, syncPreferences)) {
-		return { queueItem: null, noteMetadata: null, processedEventId: eventId }
-	}
-
-	let noteMetadata: { path: string; metadata: NoteSyncMetadata } | null = null
-	if (
-		event.event_type === "file_created" ||
-		event.event_type === "file_updated" ||
-		event.event_type === "file_renamed"
-	) {
-		noteMetadata = {
-			path: event.file_path,
-			metadata: {
-				createdAt: event.event_type === "file_created" ? event.created_at : null,
-				createdBy: event.event_type === "file_created" ? event.actor_id : null,
-				lastEditedAt: event.created_at,
-				lastEditedBy: event.actor_id,
-				lastDeviceId: event.device_id,
-				synced: true,
-				creationLookupComplete: event.event_type === "file_created",
-			},
-		}
-	}
-
-	let queueItem: { op: SyncOp; priority: number; eventId: string } | null = null
-	switch (event.event_type) {
-		case "file_created":
-		case "file_updated": {
-			const [op, priority] = SyncQueue.download(event.file_path, event.version ?? 1)
-			queueItem = { op, priority, eventId }
-			break
-		}
-		case "file_deleted":
-			queueItem = {
-				op: { type: "delete", path: event.file_path },
-				priority: 80,
-				eventId,
+			case "listDeletedFiles":
+				return await transfer.listDeletedFiles(await this.contextFor(request.args.vault))
+			case "restoreDeletedFile": {
+				const ctx = await this.contextFor(request.args.vault)
+				await transfer.restoreDeletedFile(ctx, request.args.filePath)
+				return null
 			}
-			break
-		case "file_renamed": {
-			const oldPath = event.metadata?.old_path ?? ""
-			if (!oldPath) {
-				const [op, priority] = SyncQueue.download(event.file_path, event.version ?? 1)
-				queueItem = { op, priority, eventId }
-			} else {
-				queueItem = {
-					op: { type: "rename", oldPath, newPath: event.file_path },
-					priority: 80,
-					eventId,
-				}
+			case "getKeyTrustIssues":
+				return this.keyTrustIssues(request.args.vaultId)
+			case "trustMemberKey": {
+				const { vaultId, userId, fingerprint } = request.args
+				this.trustMemberKey(vaultId, userId, fingerprint)
+				return null
 			}
-			break
 		}
 	}
 
-	return {
-		queueItem,
-		noteMetadata,
-		processedEventId: queueItem ? null : eventId,
+	private async contextFor(vault: VaultRef): Promise<SyncContext> {
+		const session = this.session
+		if (
+			session &&
+			session.vaultId === vault.vaultId &&
+			resolve(session.vaultPath) === resolve(vault.vaultPath)
+		) {
+			return session
+		}
+		const vek = await this.deps.loadVek(vault.vaultId)
+		if (!vek) throw new Error("Vault encryption key not available. Unlock the vault first.")
+		const db = this.dbFor(vault.vaultPath) ?? new SyncDb(vault.vaultPath)
+		this.releaseDb(db)
+		return {
+			api: new ApiClient(vault.serverUrl, {
+				deviceId: this.deps.deviceId(),
+				tokens: this.deps.tokens,
+			}),
+			db,
+			vaultId: vault.vaultId,
+			vaultPath: vault.vaultPath,
+			vek,
+			access: (() => {
+				const cached = readCachedAccess(db)
+				return cached ? accessFor(cached) : READ_ONLY_ACCESS
+			})(),
+		}
 	}
 }

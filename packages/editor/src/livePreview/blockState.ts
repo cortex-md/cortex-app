@@ -1,4 +1,4 @@
-import { getCalloutStyleVariables, resolveCalloutType } from "@cortex/renderer"
+import { getCalloutStyleVariables, resolveCalloutType } from "@cortex/renderer/callouts"
 import { type CodeBlockEmbedDefinition, findCodeBlockEmbedDefinition } from "../codeBlockEmbeds"
 import type {
 	EditorRuntimeBlockWrapper,

@@ -1,20 +1,16 @@
+import { joinPath, normalizePath, toVaultRelativePath } from "@cortex/platform/utils"
+import { isHiddenVaultPath } from "@cortex/platform/vault"
 import { describe, expect, it } from "vitest"
 
 import {
 	createMobileVaultLogicalPath,
 	getMobileVaultPathParts,
-	getMobileVaultRelativePath,
-	isHiddenMobileVaultPath,
 	isMobileVaultLogicalPath,
-	joinMobileVaultPath,
-	normalizeMobileVaultPath,
 } from "../mobile-vault-paths"
 
 describe("mobile vault logical paths", () => {
 	it("normalizes duplicate and trailing slashes", () => {
-		expect(normalizeMobileVaultPath("//mobile-vaults//abc//Notes//")).toBe(
-			"/mobile-vaults/abc/Notes",
-		)
+		expect(normalizePath("/mobile-vaults//abc//Notes//")).toBe("/mobile-vaults/abc/Notes")
 	})
 
 	it("creates and recognizes logical vault paths", () => {
@@ -33,15 +29,15 @@ describe("mobile vault logical paths", () => {
 
 	it("derives child paths relative to the logical root", () => {
 		expect(
-			getMobileVaultRelativePath("/mobile-vaults/vault-1/Folder/Note.md", "/mobile-vaults/vault-1"),
+			toVaultRelativePath("/mobile-vaults/vault-1/Folder/Note.md", "/mobile-vaults/vault-1"),
 		).toBe("Folder/Note.md")
-		expect(joinMobileVaultPath("/mobile-vaults/vault-1/Folder", "Note.md")).toBe(
+		expect(joinPath("/mobile-vaults/vault-1/Folder", "Note.md")).toBe(
 			"/mobile-vaults/vault-1/Folder/Note.md",
 		)
 	})
 
 	it("detects hidden paths before they enter vault scans", () => {
-		expect(isHiddenMobileVaultPath("/mobile-vaults/vault-1/.cortex/vault-id.json")).toBe(true)
-		expect(isHiddenMobileVaultPath("/mobile-vaults/vault-1/Notes/Today.md")).toBe(false)
+		expect(isHiddenVaultPath(".cortex/vault-id.json")).toBe(true)
+		expect(isHiddenVaultPath("Notes/Today.md")).toBe(false)
 	})
 })

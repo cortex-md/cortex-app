@@ -1,9 +1,26 @@
 import { getPlatform } from "@cortex/platform"
+import {
+	getNoteTitle,
+	getVaultFilePath,
+	isPathOrDescendant,
+	isPdfPath,
+	replacePathPrefix,
+	VAULT_FILES,
+} from "@cortex/platform/utils"
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
 import { noteCache } from "../noteCache"
-import { type LeftSidebarLayout, useUIStore } from "./uiStore"
+import {
+	EMPTY_NAVIGATION_HISTORY,
+	type NavigationDirection,
+	type NavigationHistory,
+	type NavigationLocation,
+	pushNavigationLocation,
+	renameNavigationLocations,
+	stepNavigationHistory,
+} from "../utils/navigationHistory"
+import { type LeftSidebarLayout, type RightSidebarLayout, useUIStore } from "./uiStore"
 
 export type SplitDirection = "horizontal" | "vertical"
 export type TabType = "file" | "view"
@@ -23,6 +40,12 @@ export interface Tab {
 	isEphemeral: boolean
 	lastAccessed: number
 	isSuspended: boolean
+}
+
+function getTabResourcePath(tab: Tab): string | null {
+	if (tab.tabType !== "view") return tab.filePath
+	const filePath = tab.viewState?.filePath
+	return typeof filePath === "string" && filePath ? filePath : null
 }
 
 export interface LeafNode {
@@ -46,7 +69,7 @@ export interface Pane {
 	activeTabId: string | null
 }
 
-interface RecentlyClosed {
+export interface RecentlyClosed {
 	filePath: string
 	title: string
 }
@@ -56,6 +79,8 @@ interface WorkspaceSnapshot {
 	splitTree: SplitTree
 	activePaneId: string
 	leftSidebar?: Partial<LeftSidebarLayout>
+	rightSidebar?: Partial<RightSidebarLayout>
+	quickFinderPreview?: boolean
 }
 
 export interface OpenTabOptions {
@@ -76,12 +101,15 @@ export interface WorkspaceState {
 	activePaneId: string
 	mruOrder: string[]
 	recentlyClosed: RecentlyClosed[]
+	navigation: Record<string, NavigationHistory>
 
 	openTab: (filePath: string, opts?: OpenTabOptions) => void
 	openViewTab: (viewId: string, title: string, opts?: OpenTabOptions) => void
 	openInSplit: (filePath: string, paneId: string, direction: SplitDirection) => void
 	closeTab: (tabId: string, paneId: string) => void
 	closeTabsByPath: (filePath: string) => void
+	closeOtherTabs: (tabId: string, paneId: string, scope?: "others" | "right") => void
+	navigateHistory: (paneId: string, direction: NavigationDirection) => void
 	updateTabPath: (oldPath: string, newPath: string) => void
 	activateTab: (tabId: string, paneId: string) => void
 	pinTab: (tabId: string, paneId: string) => void
@@ -117,13 +145,23 @@ const ROOT_PANE_ID = "root"
 const MAX_RECENT_CLOSED = 10
 const SUSPENSION_IDLE_MS = 30 * 60 * 1000
 
-function titleFromPath(filePath: string): string {
-	const name = filePath.split("/").pop() ?? filePath
-	return name.endsWith(".md") ? name.slice(0, -3) : name
+export function inferFileTabKind(filePath: string): FileTabKind {
+	return isPdfPath(filePath) ? "pdf" : "markdown"
 }
 
-function inferFileTabKind(filePath: string): FileTabKind {
-	return filePath.toLocaleLowerCase().endsWith(".pdf") ? "pdf" : "markdown"
+export function getRecentFilePaths(
+	panes: Record<string, Pane>,
+	recentlyClosed: readonly RecentlyClosed[],
+	limit = 15,
+): string[] {
+	const paths = new Set<string>()
+	for (const pane of Object.values(panes)) {
+		for (const tab of [...pane.tabs].sort((a, b) => b.lastAccessed - a.lastAccessed)) {
+			if (tab.tabType === "file" && tab.filePath) paths.add(tab.filePath)
+		}
+	}
+	for (const closed of recentlyClosed) paths.add(closed.filePath)
+	return Array.from(paths).slice(0, limit)
 }
 
 function getFileTabKind(tab: Pick<Tab, "tabType" | "fileKind" | "filePath">): FileTabKind | null {
@@ -133,16 +171,6 @@ function getFileTabKind(tab: Pick<Tab, "tabType" | "fileKind" | "filePath">): Fi
 
 function isMarkdownFileTab(tab: Tab): boolean {
 	return getFileTabKind(tab) === "markdown" && tab.filePath.length > 0
-}
-
-function isPathOrDescendant(path: string, parentPath: string): boolean {
-	return path === parentPath || path.startsWith(`${parentPath}/`)
-}
-
-function replacePathPrefix(path: string, oldPath: string, newPath: string): string | null {
-	if (path === oldPath) return newPath
-	if (!path.startsWith(`${oldPath}/`)) return null
-	return `${newPath}${path.slice(oldPath.length)}`
 }
 
 function replaceInTree(tree: SplitTree, targetId: string, replacement: SplitTree): SplitTree {
@@ -217,7 +245,39 @@ const buildInitialState = () => ({
 	activePaneId: ROOT_PANE_ID,
 	mruOrder: [] as string[],
 	recentlyClosed: [] as RecentlyClosed[],
+	navigation: {} as Record<string, NavigationHistory>,
 })
+
+let restoringNavigation = false
+
+function toNavigationLocation(tab: Tab): NavigationLocation {
+	return {
+		tabType: tab.tabType,
+		filePath: tab.filePath,
+		viewId: tab.viewId,
+		viewState: tab.viewState,
+		title: tab.title,
+	}
+}
+
+function recordNavigation(state: WorkspaceState, paneId: string): void {
+	if (restoringNavigation) return
+	const pane = state.panes[paneId]
+	const tab = pane?.tabs.find((candidate) => candidate.id === pane.activeTabId)
+	if (!tab || tab.isEphemeral) return
+	state.navigation[paneId] = pushNavigationLocation(
+		state.navigation[paneId] ?? EMPTY_NAVIGATION_HISTORY,
+		toNavigationLocation(tab),
+	)
+}
+
+function findPaneTabForLocation(pane: Pane, location: NavigationLocation): Tab | undefined {
+	return pane.tabs.find((tab) =>
+		location.tabType === "file"
+			? tab.tabType === "file" && tab.filePath === location.filePath
+			: tab.tabType === "view" && tab.viewId === location.viewId,
+	)
+}
 
 function insertTabAt(pane: Pane, tab: Tab, insertIndex?: number): void {
 	const index = insertIndex === undefined ? pane.tabs.length : Math.max(0, insertIndex)
@@ -319,7 +379,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 						tab.filePath = filePath
 						tab.viewId = null
 						tab.viewState = null
-						tab.title = titleFromPath(filePath)
+						tab.title = getNoteTitle(filePath)
 						tab.isDirty = false
 						tab.isEphemeral = opts?.ephemeral ?? false
 						tab.lastAccessed = Date.now()
@@ -327,6 +387,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 						pane.activeTabId = tab.id
 						s.activePaneId = targetPaneId
 						s.mruOrder = [tab.id, ...s.mruOrder.filter((id) => id !== tab.id)]
+						recordNavigation(s, targetPaneId)
 					})
 					return
 				}
@@ -339,7 +400,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 					filePath,
 					viewId: null,
 					viewState: null,
-					title: titleFromPath(filePath),
+					title: getNoteTitle(filePath),
 					isPinned: false,
 					isDirty: false,
 					isEphemeral: opts?.ephemeral ?? false,
@@ -356,6 +417,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 					pane.activeTabId = tabId
 					s.activePaneId = targetPaneId
 					s.mruOrder = [tabId, ...s.mruOrder.filter((id) => id !== tabId)]
+					recordNavigation(s, targetPaneId)
 				})
 			},
 
@@ -399,6 +461,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 					pane.activeTabId = tabId
 					s.activePaneId = targetPaneId
 					s.mruOrder = [tabId, ...s.mruOrder.filter((id) => id !== tabId)]
+					recordNavigation(s, targetPaneId)
 				})
 			},
 
@@ -415,7 +478,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 					filePath,
 					viewId: null,
 					viewState: null,
-					title: titleFromPath(filePath),
+					title: getNoteTitle(filePath),
 					isPinned: false,
 					isDirty: false,
 					isEphemeral: false,
@@ -431,6 +494,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 					pane.tabs.push(tab)
 					pane.activeTabId = tabId
 					s.mruOrder = [tabId, ...s.mruOrder.filter((id) => id !== tabId)]
+					recordNavigation(s, newPaneId)
 				})
 			},
 
@@ -481,22 +545,82 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 			closeTabsByPath: (filePath) => {
 				const { panes } = get()
 				for (const [paneId, pane] of Object.entries(panes)) {
-					const matchingTabs = pane.tabs.filter((t) => isPathOrDescendant(t.filePath, filePath))
+					const matchingTabs = pane.tabs.filter((t) => {
+						const tabPath = getTabResourcePath(t)
+						return tabPath !== null && isPathOrDescendant(tabPath, filePath)
+					})
 					for (const tab of matchingTabs) {
 						get().closeTab(tab.id, paneId)
 					}
 				}
 			},
 
+			closeOtherTabs: (tabId, paneId, scope = "others") => {
+				const tabs = get().panes[paneId]?.tabs ?? []
+				const targetIndex = tabs.findIndex((tab) => tab.id === tabId)
+				if (targetIndex === -1) return
+				const closable = tabs.filter(
+					(tab, index) =>
+						!tab.isPinned && tab.id !== tabId && (scope === "others" || index > targetIndex),
+				)
+				for (const tab of closable) get().closeTab(tab.id, paneId)
+			},
+
+			navigateHistory: (paneId, direction) => {
+				const history = get().navigation[paneId]
+				const step = history ? stepNavigationHistory(history, direction) : null
+				const pane = get().panes[paneId]
+				if (!step || !pane) return
+				const { location } = step
+				restoringNavigation = true
+				try {
+					const existing = findPaneTabForLocation(pane, location)
+					if (existing) {
+						get().activateTab(existing.id, paneId)
+					} else if (location.tabType === "file") {
+						get().openTab(location.filePath, { paneId, reuseActive: true })
+					} else if (location.viewId) {
+						get().openViewTab(location.viewId, location.title, {
+							paneId,
+							viewState: location.viewState ?? undefined,
+						})
+					}
+				} finally {
+					restoringNavigation = false
+				}
+				set((s) => {
+					s.navigation[paneId] = step.history
+				})
+			},
+
 			updateTabPath: (oldPath, newPath) => {
 				set((s) => {
+					for (const [paneId, history] of Object.entries(s.navigation)) {
+						s.navigation[paneId] = renameNavigationLocations(history, (filePath) =>
+							replacePathPrefix(filePath, oldPath, newPath),
+						)
+					}
 					for (const pane of Object.values(s.panes)) {
 						for (const tab of pane.tabs) {
+							if (tab.tabType === "view") {
+								if (!tab.viewState) continue
+								const viewPath = getTabResourcePath(tab)
+								for (const [key, value] of Object.entries(tab.viewState)) {
+									if (typeof value !== "string" || !value) continue
+									const nextValue = replacePathPrefix(value, oldPath, newPath)
+									if (nextValue) tab.viewState[key] = nextValue
+								}
+								const nextViewPath = getTabResourcePath(tab)
+								if (viewPath && nextViewPath && tab.title === getNoteTitle(viewPath)) {
+									tab.title = getNoteTitle(nextViewPath)
+								}
+								continue
+							}
 							const nextPath = replacePathPrefix(tab.filePath, oldPath, newPath)
 							if (!nextPath) continue
 							tab.filePath = nextPath
-							tab.fileKind = tab.tabType === "file" ? inferFileTabKind(nextPath) : null
-							tab.title = titleFromPath(nextPath)
+							tab.fileKind = inferFileTabKind(nextPath)
+							tab.title = getNoteTitle(nextPath)
 						}
 					}
 				})
@@ -519,6 +643,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 					tab.isSuspended = false
 					s.activePaneId = paneId
 					s.mruOrder = [tabId, ...s.mruOrder.filter((id) => id !== tabId)]
+					recordNavigation(s, paneId)
 				})
 			},
 
@@ -617,6 +742,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
 				set((s) => {
 					delete s.panes[paneId]
+					delete s.navigation[paneId]
 					s.splitTree = newTree
 					if (activePaneId === paneId) {
 						s.activePaneId = otherPaneId ?? ROOT_PANE_ID
@@ -777,9 +903,15 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
 			persistWorkspace: async (vaultPath) => {
 				const { panes, splitTree, activePaneId } = get()
-				const { leftSidebarCollapsed, leftSidebarWidth } = useUIStore.getState()
+				const {
+					leftSidebarCollapsed,
+					leftSidebarWidth,
+					rightSidebarCollapsed,
+					rightSidebarPanel,
+					quickFinderPreview,
+				} = useUIStore.getState()
 				const platform = getPlatform()
-				const configPath = `${vaultPath}/.cortex/workspace.json`
+				const configPath = getVaultFilePath(vaultPath, VAULT_FILES.workspace)
 				const persistedPanes = Object.fromEntries(
 					Object.entries(panes).map(([paneId, pane]) => [paneId, createPersistedPane(pane)]),
 				)
@@ -794,6 +926,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 								collapsed: leftSidebarCollapsed,
 								width: leftSidebarWidth,
 							},
+							rightSidebar: {
+								collapsed: rightSidebarCollapsed,
+								panel: rightSidebarPanel,
+							},
+							quickFinderPreview,
 						},
 						null,
 						2,
@@ -803,7 +940,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
 			loadWorkspace: async (vaultPath) => {
 				const platform = getPlatform()
-				const configPath = `${vaultPath}/.cortex/workspace.json`
+				const configPath = getVaultFilePath(vaultPath, VAULT_FILES.workspace)
 				try {
 					const raw = await platform.fs.readFile(configPath)
 					const data = JSON.parse(raw) as WorkspaceSnapshot
@@ -838,6 +975,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 					} else {
 						useUIStore.getState().resetLeftSidebarLayout()
 					}
+					if (data.rightSidebar) useUIStore.getState().setRightSidebarLayout(data.rightSidebar)
+					if (typeof data.quickFinderPreview === "boolean") {
+						useUIStore.getState().setQuickFinderPreview(data.quickFinderPreview)
+					}
 				} catch {
 					useUIStore.getState().resetLeftSidebarLayout()
 				}
@@ -852,3 +993,16 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 		{ name: "workspaceStore" },
 	),
 )
+
+export function selectActiveTab(
+	state: Pick<WorkspaceState, "panes" | "activePaneId">,
+): Tab | undefined {
+	const activePane = state.panes[state.activePaneId]
+	return activePane?.tabs.find((tab) => tab.id === activePane.activeTabId)
+}
+
+export function selectActiveTabFilePath(
+	state: Pick<WorkspaceState, "panes" | "activePaneId">,
+): string | undefined {
+	return selectActiveTab(state)?.filePath
+}

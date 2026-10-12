@@ -36,8 +36,8 @@ export function createTestPropertiesRuntime(
 		},
 		notes: {
 			readNote: read,
-			writeNote: async (path, content) => {
-				files.set(path, content)
+			updateNote: async (path, update) => {
+				files.set(path, update(await read(path)))
 			},
 			resolveVaultPath: (filePath) => (filePath.startsWith("/vault/") ? "/vault" : null),
 			listMarkdownFiles: async (vaultPath) =>

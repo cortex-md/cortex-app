@@ -39,32 +39,63 @@ function SheetOverlay({
 	)
 }
 
+const sheetSideClasses = {
+	right: "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
+	left: "data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
+	top: "data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
+	bottom: "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+} as const
+
+const sheetOverlayPlacement = {
+	right: "inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm",
+	left: "inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm",
+	top: "inset-x-0 top-0 h-auto border-b",
+	bottom: "inset-x-0 bottom-0 h-auto border-t",
+} as const
+
+const sheetDockedPlacement = {
+	right: "h-full border-l",
+	left: "h-full border-r",
+	top: "w-full border-b",
+	bottom: "w-full border-t",
+} as const
+
+type SheetSide = keyof typeof sheetSideClasses
+
 function SheetContent({
 	className,
 	children,
 	side = "right",
+	variant = "overlay",
+	container,
 	showCloseButton = true,
 	...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
-	side?: "top" | "right" | "bottom" | "left"
+	side?: SheetSide
+	variant?: "overlay" | "docked"
+	container?: HTMLElement | null
 	showCloseButton?: boolean
 }) {
+	const docked = variant === "docked"
 	return (
-		<SheetPortal>
-			<SheetOverlay />
+		<SheetPortal container={container}>
+			{!docked && <SheetOverlay />}
 			<SheetPrimitive.Content
 				data-slot="sheet-content"
+				data-variant={variant}
 				className={cn(
-					"fixed z-50 flex flex-col gap-4 transition-transform ease-in-out data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:animate-in data-[state=open]:duration-500",
-					nativeGlassSurface,
-					side === "right" &&
-						"inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
-					side === "left" &&
-						"inset-y-0 left-0 h-full w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm",
-					side === "top" &&
-						"inset-x-0 top-0 h-auto border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
-					side === "bottom" &&
-						"inset-x-0 bottom-0 h-auto border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+					"flex flex-col transition-transform ease-in-out data-[state=closed]:animate-out data-[state=open]:animate-in",
+					sheetSideClasses[side],
+					docked
+						? cn(
+								"relative min-h-0 border-border-subtle bg-bg-primary data-[state=closed]:duration-150 data-[state=open]:duration-200",
+								sheetDockedPlacement[side],
+							)
+						: cn(
+								"fixed z-50 gap-4 data-[state=closed]:duration-300 data-[state=open]:duration-500",
+								nativeGlassSurface,
+								sheetOverlayPlacement[side],
+							),
 					className,
 				)}
 				{...props}

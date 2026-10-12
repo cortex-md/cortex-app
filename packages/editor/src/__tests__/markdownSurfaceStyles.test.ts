@@ -5,7 +5,8 @@ import { describe, expect, it } from "vitest"
 const markdownCssImport = 'import "./markdown.css"'
 
 function readEditorSource(fileName: string): string {
-	return readFileSync(`src/${fileName}`, "utf8")
+	const { dirname } = import.meta as ImportMeta & { dirname: string }
+	return readFileSync(`${dirname}/../${fileName}`, "utf8")
 }
 
 describe("markdown surface styles", () => {

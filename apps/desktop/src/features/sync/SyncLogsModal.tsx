@@ -1,53 +1,95 @@
-import { type SyncLogEntry, type SyncLogLevel, useSyncLogStore } from "@cortex/core"
+import {
+	buildSyncLogItems,
+	formatSyncLogPaths,
+	groupSyncLogItems,
+	type SyncLogEntry,
+	type SyncLogItem,
+	type SyncLogKind,
+	type SyncLogLevel,
+	useSyncLogStore,
+	useSyncStore,
+	useVaultStore,
+	useWorkspaceStore,
+} from "@cortex/core"
+import { getPlatform } from "@cortex/platform"
+import { joinPath } from "@cortex/platform/utils"
 import {
 	Button,
-	Dialog,
-	DialogBody,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-	ToggleGroup,
-	ToggleGroupItem,
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	Tabs,
+	TabsList,
+	TabsTrigger,
 } from "@cortex/ui"
-import { ScrollText } from "lucide-react"
-import { useLayoutEffect, useRef, useState } from "react"
+import {
+	ArrowDownIcon,
+	ArrowUpIcon,
+	CircleAlertIcon,
+	CopyIcon,
+	GitMergeIcon,
+	InfoIcon,
+	LinkIcon,
+	type LucideIcon,
+	RotateCwIcon,
+	SearchIcon,
+	Trash2Icon,
+	TriangleAlertIcon,
+} from "lucide-react"
+import { useDeferredValue, useMemo, useState } from "react"
+import { useCopyFeedback } from "@/hooks/useCopyFeedback"
+import { useMinuteNow } from "@/hooks/useMinuteNow"
+import { ModalHost } from "@/utils/ModalHost"
+import { HistoryDialog, HistoryEmpty, HistoryHead } from "./HistoryDialogParts"
+import { syncConflictModal, syncLogsModal } from "./syncDialogStores"
 
-const LEVEL_FILTERS: Array<{ label: string; value: SyncLogLevel | "all" }> = [
+type LevelFilter = SyncLogLevel | "all"
+
+const LEVEL_FILTERS: readonly { label: string; value: LevelFilter }[] = [
 	{ label: "All", value: "all" },
 	{ label: "Info", value: "info" },
 	{ label: "Warn", value: "warn" },
 	{ label: "Error", value: "error" },
 ]
 
-const LEVEL_TEXT_STYLES: Record<SyncLogLevel, string> = {
-	info: "text-muted-foreground",
-	warn: "text-status-warning-foreground",
-	error: "text-status-error-foreground",
+const KIND_ICONS: Record<SyncLogKind, LucideIcon> = {
+	upload: ArrowUpIcon,
+	download: ArrowDownIcon,
+	merge: GitMergeIcon,
+	delete: Trash2Icon,
+	conflict: TriangleAlertIcon,
+	retry: RotateCwIcon,
+	connection: LinkIcon,
+	event: InfoIcon,
 }
 
-function formatTimestamp(timestamp: number): string {
-	const date = new Date(timestamp)
-	return date.toLocaleTimeString(undefined, {
-		hour: "2-digit",
-		minute: "2-digit",
-		second: "2-digit",
-	})
-}
+const TIME_FORMAT = new Intl.DateTimeFormat(undefined, {
+	hour: "2-digit",
+	minute: "2-digit",
+	second: "2-digit",
+	hour12: false,
+})
 
 function formatEntryAsText(entry: SyncLogEntry): string {
-	const time = formatTimestamp(entry.timestamp)
 	const meta = entry.metadata
 		? ` ${Object.entries(entry.metadata)
-				.map(([k, v]) => `${k}=${v}`)
+				.map(([key, value]) => `${key}=${value}`)
 				.join(" ")}`
 		: ""
-	return `[${time}] [${entry.level.toUpperCase()}] ${entry.message}${meta}`
+	return `[${TIME_FORMAT.format(entry.timestamp)}] [${entry.level.toUpperCase()}] ${entry.message}${meta}`
 }
 
-function formatMetadata(metadata: Record<string, string>): string {
-	return Object.entries(metadata)
-		.map(([key, value]) => `${key}=${value}`)
-		.join(" · ")
+function matchesQuery(item: SyncLogItem, query: string): boolean {
+	if (!query) return true
+	const haystack = [
+		item.title,
+		item.detail ?? "",
+		...item.paths,
+		...item.entries.map((e) => e.message),
+	]
+		.join("\n")
+		.toLowerCase()
+	return haystack.includes(query)
 }
 
 interface Props {
@@ -57,150 +99,149 @@ interface Props {
 
 export function SyncLogsModal({ open, onOpenChange }: Props) {
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			{open && <SyncLogsContent />}
-		</Dialog>
+		<ModalHost open={open} onOpenChange={onOpenChange}>
+			<SyncLogsContent />
+		</ModalHost>
+	)
+}
+
+function openLoggedNote(relativePath: string): void {
+	const vaultPath = useVaultStore.getState().vault?.path
+	if (!vaultPath) return
+	useWorkspaceStore.getState().openTab(joinPath(vaultPath, relativePath))
+	syncLogsModal.close()
+}
+
+function SyncLogRow({ item }: { item: SyncLogItem }) {
+	const conflictPath = item.kind === "conflict" ? item.paths[0] : undefined
+	const conflictPending = useSyncStore((state) =>
+		conflictPath ? Boolean(state.conflicts[conflictPath]) : false,
+	)
+	const Icon =
+		item.kind === "event" && item.tone === "error" ? CircleAlertIcon : KIND_ICONS[item.kind]
+	const paths = formatSyncLogPaths(item.paths)
+
+	return (
+		<div className="sync-log-row">
+			<span className="sync-log-icon" data-tone={item.tone}>
+				<Icon className="size-3.5" aria-hidden="true" />
+			</span>
+			<div className="sync-log-message">
+				<b>{item.title}</b>
+				{paths && <code title={item.paths.join("\n")}>{paths}</code>}
+				{item.detail && (
+					<div className="sync-log-detail" data-tone={item.tone}>
+						{item.detail}
+					</div>
+				)}
+				{conflictPath && (
+					<div className="sync-log-actions">
+						{conflictPending && (
+							<Button
+								size="xs"
+								onClick={() => syncConflictModal.open({ relativePath: conflictPath })}
+							>
+								Resolve conflict
+							</Button>
+						)}
+						<Button variant="ghost" size="xs" onClick={() => openLoggedNote(conflictPath)}>
+							Open note
+						</Button>
+					</div>
+				)}
+			</div>
+			<time className="sync-log-time" dateTime={new Date(item.timestamp).toISOString()}>
+				{TIME_FORMAT.format(item.timestamp)}
+			</time>
+		</div>
 	)
 }
 
 function SyncLogsContent() {
-	const entries = useSyncLogStore((s) => s.entries)
-	const clear = useSyncLogStore((s) => s.clear)
-	const [filter, setFilter] = useState<SyncLogLevel | "all">("all")
-	const [copied, setCopied] = useState(false)
-	const scrollRef = useRef<HTMLDivElement>(null)
-	const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+	const entries = useSyncLogStore((state) => state.entries)
+	const clear = useSyncLogStore((state) => state.clear)
+	const now = useMinuteNow()
+	const [level, setLevel] = useState<LevelFilter>("all")
+	const [query, setQuery] = useState("")
+	const deferredQuery = useDeferredValue(query.trim().toLowerCase())
+	const [copied, showCopied] = useCopyFeedback()
 
-	const filteredEntries = filter === "all" ? entries : entries.filter((e) => e.level === filter)
-	const filteredEntryCount = filteredEntries.length
+	const items = useMemo(() => buildSyncLogItems(entries), [entries])
+	const groups = useMemo(() => {
+		const visible = items.filter(
+			(item) => (level === "all" || item.level === level) && matchesQuery(item, deferredQuery),
+		)
+		return groupSyncLogItems(visible, now)
+	}, [items, level, deferredQuery, now])
 
-	useLayoutEffect(() => {
-		const scrollContainer = scrollRef.current
-		if (scrollContainer && filteredEntryCount > 0) {
-			scrollContainer.scrollTop = scrollContainer.scrollHeight
-		}
-	}, [filteredEntryCount])
-
-	useLayoutEffect(
-		() => () => {
-			if (copyTimer.current) clearTimeout(copyTimer.current)
-		},
-		[],
-	)
-
-	const handleCopyToClipboard = () => {
-		const text = entries.map(formatEntryAsText).join("\n")
-		void navigator.clipboard.writeText(text)
-		setCopied(true)
-		if (copyTimer.current) clearTimeout(copyTimer.current)
-		copyTimer.current = setTimeout(() => setCopied(false), 1200)
+	const handleCopy = () => {
+		void getPlatform().clipboard.writeText(entries.map(formatEntryAsText).join("\n"))
+		showCopied()
 	}
 
 	return (
-		<DialogContent className="flex max-h-[min(640px,calc(100vh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
-			<DialogHeader className="dialog-chrome-header shrink-0">
-				<DialogTitle className="text-base leading-5">Sync logs</DialogTitle>
-			</DialogHeader>
-
-			<div className="dialog-chrome-toolbar">
-				<ToggleGroup
-					type="single"
-					value={filter}
-					onValueChange={(value) => value && setFilter(value as SyncLogLevel | "all")}
-					variant="default"
-					size="sm"
-					spacing={1}
-					aria-label="Filter sync logs"
-					className="p-0"
-				>
-					{LEVEL_FILTERS.map((levelFilter) => (
-						<ToggleGroupItem
-							key={levelFilter.value}
-							value={levelFilter.value}
-							aria-label={`Show ${levelFilter.label.toLowerCase()} logs`}
-							className="h-6 min-w-0 px-2 text-xs text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
-						>
-							{levelFilter.label}
-						</ToggleGroupItem>
-					))}
-				</ToggleGroup>
-				<div className="flex items-center">
-					<Button
-						variant="ghost"
-						size="xs"
-						onClick={clear}
-						disabled={entries.length === 0}
-						className="text-muted-foreground"
-					>
-						Clear
-					</Button>
-					<Button
-						variant="ghost"
-						size="xs"
-						onClick={handleCopyToClipboard}
-						disabled={entries.length === 0}
-						className="text-muted-foreground"
-					>
-						{copied ? "Copied" : "Copy"}
-					</Button>
-				</div>
-			</div>
-
-			<div
-				ref={scrollRef}
-				data-slot="sync-log-list"
-				className="min-h-0 flex-1 overflow-y-auto px-2 py-2"
-			>
-				{filteredEntryCount === 0 ? (
-					<DialogBody className="flex min-h-48 flex-col items-center justify-center gap-2 px-6 text-center">
-						<ScrollText className="size-6 text-muted-foreground" />
-						<p className="m-0 text-[13px] text-foreground">
-							{entries.length === 0 ? "No sync activity yet" : "No matching log entries"}
-						</p>
-						<p className="m-0 text-xs text-muted-foreground">
-							{entries.length === 0
-								? "Activity will appear here while sync is running."
-								: "Choose another level."}
-						</p>
-					</DialogBody>
-				) : (
-					<div>
-						{filteredEntries.map((entry) => (
-							<LogEntry key={entry.id} entry={entry} />
-						))}
-					</div>
-				)}
-			</div>
-		</DialogContent>
-	)
-}
-
-function LogEntry({ entry }: { entry: SyncLogEntry }) {
-	return (
-		<div
-			data-level={entry.level}
-			className="grid grid-cols-[56px_38px_minmax(0,1fr)] items-start gap-2 rounded-[6px] px-3 py-2 transition-colors hover:bg-muted/40"
+		<HistoryDialog
+			title="Sync logs"
+			description="Uploads, downloads, conflicts and connection changes for this vault."
+			variant="feed"
 		>
-			<time
-				dateTime={new Date(entry.timestamp).toISOString()}
-				title={new Date(entry.timestamp).toLocaleString()}
-				className="pt-px font-mono text-[11px] tabular-nums text-muted-foreground"
-			>
-				{formatTimestamp(entry.timestamp)}
-			</time>
-			<span
-				className={`pt-px text-[10px] font-medium uppercase tracking-wide ${LEVEL_TEXT_STYLES[entry.level]}`}
-			>
-				{entry.level}
-			</span>
-			<p className="m-0 min-w-0 break-words text-[13px] leading-5 text-foreground">
-				{entry.message}
-				{entry.metadata && (
-					<span className="ml-2 font-mono text-[11px] text-muted-foreground">
-						{formatMetadata(entry.metadata)}
-					</span>
+			<HistoryHead
+				title="Sync logs"
+				actions={
+					<>
+						<Button variant="ghost" size="sm" onClick={handleCopy} disabled={entries.length === 0}>
+							<CopyIcon />
+							{copied ? "Copied" : "Copy"}
+						</Button>
+						<Button variant="ghost" size="sm" onClick={clear} disabled={entries.length === 0}>
+							Clear
+						</Button>
+					</>
+				}
+			/>
+			<div className="sync-log-bar">
+				<Tabs value={level} onValueChange={(value) => setLevel(value as LevelFilter)}>
+					<TabsList aria-label="Level" className="sync-log-levels">
+						{LEVEL_FILTERS.map((filter) => (
+							<TabsTrigger key={filter.value} value={filter.value}>
+								{filter.label}
+							</TabsTrigger>
+						))}
+					</TabsList>
+				</Tabs>
+				<InputGroup variant="search" className="sync-log-search">
+					<InputGroupAddon>
+						<SearchIcon />
+					</InputGroupAddon>
+					<InputGroupInput
+						aria-label="Filter sync logs"
+						placeholder="Filter sync logs"
+						value={query}
+						onChange={(event) => setQuery(event.target.value)}
+					/>
+				</InputGroup>
+			</div>
+			<div className="sync-log-feed" role="log" aria-label="Sync activity">
+				{groups.length === 0 ? (
+					<HistoryEmpty
+						title={entries.length === 0 ? "No sync activity yet" : "No matching log entries"}
+						description={
+							entries.length === 0
+								? "Uploads, downloads and conflicts appear here as they happen."
+								: "Choose another level or filter."
+						}
+					/>
+				) : (
+					groups.map((group) => (
+						<section key={group.label} aria-label={group.label}>
+							<div className="history-day">{group.label}</div>
+							{group.items.map((item) => (
+								<SyncLogRow key={item.id} item={item} />
+							))}
+						</section>
+					))
 				)}
-			</p>
-		</div>
+			</div>
+		</HistoryDialog>
 	)
 }

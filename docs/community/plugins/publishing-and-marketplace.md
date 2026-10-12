@@ -7,9 +7,9 @@ Marketplace installation is release-asset based with a source-archive fallback.
 Publish these assets in the latest release:
 
 ```text
-manifest.json
+manifest.json      # id, main, and catalog fields
 dist/index.js      # or the basename/path referenced by manifest.main
-styles.css         # optional, Markdown-surface styles only
+styles.css         # optional, requires contributes.markdown
 ```
 
 Cortex downloads `manifest.json`, reads `main`, then downloads the matching main asset. It accepts
@@ -23,6 +23,7 @@ Marketplace installation verifies:
 - `manifest.id` matches the Marketplace registry entry id.
 - `manifest.main` is present and safe.
 - The main bundle exists in release assets or in the source archive fallback.
+- After install, the bundle loads and its `definePlugin` manifest id matches `manifest.json`.
 
 ## Source Archive Fallback
 
@@ -49,7 +50,7 @@ anything fails, Cortex removes staging and restores the previous plugin best eff
 1. Build a single plugin bundle.
 2. Include `manifest.json` at the release root.
 3. Include the file referenced by `manifest.main`.
-4. Include `styles.css` only when the plugin declares `markdown:extensions`.
+4. Include `styles.css` only when the plugin declares `contributes.markdown`.
 5. Keep all paths relative and free of `..`.
 6. Test install, reload, disable, and uninstall in a temporary vault.
 

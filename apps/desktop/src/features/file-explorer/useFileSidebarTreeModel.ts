@@ -1,13 +1,16 @@
 import type { useVaultStore } from "@cortex/core"
-import { type Rect, useVirtualizer, type Virtualizer } from "@tanstack/react-virtual"
-import { type RefObject, useMemo } from "react"
 import {
 	buildFileTree,
 	type FileTreeNode,
 	type FileTreeRow,
 	type FileTreeVisibleNodeRow,
+	getParentPath,
 	projectVisibleFileTree,
-} from "./fileTree"
+	selectViewNotePaths,
+	useDatabaseStore,
+} from "@cortex/core"
+import { type Rect, useVirtualizer, type Virtualizer } from "@tanstack/react-virtual"
+import { type RefObject, useMemo } from "react"
 import { FILE_TREE_ROW_STEP } from "./fileTreeLayout"
 
 type VaultFiles = ReturnType<typeof useVaultStore.getState>["files"]
@@ -29,6 +32,7 @@ interface FileSidebarTreeModel {
 	rows: FileTreeRow[]
 	nodeRows: FileTreeVisibleNodeRow[]
 	nodeRowIndexByPath: Map<string, number>
+	nodeByPath: Map<string, FileTreeNode>
 	focusedPath: string | null
 	focusedNode: FileTreeNode | null
 	rowVirtualizer: Virtualizer<HTMLDivElement, Element>
@@ -45,7 +49,15 @@ export function useFileSidebarTreeModel({
 	focusedPathOverride,
 	treeScrollRef,
 }: FileSidebarTreeModelOptions): FileSidebarTreeModel {
-	const tree = useMemo(() => buildFileTree(files, vaultPath), [files, vaultPath])
+	const viewNotePaths = useDatabaseStore(selectViewNotePaths)
+	const tree = useMemo(
+		() =>
+			buildFileTree(files, vaultPath, {
+				hiddenPaths: new Set(viewNotePaths),
+				databaseFolderPaths: new Set(viewNotePaths.map(getParentPath)),
+			}),
+		[files, vaultPath, viewNotePaths],
+	)
 	const projection = useMemo(() => {
 		if (!hasVault) {
 			return {
@@ -101,7 +113,16 @@ export function useFileSidebarTreeModel({
 		},
 	})
 
-	return { tree, rows, nodeRows, nodeRowIndexByPath, focusedPath, focusedNode, rowVirtualizer }
+	return {
+		tree,
+		rows,
+		nodeRows,
+		nodeRowIndexByPath,
+		nodeByPath: projection.nodeByPath,
+		focusedPath,
+		focusedNode,
+		rowVirtualizer,
+	}
 }
 
 function observeTreeElementRect(

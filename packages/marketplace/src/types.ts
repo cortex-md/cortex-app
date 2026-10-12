@@ -25,3 +25,11 @@ export interface GitHubReleaseAsset {
 	name: string
 	browser_download_url: string
 }
+
+export interface MarketplacePluginHost {
+	reloadCommunityPlugins(pluginsDir: string): Promise<void>
+	disablePlugin(pluginId: string): Promise<void>
+	unregisterCommunityPlugin(pluginId: string): void
+	isPluginInstalled(pluginId: string): boolean
+	getCommunityPluginLoadError(pluginId: string): string | null
+}
