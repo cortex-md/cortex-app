@@ -202,7 +202,8 @@ GitHub Actions are desktop-scoped by default while mobile is in active developme
 Biome, TypeScript, workspace boundaries, and every desktop Vitest project; it ignores changes that
 only touch `apps/mobile`, `apps/web`, or `docs`. `release.yml` calls `ci.yml` as a reusable workflow
 before packaging, so a release never builds from a red commit. React Doctor runs on pull requests.
-`perf.yml` and the plugin API publish workflow are manual-only. Mobile and web checks stay
+`perf.yml` runs the smoke budgets on every push to `main` (manual dispatch picks the roadmap scale)
+and keeps the JSON as an artifact; the plugin API publish workflow is manual-only. Mobile and web checks stay
 available through explicit scripts but do not block default CI.
 
 ### Running the App
@@ -525,7 +526,7 @@ it. Do not add CSS backdrop blur over the native sidebar material.
 ### Native Desktop Shell
 Keep Electron main-process chrome platform-aware in `apps/desktop/electron/window.ts` and
 `menu.ts`. Window-level materials should come from Electron window effects (vibrancy/Mica), not CSS
-blur layered over opaque web surfaces. Main windows are one per vault (`electron/windows.ts`). Settings opens in its own prewarmed BrowserWindow
+blur layered over opaque web surfaces. Main windows are one per vault (`electron/windows.ts`). Settings opens in its own on-demand BrowserWindow
 (`electron/windows.ts`); it shares state with the main window only through the desktop window bridge
 (`src/windows/`). Shared settings layout lives in `SettingsView`.
 
@@ -637,8 +638,11 @@ watcher events, remote events, initial sync, reconciliation, and queued operatio
 re-exports the same functions for UI state and menu affordances.
 
 ### File Watching
-- The main-process chokidar watcher (`electron/services/watcher.ts`) emits `vault-file-changed` to the
-  renderer and feeds local changes to the sync worker (`notifyLocalFileChange`)
+- The main-process watcher (`electron/services/watcher.ts`) is one native recursive `fs.watch` per
+  vault (FSEvents on macOS, ReadDirectoryChangesW on Windows), never a per-file watcher. Events are
+  coalesced per path for 100 ms and classified by `stat`; it emits `vault-file-changed` to the owner
+  renderer and feeds local changes to the sync worker (`notifyLocalFileChange`). `vaultStore` turns
+  a `created` event for an already known path (atomic save) into `modified`.
 - `vaultStore` batches watcher events: only unknown created paths rescan, deletions update `files`
   in place, and `modified` events never touch `files`; search/tag indexes update incrementally
   through `@cortex/core` `startAppRuntime`

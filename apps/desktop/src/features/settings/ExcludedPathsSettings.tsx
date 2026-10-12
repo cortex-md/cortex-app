@@ -19,6 +19,7 @@ import {
 	SettingsListItem,
 	SettingsSection,
 } from "./SettingsPrimitives"
+import { useSettingsVaultFiles } from "./useSettingsVaultFiles"
 
 type ExcludedPathKind = "Folder" | "File" | "Pattern"
 
@@ -34,7 +35,7 @@ function fileEntryToRelativePath(entry: FileEntry, vaultPath: string): string {
 }
 
 export function ExcludedPathsSettings() {
-	const files = useVaultStore((s) => s.files)
+	const files = useSettingsVaultFiles()
 	const vault = useVaultStore((s) => s.vault)
 	const syncPreferences = useSyncStore((s) => s.syncPreferences)
 	const excludedPaths = syncPreferences.excludedPaths

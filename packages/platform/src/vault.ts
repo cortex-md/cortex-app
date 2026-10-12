@@ -72,9 +72,11 @@ export function toFileMetadata({ mtimeMs, birthtimeMs }: FileTimesInput): FileMe
 	return { createdAt: birthtimeMs > 0 ? Math.floor(birthtimeMs) : modifiedAt, modifiedAt }
 }
 
+const fileNameCollator = new Intl.Collator(undefined, { sensitivity: "base" })
+
 export function compareFileEntries(left: FileEntry, right: FileEntry): number {
 	if (left.isDir !== right.isDir) return left.isDir ? -1 : 1
-	return left.name.localeCompare(right.name, undefined, { sensitivity: "base" })
+	return fileNameCollator.compare(left.name, right.name)
 }
 
 export function snapshotFromContent(content: string, metadata: FileMetadata): FileSnapshot {

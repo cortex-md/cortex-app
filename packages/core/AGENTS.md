@@ -1010,7 +1010,12 @@ recombine edits with the current cached frontmatter prefix before calling `noteC
 - `startDatabaseRuntime` runs in every indexing mode (mobile included). It finds folder-note
   candidates from `useVaultStore.files`, reads only new or changed candidates, and loads rows only for
   folders held through `retainDatabase(folder)`. Do not add a vault-wide frontmatter index for it.
-- Row reads use `noteCache.getEntry` or `readFileSnapshot`, never `noteCache.readEntry`.
+- Row reads use `noteCache.getEntry` for open notes and batched `fs.readTextFiles` (500 paths per
+  call) for the rest, never `noteCache.readEntry`.
+- `databaseRowCache.ts` persists each opened database's rows to `.cortex/database-rows/<hash>.json`
+  (local only, never synced) with the file fingerprint per row. The first load of a folder seeds rows
+  whose fingerprint still matches `vaultStore.files` and reads only the rest; writes are debounced.
+  Bump `CACHE_VERSION` whenever `createDatabaseRow` output changes.
 - Write through `databaseActions.ts`: `updateDatabaseCell` patches the row optimistically and reverts
   on failure, `updateDatabaseConfig` debounces the view-note write and flushes on release,
   `createDatabaseRow`/`createDatabase`/`convertFolderToDatabase` create files in one write each.

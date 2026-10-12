@@ -33,8 +33,7 @@ async function loadVault(vault: WindowSnapshot["vault"]): Promise<void> {
 		return
 	}
 	await useSettingsStore.getState().loadSettings(vault.path)
-	useVaultStore.setState({ vault })
-	await useVaultStore.getState().refreshFiles()
+	useVaultStore.setState({ vault, files: [] })
 }
 
 function useSettingsWindowBridge(onNavigate: SettingsNavigateHandler): void {
@@ -60,17 +59,15 @@ function useSettingsWindowBridge(onNavigate: SettingsNavigateHandler): void {
 		void bridge
 			.pauseRelay(() => useSettingsStore.getState().loadGlobalSettings())
 			.then(() => bridge.requestSnapshot())
+		void getPlatform().window.markReady()
 		const prefetchFonts = window.requestIdleCallback(() => {
 			void getPlatform()
 				.font.listSystemFonts()
 				.catch(() => {})
 		})
 
-		const refreshFiles = () => void useVaultStore.getState().refreshFiles()
-		window.addEventListener("focus", refreshFiles)
 		return () => {
 			window.cancelIdleCallback(prefetchFonts)
-			window.removeEventListener("focus", refreshFiles)
 			bridge.dispose()
 		}
 	}, [onNavigate])

@@ -10,6 +10,7 @@ import {
 	useVaultStore,
 } from "@cortex/core"
 import { useEffect, useMemo } from "react"
+import { useSettingsVaultFiles } from "../useSettingsVaultFiles"
 import type { SyncSettingsView } from "./types"
 
 function describeServer(serverUrl: string): string {
@@ -23,7 +24,7 @@ function describeServer(serverUrl: string): string {
 export function useSyncOverview(view: SyncSettingsView) {
 	const authenticated = useAuthStore((state) => state.authenticated)
 	const vault = useVaultStore((state) => state.vault)
-	const files = useVaultStore((state) => state.files)
+	const files = useSettingsVaultFiles()
 	const linkedVaultId = useRemoteVaultStore((state) => state.linkedVaultId)
 	const remoteVaults = useRemoteVaultStore((state) => state.remoteVaults)
 	const fetchRemoteVaults = useRemoteVaultStore((state) => state.fetchRemoteVaults)

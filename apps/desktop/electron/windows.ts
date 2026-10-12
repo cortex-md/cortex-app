@@ -8,7 +8,7 @@ import { getActiveProfile } from "./profile"
 import { readWindowBounds, trackWindowBounds } from "./services/windowState"
 import { createMainWindow, createSettingsWindow } from "./window"
 
-const SETTINGS_PREWARM_DELAY_MS = 2000
+const SETTINGS_IDLE_RELEASE_MS = 10 * 60 * 1000
 const CASCADE_OFFSET = 24
 const GLOBAL_MIRRORS = new Set(["recent-vaults", "auth", "subscription", "global-settings"])
 
@@ -26,7 +26,9 @@ const closedListeners = new Set<(contentsId: number) => void>()
 let lastFocusedMainId: number | null = null
 let settingsWindow: BrowserWindow | null = null
 let settingsBoundTo: number | null = null
-let settingsPrewarmed = false
+let settingsReleaseTimer: NodeJS.Timeout | null = null
+let settingsReady = false
+const settingsPending: WindowMessage[] = []
 let quitting = false
 let urls: { renderer: string; preload: string } | null = null
 
@@ -73,21 +75,42 @@ function rendererUrl(params: Record<string, string>): string {
 	return url.toString()
 }
 
+function cancelSettingsRelease(): void {
+	if (settingsReleaseTimer) clearTimeout(settingsReleaseTimer)
+	settingsReleaseTimer = null
+}
+
 function ensureSettingsWindow(): BrowserWindow {
+	cancelSettingsRelease()
 	if (isAlive(settingsWindow)) return settingsWindow
 	if (!urls) throw new Error("Windows are not configured")
 	const window = createSettingsWindow(rendererUrl({ window: "settings" }), urls.preload)
+	settingsReady = false
+	settingsPending.length = 0
 	keepTitle(window, withProfile("Settings"))
 	window.on("close", (event) => {
 		if (quitting || mainWindows.size === 0) return
 		event.preventDefault()
 		window.hide()
+		cancelSettingsRelease()
+		settingsReleaseTimer = setTimeout(() => {
+			settingsReleaseTimer = null
+			if (isAlive(window) && !window.isVisible()) window.destroy()
+		}, SETTINGS_IDLE_RELEASE_MS)
 	})
 	window.on("closed", () => {
-		if (settingsWindow === window) settingsWindow = null
+		if (settingsWindow !== window) return
+		settingsWindow = null
+		settingsReady = false
+		settingsPending.length = 0
 	})
 	settingsWindow = window
 	return window
+}
+
+function sendToSettings(window: BrowserWindow, message: WindowMessage): void {
+	if (settingsReady) sendMessage(window.webContents, message)
+	else settingsPending.push(message)
 }
 
 function bindSettingsTo(contentsId: number | null): void {
@@ -127,13 +150,6 @@ function createMain(params: Record<string, string>, vaultPath: string | null): M
 		lastFocusedMainId = contentsId
 		bindSettingsTo(contentsId)
 		notifyWindowsChanged()
-	})
-	window.once("ready-to-show", () => {
-		if (settingsPrewarmed) return
-		settingsPrewarmed = true
-		setTimeout(() => {
-			if (mainWindows.size > 0) ensureSettingsWindow()
-		}, SETTINGS_PREWARM_DELAY_MS)
 	})
 	window.webContents.on("did-start-navigation", (details) => {
 		if (details.isMainFrame && !details.isSameDocument) entry.ready = false
@@ -276,6 +292,7 @@ export function emitToWindow<E extends MainEventName>(
 }
 
 export function openSettingsWindow(section?: string | null, fieldId?: string | null): void {
+	const created = !isAlive(settingsWindow)
 	const window = ensureSettingsWindow()
 	const sender = getInvokeSender()
 	if (sender && mainWindows.has(sender.id)) bindSettingsTo(sender.id)
@@ -283,9 +300,9 @@ export function openSettingsWindow(section?: string | null, fieldId?: string | n
 		const entry = getFocusedMainEntry()
 		if (entry) bindSettingsTo(entry.window.webContents.id)
 	}
-	if (section)
-		sendMessage(window.webContents, { type: "navigate", section, fieldId: fieldId ?? null })
-	focusWindow(window)
+	if (section) sendToSettings(window, { type: "navigate", section, fieldId: fieldId ?? null })
+	if (created) window.once("ready-to-show", () => focusWindow(window))
+	else focusWindow(window)
 }
 
 function isGlobalMessage(message: WindowMessage): boolean {
@@ -369,6 +386,11 @@ export const windowApi = {
 	},
 	markReady: async () => {
 		const sender = getInvokeSender()
+		if (sender && isAlive(settingsWindow) && settingsWindow.webContents.id === sender.id) {
+			settingsReady = true
+			for (const message of settingsPending.splice(0)) sendMessage(sender, message)
+			return
+		}
 		const entry = sender ? mainWindows.get(sender.id) : undefined
 		if (!entry) return
 		entry.ready = true

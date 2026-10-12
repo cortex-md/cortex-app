@@ -11,6 +11,12 @@ export interface FileMetadata {
 	modifiedAt: number
 }
 
+export interface TextFileRead {
+	content: string
+	modifiedAt: number
+	size: number
+}
+
 export interface FileSnapshot {
 	content: string
 	hash: string
@@ -31,6 +37,7 @@ export interface WatchOptions {
 export interface FileSystem {
 	readFile(path: string): Promise<string>
 	readFileSnapshot(path: string): Promise<FileSnapshot>
+	readTextFiles(paths: readonly string[]): Promise<(TextFileRead | null)[]>
 	readBinaryFile?(path: string): Promise<Uint8Array>
 	writeFileSnapshot?(path: string, content: string): Promise<FileSnapshot>
 	writeFile(path: string, content: string): Promise<void>

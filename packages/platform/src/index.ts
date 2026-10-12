@@ -104,6 +104,7 @@ export type {
 	FileMetadata,
 	FileSnapshot,
 	FileSystem,
+	TextFileRead,
 	WatchEvent,
 	WatchOptions,
 } from "./interfaces/FileSystem"

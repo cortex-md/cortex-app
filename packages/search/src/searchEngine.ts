@@ -4,6 +4,7 @@ import type { SearchDocument, SearchOptions, SearchResult } from "./types"
 
 const DEFAULT_SEARCH_LIMIT = 100
 const TITLE_SEARCH_LIMIT = 20
+const MIN_FUZZY_TERM_LENGTH = 4
 
 type SerializedSearchIndex = Parameters<typeof MiniSearch.loadJS>[0]
 
@@ -128,7 +129,12 @@ export class SearchEngine {
 		if (!query.trim()) return []
 
 		return this.miniSearch
-			.search(query, { fields: ["title", "aliases"], fuzzy: 0.2, prefix: true })
+			.search(query, {
+				fields: ["title", "aliases"],
+				combineWith: "AND",
+				fuzzy: (term) => (term.length >= MIN_FUZZY_TERM_LENGTH ? 0.2 : false),
+				prefix: (_term, index, terms) => index === terms.length - 1,
+			})
 			.slice(0, TITLE_SEARCH_LIMIT)
 			.map((hit) => toSearchResult(hit, hit as unknown as StoredSearchFields))
 	}

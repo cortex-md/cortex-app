@@ -25,6 +25,7 @@ vi.mock("@cortex/core", async (importOriginal) => ({
 	useVaultStore: (selector: (state: unknown) => unknown) =>
 		selector({
 			vault: { path: "/vault" },
+			refreshFiles: async () => {},
 			files: [
 				{
 					path: "/vault/Notes/",

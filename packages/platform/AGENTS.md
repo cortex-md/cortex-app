@@ -20,7 +20,9 @@
 - Local file asset URL resolution belongs on `App.resolveFileAssetUrl(...)` so React features do not
   import Electron asset helpers directly.
 - Hot note reads should use `FileSystem.readFileSnapshot(...)` when callers need content, hash, and
-  filesystem metadata together. Keep this contract platform-neutral so desktop and future mobile
+  filesystem metadata together. Bulk reads (database rows, index rebuilds) use
+  `FileSystem.readTextFiles(paths)`: one call returns content, `modifiedAt`, and `size` per path
+  (`null` when unreadable) so callers never pay one IPC round trip per note. Keep this contract platform-neutral so desktop and future mobile
   adapters can provide the same cache-friendly path.
 - Fresh note creation should use `FileSystem.writeFileSnapshot(...)` when the adapter provides it so
   content, hash, and filesystem metadata come back from the same native write. Shared code must keep

@@ -97,9 +97,30 @@ jobs:
         run: bun run --cwd apps/desktop build
 
       - name: Package
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bun run --cwd apps/desktop pack -- ${{ matrix.electron_args }}
+          CSC_LINK: ${{ secrets.MAC_CERTIFICATE_P12 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          IS_PRERELEASE: ${{ needs.release-metadata.outputs.is_prerelease }}
+        run: |
+          args=(${{ matrix.electron_args }})
+          if [ "$RUNNER_OS" != "macOS" ]; then
+            unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+          elif [ -n "$CSC_LINK" ] && [ -n "$APPLE_ID" ] && [ -n "$APPLE_TEAM_ID" ]; then
+            args+=(-c.mac.notarize=true)
+          elif [ "$IS_PRERELEASE" = "true" ]; then
+            echo "::warning::Unsigned macOS prerelease: auto-update and notifications will not work on macOS."
+            unset CSC_LINK CSC_KEY_PASSWORD
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          else
+            echo "::error::Stable macOS releases need MAC_CERTIFICATE_P12, MAC_CERTIFICATE_PASSWORD, APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID."
+            exit 1
+          fi
+          bun run --cwd apps/desktop pack -- "${args[@]}"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

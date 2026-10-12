@@ -250,6 +250,13 @@ export const useVaultStore = create<VaultState>((set, get) => {
 			change.kind === "created" || change.kind === "renamed" ? [change.path] : [],
 		)
 		const knownPaths = createdPaths.length > 0 ? new Set(files.map((file) => file.path)) : null
+		if (knownPaths) {
+			changes = changes.map((change) =>
+				change.kind === "created" && knownPaths.has(change.path)
+					? { ...change, kind: "modified" }
+					: change,
+			)
+		}
 		if (knownPaths && createdPaths.some((path) => !knownPaths.has(path))) {
 			await get().refreshFiles()
 		} else {

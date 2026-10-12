@@ -41,7 +41,6 @@
 		"@tanstack/react-virtual": "^3.13.21",
 		"adm-zip": "^0.6.1",
 		"argon2": "^0.45.1",
-		"chokidar": "^5.0.0",
 		"dompurify": "^3.4.11",
 		"electron-updater": "^6.8.9",
 		"font-list": "^2.1.0",

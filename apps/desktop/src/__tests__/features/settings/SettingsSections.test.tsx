@@ -213,6 +213,7 @@ function setupCoreStores({ authenticated = false }: { authenticated?: boolean } 
 	vi.mocked(useVaultStore).mockImplementation(((selector?: (state: unknown) => unknown) => {
 		const state = {
 			vault: { path: "/vault", name: "Vault", uuid: "vault-id" },
+			refreshFiles: async () => {},
 			files: [],
 			recentVaults: [],
 			openVault: vi.fn(),

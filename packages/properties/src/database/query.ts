@@ -24,6 +24,8 @@ import {
 
 type Comparable = string | number | boolean
 
+const naturalCollator = new Intl.Collator(undefined, { numeric: true })
+
 const TEXT_OPERATORS: DatabaseFilterOperator[] = [
 	"is",
 	"is_not",
@@ -168,7 +170,7 @@ function resolveToken(value: unknown, context: DatabaseQueryContext): unknown {
 function compare(left: Comparable, right: Comparable): number {
 	if (typeof left === "number" && typeof right === "number") return left - right
 	if (typeof left === "boolean" && typeof right === "boolean") return Number(left) - Number(right)
-	return String(left).localeCompare(String(right), undefined, { numeric: true })
+	return naturalCollator.compare(String(left), String(right))
 }
 
 function matchesFilter(
@@ -308,7 +310,7 @@ export function sortDatabaseRows(
 			if (a !== b) return a - b
 		}
 		return (
-			left.row.title.localeCompare(right.row.title, undefined, { numeric: true }) ||
+			naturalCollator.compare(left.row.title, right.row.title) ||
 			left.row.path.localeCompare(right.row.path)
 		)
 	})
@@ -375,7 +377,7 @@ export function groupDatabaseRows(
 	}
 	return [
 		...[...buckets.entries()]
-			.sort(([left], [right]) => left.localeCompare(right, undefined, { numeric: true }))
+			.sort(([left], [right]) => naturalCollator.compare(left, right))
 			.map(([key, bucket]) => ({
 				key,
 				label: String(bucket.value),

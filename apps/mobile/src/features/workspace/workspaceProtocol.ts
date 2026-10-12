@@ -89,6 +89,7 @@ export const forwardedPlatformMethods = {
 	fs: [
 		"readFile",
 		"readFileSnapshot",
+		"readTextFiles",
 		"writeFile",
 		"atomicWriteFile",
 		"deleteFile",

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 import type { Stats } from "node:fs"
 import { promises as fs } from "node:fs"
 import { dirname, join, resolve, sep } from "node:path"
-import type { FileEntry, FileMetadata, FileSnapshot } from "@cortex/platform"
+import type { FileEntry, FileMetadata, FileSnapshot, TextFileRead } from "@cortex/platform"
 import { hashBytes } from "@cortex/platform/hash"
 import {
 	archiveEntrySegments,
@@ -113,8 +113,33 @@ async function downloadAndExtract(url: string, destDir: string): Promise<void> {
 	}
 }
 
+const BATCH_READ_CONCURRENCY = 32
+
+async function readTextFiles(paths: readonly string[]): Promise<(TextFileRead | null)[]> {
+	const results: (TextFileRead | null)[] = new Array(paths.length).fill(null)
+	let next = 0
+	const worker = async () => {
+		while (next < paths.length) {
+			const index = next++
+			try {
+				const allowedPath = assertAllowedPath(paths[index] ?? "")
+				const [content, stats] = await Promise.all([
+					fs.readFile(allowedPath, "utf8"),
+					fs.stat(allowedPath),
+				])
+				results[index] = { content, modifiedAt: stats.mtimeMs, size: stats.size }
+			} catch {
+				results[index] = null
+			}
+		}
+	}
+	await Promise.all(Array.from({ length: Math.min(BATCH_READ_CONCURRENCY, paths.length) }, worker))
+	return results
+}
+
 export const fsApi = {
 	readFile: async (path) => await fs.readFile(assertAllowedPath(path), "utf8"),
+	readTextFiles,
 	readFileSnapshot: async (path) => {
 		const allowedPath = assertAllowedPath(path)
 		const [data, stats] = await Promise.all([fs.readFile(allowedPath), fs.stat(allowedPath)])

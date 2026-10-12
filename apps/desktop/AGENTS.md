@@ -9,7 +9,7 @@ Electron desktop app: a TypeScript main process plus a React 19 + Vite renderer 
 electron/                 # Main process (Node)
   main.ts                 # Single instance, deep links, app/window lifecycle
   window.ts               # BrowserWindow options, native materials, navigation guards
-  windows.ts              # Window registry: one main window per vault, prewarmed Settings window, relay
+  windows.ts              # Window registry: one main window per vault, on-demand Settings window, relay
   dock.ts                 # macOS Dock menu and Windows jump list (recent vaults, New Window)
   preload.ts              # contextBridge: window.cortex.invoke / window.cortex.on
   security.ts             # Path allowlist, trusted sender/URL checks, external URL protocols
@@ -177,8 +177,10 @@ interval for every subscriber. Search snippets render through `features/search/H
 ## Settings and Appearance
 
 Settings is a separate native window (`?window=settings`), bound to the main window that opened it
-or was focused last, prewarmed hidden after the first main window
-is ready and hidden (not destroyed) on close. Open it with `useUIStore().openSettings(section)`,
+or was focused last. It is created on first open and shown on `ready-to-show`; closing hides it and
+destroys it after 10 idle minutes, so an unused Settings renderer never holds memory. Messages sent
+before it calls `window.markReady()` (for example `navigate`) are queued. Pages that need the vault
+file list read it through `useSettingsVaultFiles()`, which scans only while that page is visible. Open it with `useUIStore().openSettings(section)`,
 which calls `getPlatform().window.openSettings`. The Settings window renders `SettingsView`
 (`SettingsNav` + `SettingsPageHost`, which keeps visited pages mounted with `<Activity>`). It never
 starts the app runtime, sync lifecycle, plugin host, or workspace:

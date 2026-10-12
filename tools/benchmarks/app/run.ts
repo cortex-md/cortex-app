@@ -356,13 +356,17 @@ async function measureSession(fixture: Fixture, profile: string): Promise<Metric
 
 		step("idle memory")
 		await page.keyboard.press("Escape")
-		await page.waitForTimeout(10_000)
-		const memory = await totalMemoryMb(app)
+		await page.waitForTimeout(20_000)
+		const memorySamples: number[] = []
+		for (let index = 0; index < 5; index++) {
+			memorySamples.push((await totalMemoryMb(app)).totalMb)
+			await page.waitForTimeout(2_000)
+		}
 		metrics.push({
 			id: "idle-memory",
-			label: "Memória ociosa (todos os processos)",
+			label: "Memória ociosa (todos os processos, mediana após 20 s)",
 			unit: "MB",
-			samples: [memory.totalMb],
+			samples: [percentile(memorySamples, 0.5)],
 			budget: BUDGETS.idleMemory,
 		})
 	} finally {

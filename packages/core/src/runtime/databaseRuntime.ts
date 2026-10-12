@@ -21,9 +21,15 @@ import {
 import { noteCache } from "../noteCache"
 import { useDatabaseStore } from "../stores/databaseStore"
 import { subscribeVaultFileChanges, useVaultStore } from "../stores/vaultStore"
+import {
+	cancelDatabaseRowCacheWrites,
+	readDatabaseRowCache,
+	scheduleDatabaseRowCacheWrite,
+} from "./databaseRowCache"
 import { isDatabaseConfigWritePending, withPendingDatabaseCells } from "./databaseWrites"
 
 const READ_CONCURRENCY = 8
+const READ_BATCH_SIZE = 500
 const REFRESH_DELAY_MS = 120
 
 interface NoteContent {
@@ -63,6 +69,37 @@ export function isDatabaseRetained(folderPath: string): boolean {
 export function onDatabaseReleased(listener: RetainListener): () => void {
 	releaseListeners.add(listener)
 	return () => releaseListeners.delete(listener)
+}
+
+async function readNoteContents(paths: readonly string[]): Promise<(NoteContent | null)[]> {
+	const results: (NoteContent | null)[] = new Array(paths.length).fill(null)
+	const uncached: number[] = []
+	paths.forEach((path, index) => {
+		const entry = noteCache.getEntry(path)
+		if (!entry) {
+			uncached.push(index)
+			return
+		}
+		const modifiedAt = entry.metadata?.modifiedAt ?? entry.mtime
+		results[index] = {
+			content: entry.content,
+			fingerprint: getContentFingerprint(entry.content, modifiedAt),
+		}
+	})
+	for (let start = 0; start < uncached.length; start += READ_BATCH_SIZE) {
+		const batch = uncached.slice(start, start + READ_BATCH_SIZE)
+		const reads = await getPlatform().fs.readTextFiles(batch.map((index) => paths[index] ?? ""))
+		reads.forEach((read, offset) => {
+			const index = batch[offset]
+			if (read && index !== undefined) {
+				results[index] = {
+					content: read.content,
+					fingerprint: getContentFingerprint(read.content, read.modifiedAt),
+				}
+			}
+		})
+	}
+	return results
 }
 
 async function readNoteContent(path: string): Promise<NoteContent> {
@@ -134,6 +171,18 @@ export function startDatabaseRuntime(): () => void {
 		}
 	}
 
+	const persistRows = (folderPath: string) => {
+		if (!vault) return
+		scheduleDatabaseRowCacheWrite(vault.path, folderPath, function* () {
+			const rows = store().rowsByFolder[folderPath]?.rows ?? {}
+			const fingerprints = rowFingerprints.get(folderPath)
+			for (const row of Object.values(rows)) {
+				const fingerprint = fingerprints?.get(row.path)
+				if (fingerprint) yield { fingerprint, row }
+			}
+		})
+	}
+
 	const applyRow = (folderPath: string, path: string, note: NoteContent) => {
 		const fingerprints = rowFingerprints.get(folderPath) ?? new Map<string, FileFingerprint>()
 		fingerprints.set(path, note.fingerprint)
@@ -142,6 +191,27 @@ export function startDatabaseRuntime(): () => void {
 		store().upsertRows(folderPath, [
 			withPendingDatabaseCells(createDatabaseRow(path, note.content, note.fingerprint)),
 		])
+		persistRows(folderPath)
+	}
+
+	const seedRowsFromCache = async (
+		folderPath: string,
+		entries: ReadonlyMap<string, FileEntry>,
+		fingerprints: Map<string, FileFingerprint>,
+	): Promise<boolean> => {
+		if (!vault || store().rowsByFolder[folderPath]) return false
+		const cached = await readDatabaseRowCache(vault.path, folderPath)
+		const seeded = []
+		for (const [path, { fingerprint, row }] of cached) {
+			const entry = entries.get(path)
+			if (!entry || !hasSameFingerprint(fingerprint, getFileEntryFingerprint(entry))) continue
+			fingerprints.set(path, fingerprint)
+			seeded.push(withPendingDatabaseCells(row))
+		}
+		if (seeded.length === 0) return false
+		store().upsertRows(folderPath, seeded)
+		if (seeded.length === entries.size) store().setRowsStatus(folderPath, "ready")
+		return true
 	}
 
 	const readViewNotes = async (entries: readonly FileEntry[], currentGeneration: number) => {
@@ -164,6 +234,8 @@ export function startDatabaseRuntime(): () => void {
 		const entries = collectRowEntries(files, folderPath)
 		const fingerprints = rowFingerprints.get(folderPath) ?? new Map<string, FileFingerprint>()
 		rowFingerprints.set(folderPath, fingerprints)
+		await seedRowsFromCache(folderPath, entries, fingerprints)
+		if (currentGeneration !== generation) return
 		const removed = [...fingerprints.keys()].filter((path) => !entries.has(path))
 		for (const path of removed) fingerprints.delete(path)
 		store().removeRows(folderPath, removed)
@@ -174,26 +246,20 @@ export function startDatabaseRuntime(): () => void {
 				!hasSameFingerprint(fingerprints.get(entry.path), getFileEntryFingerprint(entry)),
 		)
 		if (!store().rowsByFolder[folderPath]) store().setRowsStatus(folderPath, "loading")
-		const rows = await mapWithConcurrency(changed, READ_CONCURRENCY, async (entry) => {
-			const version = rowVersions.get(entry.path) ?? 0
-			try {
-				const note = await readNoteContent(entry.path)
-				if ((rowVersions.get(entry.path) ?? 0) !== version) return null
-				const fingerprint = getFileEntryFingerprint(entry)
-				fingerprints.set(entry.path, fingerprint.mtime ? fingerprint : note.fingerprint)
-				return withPendingDatabaseCells(
-					createDatabaseRow(entry.path, note.content, note.fingerprint),
-				)
-			} catch {
-				return null
-			}
+		const versions = changed.map((entry) => rowVersions.get(entry.path) ?? 0)
+		const notes = await readNoteContents(changed.map((entry) => entry.path))
+		const rows = changed.map((entry, index) => {
+			const note = notes[index]
+			if (!note || (rowVersions.get(entry.path) ?? 0) !== versions[index]) return null
+			const fingerprint = getFileEntryFingerprint(entry)
+			fingerprints.set(entry.path, fingerprint.mtime ? fingerprint : note.fingerprint)
+			return withPendingDatabaseCells(createDatabaseRow(entry.path, note.content, note.fingerprint))
 		})
 		if (currentGeneration !== generation) return
-		store().upsertRows(
-			folderPath,
-			rows.filter((row) => row !== null),
-		)
+		const loaded = rows.filter((row) => row !== null)
+		store().upsertRows(folderPath, loaded)
 		store().setRowsStatus(folderPath, "ready")
+		if (loaded.length > 0 || removed.length > 0) persistRows(folderPath)
 	}
 
 	const loadRows = async (folderPath: string) => {
@@ -268,6 +334,7 @@ export function startDatabaseRuntime(): () => void {
 
 	const reset = () => {
 		generation++
+		cancelDatabaseRowCacheWrites()
 		candidateFingerprints = new Map()
 		rowFingerprints.clear()
 		rowVersions.clear()

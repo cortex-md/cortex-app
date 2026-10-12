@@ -254,6 +254,18 @@ export const fsApi = {
 	listDir,
 	readBinaryFile: async (path) => (await resolveExistingFile(path, "fs.readBinaryFile")).bytes(),
 	readFile: readTextFile,
+	readTextFiles: async (paths) =>
+		await Promise.all(
+			paths.map(async (path) => {
+				try {
+					const file = await resolveExistingFile(path, "fs.readTextFiles")
+					const content = await file.text()
+					return { content, modifiedAt: getEntryMetadata(file).modifiedAt, size: file.size }
+				} catch {
+					return null
+				}
+			}),
+		),
 	readFileSnapshot: async (path): Promise<FileSnapshot> => {
 		const file = await resolveExistingFile(path, "fs.readFileSnapshot")
 		return snapshotFromContent(await file.text(), getEntryMetadata(file))

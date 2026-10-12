@@ -1,6 +1,13 @@
 name: Desktop Performance
 
 on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'apps/mobile/**'
+      - 'apps/web/**'
+      - 'docs/**'
   workflow_dispatch:
     inputs:
       scale:
@@ -15,9 +22,16 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: perf-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SCALE: ${{ inputs.scale || 'smoke' }}
+
 jobs:
   perf:
-    name: Performance budgets (${{ inputs.scale }})
+    name: Performance budgets
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -48,12 +62,12 @@ jobs:
         run: bun run build
 
       - name: Measure
-        run: xvfb-run --auto-servernum bun run perf -- --scale ${{ inputs.scale }} --json "$GITHUB_WORKSPACE/perf-${{ github.sha }}.json"
+        run: xvfb-run --auto-servernum bun run perf -- --scale "$SCALE" --json "$GITHUB_WORKSPACE/perf-${{ github.sha }}.json"
 
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: perf-${{ inputs.scale }}-${{ github.sha }}
+          name: perf-${{ env.SCALE }}-${{ github.sha }}
           path: perf-${{ github.sha }}.json
           if-no-files-found: ignore

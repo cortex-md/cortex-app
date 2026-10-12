@@ -29,7 +29,7 @@ import {
 } from "@cortex/ui"
 import { PanelRightIcon } from "lucide-react"
 import type { KeyboardEvent } from "react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react"
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback"
 import { HighlightedSnippet } from "../search/HighlightedSnippet"
 import { QuickFinderPreview } from "./QuickFinderPreview"
@@ -45,6 +45,7 @@ interface QuickFinderOpenItem {
 
 const QUICK_FINDER_RESULT_LIMIT = 20
 const CONTENT_SEARCH_DELAY_MS = 120
+const MIN_CONTENT_QUERY_LENGTH = 3
 
 interface QuickFinderCreateItem {
 	type: "create"
@@ -149,12 +150,14 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 		request.kind === "relink-bookmark" ? request.query : "",
 	)
 	const [selectedValue, setSelectedValue] = useState("")
+	const [selectionQuery, setSelectionQuery] = useState("")
 	const [contentResults, setContentResults] = useState<{
 		query: string
 		results: SearchResult[]
 	} | null>(null)
 
 	const trimmedQuery = query.trim()
+	const searchQuery = useDeferredValue(trimmedQuery)
 
 	const loadContentResults = useDebouncedCallback((nextQuery: string) => {
 		const { findNotes, loadMatches } = useSearchStore.getState()
@@ -165,8 +168,10 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 	}, CONTENT_SEARCH_DELAY_MS)
 
 	useEffect(() => {
-		if (trimmedQuery && !trimmedQuery.startsWith(">")) loadContentResults(trimmedQuery)
-	}, [loadContentResults, trimmedQuery])
+		if (searchQuery.length >= MIN_CONTENT_QUERY_LENGTH && !searchQuery.startsWith(">")) {
+			loadContentResults(searchQuery)
+		}
+	}, [loadContentResults, searchQuery])
 
 	const handleQueryChange = (nextQuery: string) => {
 		if (nextQuery.startsWith(">")) {
@@ -183,10 +188,10 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 	)
 
 	const searchResults = useMemo(() => {
-		if (!trimmedQuery) return []
-		const titleResults = searchTitles(trimmedQuery).slice(0, QUICK_FINDER_RESULT_LIMIT)
+		if (!searchQuery) return []
+		const titleResults = searchTitles(searchQuery).slice(0, QUICK_FINDER_RESULT_LIMIT)
 		const matchedContent =
-			contentResults?.query === trimmedQuery
+			contentResults?.query === searchQuery
 				? contentResults.results.filter((result) => result.snippets.length > 0)
 				: []
 		const seen = new Set(titleResults.map((result) => result.id))
@@ -194,10 +199,10 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 			0,
 			QUICK_FINDER_RESULT_LIMIT,
 		)
-	}, [contentResults, trimmedQuery, searchTitles])
+	}, [contentResults, searchQuery, searchTitles])
 
 	const openItems = useMemo<QuickFinderOpenItem[]>(() => {
-		if (!trimmedQuery) {
+		if (!searchQuery) {
 			return recentFilePaths.map((filePath) => {
 				const title = getNoteTitle(filePath)
 				const folder = folderFromPath(filePath, vault.path)
@@ -222,22 +227,27 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 				snippet: result.snippets[0],
 			}
 		})
-	}, [recentFilePaths, searchResults, trimmedQuery, vault])
+	}, [recentFilePaths, searchResults, searchQuery, vault])
 
 	const createItem = useMemo<QuickFinderCreateItem | null>(() => {
-		if (!trimmedQuery || openItems.length > 0) return null
+		if (!searchQuery || openItems.length > 0) return null
 		return {
 			type: "create",
-			value: `create:${trimmedQuery}`,
-			title: trimmedQuery,
-			query: trimmedQuery,
+			value: `create:${searchQuery}`,
+			title: searchQuery,
+			query: searchQuery,
 		}
-	}, [openItems.length, trimmedQuery])
+	}, [openItems.length, searchQuery])
 
 	const displayItems = useMemo<QuickFinderItem[]>(() => {
 		if (createItem) return [createItem]
 		return openItems
 	}, [createItem, openItems])
+
+	if (selectionQuery !== searchQuery) {
+		setSelectionQuery(searchQuery)
+		setSelectedValue(displayItems[0]?.value ?? "")
+	}
 
 	const selectedItem =
 		displayItems.find((item) => item.value === selectedValue) ?? displayItems[0] ?? null

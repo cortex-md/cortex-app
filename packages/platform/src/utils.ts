@@ -6,6 +6,7 @@ export const VAULT_FILES = {
 	appSettings: `${VAULT_CONFIG_DIR}/app.json`,
 	bookmarks: `${VAULT_CONFIG_DIR}/bookmarks.json`,
 	comments: `${VAULT_CONFIG_DIR}/comments`,
+	databaseRows: `${VAULT_CONFIG_DIR}/database-rows`,
 	linkIndex: `${VAULT_CONFIG_DIR}/links-index.json`,
 	propertySchema: `${VAULT_CONFIG_DIR}/schema/properties.json`,
 	searchHistory: `${VAULT_CONFIG_DIR}/search-history.json`,

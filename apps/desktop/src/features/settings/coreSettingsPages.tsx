@@ -12,6 +12,7 @@ import { ImportExportSection } from "./ImportExportSettings"
 import { NotificationsSection } from "./NotificationsSettings"
 import { PluginsSection } from "./PluginsSettings"
 import { SyncSection } from "./SyncSettings"
+import { useSettingsVaultFiles } from "./useSettingsVaultFiles"
 
 export interface CoreSettingsPageProps {
 	onOpenMarketplace: OpenMarketplaceHandler
@@ -38,7 +39,7 @@ export function AppearanceSettingsPage({ onOpenMarketplace }: CoreSettingsPagePr
 export function EditorSettingsPage() {
 	const settings = useSettingsStore((state) => state.settings.editor)
 	const updateSetting = useSettingsStore((state) => state.updateSetting)
-	const files = useVaultStore((state) => state.files)
+	const files = useSettingsVaultFiles()
 	const vaultPath = useVaultStore((state) => state.vault?.path)
 	const vaultFolders = useMemo<FolderPickerOption[]>(() => {
 		if (!vaultPath) return []

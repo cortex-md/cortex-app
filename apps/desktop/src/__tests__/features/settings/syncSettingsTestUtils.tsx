@@ -135,6 +135,7 @@ export function setupSyncSettingsMocks(overrides: SyncSettingsMockOverrides = {}
 	vi.mocked(useVaultStore).mockImplementation(((selector?: (state: unknown) => unknown) => {
 		const state = {
 			vault: mockVault,
+			refreshFiles: async () => {},
 			files: overrides.files ?? [
 				{ name: "One.md", path: "/vault/One.md", isDir: false },
 				{ name: "image.png", path: "/vault/image.png", isDir: false },
