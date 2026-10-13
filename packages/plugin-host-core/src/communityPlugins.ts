@@ -165,8 +165,7 @@ export async function evaluateCommunityPlugin(
 		if (!esmPattern.test(code)) throw commonJSError
 		try {
 			const moduleUrl = `data:text/javascript;charset=utf-8,${encodeURIComponent(code)}`
-			// oxlint-disable-next-line react-doctor/no-dynamic-import-path -- vault-local plugin ESM bundles must load from generated data URLs
-			definition = normalizeDefinition(await import(/* @vite-ignore */ moduleUrl))
+			definition = normalizeDefinition(await importDataModule(moduleUrl))
 		} catch (esmError) {
 			throw new Error(
 				`${getErrorMessage(esmError)}; CommonJS fallback failed: ${getErrorMessage(commonJSError)}`,
@@ -175,6 +174,14 @@ export async function evaluateCommunityPlugin(
 	}
 	assertCommunityPluginId(definition.manifest.id, manifestId)
 	return definition
+}
+
+function importDataModule(moduleUrl: string): Promise<unknown> {
+	// Built through indirect eval so bundlers (Vite, Metro) leave the data-URL import to the runtime.
+	// biome-ignore lint/security/noGlobalEval: required to load community plugin ESM bundles
+	const indirectEval = globalThis.eval
+	const importModule = indirectEval("(url) => import(url)") as (url: string) => Promise<unknown>
+	return importModule(moduleUrl)
 }
 
 function loadCommonJSDefinition(
