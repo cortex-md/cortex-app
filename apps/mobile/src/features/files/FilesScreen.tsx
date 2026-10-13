@@ -49,28 +49,24 @@ async function refreshVaultFiles(setRefreshing: (value: boolean) => void): Promi
 	}
 }
 
-function ToolbarMenuGroups({ groups }: { groups: MenuGroup[] }) {
-	return (
-		<>
-			{groups.map((group) => (
-				<Stack.Toolbar.Menu inline key={group[0]?.key ?? "group"}>
-					{group.map((item) => (
-						<Stack.Toolbar.MenuAction
-							destructive={item.destructive}
-							disabled={item.disabled}
-							icon={item.icon?.sf}
-							isOn={item.checked}
-							key={item.key}
-							onPress={item.onPress}
-							subtitle={item.subtitle}
-						>
-							{item.label}
-						</Stack.Toolbar.MenuAction>
-					))}
-				</Stack.Toolbar.Menu>
+function toolbarMenuGroups(groups: MenuGroup[]) {
+	return groups.map((group) => (
+		<Stack.Toolbar.Menu inline key={group[0]?.key ?? "group"}>
+			{group.map((item) => (
+				<Stack.Toolbar.MenuAction
+					destructive={item.destructive}
+					disabled={item.disabled}
+					icon={item.icon?.sf}
+					isOn={item.checked}
+					key={item.key}
+					onPress={item.onPress}
+					subtitle={item.subtitle}
+				>
+					{item.label}
+				</Stack.Toolbar.MenuAction>
 			))}
-		</>
-	)
+		</Stack.Toolbar.Menu>
+	))
 }
 
 function FilesHeaderIos({
@@ -96,10 +92,10 @@ function FilesHeaderIos({
 					onPress={() => presentSheet("quick-finder")}
 				/>
 				<Stack.Toolbar.Menu icon="plus" title="Create">
-					<ToolbarMenuGroups groups={createGroups} />
+					{toolbarMenuGroups(createGroups)}
 				</Stack.Toolbar.Menu>
 				<Stack.Toolbar.Menu icon="ellipsis" title="More">
-					<ToolbarMenuGroups groups={moreGroups} />
+					{toolbarMenuGroups(moreGroups)}
 				</Stack.Toolbar.Menu>
 			</Stack.Toolbar>
 		</>

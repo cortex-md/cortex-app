@@ -118,21 +118,17 @@ function buildMoreGroups(folderPath: string, viewId: string | undefined): MenuGr
 	]
 }
 
-function ToolbarActions({ items }: { items: MenuItem[] }) {
-	return (
-		<>
-			{items.map((item) => (
-				<Stack.Toolbar.MenuAction
-					icon={item.icon?.sf}
-					key={item.key}
-					onPress={item.onPress}
-					subtitle={item.subtitle}
-				>
-					{item.label}
-				</Stack.Toolbar.MenuAction>
-			))}
-		</>
-	)
+function toolbarActions(items: MenuItem[]) {
+	return items.map((item) => (
+		<Stack.Toolbar.MenuAction
+			icon={item.icon?.sf}
+			key={item.key}
+			onPress={item.onPress}
+			subtitle={item.subtitle}
+		>
+			{item.label}
+		</Stack.Toolbar.MenuAction>
+	))
 }
 
 function DatabaseHeaderIos({
@@ -155,7 +151,7 @@ function DatabaseHeaderIos({
 			/>
 			<Stack.Toolbar placement="right">
 				<Stack.Toolbar.Menu accessibilityLabel="More" icon="ellipsis" title={name}>
-					<ToolbarActions items={moreGroups.flat()} />
+					{toolbarActions(moreGroups.flat())}
 				</Stack.Toolbar.Menu>
 			</Stack.Toolbar>
 			<Stack.Toolbar placement="bottom">
@@ -167,9 +163,9 @@ function DatabaseHeaderIos({
 					title="New"
 					variant="prominent"
 				>
-					<ToolbarActions items={first} />
+					{toolbarActions(first)}
 					<Stack.Toolbar.Menu inline title="Start from a template">
-						<ToolbarActions items={templates} />
+						{toolbarActions(templates)}
 					</Stack.Toolbar.Menu>
 				</Stack.Toolbar.Menu>
 			</Stack.Toolbar>

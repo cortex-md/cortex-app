@@ -110,26 +110,22 @@ export function buildNoteScreenOptions(
 	}
 }
 
-function IosMenuGroups({ groups }: { groups: MenuGroup[] }) {
-	return (
-		<>
-			{groups.map((group) => (
-				<Stack.Toolbar.Menu inline key={group[0]?.key ?? "group"}>
-					{group.map((item) => (
-						<Stack.Toolbar.MenuAction
-							destructive={item.destructive}
-							disabled={item.disabled}
-							icon={item.icon?.sf}
-							key={item.key}
-							onPress={item.onPress}
-						>
-							{item.label}
-						</Stack.Toolbar.MenuAction>
-					))}
-				</Stack.Toolbar.Menu>
+function iosMenuGroups(groups: MenuGroup[]) {
+	return groups.map((group) => (
+		<Stack.Toolbar.Menu inline key={group[0]?.key ?? "group"}>
+			{group.map((item) => (
+				<Stack.Toolbar.MenuAction
+					destructive={item.destructive}
+					disabled={item.disabled}
+					icon={item.icon?.sf}
+					key={item.key}
+					onPress={item.onPress}
+				>
+					{item.label}
+				</Stack.Toolbar.MenuAction>
 			))}
-		</>
-	)
+		</Stack.Toolbar.Menu>
+	))
 }
 
 export function NoteToolbarIos({ state }: { state: NoteHeaderState }) {
@@ -157,7 +153,7 @@ export function NoteToolbarIos({ state }: { state: NoteHeaderState }) {
 				onPress={state.onCycleMode}
 			/>
 			<Stack.Toolbar.Menu icon="ellipsis" title={NOTE_MENU_LABEL}>
-				<IosMenuGroups groups={state.menuGroups} />
+				{iosMenuGroups(state.menuGroups)}
 			</Stack.Toolbar.Menu>
 		</Stack.Toolbar>
 	)
