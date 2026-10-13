@@ -6,14 +6,7 @@ import {
 	useTasksStore,
 } from "@cortex/core"
 import { useSettingsStore } from "@cortex/settings"
-import {
-	formatRelativeDay,
-	groupTasks,
-	groupTasksByDay,
-	parseIsoDate,
-	type Task,
-	toIsoDate,
-} from "@cortex/tasks"
+import { formatRelativeDay, groupTasks, groupTasksByDay, type Task, toIsoDate } from "@cortex/tasks"
 import { useMemo } from "react"
 
 import { toastWithUndo } from "@/features/feedback/useToast"
@@ -28,28 +21,16 @@ export interface TaskSection {
 	title: string
 }
 
-export const todayTabTitles: Record<TodayTabKey, string> = {
-	inbox: "Inbox",
-	today: "Today",
-	upcoming: "Upcoming",
-}
-
-export function describeTodaySubhead(tab: TodayTabKey, today: string): string {
-	if (tab === "upcoming") return "Next 7 days"
-	if (tab === "inbox") return "Tasks without a date"
-	return parseIsoDate(today).toLocaleDateString("en-US", {
-		weekday: "long",
-		month: "long",
-		day: "numeric",
-	})
+export const todayEmptyTitles: Record<TodayTabKey, string> = {
+	inbox: "Inbox is empty",
+	today: "Nothing left for today",
+	upcoming: "Nothing in the next 7 days",
 }
 
 export function useTodayTasks(tab: TodayTabKey) {
 	const tasks = useTasksStore(selectAllTasks)
 	const inboxPath = useTasksStore((state) => state.inboxPath)
-	const untimedReminderTime = useSettingsStore(
-		(state) => state.settings.tasks.untimedReminderTime,
-	)
+	const untimedReminderTime = useSettingsStore((state) => state.settings.tasks.untimedReminderTime)
 	const today = toIsoDate(new Date())
 	const groups = useMemo(() => groupTasks(tasks, today), [tasks, today])
 

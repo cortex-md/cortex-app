@@ -1,48 +1,30 @@
 import type { Task } from "@cortex/tasks"
 import { Stack } from "expo-router"
-import { Bell, Plus } from "lucide-react-native"
 import { useState } from "react"
 import { Platform, SectionList, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { EmptyState } from "@/components/ui/EmptyState"
 import { FloatingActionButton } from "@/components/ui/FloatingActionButton"
-import { GroupedFooter } from "@/components/ui/GroupedList"
 import { HeaderIconButton } from "@/components/ui/HeaderIconButton"
 import { SegmentedControl } from "@/components/ui/SegmentedControl"
 import { openSettings, openTask } from "@/features/navigation/routes"
-import { SidebarToggleButton } from "@/features/sidebar/SidebarToggleButton"
-import { QuickAddOverlay } from "@/features/today/QuickAddOverlay"
+import { useMobileSidebar } from "@/features/sidebar/useMobileSidebar"
+import { openQuickAdd } from "@/features/today/quickAddActions"
 import { TaskRow, taskRowPosition } from "@/features/today/TaskRow"
-import { TASKS_FOOTER } from "@/features/today/taskOptions"
 import {
 	completeTask,
-	describeTodaySubhead,
 	type TaskSection,
 	type TodayTabKey,
-	todayTabTitles,
+	todayEmptyTitles,
 	useTodayTasks,
 } from "@/features/today/useTodayTasks"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 const IS_IOS = Platform.OS === "ios"
-const EMPTY_MESSAGE = "Nothing left for today."
 
 function openNotificationSettings(): void {
 	openSettings("notifications")
-}
-
-function renderSidebarToggle() {
-	return <SidebarToggleButton />
-}
-
-function renderNotificationsButton() {
-	return (
-		<HeaderIconButton
-			Icon={Bell}
-			accessibilityLabel="Notification settings"
-			onPress={openNotificationSettings}
-		/>
-	)
 }
 
 function TaskSectionHeader({ section }: { section: TaskSection }) {
@@ -60,11 +42,57 @@ function TaskSectionHeader({ section }: { section: TaskSection }) {
 	)
 }
 
+function TodayHeaderIos() {
+	const { openSidebar } = useMobileSidebar()
+	return (
+		<>
+			<Stack.Toolbar placement="left">
+				<Stack.Toolbar.Button
+					accessibilityLabel="Open sidebar"
+					icon="sidebar.leading"
+					onPress={openSidebar}
+				/>
+			</Stack.Toolbar>
+			<Stack.Toolbar placement="right">
+				<Stack.Toolbar.Button
+					accessibilityLabel="Notification settings"
+					icon="bell"
+					onPress={openNotificationSettings}
+				/>
+				<Stack.Toolbar.Button accessibilityLabel="New task" icon="plus" onPress={openQuickAdd} />
+			</Stack.Toolbar>
+		</>
+	)
+}
+
+function TodayHeaderAndroid() {
+	const { openSidebar } = useMobileSidebar()
+	return (
+		<Stack.Screen
+			options={{
+				headerLeft: () => (
+					<HeaderIconButton
+						accessibilityLabel="Open sidebar"
+						icon={{ sf: "sidebar.leading", md: "menu" }}
+						onPress={openSidebar}
+					/>
+				),
+				headerRight: () => (
+					<HeaderIconButton
+						accessibilityLabel="Notification settings"
+						icon={{ sf: "bell", md: "notifications" }}
+						onPress={openNotificationSettings}
+					/>
+				),
+			}}
+		/>
+	)
+}
+
 export function TodayScreen() {
 	const { colors } = useMobileColors()
 	const insets = useSafeAreaInsets()
 	const [tab, setTab] = useState<TodayTabKey>("today")
-	const [quickAddVisible, setQuickAddVisible] = useState(false)
 	const { counts, inboxPath, sections, today, untimedReminderTime } = useTodayTasks(tab)
 
 	const tabOptions: { label: string; value: TodayTabKey }[] = [
@@ -84,26 +112,23 @@ export function TodayScreen() {
 	return (
 		<>
 			<SectionList
-				contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 140 }]}
+				contentContainerStyle={{ paddingBottom: insets.bottom + (IS_IOS ? 40 : 96) }}
 				contentInsetAdjustmentBehavior="automatic"
 				keyExtractor={(task) => task.id}
-				keyboardShouldPersistTaps="handled"
 				ListEmptyComponent={
-					<Text style={[styles.empty, { color: colors.secondaryLabel }]}>{EMPTY_MESSAGE}</Text>
+					<EmptyState
+						icon={{ sf: "checkmark.circle", md: "task_alt" }}
+						title={todayEmptyTitles[tab]}
+					/>
 				}
-				ListFooterComponent={<GroupedFooter>{TASKS_FOOTER}</GroupedFooter>}
 				ListHeaderComponent={
-					<View style={styles.header}>
-						<Text style={[styles.subhead, { color: colors.secondaryLabel }]}>
-							{describeTodaySubhead(tab, today)}
-						</Text>
-						<SegmentedControl
-							accessibilityLabel="Task views"
-							onChange={setTab}
-							options={tabOptions}
-							value={tab}
-						/>
-					</View>
+					<SegmentedControl
+						accessibilityLabel="Task views"
+						onChange={setTab}
+						options={tabOptions}
+						style={styles.segments}
+						value={tab}
+					/>
 				}
 				renderItem={({ index, item, section }) => (
 					<TaskRow
@@ -122,61 +147,26 @@ export function TodayScreen() {
 				stickySectionHeadersEnabled={false}
 				style={{ backgroundColor: colors.groupedBackground }}
 			/>
-			<Stack.Screen
-				options={{
-					headerLeft: renderSidebarToggle,
-					headerRight: IS_IOS ? undefined : renderNotificationsButton,
-					title: todayTabTitles[tab],
-				}}
-			/>
-			{IS_IOS ? (
-				<Stack.Toolbar placement="right">
-					<Stack.Toolbar.Button
-						accessibilityLabel="Notification settings"
-						icon="ellipsis"
-						onPress={openNotificationSettings}
+			<Stack.Screen options={{ title: "Today" }} />
+			{IS_IOS ? <TodayHeaderIos /> : <TodayHeaderAndroid />}
+			{IS_IOS ? null : (
+				<View pointerEvents="box-none" style={[styles.fab, { bottom: insets.bottom + 16 }]}>
+					<FloatingActionButton
+						accessibilityLabel="New task"
+						icon={{ sf: "plus", md: "add" }}
+						label="New task"
+						onPress={openQuickAdd}
 					/>
-				</Stack.Toolbar>
-			) : null}
-			<View
-				pointerEvents="box-none"
-				style={[styles.fab, { bottom: IS_IOS ? insets.bottom + 70 : 16 + insets.bottom }]}
-			>
-				<FloatingActionButton
-					Icon={Plus}
-					accessibilityLabel="New task"
-					label="New task"
-					onPress={() => setQuickAddVisible(true)}
-					sf="plus"
-				/>
-			</View>
-			<QuickAddOverlay
-				onClose={() => setQuickAddVisible(false)}
-				today={today}
-				visible={quickAddVisible}
-			/>
+				</View>
+			)}
 		</>
 	)
 }
 
 const styles = StyleSheet.create({
-	content: {
-		paddingTop: IS_IOS ? 0 : 4,
-	},
-	empty: {
-		fontSize: 15,
-		lineHeight: 20,
-		marginTop: 60,
-		textAlign: "center",
-	},
 	fab: {
 		position: "absolute",
-		right: IS_IOS ? 20 : 16,
-	},
-	header: {
-		gap: 10,
-		paddingBottom: 6,
-		paddingHorizontal: 16,
+		right: 16,
 	},
 	sectionHeader: {
 		alignItems: "center",
@@ -192,10 +182,8 @@ const styles = StyleSheet.create({
 		letterSpacing: IS_IOS ? 0 : 0.1,
 		lineHeight: IS_IOS ? 18 : 20,
 	},
-	subhead: {
-		fontSize: 15,
-		lineHeight: 20,
-		marginLeft: 4,
-		marginTop: IS_IOS ? -6 : 0,
+	segments: {
+		marginHorizontal: 16,
+		marginTop: IS_IOS ? 8 : 4,
 	},
 })

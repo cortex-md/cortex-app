@@ -1,11 +1,17 @@
 import { describeTaskReminder, getTaskSource } from "@cortex/core"
 import { describeRepeat, formatRelativeDay, type Task } from "@cortex/tasks"
-import { Bell, Calendar, Check, FileText, type LucideIcon, Repeat } from "lucide-react-native"
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 
+import { Symbol, type SymbolName } from "@/components/ui/Symbol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 const IS_IOS = Platform.OS === "ios"
+const CHECKED: SymbolName = { sf: "checkmark.circle.fill", md: "check_circle" }
+const UNCHECKED: SymbolName = { sf: "circle", md: "radio_button_unchecked" }
+const CALENDAR: SymbolName = { sf: "calendar", md: "calendar_today" }
+const REPEAT: SymbolName = { sf: "repeat", md: "repeat" }
+const BELL: SymbolName = { sf: "bell", md: "notifications" }
+const NOTE: SymbolName = { sf: "doc.text", md: "description" }
 
 export type TaskRowPosition = "first" | "middle" | "last" | "only"
 
@@ -16,7 +22,7 @@ export function taskRowPosition(index: number, total: number): TaskRowPosition {
 	return "middle"
 }
 
-export function TaskCheckbox({
+function TaskCheckbox({
 	done,
 	onToggle,
 	title,
@@ -33,24 +39,23 @@ export function TaskCheckbox({
 			accessibilityState={{ checked: done }}
 			hitSlop={10}
 			onPress={onToggle}
-			style={[
-				styles.checkbox,
-				done
-					? { backgroundColor: colors.tintFill, borderColor: colors.tintFill }
-					: { borderColor: colors.borderStrong },
-			]}
+			style={styles.checkbox}
 		>
-			{done ? <Check color={colors.onTint} size={14} strokeWidth={3} /> : null}
+			<Symbol
+				color={done ? colors.tint : colors.tertiaryLabel}
+				name={done ? CHECKED : UNCHECKED}
+				size={24}
+			/>
 		</Pressable>
 	)
 }
 
 function MetaItem({
-	Icon,
+	icon,
 	label,
 	late = false,
 }: {
-	Icon: LucideIcon
+	icon: SymbolName
 	label: string
 	late?: boolean
 }) {
@@ -58,7 +63,7 @@ function MetaItem({
 	const color = late ? colors.destructiveText : colors.secondaryLabel
 	return (
 		<View style={styles.metaItem}>
-			<Icon color={color} size={13} strokeWidth={2.2} />
+			<Symbol color={color} name={icon} size={13} />
 			<Text numberOfLines={1} style={[styles.metaText, { color }]}>
 				{label}
 			</Text>
@@ -123,11 +128,11 @@ export function TaskRow({
 					</Text>
 					<View style={styles.meta}>
 						{showDate && task.due ? (
-							<MetaItem Icon={Calendar} label={formatRelativeDay(task.due, today)} late={late} />
+							<MetaItem icon={CALENDAR} label={formatRelativeDay(task.due, today)} late={late} />
 						) : null}
-						{task.repeat ? <MetaItem Icon={Repeat} label={describeRepeat(task.repeat)} /> : null}
-						{reminderLabel ? <MetaItem Icon={Bell} label={reminderLabel} /> : null}
-						<MetaItem Icon={FileText} label={getTaskSource(task, inboxPath)} />
+						{task.repeat ? <MetaItem icon={REPEAT} label={describeRepeat(task.repeat)} /> : null}
+						{reminderLabel ? <MetaItem icon={BELL} label={reminderLabel} /> : null}
+						<MetaItem icon={NOTE} label={getTaskSource(task, inboxPath)} />
 					</View>
 				</Pressable>
 				{task.time ? (
@@ -154,12 +159,9 @@ const styles = StyleSheet.create({
 	},
 	checkbox: {
 		alignItems: "center",
-		borderRadius: 999,
-		borderWidth: 2,
-		height: 22,
+		height: 24,
 		justifyContent: "center",
-		marginTop: 1,
-		width: 22,
+		width: 24,
 	},
 	m3Gap: {
 		marginBottom: 2,

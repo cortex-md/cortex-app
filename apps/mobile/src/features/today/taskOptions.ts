@@ -1,18 +1,11 @@
 import {
 	type ClockTime,
-	describeRepeat,
 	detectReminderPreset,
 	isSameRepeat,
 	type ReminderPreset,
 	type TaskFields,
 	type TaskRepeat,
 } from "@cortex/tasks"
-
-export const TASKS_FOOTER =
-	"Tasks stay as checkboxes in your notes. Dates and repeats use the same emoji syntax as the Obsidian Tasks plugin, so vaults move both ways."
-
-export const REPEAT_FOOTER =
-	"Checking off a repeating task moves its date forward in the same line. The note keeps one line, not copies."
 
 export type RepeatChoice = "none" | "day" | "week" | "month" | "3days"
 
@@ -31,10 +24,6 @@ export function repeatChoiceOf(repeat: TaskRepeat | undefined): RepeatChoice | "
 
 export function repeatOfChoice(choice: RepeatChoice): TaskRepeat | undefined {
 	return repeatChoices.find((candidate) => candidate.value === choice)?.repeat
-}
-
-export function describeRepeatChoice(repeat: TaskRepeat | undefined): string {
-	return repeat ? describeRepeat(repeat) : "None"
 }
 
 export type RemindChoice = "none" | "at" | "15" | "morning"
@@ -76,9 +65,7 @@ export function describeRemindChoice(
 	return fields.reminder?.time ?? "Custom"
 }
 
-export type TimeChoice = "none" | "09:00" | "13:00" | "17:00"
-
-export const timeChoices: { label: string; value: TimeChoice }[] = [
+export const timeChoices: { label: string; value: string }[] = [
 	{ label: "None", value: "none" },
 	{ label: "9:00", value: "09:00" },
 	{ label: "13:00", value: "13:00" },
