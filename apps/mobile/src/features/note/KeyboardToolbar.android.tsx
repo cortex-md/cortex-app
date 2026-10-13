@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from "react-native"
 
 import { NativeMenu } from "@/components/ui/NativeMenu"
-import { Symbol, type SymbolName } from "@/components/ui/Symbol"
+import { SymbolIcon, type SymbolName } from "@/components/ui/Symbol"
 import { HIDE_KEYBOARD_ICON, MORE_ICON } from "@/features/note/keyboardToolbarItems"
 import type { KeyboardToolbarProps } from "@/features/note/noteChromeTypes"
 import { useMobileColors } from "@/hooks/useMobileColors"
@@ -24,7 +24,7 @@ function ToolbarButton({
 			onPress={onPress}
 			style={styles.button}
 		>
-			<Symbol color={colors.label} name={icon} size={22} />
+			<SymbolIcon color={colors.label} name={icon} size={22} />
 		</Pressable>
 	)
 }

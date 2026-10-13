@@ -11,7 +11,7 @@ import { size } from "@expo/ui/jetpack-compose/modifiers"
 import { Fragment, useState } from "react"
 import { StyleSheet, View } from "react-native"
 
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import { TextPromptDialog } from "@/components/ui/TextPromptDialog"
 import {
 	closeEntryMenu,
@@ -73,7 +73,7 @@ function EntryMenu({ menu }: { menu: EntryMenuState }) {
 											<DropdownMenuItem.LeadingIcon>
 												<RNHostView matchContents>
 													<View>
-														<Symbol
+														<SymbolIcon
 															color={
 																item.destructive ? colors.destructiveText : colors.secondaryLabel
 															}

@@ -5,7 +5,7 @@ import { useMemo, useReducer } from "react"
 import { FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import { useFileExplorerActions } from "@/features/file-explorer/useFileExplorerActions"
 import { useVaultDisplayName } from "@/features/file-explorer/vaultDisplayName"
 import { openDatabase, openSettings, presentSheet } from "@/features/navigation/routes"
@@ -52,7 +52,7 @@ function VaultSwitcherRow({ onPress }: { onPress: () => void }) {
 			<Text numberOfLines={1} style={[styles.vaultName, { color: colors.label }]}>
 				{name}
 			</Text>
-			<Symbol
+			<SymbolIcon
 				color={colors.secondaryLabel}
 				name={{ sf: "chevron.up.chevron.down", md: "unfold_more" }}
 				size={IS_IOS ? 14 : 20}

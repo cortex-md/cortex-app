@@ -6,7 +6,7 @@ export interface SymbolName {
 	md: AndroidSymbol
 }
 
-export function Symbol({
+export function SymbolIcon({
 	color,
 	name,
 	size = 22,

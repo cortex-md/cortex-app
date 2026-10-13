@@ -1,6 +1,12 @@
 import { Host } from "@expo/ui"
 import { Button, Divider, Image, Menu, Section, Text } from "@expo/ui/swift-ui"
-import { buttonStyle, foregroundStyle, frame, glassEffect } from "@expo/ui/swift-ui/modifiers"
+import {
+	buttonBorderShape,
+	buttonStyle,
+	controlSize,
+	foregroundStyle,
+	padding,
+} from "@expo/ui/swift-ui/modifiers"
 import { Fragment } from "react"
 
 import type { NativeMenuProps } from "@/components/ui/menuTypes"
@@ -15,26 +21,22 @@ export function NativeMenu({
 	title,
 }: NativeMenuProps) {
 	const { colors } = useMobileColors()
-	const anchorModifiers =
-		anchorStyle === "glass"
-			? [
-					frame({ height: 44, minWidth: 44 }),
-					glassEffect({ shape: "capsule" }),
-					foregroundStyle(colors.label),
-				]
-			: [foregroundStyle(colors.tint)]
+	const glass = anchorStyle === "glass"
+	const menuModifiers = glass
+		? [
+				buttonStyle("glass"),
+				buttonBorderShape(icon ? "circle" : "capsule"),
+				controlSize("large"),
+				foregroundStyle(colors.label),
+				padding({ all: 4 }),
+			]
+		: [buttonStyle("borderless"), foregroundStyle(colors.tint)]
 
 	return (
 		<Host matchContents>
 			<Menu
-				label={
-					icon ? (
-						<Image modifiers={anchorModifiers} systemName={icon.sf} />
-					) : (
-						<Text modifiers={anchorModifiers}>{title ?? accessibilityLabel}</Text>
-					)
-				}
-				modifiers={[buttonStyle("plain")]}
+				label={icon ? <Image systemName={icon.sf} /> : <Text>{title ?? accessibilityLabel}</Text>}
+				modifiers={menuModifiers}
 				testID={accessibilityLabel}
 			>
 				{header ? <Section title={header}>{null}</Section> : null}

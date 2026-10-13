@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Pressable, StyleSheet, Text as RNText, View } from "react-native"
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from "react-native-reanimated"
 
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import type { CreateFabMenuProps } from "@/features/files/CreateFabMenu"
 import { useMobileColors } from "@/hooks/useMobileColors"
 import { triggerSelectionHaptic } from "@/utils/haptics"
@@ -48,7 +48,7 @@ export function CreateFabMenu({ groups }: CreateFabMenuProps) {
 								}}
 								style={[styles.pill, { backgroundColor: colors.accentSubtle }]}
 							>
-								{item.icon ? <Symbol color={colors.tint} name={item.icon} size={22} /> : null}
+								{item.icon ? <SymbolIcon color={colors.tint} name={item.icon} size={22} /> : null}
 								<RNText style={[styles.pillLabel, { color: colors.tint }]}>{item.label}</RNText>
 							</Pressable>
 						))}
@@ -63,7 +63,7 @@ export function CreateFabMenu({ groups }: CreateFabMenuProps) {
 						<ExtendedFloatingActionButton.Icon>
 							<RNHostView matchContents>
 								<View style={styles.fabIcon}>
-									<Symbol
+									<SymbolIcon
 										color={colors.tint}
 										name={open ? { sf: "xmark", md: "close" } : { sf: "plus", md: "add" }}
 										size={24}

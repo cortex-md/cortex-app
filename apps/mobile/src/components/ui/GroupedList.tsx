@@ -1,7 +1,7 @@
 import { Children, type ReactNode } from "react"
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 const IS_IOS = Platform.OS === "ios"
@@ -127,7 +127,7 @@ export function GroupedRow({
 			) : null}
 			{trailing}
 			{chevron ? (
-				<Symbol
+				<SymbolIcon
 					color={colors.tertiaryLabel}
 					name={{ sf: "chevron.right", md: "chevron_right" }}
 					size={IS_IOS ? 13 : 24}

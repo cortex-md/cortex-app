@@ -1,7 +1,7 @@
 import { Fragment } from "react"
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 import type { MobileColors } from "@/theme/colors"
 
@@ -167,7 +167,7 @@ export function RowNoteBody({
 									]}
 								>
 									{block.checked ? (
-										<Symbol
+										<SymbolIcon
 											color={colors.onTint}
 											name={{ md: "check", sf: "checkmark" }}
 											size={13}

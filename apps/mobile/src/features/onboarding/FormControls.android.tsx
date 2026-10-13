@@ -14,7 +14,7 @@ import { useState } from "react"
 import { StyleSheet, View } from "react-native"
 
 import { MobileTextField } from "@/components/ui/MobileTextField"
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import type {
 	FormButtonProps,
 	FormCheckRowProps,
@@ -98,13 +98,13 @@ export function FormPicker<T extends string>({
 					{icon ? (
 						<ListItem.LeadingContent>
 							<RNHostView matchContents>
-								<Symbol color={colors.secondaryLabel} name={icon} size={24} />
+								<SymbolIcon color={colors.secondaryLabel} name={icon} size={24} />
 							</RNHostView>
 						</ListItem.LeadingContent>
 					) : null}
 					<ListItem.TrailingContent>
 						<RNHostView matchContents>
-							<Symbol
+							<SymbolIcon
 								color={colors.tertiaryLabel}
 								name={{ md: "arrow_drop_down", sf: "chevron.up.chevron.down" }}
 								size={24}
@@ -211,14 +211,14 @@ export function FormCheckRow({
 			{icon ? (
 				<ListItem.LeadingContent>
 					<RNHostView matchContents>
-						<Symbol color={iconColor ?? colors.secondaryLabel} name={icon} size={24} />
+						<SymbolIcon color={iconColor ?? colors.secondaryLabel} name={icon} size={24} />
 					</RNHostView>
 				</ListItem.LeadingContent>
 			) : null}
 			{checked ? (
 				<ListItem.TrailingContent>
 					<RNHostView matchContents>
-						<Symbol color={colors.tint} name={{ md: "check", sf: "checkmark" }} size={24} />
+						<SymbolIcon color={colors.tint} name={{ md: "check", sf: "checkmark" }} size={24} />
 					</RNHostView>
 				</ListItem.TrailingContent>
 			) : null}

@@ -15,7 +15,7 @@ import {
 import { clickable, fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers"
 import { useRef, useState } from "react"
 
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import type {
 	SettingsOptionValue,
 	SettingsPickerProps,
@@ -91,7 +91,7 @@ export function SettingsPicker<T extends SettingsOptionValue>({
 				>
 					<DropdownMenu.Trigger>
 						<RNHostView matchContents>
-							<Symbol
+							<SymbolIcon
 								color={colors.secondaryLabel}
 								name={{ sf: "chevron.up.chevron.down", md: "arrow_drop_down" }}
 								size={24}

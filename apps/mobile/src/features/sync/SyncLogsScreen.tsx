@@ -15,7 +15,7 @@ import { Alert, Platform, SectionList, StyleSheet, Text } from "react-native"
 import { EmptyState } from "@/components/ui/EmptyState"
 import type { MenuGroup } from "@/components/ui/menuTypes"
 import { NativeMenu } from "@/components/ui/NativeMenu"
-import { Symbol, type SymbolName } from "@/components/ui/Symbol"
+import { SymbolIcon, type SymbolName } from "@/components/ui/Symbol"
 import { toast } from "@/features/feedback/useToast"
 import { InsetListRow, InsetSectionHeader } from "@/features/history/InsetListRow"
 import { openConflict, openNote } from "@/features/navigation/routes"
@@ -77,7 +77,7 @@ function LogRow({
 			chevron={Boolean(onPress)}
 			first={first}
 			last={last}
-			leading={<Symbol color={toneColor} name={TONE_SYMBOLS[item.tone]} size={20} />}
+			leading={<SymbolIcon color={toneColor} name={TONE_SYMBOLS[item.tone]} size={20} />}
 			onPress={onPress}
 			subtitle={paths}
 			title={item.title}

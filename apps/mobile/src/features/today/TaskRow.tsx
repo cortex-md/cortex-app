@@ -2,7 +2,7 @@ import { describeTaskReminder, getTaskSource } from "@cortex/core"
 import { describeRepeat, formatRelativeDay, type Task } from "@cortex/tasks"
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 
-import { Symbol, type SymbolName } from "@/components/ui/Symbol"
+import { SymbolIcon, type SymbolName } from "@/components/ui/Symbol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 const IS_IOS = Platform.OS === "ios"
@@ -41,7 +41,7 @@ function TaskCheckbox({
 			onPress={onToggle}
 			style={styles.checkbox}
 		>
-			<Symbol
+			<SymbolIcon
 				color={done ? colors.tint : colors.tertiaryLabel}
 				name={done ? CHECKED : UNCHECKED}
 				size={24}
@@ -63,7 +63,7 @@ function MetaItem({
 	const color = late ? colors.destructiveText : colors.secondaryLabel
 	return (
 		<View style={styles.metaItem}>
-			<Symbol color={color} name={icon} size={13} />
+			<SymbolIcon color={color} name={icon} size={13} />
 			<Text numberOfLines={1} style={[styles.metaText, { color }]}>
 				{label}
 			</Text>

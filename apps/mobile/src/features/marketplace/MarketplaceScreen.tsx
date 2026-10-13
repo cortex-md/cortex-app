@@ -25,7 +25,7 @@ import { GroupedSectionHeader } from "@/components/ui/GroupedList"
 import type { MenuGroup } from "@/components/ui/menuTypes"
 import { NativeMenu } from "@/components/ui/NativeMenu"
 import { SegmentedControl } from "@/components/ui/SegmentedControl"
-import { Symbol, type SymbolName } from "@/components/ui/Symbol"
+import { SymbolIcon, type SymbolName } from "@/components/ui/Symbol"
 import {
 	isTemplateInVault,
 	isThemeInstalled,
@@ -116,7 +116,7 @@ function Artwork({ icon, imageUrl }: { icon: SymbolName; imageUrl?: string }) {
 					style={styles.artworkImage}
 				/>
 			) : (
-				<Symbol color={colors.tint} name={icon} size={22} />
+				<SymbolIcon color={colors.tint} name={icon} size={22} />
 			)}
 		</View>
 	)
@@ -160,7 +160,7 @@ function Row({ first, last, row }: { first: boolean; last: boolean; row: MarketR
 					</Text>
 				) : null}
 				{IS_IOS ? (
-					<Symbol
+					<SymbolIcon
 						color={colors.tertiaryLabel}
 						name={{ sf: "chevron.right", md: "chevron_right" }}
 						size={13}

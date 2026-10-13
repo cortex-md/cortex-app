@@ -14,7 +14,7 @@ import {
 import { clickable, fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers"
 import { useState } from "react"
 
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import type {
 	FormChoiceRowProps,
 	FormPickerProps,
@@ -119,7 +119,7 @@ export function FormPicker<T extends string>({
 					</ListItem.SupportingContent>
 					<ListItem.TrailingContent>
 						<RNHostView matchContents>
-							<Symbol
+							<SymbolIcon
 								color={colors.secondaryLabel}
 								name={{ md: "arrow_drop_down", sf: "chevron.up.chevron.down" }}
 								size={24}
@@ -178,7 +178,7 @@ export function FormChoiceRow({
 			{icon ? (
 				<ListItem.TrailingContent>
 					<RNHostView matchContents>
-						<Symbol color={colors.secondaryLabel} name={icon} size={24} />
+						<SymbolIcon color={colors.secondaryLabel} name={icon} size={24} />
 					</RNHostView>
 				</ListItem.TrailingContent>
 			) : null}

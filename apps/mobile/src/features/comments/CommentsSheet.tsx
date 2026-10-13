@@ -14,7 +14,7 @@ import {
 import { Avatar } from "@/components/ui/Avatar"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { HeaderIconButton } from "@/components/ui/HeaderIconButton"
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import type { CollabPerson } from "@/features/collab/collabFixtures"
 import {
 	type CommentThreadView,
@@ -164,7 +164,7 @@ function ThreadCard({
 						void setCommentThreadResolved(filePath, thread.id, !thread.resolved)
 					}}
 				>
-					<Symbol
+					<SymbolIcon
 						color={colors.tint}
 						name={
 							thread.resolved

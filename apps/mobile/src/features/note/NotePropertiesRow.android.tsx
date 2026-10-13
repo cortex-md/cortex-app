@@ -2,7 +2,7 @@ import { Host } from "@expo/ui"
 import { AssistChip, RNHostView, Text } from "@expo/ui/jetpack-compose"
 import { StyleSheet } from "react-native"
 
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import type { NotePropertiesRowProps } from "@/features/note/noteChromeTypes"
 import { notePropertiesLabel, PROPERTIES_ICON } from "@/features/note/notePropertiesLabel"
 import { useMobileColors } from "@/hooks/useMobileColors"
@@ -17,7 +17,7 @@ export function NotePropertiesRow({ count, onPress }: NotePropertiesRowProps) {
 				</AssistChip.Label>
 				<AssistChip.LeadingIcon>
 					<RNHostView matchContents>
-						<Symbol color={colors.secondaryLabel} name={PROPERTIES_ICON} size={18} />
+						<SymbolIcon color={colors.secondaryLabel} name={PROPERTIES_ICON} size={18} />
 					</RNHostView>
 				</AssistChip.LeadingIcon>
 			</AssistChip>

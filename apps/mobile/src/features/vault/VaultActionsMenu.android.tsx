@@ -10,7 +10,7 @@ import { clickable } from "@expo/ui/jetpack-compose/modifiers"
 import { Fragment, useState } from "react"
 import { StyleSheet, View } from "react-native"
 
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import type { VaultActionsMenuProps } from "@/features/vault/vaultActionsTypes"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
@@ -49,7 +49,7 @@ export function VaultActionsMenu({ color, groups, subtitle, title, value }: Vaul
 					</ListItem.LeadingContent>
 					<ListItem.TrailingContent>
 						<RNHostView matchContents>
-							<Symbol
+							<SymbolIcon
 								color={colors.secondaryLabel}
 								name={{ md: "more_vert", sf: "ellipsis" }}
 								size={24}
@@ -82,7 +82,7 @@ export function VaultActionsMenu({ color, groups, subtitle, title, value }: Vaul
 									{item.icon ? (
 										<DropdownMenuItem.LeadingIcon>
 											<RNHostView matchContents>
-												<Symbol color={itemColor} name={item.icon} size={24} />
+												<SymbolIcon color={itemColor} name={item.icon} size={24} />
 											</RNHostView>
 										</DropdownMenuItem.LeadingIcon>
 									) : null}

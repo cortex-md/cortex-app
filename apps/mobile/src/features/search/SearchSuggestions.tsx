@@ -5,7 +5,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-n
 import { Badge } from "@/components/ui/Badge"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { GroupedList, GroupedRow, GroupedSectionHeader } from "@/components/ui/GroupedList"
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import {
 	formatFilter,
 	parseQueryState,
@@ -31,7 +31,7 @@ function RecentQueryRow({
 	return (
 		<GroupedRow
 			leading={
-				<Symbol
+				<SymbolIcon
 					color={colors.tertiaryLabel}
 					name={{ md: "history", sf: "clock.arrow.circlepath" }}
 					size={IS_IOS ? 18 : 24}
@@ -136,7 +136,7 @@ export function SearchSuggestions({
 								<GroupedRow
 									key={folder.path}
 									leading={
-										<Symbol
+										<SymbolIcon
 											color={colors.tint}
 											name={{ md: "folder", sf: "folder" }}
 											size={IS_IOS ? 20 : 24}
@@ -162,7 +162,7 @@ export function SearchSuggestions({
 								<GroupedRow
 									key={entry.tag}
 									leading={
-										<Symbol
+										<SymbolIcon
 											color={colors.tint}
 											name={{ md: "tag", sf: "number" }}
 											size={IS_IOS ? 20 : 24}

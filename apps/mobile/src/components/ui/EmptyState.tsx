@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native"
 
-import { Symbol, type SymbolName } from "@/components/ui/Symbol"
+import { SymbolIcon, type SymbolName } from "@/components/ui/Symbol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 export function EmptyState({
@@ -15,7 +15,7 @@ export function EmptyState({
 	const { colors } = useMobileColors()
 	return (
 		<View style={styles.root}>
-			{icon ? <Symbol color={colors.tertiaryLabel} name={icon} size={34} /> : null}
+			{icon ? <SymbolIcon color={colors.tertiaryLabel} name={icon} size={34} /> : null}
 			<Text style={[styles.title, { color: colors.label }]}>{title}</Text>
 			{description ? (
 				<Text style={[styles.description, { color: colors.secondaryLabel }]}>{description}</Text>

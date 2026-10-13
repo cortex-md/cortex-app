@@ -3,7 +3,7 @@ import { useEffect } from "react"
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 
 import { StatusPill, statusToneFromLabel } from "@/components/ui/StatusPill"
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import { DATABASE_PREVIEW_ROWS, type FilesDatabaseItem } from "@/features/files/useFilesScreenModel"
 import { openDatabase, openNote } from "@/features/navigation/routes"
 import { useMobileColors } from "@/hooks/useMobileColors"
@@ -45,7 +45,7 @@ export function DatabaseItemRows({
 					style={({ pressed }) => [styles.main, { opacity: pressed ? 0.6 : 1 }]}
 				>
 					<View style={[styles.tile, { backgroundColor: colors.accentSubtle }]}>
-						<Symbol
+						<SymbolIcon
 							color={colors.tint}
 							name={{ sf: "tablecells", md: "table" }}
 							size={IS_IOS ? 20 : 22}
@@ -71,7 +71,7 @@ export function DatabaseItemRows({
 					}}
 					style={styles.chevronButton}
 				>
-					<Symbol
+					<SymbolIcon
 						color={colors.tertiaryLabel}
 						name={
 							expanded

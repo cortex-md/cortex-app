@@ -3,7 +3,7 @@ import { Platform, StyleSheet, View } from "react-native"
 
 import type { MenuGroup } from "@/components/ui/menuTypes"
 import { NativeMenu } from "@/components/ui/NativeMenu"
-import { Symbol, type SymbolName } from "@/components/ui/Symbol"
+import { SymbolIcon, type SymbolName } from "@/components/ui/Symbol"
 import { toast } from "@/features/feedback/useToast"
 import { openSettings, openVersionHistory } from "@/features/navigation/routes"
 import { getSyncMenuHeader, syncNow } from "@/features/sync/syncAdapter"
@@ -111,7 +111,7 @@ export function SyncChip() {
 
 	return (
 		<View style={[styles.chip, IS_IOS ? null : { backgroundColor: colors.fill }]}>
-			<Symbol color={color} name={presentation.icon} size={IS_IOS ? 16 : 18} />
+			<SymbolIcon color={color} name={presentation.icon} size={IS_IOS ? 16 : 18} />
 			<NativeMenu
 				accessibilityLabel="Sync status"
 				anchorStyle="plain"

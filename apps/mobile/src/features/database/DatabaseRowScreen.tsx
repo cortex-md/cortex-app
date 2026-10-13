@@ -24,7 +24,7 @@ import { Avatar } from "@/components/ui/Avatar"
 import { EmptyState } from "@/components/ui/EmptyState"
 import type { MenuGroup } from "@/components/ui/menuTypes"
 import { NativeMenu } from "@/components/ui/NativeMenu"
-import { Symbol, type SymbolName } from "@/components/ui/Symbol"
+import { SymbolIcon, type SymbolName } from "@/components/ui/Symbol"
 import { dueToneColor, OptionPill } from "@/features/database/DatabaseCells"
 import {
 	formatEditedAgo,
@@ -59,7 +59,7 @@ const TEXT_ICON: SymbolName = { md: "notes", sf: "textformat" }
 
 function PropertyIcon({ color, definition }: { color: string; definition: PropertyDefinition }) {
 	const icon = PROPERTY_ICONS[getPropertyBaseType(definition)] ?? TEXT_ICON
-	return <Symbol color={color} name={icon} size={14} />
+	return <SymbolIcon color={color} name={icon} size={14} />
 }
 
 function useBacklinkCount(filePath: string): number {
@@ -210,7 +210,7 @@ function RowPager({
 					onPress={() => onStep(-1)}
 					style={styles.androidIcon}
 				>
-					<Symbol
+					<SymbolIcon
 						color={colors.label}
 						name={{ md: "keyboard_arrow_up", sf: "chevron.up" }}
 						size={24}
@@ -222,7 +222,7 @@ function RowPager({
 					onPress={() => onStep(1)}
 					style={styles.androidIcon}
 				>
-					<Symbol
+					<SymbolIcon
 						color={colors.label}
 						name={{ md: "keyboard_arrow_down", sf: "chevron.down" }}
 						size={24}
@@ -237,7 +237,7 @@ function RowPager({
 				onPress={() => openNote(filePath)}
 				style={[styles.androidFab, { backgroundColor: colors.accentSubtle }]}
 			>
-				<Symbol
+				<SymbolIcon
 					color={colors.tint}
 					name={{ md: "open_in_new", sf: "plus.square.on.square" }}
 					size={24}

@@ -28,7 +28,10 @@ export default function TabsLayout() {
 	)
 	const bookmarks = (
 		<NativeTabs.Trigger key="bookmarks" name="(bookmarks)">
-			<NativeTabs.Trigger.Icon sf={{ default: "bookmark", selected: "bookmark.fill" }} md="bookmark" />
+			<NativeTabs.Trigger.Icon
+				sf={{ default: "bookmark", selected: "bookmark.fill" }}
+				md="bookmark"
+			/>
 			<NativeTabs.Trigger.Label>Bookmarks</NativeTabs.Trigger.Label>
 		</NativeTabs.Trigger>
 	)

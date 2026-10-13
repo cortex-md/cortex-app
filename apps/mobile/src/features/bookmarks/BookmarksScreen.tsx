@@ -12,7 +12,7 @@ import { Alert, FlatList, Platform, Pressable, StyleSheet, Text, View } from "re
 
 import { EmptyState } from "@/components/ui/EmptyState"
 import { HeaderIconButton } from "@/components/ui/HeaderIconButton"
-import { Symbol, type SymbolName } from "@/components/ui/Symbol"
+import { SymbolIcon, type SymbolName } from "@/components/ui/Symbol"
 import { toast } from "@/features/feedback/useToast"
 import { openNote, presentSheet } from "@/features/navigation/routes"
 import { ListCell, ListSectionHeader, listCellStyles } from "@/features/search/ListCell"
@@ -58,7 +58,7 @@ function IconButton({
 			onPress={onPress}
 			style={({ pressed }) => [styles.iconButton, { opacity: disabled ? 0.3 : pressed ? 0.6 : 1 }]}
 		>
-			<Symbol color={color} name={icon} size={IS_IOS ? 22 : 24} />
+			<SymbolIcon color={color} name={icon} size={IS_IOS ? 22 : 24} />
 		</Pressable>
 	)
 }
@@ -143,7 +143,7 @@ export function BookmarksScreen() {
 
 	const renderBody = (row: BookmarkRowModel) => (
 		<>
-			<Symbol
+			<SymbolIcon
 				color={row.missing ? colors.warningText : colors.tint}
 				name={
 					row.missing

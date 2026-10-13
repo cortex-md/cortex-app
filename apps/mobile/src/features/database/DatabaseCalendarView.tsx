@@ -3,7 +3,7 @@ import { addMonths } from "@cortex/tasks"
 import { useMemo, useState } from "react"
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import { GroupedList, GroupedRow, GroupedSectionHeader } from "@/components/ui/GroupedList"
 import { formatMonthTitle, MiniCalendar } from "@/components/ui/MiniCalendar"
 import { OptionPill, rowOwnerName, rowStatusOption } from "@/features/database/DatabaseCells"
@@ -88,7 +88,7 @@ export function DatabaseCalendarView({
 						onPress={() => changeMonth(-1)}
 						style={styles.navButton}
 					>
-						<Symbol
+						<SymbolIcon
 							color={colors.tint}
 							name={{ md: "chevron_left", sf: "chevron.left" }}
 							size={20}
@@ -100,7 +100,7 @@ export function DatabaseCalendarView({
 						onPress={() => changeMonth(1)}
 						style={styles.navButton}
 					>
-						<Symbol
+						<SymbolIcon
 							color={colors.tint}
 							name={{ md: "chevron_right", sf: "chevron.right" }}
 							size={20}

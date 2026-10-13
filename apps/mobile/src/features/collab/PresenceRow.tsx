@@ -1,7 +1,7 @@
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 
 import { Avatar } from "@/components/ui/Avatar"
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import {
 	type CollabNoteSession,
 	stopFollowing,
@@ -71,7 +71,7 @@ export function PresenceRow({ session }: { session: CollabNoteSession }) {
 						style={styles.stop}
 					>
 						<Text style={[styles.stopLabel, { color: colors.label }]}>Stop</Text>
-						<Symbol color={colors.label} name={{ sf: "xmark", md: "close" }} size={14} />
+						<SymbolIcon color={colors.label} name={{ sf: "xmark", md: "close" }} size={14} />
 					</Pressable>
 				</View>
 			) : null}

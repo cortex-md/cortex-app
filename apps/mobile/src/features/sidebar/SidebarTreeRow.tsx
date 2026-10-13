@@ -3,7 +3,7 @@ import type { Href } from "expo-router"
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 
 import type { MenuGroup } from "@/components/ui/menuTypes"
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import { EntryContextMenu } from "@/features/file-explorer/EntryContextMenu"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
@@ -76,7 +76,7 @@ export function SidebarTreeRow({
 						/>
 					))}
 					{entry.isDir ? (
-						<Symbol
+						<SymbolIcon
 							color={colors.tertiaryLabel}
 							name={
 								expanded
@@ -86,7 +86,7 @@ export function SidebarTreeRow({
 							size={CHEVRON_SIZE}
 						/>
 					) : null}
-					<Symbol
+					<SymbolIcon
 						color={active ? colors.tint : entry.isDir ? colors.tint : colors.secondaryLabel}
 						name={
 							entry.isDir ? { sf: "folder", md: "folder" } : { sf: "doc.text", md: "description" }

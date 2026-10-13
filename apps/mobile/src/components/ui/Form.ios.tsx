@@ -1,12 +1,17 @@
 import { FieldGroup } from "@expo/ui"
 import { Button, Host, HStack, Image, Spacer, Text, Toggle, VStack } from "@expo/ui/swift-ui"
 import {
+	background,
 	buttonStyle,
 	contentShape,
 	disabled as disabledModifier,
 	font,
 	foregroundStyle,
+	listRowBackground,
+	listRowSeparatorTint,
+	scrollContentBackground,
 	shapes,
+	tint,
 } from "@expo/ui/swift-ui/modifiers"
 
 import type {
@@ -18,17 +23,29 @@ import type {
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 export function NativeForm({ children }: NativeFormProps) {
-	const { scheme } = useMobileColors()
+	const { colors, scheme } = useMobileColors()
 	return (
 		<Host colorScheme={scheme} style={{ flex: 1 }} useViewportSizeMeasurement>
-			<FieldGroup>{children}</FieldGroup>
+			<FieldGroup
+				modifiers={[
+					scrollContentBackground("hidden"),
+					background(colors.groupedBackground),
+					tint(colors.tint),
+				]}
+			>
+				{children}
+			</FieldGroup>
 		</Host>
 	)
 }
 
 export function FormSection({ children, footer, title }: FormSectionProps) {
+	const { colors } = useMobileColors()
 	return (
-		<FieldGroup.Section title={title}>
+		<FieldGroup.Section
+			modifiers={[listRowBackground(colors.cell), listRowSeparatorTint(colors.separator)]}
+			title={title}
+		>
 			{children}
 			{footer ? (
 				<FieldGroup.SectionFooter>

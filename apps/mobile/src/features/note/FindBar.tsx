@@ -1,6 +1,6 @@
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native"
 
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import type { FindInNote } from "@/features/note/useFindInNote"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
@@ -25,7 +25,7 @@ function StepButtons({ find }: { find: FindInNote }) {
 				onPress={() => find.step("prev")}
 				style={[styles.stepButton, disabled ? styles.disabled : null]}
 			>
-				<Symbol
+				<SymbolIcon
 					color={colors.label}
 					name={{ sf: "chevron.up", md: "keyboard_arrow_up" }}
 					size={20}
@@ -38,7 +38,7 @@ function StepButtons({ find }: { find: FindInNote }) {
 				onPress={() => find.step("next")}
 				style={[styles.stepButton, disabled ? styles.disabled : null]}
 			>
-				<Symbol
+				<SymbolIcon
 					color={colors.label}
 					name={{ sf: "chevron.down", md: "keyboard_arrow_down" }}
 					size={20}
@@ -54,7 +54,7 @@ export function FindBar({ find }: { find: FindInNote }) {
 		<View style={styles.wrap}>
 			<View style={[styles.bar, { backgroundColor: colors.glass, borderColor: colors.glassEdge }]}>
 				<View style={[styles.field, { backgroundColor: colors.fill }]}>
-					<Symbol
+					<SymbolIcon
 						color={colors.secondaryLabel}
 						name={{ sf: "magnifyingglass", md: "search" }}
 						size={17}
@@ -90,7 +90,7 @@ export function AndroidFindHeaderLeft({ find }: { find: FindInNote }) {
 			onPress={find.close}
 			style={styles.stepButton}
 		>
-			<Symbol color={colors.label} name={{ sf: "chevron.left", md: "arrow_back" }} size={24} />
+			<SymbolIcon color={colors.label} name={{ sf: "chevron.left", md: "arrow_back" }} size={24} />
 		</Pressable>
 	)
 }

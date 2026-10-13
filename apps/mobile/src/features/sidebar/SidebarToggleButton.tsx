@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet } from "react-native"
 
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import { useMobileSidebar } from "@/features/sidebar/useMobileSidebar"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
@@ -15,7 +15,7 @@ export function SidebarToggleButton({ color }: { color?: string }) {
 			onPress={openSidebar}
 			style={({ pressed }) => [styles.headerIconButton, { opacity: pressed ? 0.52 : 1 }]}
 		>
-			<Symbol
+			<SymbolIcon
 				color={color ?? iconColors.tint}
 				name={{ sf: "sidebar.leading", md: "menu" }}
 				size={24}

@@ -1,7 +1,7 @@
 import { Platform, Pressable, StyleSheet, Text } from "react-native"
 
 import { Badge } from "@/components/ui/Badge"
-import { Symbol, type SymbolName } from "@/components/ui/Symbol"
+import { SymbolIcon, type SymbolName } from "@/components/ui/Symbol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 const IS_IOS = Platform.OS === "ios"
@@ -31,7 +31,7 @@ export function SidebarRow({
 				{ backgroundColor: pressed && IS_IOS ? colors.hover : "transparent" },
 			]}
 		>
-			<Symbol
+			<SymbolIcon
 				color={IS_IOS ? colors.tint : colors.secondaryLabel}
 				name={icon}
 				size={IS_IOS ? 20 : 24}

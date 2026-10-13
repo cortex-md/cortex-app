@@ -10,7 +10,7 @@ import { Fragment, useState } from "react"
 import { Pressable, StyleSheet, Text as RNText, View } from "react-native"
 
 import type { NativeMenuProps } from "@/components/ui/menuTypes"
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 export function NativeMenu({ accessibilityLabel, groups, header, icon, title }: NativeMenuProps) {
@@ -33,7 +33,7 @@ export function NativeMenu({ accessibilityLabel, groups, header, icon, title }: 
 							style={styles.anchor}
 						>
 							{icon ? (
-								<Symbol color={colors.secondaryLabel} name={icon} size={24} />
+								<SymbolIcon color={colors.secondaryLabel} name={icon} size={24} />
 							) : (
 								<RNText style={[styles.anchorText, { color: colors.tint }]}>{title}</RNText>
 							)}
@@ -75,13 +75,17 @@ export function NativeMenu({ accessibilityLabel, groups, header, icon, title }: 
 												<RNHostView matchContents>
 													<View>
 														{item.checked ? (
-															<Symbol
+															<SymbolIcon
 																color={colors.tint}
 																name={{ sf: "checkmark", md: "check" }}
 																size={20}
 															/>
 														) : item.icon ? (
-															<Symbol color={colors.secondaryLabel} name={item.icon} size={20} />
+															<SymbolIcon
+																color={colors.secondaryLabel}
+																name={item.icon}
+																size={20}
+															/>
 														) : null}
 													</View>
 												</RNHostView>

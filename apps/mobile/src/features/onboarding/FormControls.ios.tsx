@@ -22,6 +22,7 @@ import {
 	keyboardType,
 	listRowBackground,
 	listRowInsets,
+	listRowSeparator,
 	onSubmit,
 	pickerStyle,
 	shapes,
@@ -29,6 +30,7 @@ import {
 	tag,
 	textContentType,
 	textInputAutocapitalization,
+	tint,
 } from "@expo/ui/swift-ui/modifiers"
 
 import type {
@@ -114,6 +116,7 @@ export function FormButton({
 	onPress,
 	variant = "primary",
 }: FormButtonProps) {
+	const { colors } = useMobileColors()
 	const style =
 		variant === "primary" ? "glassProminent" : variant === "secondary" ? "glass" : "borderless"
 	return (
@@ -122,7 +125,9 @@ export function FormButton({
 				buttonStyle(style),
 				controlSize("large"),
 				disabledModifier(disabled),
+				...(variant === "primary" ? [tint(colors.tintFill)] : [foregroundStyle(colors.label)]),
 				listRowBackground("clear"),
+				listRowSeparator("hidden"),
 				listRowInsets({ bottom: 4, leading: 0, top: 4, trailing: 0 }),
 			]}
 			onPress={onPress}

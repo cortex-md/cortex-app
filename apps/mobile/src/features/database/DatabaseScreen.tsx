@@ -15,7 +15,7 @@ import { FilterChip } from "@/components/ui/FilterChip"
 import type { MenuGroup, MenuItem } from "@/components/ui/menuTypes"
 import { NativeMenu } from "@/components/ui/NativeMenu"
 import { SegmentedControl } from "@/components/ui/SegmentedControl"
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import {
 	type DatabaseRowTemplateChoice,
 	listDatabaseRowTemplates,
@@ -284,7 +284,7 @@ export function DatabaseScreen() {
 				style={{ backgroundColor: colors.background }}
 			>
 				<View style={styles.countRow}>
-					<Symbol color={colors.tint} name={TABLE_ICON} size={18} />
+					<SymbolIcon color={colors.tint} name={TABLE_ICON} size={18} />
 					<Text style={[styles.count, { color: colors.secondaryLabel }]}>
 						{noteCountLabel(model.result?.matchedCount ?? 0)}
 					</Text>

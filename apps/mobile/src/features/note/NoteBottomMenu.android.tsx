@@ -11,7 +11,7 @@ import { Fragment, useState } from "react"
 import { StyleSheet, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import { NOTE_BOTTOM_MENU_ICON } from "@/features/note/noteMenu"
 import type { NoteBottomMenuProps } from "@/features/note/noteChromeTypes"
 import { useMobileColors } from "@/hooks/useMobileColors"
@@ -35,7 +35,7 @@ export function NoteBottomMenu({ groups }: NoteBottomMenuProps) {
 						>
 							<FloatingActionButton.Icon>
 								<RNHostView matchContents>
-									<Symbol color={colors.tint} name={NOTE_BOTTOM_MENU_ICON} size={24} />
+									<SymbolIcon color={colors.tint} name={NOTE_BOTTOM_MENU_ICON} size={24} />
 								</RNHostView>
 							</FloatingActionButton.Icon>
 						</FloatingActionButton>
@@ -63,7 +63,7 @@ export function NoteBottomMenu({ groups }: NoteBottomMenuProps) {
 											<DropdownMenuItem.LeadingIcon>
 												<RNHostView matchContents>
 													<View>
-														<Symbol color={colors.secondaryLabel} name={item.icon} size={22} />
+														<SymbolIcon color={colors.secondaryLabel} name={item.icon} size={22} />
 													</View>
 												</RNHostView>
 											</DropdownMenuItem.LeadingIcon>

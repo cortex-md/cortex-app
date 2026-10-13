@@ -1,6 +1,6 @@
 import { Platform, Pressable, StyleSheet } from "react-native"
 
-import { Symbol, type SymbolName } from "@/components/ui/Symbol"
+import { SymbolIcon, type SymbolName } from "@/components/ui/Symbol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 const IS_IOS = Platform.OS === "ios"
@@ -36,7 +36,7 @@ export function HeaderIconButton({
 				{ opacity: pressed ? 0.6 : 1 },
 			]}
 		>
-			<Symbol
+			<SymbolIcon
 				color={prominent && IS_IOS ? colors.onTint : IS_IOS ? colors.label : colors.secondaryLabel}
 				name={icon}
 				size={IS_IOS ? 20 : 24}

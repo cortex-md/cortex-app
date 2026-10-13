@@ -16,7 +16,7 @@ import {
 	View,
 } from "react-native"
 
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import { Avatar } from "@/components/ui/Avatar"
 import { DatabaseCellValue, OptionPill } from "@/features/database/DatabaseCells"
 import { columnWidth, firstName, resolvePersonName } from "@/features/database/databaseFormat"
@@ -166,7 +166,7 @@ export function DatabaseTableView({
 										}}
 										style={[styles.groupHeader, { backgroundColor: colors.background }]}
 									>
-										<Symbol
+										<SymbolIcon
 											color={colors.secondaryLabel}
 											name={
 												isCollapsed
@@ -230,7 +230,7 @@ export function DatabaseTableView({
 									onPress={() => onCreate(grouped ? group : null)}
 									style={({ pressed }) => [styles.addRow, { opacity: pressed ? 0.5 : 1 }]}
 								>
-									<Symbol
+									<SymbolIcon
 										color={colors.secondaryLabel}
 										name={{ md: "add", sf: "plus" }}
 										size={16}

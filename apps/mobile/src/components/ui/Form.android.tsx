@@ -22,7 +22,7 @@ import type {
 	FormToggleProps,
 	NativeFormProps,
 } from "@/components/ui/formTypes"
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 export function NativeForm({ children }: NativeFormProps) {
@@ -111,7 +111,7 @@ export function FormRow({
 			{icon ? (
 				<ListItem.LeadingContent>
 					<RNHostView matchContents>
-						<Symbol
+						<SymbolIcon
 							color={destructive ? colors.destructiveText : colors.secondaryLabel}
 							name={icon}
 							size={24}
@@ -123,7 +123,7 @@ export function FormRow({
 				<ListItem.TrailingContent>
 					{trailing ?? (subtitle && value && !chevron ? <Text>{value}</Text> : null) ?? (
 						<RNHostView matchContents>
-							<Symbol
+							<SymbolIcon
 								color={colors.tertiaryLabel}
 								name={{ sf: "chevron.right", md: "chevron_right" }}
 								size={24}
@@ -162,7 +162,7 @@ export function FormToggle({
 			{icon ? (
 				<ListItem.LeadingContent>
 					<RNHostView matchContents>
-						<Symbol color={colors.secondaryLabel} name={icon} size={24} />
+						<SymbolIcon color={colors.secondaryLabel} name={icon} size={24} />
 					</RNHostView>
 				</ListItem.LeadingContent>
 			) : null}

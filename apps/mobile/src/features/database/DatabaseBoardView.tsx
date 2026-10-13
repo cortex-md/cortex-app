@@ -1,6 +1,6 @@
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import { PersonLabel, RowDue, rowOwnerName } from "@/features/database/DatabaseCells"
 import {
 	type DatabaseCollectionProps,
@@ -76,7 +76,7 @@ export function DatabaseBoardView({
 						onPress={() => onCreate(grouped ? group : null)}
 						style={({ pressed }) => [styles.add, { opacity: pressed ? 0.5 : 1 }]}
 					>
-						<Symbol color={colors.secondaryLabel} name={{ md: "add", sf: "plus" }} size={16} />
+						<SymbolIcon color={colors.secondaryLabel} name={{ md: "add", sf: "plus" }} size={16} />
 						<Text style={[styles.addLabel, { color: colors.secondaryLabel }]}>New</Text>
 					</Pressable>
 				</View>

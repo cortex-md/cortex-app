@@ -1,6 +1,6 @@
 import { Platform, Pressable, StyleSheet, Text } from "react-native"
 
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 const IS_IOS = Platform.OS === "ios"
@@ -40,15 +40,15 @@ export function FilterChip({
 			]}
 		>
 			{!IS_IOS && selected ? (
-				<Symbol color={foreground} name={{ sf: "checkmark", md: "check" }} size={18} />
+				<SymbolIcon color={foreground} name={{ sf: "checkmark", md: "check" }} size={18} />
 			) : null}
 			<Text numberOfLines={1} style={[styles.label, { color: foreground }]}>
 				{label}
 			</Text>
 			{onRemove ? (
-				<Symbol color={foreground} name={{ sf: "xmark", md: "close" }} size={16} />
+				<SymbolIcon color={foreground} name={{ sf: "xmark", md: "close" }} size={16} />
 			) : menu ? (
-				<Symbol
+				<SymbolIcon
 					color={foreground}
 					name={{ sf: "chevron.down", md: "keyboard_arrow_down" }}
 					size={16}

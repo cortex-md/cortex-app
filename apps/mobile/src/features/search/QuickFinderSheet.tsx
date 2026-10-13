@@ -17,7 +17,7 @@ import { EmptyState } from "@/components/ui/EmptyState"
 import { HeaderIconButton } from "@/components/ui/HeaderIconButton"
 import type { MenuGroup } from "@/components/ui/menuTypes"
 import { NativeMenu } from "@/components/ui/NativeMenu"
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import { toast } from "@/features/feedback/useToast"
 import { dismissSheet, openNote } from "@/features/navigation/routes"
 import { ListCell, ListSectionHeader, listCellStyles } from "@/features/search/ListCell"
@@ -324,7 +324,7 @@ export function QuickFinderSheet() {
 						{showCreate ? (
 							<View style={styles.createGroup}>
 								<ListCell first last onPress={() => void handleCreate()}>
-									<Symbol
+									<SymbolIcon
 										color={colors.tint}
 										name={{ md: "add_circle", sf: "plus.circle.fill" }}
 										size={22}

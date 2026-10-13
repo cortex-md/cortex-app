@@ -11,7 +11,7 @@ import {
 import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers"
 import { Fragment, useState } from "react"
 
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import type {
 	FormCheckProps,
 	FormKeyboard,
@@ -121,7 +121,7 @@ export function FormMenu({ groups, label }: FormMenuProps) {
 									{item.checked ? (
 										<DropdownMenuItem.LeadingIcon>
 											<RNHostView matchContents>
-												<Symbol
+												<SymbolIcon
 													color={colors.tint}
 													name={{ sf: "checkmark", md: "check" }}
 													size={20}
@@ -144,7 +144,7 @@ export function FormCheck({ checked }: FormCheckProps) {
 	if (!checked) return null
 	return (
 		<RNHostView matchContents>
-			<Symbol color={colors.tint} name={{ sf: "checkmark", md: "check" }} size={24} />
+			<SymbolIcon color={colors.tint} name={{ sf: "checkmark", md: "check" }} size={24} />
 		</RNHostView>
 	)
 }

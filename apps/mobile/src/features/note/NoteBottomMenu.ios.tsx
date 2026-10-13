@@ -2,11 +2,12 @@ import { Host } from "@expo/ui"
 import { Button, Divider, Image, Menu } from "@expo/ui/swift-ui"
 import {
 	accessibilityLabel,
+	buttonBorderShape,
 	buttonStyle,
+	controlSize,
 	font,
 	foregroundStyle,
-	frame,
-	glassEffect,
+	padding,
 } from "@expo/ui/swift-ui/modifiers"
 import { Fragment } from "react"
 import { StyleSheet, View } from "react-native"
@@ -25,16 +26,18 @@ export function NoteBottomMenu({ groups }: NoteBottomMenuProps) {
 				<Menu
 					label={
 						<Image
-							modifiers={[
-								font({ size: 20, weight: "medium" }),
-								foregroundStyle(colors.label),
-								frame({ height: 52, width: 52 }),
-								glassEffect({ glass: { interactive: true, variant: "regular" }, shape: "circle" }),
-							]}
+							modifiers={[font({ size: 20, weight: "medium" })]}
 							systemName={NOTE_BOTTOM_MENU_ICON.sf}
 						/>
 					}
-					modifiers={[buttonStyle("plain"), accessibilityLabel(NOTE_BOTTOM_MENU_LABEL)]}
+					modifiers={[
+						buttonStyle("glass"),
+						buttonBorderShape("circle"),
+						controlSize("extraLarge"),
+						foregroundStyle(colors.label),
+						padding({ all: 6 }),
+						accessibilityLabel(NOTE_BOTTOM_MENU_LABEL),
+					]}
 				>
 					{groups.map((group, groupIndex) => (
 						<Fragment key={group[0]?.key ?? groupIndex}>

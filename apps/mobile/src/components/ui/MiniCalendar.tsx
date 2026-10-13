@@ -2,7 +2,7 @@ import { addMonths, parseIsoDate, toIsoDate } from "@cortex/tasks"
 import { useMemo } from "react"
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 const IS_IOS = Platform.OS === "ios"
@@ -111,7 +111,7 @@ export function MiniCalendar({
 								onPress={() => onChangeMonth(addMonths(month, -1, 1))}
 								style={({ pressed }) => [styles.navButton, { opacity: pressed ? 0.5 : 1 }]}
 							>
-								<Symbol
+								<SymbolIcon
 									color={colors.tint}
 									name={{ sf: "chevron.left", md: "chevron_left" }}
 									size={20}
@@ -123,7 +123,7 @@ export function MiniCalendar({
 								onPress={() => onChangeMonth(addMonths(month, 1, 1))}
 								style={({ pressed }) => [styles.navButton, { opacity: pressed ? 0.5 : 1 }]}
 							>
-								<Symbol
+								<SymbolIcon
 									color={colors.tint}
 									name={{ sf: "chevron.right", md: "chevron_right" }}
 									size={20}

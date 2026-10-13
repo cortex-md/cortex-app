@@ -10,7 +10,9 @@ import {
 } from "@expo/ui/swift-ui"
 import {
 	accessibilityLabel,
+	buttonBorderShape,
 	buttonStyle,
+	controlSize,
 	font,
 	foregroundStyle,
 	frame,
@@ -33,7 +35,7 @@ export function KeyboardToolbar({ actions, more, onHideKeyboard }: KeyboardToolb
 		foregroundStyle(colors.label),
 		frame({ height: BUTTON_SIZE, width: BUTTON_SIZE }),
 	]
-	const glass = glassEffect({ glass: { interactive: true, variant: "regular" }, shape: "capsule" })
+	const glass = glassEffect({ glass: { variant: "regular" }, shape: "capsule" })
 
 	return (
 		<Host colorScheme={scheme} matchContents={{ vertical: true }} style={styles.host}>
@@ -70,17 +72,16 @@ export function KeyboardToolbar({ actions, more, onHideKeyboard }: KeyboardToolb
 					</HStack>
 					<Spacer />
 					<Button
-						modifiers={[buttonStyle("plain"), accessibilityLabel("Hide keyboard")]}
+						modifiers={[
+							buttonStyle("glass"),
+							buttonBorderShape("circle"),
+							controlSize("large"),
+							foregroundStyle(colors.label),
+							accessibilityLabel("Hide keyboard"),
+						]}
 						onPress={onHideKeyboard}
 					>
-						<Image
-							modifiers={[
-								...iconModifiers,
-								padding({ all: 3 }),
-								glassEffect({ glass: { interactive: true, variant: "regular" }, shape: "circle" }),
-							]}
-							systemName={HIDE_KEYBOARD_ICON.sf}
-						/>
+						<Image systemName={HIDE_KEYBOARD_ICON.sf} />
 					</Button>
 				</HStack>
 			</GlassEffectContainer>

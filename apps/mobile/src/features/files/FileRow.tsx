@@ -6,7 +6,7 @@ import ReanimatedSwipeable, {
 } from "react-native-gesture-handler/ReanimatedSwipeable"
 
 import type { MenuGroup } from "@/components/ui/menuTypes"
-import { Symbol, type SymbolName } from "@/components/ui/Symbol"
+import { SymbolIcon, type SymbolName } from "@/components/ui/Symbol"
 import { EntryContextMenu } from "@/features/file-explorer/EntryContextMenu"
 import { useMobileColors } from "@/hooks/useMobileColors"
 import { triggerSelectionHaptic } from "@/utils/haptics"
@@ -41,7 +41,7 @@ export function FolderRow({
 						{ backgroundColor: pressed && IS_IOS ? colors.hover : colors.cell },
 					]}
 				>
-					<Symbol
+					<SymbolIcon
 						color={colors.tint}
 						name={{ sf: "folder", md: "folder" }}
 						size={IS_IOS ? 22 : 24}
@@ -52,7 +52,7 @@ export function FolderRow({
 					{value ? (
 						<Text style={[styles.value, { color: colors.secondaryLabel }]}>{value}</Text>
 					) : null}
-					<Symbol
+					<SymbolIcon
 						color={colors.tertiaryLabel}
 						name={{ sf: "chevron.right", md: "chevron_right" }}
 						size={IS_IOS ? 13 : 24}
@@ -83,7 +83,7 @@ function SwipeAction({
 			onPress={onPress}
 			style={[styles.action, { backgroundColor: background }]}
 		>
-			<Symbol color={foreground} name={icon} size={22} />
+			<SymbolIcon color={foreground} name={icon} size={22} />
 			<Text style={[styles.actionLabel, { color: foreground }]}>{label}</Text>
 		</Pressable>
 	)
@@ -159,7 +159,7 @@ export function NoteRow({
 							{ backgroundColor: pressed && IS_IOS ? colors.hover : colors.cell },
 						]}
 					>
-						<Symbol
+						<SymbolIcon
 							color={colors.secondaryLabel}
 							name={{ sf: "doc.text", md: "description" }}
 							size={IS_IOS ? 22 : 24}
@@ -178,7 +178,7 @@ export function NoteRow({
 							) : null}
 						</View>
 						{bookmarked ? (
-							<Symbol
+							<SymbolIcon
 								color={colors.tint}
 								name={{ sf: "bookmark.fill", md: "bookmark" }}
 								size={16}

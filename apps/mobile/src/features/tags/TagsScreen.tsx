@@ -5,7 +5,7 @@ import { ActivityIndicator, FlatList, Platform, StyleSheet, Text, View } from "r
 
 import { EmptyState } from "@/components/ui/EmptyState"
 import { NativeMenu } from "@/components/ui/NativeMenu"
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import { openTagPage } from "@/features/navigation/routes"
 import { ListCell, ListSectionHeader, listCellStyles } from "@/features/search/ListCell"
 import { RowContextMenu } from "@/features/search/RowContextMenu"
@@ -148,7 +148,7 @@ export function TagsScreen() {
 								<Text style={[listCellStyles.value, { color: colors.secondaryLabel }]}>
 									{String(item.count)}
 								</Text>
-								<Symbol
+								<SymbolIcon
 									color={colors.tertiaryLabel}
 									name={{ md: "chevron_right", sf: "chevron.right" }}
 									size={IS_IOS ? 13 : 24}

@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/ui/EmptyState"
 import { HeaderIconButton } from "@/components/ui/HeaderIconButton"
 import type { MenuGroup } from "@/components/ui/menuTypes"
 import { NativeMenu } from "@/components/ui/NativeMenu"
-import { Symbol } from "@/components/ui/Symbol"
+import { SymbolIcon } from "@/components/ui/Symbol"
 import {
 	dismissSheet,
 	openNote,
@@ -54,7 +54,7 @@ function TabRow({
 					{ backgroundColor: pressed && IS_IOS ? colors.hover : "transparent" },
 				]}
 			>
-				<Symbol
+				<SymbolIcon
 					color={active ? colors.tint : colors.secondaryLabel}
 					name={
 						tab.tabType === "view"
@@ -85,7 +85,7 @@ function TabRow({
 				onPress={onClose}
 				style={styles.close}
 			>
-				<Symbol
+				<SymbolIcon
 					color={colors.tertiaryLabel}
 					name={{ sf: "xmark.circle.fill", md: "close" }}
 					size={IS_IOS ? 20 : 22}
