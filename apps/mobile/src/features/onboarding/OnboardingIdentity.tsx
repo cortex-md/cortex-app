@@ -101,20 +101,20 @@ export function OnboardingIdentity({
 					style={[styles.swatches, IS_IOS ? { backgroundColor: colors.cell } : styles.swatchesAndroid]}
 				>
 					{colorOptions.map((option) => {
-						const selected = option.value === color
+						const selected = option.hex === color
 						return (
 							<Pressable
 								accessibilityLabel={option.label}
 								accessibilityRole="radio"
 								accessibilityState={{ checked: selected }}
 								key={option.label}
-								onPress={() => onChangeColor(option.value)}
+								onPress={() => onChangeColor(option.hex)}
 								style={[
 									styles.swatchRing,
 									{ borderColor: selected ? colors.tint : "transparent" },
 								]}
 							>
-								<View style={[styles.swatch, { backgroundColor: option.value }]}>
+								<View style={[styles.swatch, { backgroundColor: option.hex }]}>
 									{selected && !IS_IOS ? <Check color={colors.onTint} size={18} strokeWidth={2.6} /> : null}
 								</View>
 							</Pressable>

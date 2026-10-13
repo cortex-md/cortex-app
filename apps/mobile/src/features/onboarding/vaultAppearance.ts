@@ -16,18 +16,18 @@ export const vaultIconOptions: VaultIconOption[] = [
 
 export interface VaultColorOption {
 	label: string
-	value: string
+	hex: string
 }
 
 export function getVaultColorOptions(colors: MobileColors): VaultColorOption[] {
 	return [
-		{ label: "Rose", value: colors.tintFill },
-		{ label: "Blue", value: colors.headingBlue },
-		{ label: "Green", value: colors.swatchGreen },
-		{ label: "Yellow", value: colors.swatchYellow },
-		{ label: "Violet", value: colors.headingViolet },
-		{ label: "Red", value: colors.swatchRed },
-		{ label: "Graphite", value: colors.secondaryLabel },
+		{ label: "Rose", hex: colors.tintFill },
+		{ label: "Blue", hex: colors.headingBlue },
+		{ label: "Green", hex: colors.swatchGreen },
+		{ label: "Yellow", hex: colors.swatchYellow },
+		{ label: "Violet", hex: colors.headingViolet },
+		{ label: "Red", hex: colors.swatchRed },
+		{ label: "Graphite", hex: colors.secondaryLabel },
 	]
 }
 

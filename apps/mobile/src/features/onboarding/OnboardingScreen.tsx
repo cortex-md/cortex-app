@@ -75,7 +75,7 @@ export function OnboardingScreen({
 	const [folderPath, setFolderPath] = useState(initialFolder?.path ?? null)
 	const [name, setName] = useState(initialFolder?.defaultName ?? DEFAULT_VAULT_NAME)
 	const [icon, setIcon] = useState(vaultIconOptions[0].icon)
-	const [color, setColor] = useState(() => getVaultColorOptions(colors)[0].value)
+	const [color, setColor] = useState(() => getVaultColorOptions(colors)[0].hex)
 	const [preferences, setPreferences] = useState<SyncPreferences>(() =>
 		createDefaultSyncPreferences(),
 	)
