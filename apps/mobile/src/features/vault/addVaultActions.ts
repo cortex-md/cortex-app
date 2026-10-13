@@ -1,7 +1,6 @@
 import {
 	createDefaultSyncPreferences,
-	formatVaultPath,
-	getErrorMessage,
+	createVaultFolder,
 	linkVaultFolder,
 	registerVaultFolder,
 	resolvePickedFolder,
@@ -15,11 +14,9 @@ import {
 	localVaultName,
 	type PickedVaultFolder,
 } from "@/features/vault/addVaultState"
-import {
-	createLocalVaultFolder,
-	protectRemoteVault,
-	unlockRemoteVault,
-} from "@/features/vault/vaultSyncAdapter"
+import { showVaultError } from "@/features/vault/vaultErrors"
+import { protectRemoteVault, unlockRemoteVault } from "@/features/vault/vaultSyncAdapter"
+import { getMobileVaultFolderName } from "@/platform/vaultAccess"
 
 export type AddVaultPatch = (patch: Partial<AddVaultState>) => void
 
@@ -29,51 +26,34 @@ export type PickFolderResult =
 	| { kind: "cancelled" }
 
 export async function pickVaultFolder(patch: AddVaultPatch): Promise<PickFolderResult> {
-	patch({ busy: true, error: null })
+	patch({ busy: true })
 	try {
 		const folderPath = await getPlatform().dialog.pickFolder()
 		if (!folderPath) return { kind: "cancelled" }
 		const picked = await resolvePickedFolder(folderPath)
 		if (picked.kind === "existing") return { entry: picked.entry, kind: "existing" }
-		const files = await getPlatform()
-			.vault.scanVault(folderPath)
-			.catch(() => [])
-		const noteCount = files.filter((file) => !file.isDir && file.path.endsWith(".md")).length
-		const folder = { name: picked.defaultName, noteCount, path: folderPath }
-		patch({ folder })
+		const name = (await getMobileVaultFolderName(folderPath)) ?? ""
+		const folder = { name, path: folderPath }
+		patch({ folder, name, path: "open" })
 		return { folder, kind: "picked" }
 	} catch (error) {
-		patch({ error: getErrorMessage(error) })
+		showVaultError("Couldn't open the folder", error)
 		return { kind: "cancelled" }
 	} finally {
 		patch({ busy: false })
 	}
 }
 
-export async function pickParentFolder(patch: AddVaultPatch): Promise<void> {
-	try {
-		const parentPath = await getPlatform().dialog.pickFolder()
-		if (parentPath) patch({ parentPath })
-	} catch (error) {
-		patch({ error: getErrorMessage(error) })
-	}
-}
-
-export function describeLocation(state: AddVaultState, defaultLabel: string): string {
-	const parent = state.parentPath ? formatVaultPath(state.parentPath) : defaultLabel
-	const name = localVaultName(state)
-	return name ? `${parent} › ${name}` : parent
-}
-
-async function ensureEntry(state: AddVaultState, patch: AddVaultPatch): Promise<VaultRegistryEntry> {
+async function ensureEntry(
+	state: AddVaultState,
+	patch: AddVaultPatch,
+): Promise<VaultRegistryEntry> {
 	if (state.entry) return state.entry
-	const name = localVaultName(state)
+	const name = localVaultName(state) || "Vault"
 	const folderPath =
-		state.path === "open" && state.folder
-			? state.folder.path
-			: await createLocalVaultFolder(state.parentPath, name)
+		state.path === "open" && state.folder ? state.folder.path : await createVaultFolder(null, name)
 	const entry = await registerVaultFolder(folderPath, {
-		color: state.path === "create" ? state.color : null,
+		color: state.path === "download" ? null : state.color,
 		name,
 		syncPreferences: createDefaultSyncPreferences(),
 	})
@@ -81,24 +61,31 @@ async function ensureEntry(state: AddVaultState, patch: AddVaultPatch): Promise<
 	return entry
 }
 
-export async function finishLocalVault(state: AddVaultState, patch: AddVaultPatch): Promise<void> {
-	patch({ busy: true, error: null, mode: "keep" })
+export async function finishLocalVault(
+	state: AddVaultState,
+	patch: AddVaultPatch,
+): Promise<boolean> {
+	patch({ busy: true, mode: "keep" })
 	try {
 		await ensureEntry(state, patch)
-		patch({ step: "done" })
+		return true
 	} catch (error) {
-		patch({ error: getErrorMessage(error) })
+		showVaultError("Couldn't add the vault", error)
+		return false
 	} finally {
 		patch({ busy: false })
 	}
 }
 
-export async function finishSyncedVault(state: AddVaultState, patch: AddVaultPatch): Promise<void> {
-	patch({ busy: true, error: null })
+export async function finishSyncedVault(
+	state: AddVaultState,
+	patch: AddVaultPatch,
+): Promise<boolean> {
+	patch({ busy: true })
 	try {
 		const entry = await ensureEntry(state, patch)
 		let remoteVaultId = state.remoteId
-		if (!remoteVaultId) return
+		if (!remoteVaultId) return false
 		if (isNewRemote(state)) {
 			const name = state.newRemoteName.trim() || localVaultName(state)
 			const created = await useRemoteVaultStore.getState().createRemoteVault(name, null)
@@ -109,9 +96,11 @@ export async function finishSyncedVault(state: AddVaultState, patch: AddVaultPat
 			await unlockRemoteVault(remoteVaultId, state.password)
 		}
 		await linkVaultFolder(entry.path, remoteVaultId)
-		patch({ confirm: "", password: "", step: "done" })
+		patch({ confirm: "", password: "" })
+		return true
 	} catch (error) {
-		patch({ error: getErrorMessage(error) })
+		showVaultError("Couldn't set up sync", error)
+		return false
 	} finally {
 		patch({ busy: false })
 	}

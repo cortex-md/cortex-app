@@ -4,16 +4,25 @@ import {
 	getErrorMessage,
 	openLastVault,
 	startAppRuntime,
+	useVaultStore,
 } from "@cortex/core"
 import { useHotkeysStore } from "@cortex/hotkeys"
 import { useEffect, useState } from "react"
 import { AppState } from "react-native"
 
 import { startMobileThemeSync } from "@/features/themes/themeSync"
+import { cleanErrorMessage } from "@/features/vault/vaultErrors"
+import { getMobileVaultAccess } from "@/platform/vaultAccess"
 
 export interface MobileRuntimeState {
 	ready: boolean
 	startupError: string | null
+}
+
+async function describeStartupError(error: unknown): Promise<string | null> {
+	const lastVault = useVaultStore.getState().recentVaults[0]
+	if (lastVault && (await getMobileVaultAccess(lastVault.path)) === "needsAccess") return null
+	return cleanErrorMessage(getErrorMessage(error))
 }
 
 export function useMobileRuntime(): MobileRuntimeState {
@@ -35,7 +44,7 @@ export function useMobileRuntime(): MobileRuntimeState {
 			.then(openLastVault)
 			.then(
 				() => null,
-				(error: unknown) => getErrorMessage(error),
+				(error: unknown) => describeStartupError(error),
 			)
 			.then((startupError) => {
 				if (!canceled) setState({ ready: true, startupError })

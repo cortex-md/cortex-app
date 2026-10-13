@@ -1,36 +1,27 @@
-import { BookOpen, Folder, type LucideIcon, Sparkles } from "lucide-react-native"
+import { VAULT_COLORS } from "@cortex/core"
 
-import type { MobileColors } from "@/theme/colors"
+import type { SymbolName } from "@/components/ui/Symbol"
+import type { FormPickerOption } from "@/features/onboarding/formControlTypes"
 
-export interface VaultIconOption {
-	Icon: LucideIcon
-	icon: string
-	label: string
+export interface VaultIconOption extends FormPickerOption<string> {
+	symbol: SymbolName
 }
 
 export const vaultIconOptions: VaultIconOption[] = [
-	{ Icon: BookOpen, icon: "book-open", label: "Book" },
-	{ Icon: Folder, icon: "folder", label: "Folder" },
-	{ Icon: Sparkles, icon: "sparkles", label: "Spark" },
+	{ label: "Book", symbol: { md: "menu_book", sf: "book" }, value: "book-open" },
+	{ label: "Folder", symbol: { md: "folder", sf: "folder" }, value: "folder" },
+	{ label: "Spark", symbol: { md: "auto_awesome", sf: "sparkles" }, value: "sparkles" },
 ]
 
-export interface VaultColorOption {
-	label: string
-	hex: string
-}
+const vaultColorLabels = ["Rose", "Amber", "Green", "Teal", "Sky", "Violet", "Slate"]
 
-export function getVaultColorOptions(colors: MobileColors): VaultColorOption[] {
-	return [
-		{ label: "Rose", hex: colors.tintFill },
-		{ label: "Blue", hex: colors.headingBlue },
-		{ label: "Green", hex: colors.swatchGreen },
-		{ label: "Yellow", hex: colors.swatchYellow },
-		{ label: "Violet", hex: colors.headingViolet },
-		{ label: "Red", hex: colors.swatchRed },
-		{ label: "Graphite", hex: colors.secondaryLabel },
-	]
-}
+export const vaultColorOptions: FormPickerOption<string>[] = VAULT_COLORS.map((value, index) => ({
+	label: vaultColorLabels[index] ?? value,
+	value,
+}))
 
-export function findVaultIcon(icon: string): VaultIconOption {
-	return vaultIconOptions.find((option) => option.icon === icon) ?? vaultIconOptions[0]
+export const DEFAULT_VAULT_COLOR: string = VAULT_COLORS[0]
+
+export function findVaultIcon(icon: string | null | undefined): VaultIconOption {
+	return vaultIconOptions.find((option) => option.value === icon) ?? vaultIconOptions[0]
 }

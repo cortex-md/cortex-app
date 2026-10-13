@@ -1,94 +1,105 @@
-import { BottomSheet, Column, Host, ListItem, Text } from "@expo/ui"
-import { EllipsisVertical } from "lucide-react-native"
-import { Fragment } from "react"
-import { Pressable, StyleSheet, View } from "react-native"
+import {
+	DropdownMenu,
+	DropdownMenuItem,
+	HorizontalDivider,
+	ListItem,
+	RNHostView,
+	Text,
+} from "@expo/ui/jetpack-compose"
+import { clickable } from "@expo/ui/jetpack-compose/modifiers"
+import { Fragment, useState } from "react"
+import { StyleSheet, View } from "react-native"
 
+import { Symbol } from "@/components/ui/Symbol"
 import type { VaultActionsMenuProps } from "@/features/vault/vaultActionsTypes"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
-export function VaultActionsMenu({
-	accessibilityLabel,
-	groups,
-	message,
-	onPresentedChange,
-	presented,
-	title,
-}: VaultActionsMenuProps) {
+export function VaultActionsMenu({ color, groups, subtitle, title, value }: VaultActionsMenuProps) {
 	const { colors } = useMobileColors()
+	const [expanded, setExpanded] = useState(false)
+	const supporting = [subtitle, value].filter(Boolean).join(" · ")
 	return (
-		<>
-			<Pressable
-				accessibilityLabel={accessibilityLabel}
-				accessibilityRole="button"
-				android_ripple={{ borderless: true, color: colors.hover }}
-				onPress={() => onPresentedChange(true)}
-				style={styles.anchor}
-			>
-				<EllipsisVertical color={colors.secondaryLabel} size={24} strokeWidth={2} />
-			</Pressable>
-			<View style={styles.sheetHost}>
-				<Host>
-					<BottomSheet
-						containerColor={colors.elevated}
-						isPresented={presented}
-						onDismiss={() => onPresentedChange(false)}
-						showDragIndicator
-					>
-						<Column spacing={4}>
-							<ListItem
-								colors={{
-									containerColor: colors.elevated,
-									contentColor: colors.label,
-									supportingContentColor: colors.secondaryLabel,
-								}}
-								supportingText={message}
-							>
-								<Text textStyle={{ color: colors.label, fontWeight: "600" }}>{title}</Text>
-							</ListItem>
-							{groups.map((group, groupIndex) => (
-								<Fragment key={groupIndex}>
-									{group.map((item) => {
-										const ItemIcon = item.icon?.Lucide
-										const color = item.destructive ? colors.destructiveText : colors.label
-										return (
-											<ListItem
-												colors={{ containerColor: colors.elevated, contentColor: color }}
-												key={item.key}
-												leading={
-													ItemIcon ? <ItemIcon color={color} size={24} strokeWidth={2} /> : undefined
-												}
-												onPress={
-													item.disabled
-														? undefined
-														: () => {
-																onPresentedChange(false)
-																item.onPress()
-															}
-												}
-											>
-												<Text textStyle={{ color }}>{item.label}</Text>
-											</ListItem>
-										)
-									})}
-								</Fragment>
-							))}
-						</Column>
-					</BottomSheet>
-				</Host>
-			</View>
-		</>
+		<DropdownMenu
+			color={colors.elevated}
+			expanded={expanded}
+			onDismissRequest={() => setExpanded(false)}
+		>
+			<DropdownMenu.Trigger>
+				<ListItem
+					colors={{
+						containerColor: colors.cell,
+						contentColor: colors.label,
+						supportingContentColor: colors.secondaryLabel,
+						trailingContentColor: colors.secondaryLabel,
+					}}
+					modifiers={[clickable(() => setExpanded(true))]}
+				>
+					<ListItem.HeadlineContent>
+						<Text>{title}</Text>
+					</ListItem.HeadlineContent>
+					{supporting ? (
+						<ListItem.SupportingContent>
+							<Text>{supporting}</Text>
+						</ListItem.SupportingContent>
+					) : null}
+					<ListItem.LeadingContent>
+						<RNHostView matchContents>
+							<View style={[styles.dot, { backgroundColor: color }]} />
+						</RNHostView>
+					</ListItem.LeadingContent>
+					<ListItem.TrailingContent>
+						<RNHostView matchContents>
+							<Symbol
+								color={colors.secondaryLabel}
+								name={{ md: "more_vert", sf: "ellipsis" }}
+								size={24}
+							/>
+						</RNHostView>
+					</ListItem.TrailingContent>
+				</ListItem>
+			</DropdownMenu.Trigger>
+			<DropdownMenu.Items>
+				{groups.map((group, groupIndex) => (
+					<Fragment key={groupIndex}>
+						{groupIndex > 0 ? <HorizontalDivider color={colors.separator} /> : null}
+						{group.map((item) => {
+							const itemColor = item.destructive ? colors.destructiveText : colors.label
+							return (
+								<DropdownMenuItem
+									elementColors={{ leadingIconColor: itemColor, textColor: itemColor }}
+									enabled={!item.disabled}
+									key={item.key}
+									onClick={() => {
+										setExpanded(false)
+										item.onPress()
+									}}
+								>
+									<DropdownMenuItem.Text>
+										<Text color={String(itemColor)} style={{ typography: "bodyLarge" }}>
+											{item.label}
+										</Text>
+									</DropdownMenuItem.Text>
+									{item.icon ? (
+										<DropdownMenuItem.LeadingIcon>
+											<RNHostView matchContents>
+												<Symbol color={itemColor} name={item.icon} size={24} />
+											</RNHostView>
+										</DropdownMenuItem.LeadingIcon>
+									) : null}
+								</DropdownMenuItem>
+							)
+						})}
+					</Fragment>
+				))}
+			</DropdownMenu.Items>
+		</DropdownMenu>
 	)
 }
 
 const styles = StyleSheet.create({
-	anchor: {
-		alignItems: "center",
-		height: 48,
-		justifyContent: "center",
-		width: 48,
-	},
-	sheetHost: {
-		height: 0,
-		width: 0,
+	dot: {
+		borderRadius: 999,
+		height: 12,
+		width: 12,
 	},
 })

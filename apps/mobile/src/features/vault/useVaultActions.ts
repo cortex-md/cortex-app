@@ -13,18 +13,6 @@ import {
 	type VaultListItem,
 } from "@cortex/core"
 import type { RemoteVaultInfo } from "@cortex/platform"
-import {
-	CloudDownload,
-	FolderOpen,
-	FolderSearch,
-	ListX,
-	LogOut,
-	Play,
-	RefreshCw,
-	Settings2,
-	Trash2,
-	Unlink,
-} from "lucide-react-native"
 import { useCallback, useRef, useState } from "react"
 
 import type { ImpactCell } from "@/components/ui/dialogTypes"
@@ -34,7 +22,10 @@ import { openSettings, presentSheet } from "@/features/navigation/routes"
 import { DEVICE_LABEL } from "@/features/vault/useVaultListItems"
 import { useVaultSwitcher } from "@/features/vault/useVaultSwitcher"
 import { vaultServerLabel } from "@/features/vault/vaultStatus"
-import { locateVaultFolder, showVaultInFiles } from "@/features/vault/vaultSyncAdapter"
+import type { MobileVaultAccess } from "@/features/vault/vaultAccess"
+import { showVaultError } from "@/features/vault/vaultErrors"
+import { locateVaultFolder } from "@/features/vault/vaultSyncAdapter"
+import { reauthorizeMobileVault } from "@/platform/vaultAccess"
 
 export interface PendingConfirm {
 	impact: VaultImpact
@@ -129,23 +120,26 @@ export function useVaultActions(refresh: () => void, server: string) {
 		}
 	}
 
-	const showInFiles = async (vaultItem: VaultListItem) => {
+	const reauthorize = async (vaultItem: VaultListItem) => {
 		try {
-			await showVaultInFiles(vaultItem.entry)
-			toast("Shown in Files")
+			if (await reauthorizeMobileVault(vaultItem.entry.path)) refresh()
 		} catch (error) {
-			toast(getErrorMessage(error))
+			showVaultError(`Couldn't reauthorize “${vaultItem.entry.name}”`, error)
 		}
 	}
 
-	const localMenu = (vaultItem: VaultListItem, remote: RemoteVaultInfo | null): MenuGroup[] => {
+	const localMenu = (
+		vaultItem: VaultListItem,
+		remote: RemoteVaultInfo | null,
+		access?: MobileVaultAccess,
+	): MenuGroup[] => {
 		const isCurrent = vaultItem.entry.uuid === currentUuid
 		const itemServer = vaultServerLabel(vaultItem)
 		const name = vaultItem.entry.name
 		const removeItem = item(
 			"remove",
 			vaultItem.status === "missing" ? "Remove from list" : "Remove from list…",
-			{ sf: "minus.circle", Lucide: ListX },
+			{ md: "playlist_remove", sf: "minus.circle" },
 			() =>
 				vaultItem.status === "missing"
 					? forget(vaultItem)
@@ -155,8 +149,11 @@ export function useVaultActions(refresh: () => void, server: string) {
 		if (vaultItem.status === "missing") {
 			return [
 				[
-					item("locate", "Locate folder…", { sf: "folder.badge.questionmark", Lucide: FolderSearch }, () =>
-						void locate(vaultItem),
+					item(
+						"locate",
+						"Locate folder…",
+						{ md: "folder_open", sf: "folder.badge.questionmark" },
+						() => void locate(vaultItem),
 					),
 				],
 				[removeItem],
@@ -164,17 +161,35 @@ export function useVaultActions(refresh: () => void, server: string) {
 		}
 		const openItem = isCurrent
 			? []
-			: [item("open", "Open", { sf: "arrow.right.circle", Lucide: Play }, () => void open(vaultItem))]
-		const showItem = item("show", "Show in Files", { sf: "folder", Lucide: FolderOpen }, () =>
-			void showInFiles(vaultItem),
-		)
+			: [
+					item(
+						"open",
+						"Open",
+						{ md: "arrow_forward", sf: "arrow.right.circle" },
+						() => void open(vaultItem),
+					),
+				]
+		const accessItems =
+			access === "needsAccess"
+				? [
+						item(
+							"reauthorize",
+							"Reauthorize…",
+							{ md: "lock_open", sf: "lock.open" },
+							() => void reauthorize(vaultItem),
+						),
+					]
+				: []
 		if (vaultItem.status === "local") {
 			return [
 				[
 					...openItem,
-					showItem,
-					item("start-sync", "Start syncing…", { sf: "arrow.triangle.2.circlepath", Lucide: RefreshCw }, () =>
-						openSettings("sync/link", { vaultPath: vaultItem.entry.path }),
+					...accessItems,
+					item(
+						"start-sync",
+						"Start syncing…",
+						{ md: "sync", sf: "arrow.triangle.2.circlepath" },
+						() => openSettings("sync/link", { vaultPath: vaultItem.entry.path }),
 					),
 				],
 				[removeItem],
@@ -183,8 +198,8 @@ export function useVaultActions(refresh: () => void, server: string) {
 		return [
 			[
 				...openItem,
-				showItem,
-				item("sync-settings", "Sync settings…", { sf: "gearshape", Lucide: Settings2 }, () =>
+				...accessItems,
+				item("sync-settings", "Sync settings…", { md: "settings", sf: "gearshape" }, () =>
 					openSettings("sync/link", { vaultPath: vaultItem.entry.path }),
 				),
 			],
@@ -192,7 +207,7 @@ export function useVaultActions(refresh: () => void, server: string) {
 				item(
 					"stop-sync",
 					"Stop syncing…",
-					{ sf: "xmark.icloud", Lucide: Unlink },
+					{ md: "link_off", sf: "xmark.icloud" },
 					() =>
 						confirm(unlinkImpact(name, remote?.name ?? name, itemServer, DEVICE_LABEL), () =>
 							unlink(vaultItem),
@@ -205,15 +220,18 @@ export function useVaultActions(refresh: () => void, server: string) {
 	}
 
 	const remoteMenu = (remote: RemoteVaultInfo): MenuGroup[] => {
-		const download = item("download", "Download…", { sf: "icloud.and.arrow.down", Lucide: CloudDownload }, () =>
-			presentSheet("add-vault", { remoteVaultId: remote.id, start: "download" }),
+		const download = item(
+			"download",
+			"Download…",
+			{ md: "cloud_download", sf: "icloud.and.arrow.down" },
+			() => presentSheet("add-vault", { remoteVaultId: remote.id, start: "download" }),
 		)
 		const destructive =
 			remote.role === "owner"
 				? item(
 						"delete",
 						`Delete from ${server}…`,
-						{ sf: "trash", Lucide: Trash2 },
+						{ md: "delete", sf: "trash" },
 						() =>
 							confirm(
 								deleteImpact(remote.name, server, remote.memberCount ?? 1, DEVICE_LABEL),
@@ -226,7 +244,7 @@ export function useVaultActions(refresh: () => void, server: string) {
 				: item(
 						"leave",
 						"Leave vault…",
-						{ sf: "rectangle.portrait.and.arrow.right", Lucide: LogOut },
+						{ md: "logout", sf: "rectangle.portrait.and.arrow.right" },
 						() =>
 							confirm(leaveImpact(remote.name, server, DEVICE_LABEL), async () => {
 								await leaveRemoteVault(remote.id)

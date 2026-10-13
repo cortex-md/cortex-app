@@ -11,12 +11,16 @@ import { Directory, Paths } from "expo-file-system"
 
 import { normalizeUri } from "./appStorage"
 import { isNotFoundError } from "./errors"
+import { isMobileVaultLogicalPath } from "./mobile-vault-paths"
 import { readOptionalTextFile, readTextFile, writeTextFile } from "./fs"
 import { normalizeFileEntry, resolveLogicalDirectory, routeStoragePath } from "./pathResolver"
 import { vaultRegistryApi } from "./registry"
 import {
+	createInternalVaultRoot,
 	findMobileVaultRootByPath,
 	getDirectoryName,
+	getMobileVaultAccess,
+	getRootFolderName,
 	listDirectoryEntries,
 	type MobileVaultRootRecord,
 	rememberActualUri,
@@ -99,9 +103,10 @@ async function describeVault(path: string, countFiles: boolean): Promise<VaultMe
 		{
 			vault: async (logicalPath) => {
 				const root = await findMobileVaultRootByPath(logicalPath)
+				const folderName = getRootFolderName(root)
 				return {
-					displayPath: root.displayPath,
-					folderName: getDirectoryName(root.directoryUri),
+					displayPath: folderName,
+					folderName,
 					vaultPath: root.logicalPath,
 				}
 			},
@@ -110,26 +115,42 @@ async function describeVault(path: string, countFiles: boolean): Promise<VaultMe
 				if (!info.exists || !info.isDirectory) {
 					throw new Error(`Vault path does not exist or is not a directory: ${path}`)
 				}
+				const folderName = getDirectoryName(appStoragePath)
 				return {
-					displayPath: appStoragePath.replace(/^file:\/\//u, ""),
-					folderName: getDirectoryName(appStoragePath),
+					displayPath: folderName,
+					folderName,
 					vaultPath: appStoragePath,
 				}
 			},
 		},
 	)
 
-	const [uuid, name, fileCount] = await Promise.all([
+	const [uuid, storedName, fileCount] = await Promise.all([
 		readOrCreateVaultId(vaultPath, mobileVaultTextIo),
 		readVaultName(vaultPath, folderName),
 		countFiles ? countVaultFiles(vaultPath) : 0,
 	])
+	const name = storedName === uuid ? folderName : storedName
 	return { displayPath, fileCount, name, path: vaultPath, uuid }
 }
 
+async function createVaultFolder(parentPath: string | null, name: string): Promise<string> {
+	if (parentPath !== null) {
+		throw new Error("Cortex Mobile creates new vaults in its own storage.")
+	}
+	return createInternalVaultRoot(name)
+}
+
+async function pathExists(path: string): Promise<boolean> {
+	if (!isMobileVaultLogicalPath(path)) return Paths.info(path).exists
+	return (await getMobileVaultAccess(path)) !== "missing"
+}
+
 export const vaultApi = {
+	createVaultFolder,
 	getVaultMetadata: (path) => describeVault(path, true),
 	openVault: (path) => describeVault(path, false),
+	pathExists,
 	scanVault,
 	...vaultRegistryApi,
 } satisfies Platform["vault"]

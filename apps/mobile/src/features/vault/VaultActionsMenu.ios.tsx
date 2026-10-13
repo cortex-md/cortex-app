@@ -1,53 +1,75 @@
-import { Host } from "@expo/ui"
-import { Button, ConfirmationDialog, Image, Text } from "@expo/ui/swift-ui"
-import { foregroundStyle, frame } from "@expo/ui/swift-ui/modifiers"
+import { Button, Divider, HStack, Image, Menu, Spacer, Text, VStack } from "@expo/ui/swift-ui"
+import {
+	buttonStyle,
+	contentShape,
+	font,
+	foregroundStyle,
+	shapes,
+} from "@expo/ui/swift-ui/modifiers"
+import { Fragment } from "react"
 
 import type { VaultActionsMenuProps } from "@/features/vault/vaultActionsTypes"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 export function VaultActionsMenu({
 	accessibilityLabel,
+	color,
 	groups,
-	message,
-	onPresentedChange,
-	presented,
+	subtitle,
 	title,
+	value,
 }: VaultActionsMenuProps) {
 	const { colors } = useMobileColors()
 	return (
-		<Host matchContents>
-			<ConfirmationDialog
-				isPresented={presented}
-				onIsPresentedChange={onPresentedChange}
-				title={title}
-				titleVisibility="visible"
-			>
-				<ConfirmationDialog.Trigger>
-					<Button onPress={() => onPresentedChange(true)} testID={accessibilityLabel}>
-						<Image
-							modifiers={[frame({ height: 32, width: 32 }), foregroundStyle(colors.secondaryLabel)]}
-							systemName="ellipsis.circle"
-						/>
-					</Button>
-				</ConfirmationDialog.Trigger>
-				<ConfirmationDialog.Message>
-					<Text>{message}</Text>
-				</ConfirmationDialog.Message>
-				<ConfirmationDialog.Actions>
-					{groups.flat().map((item) => (
+		<Menu
+			label={
+				<HStack modifiers={[contentShape(shapes.rectangle())]} spacing={12}>
+					<Image color={color} size={12} systemName="circle.fill" />
+					<VStack alignment="leading" spacing={2}>
+						<Text modifiers={[foregroundStyle(colors.label)]}>{title}</Text>
+						{subtitle ? (
+							<Text
+								modifiers={[
+									font({ textStyle: "footnote" }),
+									foregroundStyle({ type: "hierarchical", style: "secondary" }),
+								]}
+							>
+								{subtitle}
+							</Text>
+						) : null}
+					</VStack>
+					<Spacer />
+					{value ? (
+						<Text modifiers={[foregroundStyle({ type: "hierarchical", style: "secondary" })]}>
+							{value}
+						</Text>
+					) : null}
+					<Image
+						modifiers={[
+							font({ size: 13, weight: "semibold" }),
+							foregroundStyle({ type: "hierarchical", style: "tertiary" }),
+						]}
+						systemName="ellipsis"
+					/>
+				</HStack>
+			}
+			modifiers={[buttonStyle("plain")]}
+			testID={accessibilityLabel}
+		>
+			{groups.map((group, groupIndex) => (
+				<Fragment key={groupIndex}>
+					{groupIndex > 0 ? <Divider /> : null}
+					{group.map((item) => (
 						<Button
 							key={item.key}
 							label={item.label}
-							onPress={() => {
-								onPresentedChange(false)
-								item.onPress()
-							}}
+							onPress={item.disabled ? undefined : item.onPress}
 							role={item.destructive ? "destructive" : "default"}
+							systemImage={item.checked ? "checkmark" : item.icon?.sf}
 						/>
 					))}
-					<Button label="Cancel" onPress={() => onPresentedChange(false)} role="cancel" />
-				</ConfirmationDialog.Actions>
-			</ConfirmationDialog>
-		</Host>
+				</Fragment>
+			))}
+		</Menu>
 	)
 }

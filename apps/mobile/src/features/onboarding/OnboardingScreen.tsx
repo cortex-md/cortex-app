@@ -1,9 +1,7 @@
 import {
 	createDefaultSyncPreferences,
+	createVaultFolder,
 	createVaultFromFolder,
-	DEFAULT_VAULT_NAME,
-	getDefaultVaultName,
-	getErrorMessage,
 	getRegistryOpenOptions,
 	openVaultSession,
 	resolvePickedFolder,
@@ -12,47 +10,49 @@ import {
 } from "@cortex/core"
 import type { SyncPreferences, VaultRegistryEntry } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
-import { useState } from "react"
+import { useSettingsStore } from "@cortex/settings"
+import { type ReactNode, useState } from "react"
+import { Alert, Platform, StyleSheet, View } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { goToFilesRoot } from "@/features/navigation/routes"
 import { OnboardingIdentity } from "@/features/onboarding/OnboardingIdentity"
 import { OnboardingSync } from "@/features/onboarding/OnboardingSync"
 import { OnboardingWelcome } from "@/features/onboarding/OnboardingWelcome"
 import { SignInSheet } from "@/features/onboarding/SignInSheet"
-import { getVaultColorOptions, vaultIconOptions } from "@/features/onboarding/vaultAppearance"
+import { DEFAULT_VAULT_COLOR, vaultIconOptions } from "@/features/onboarding/vaultAppearance"
+import { openRegisteredVault, useVaultAccess } from "@/features/vault/vaultAccess"
+import { showVaultError } from "@/features/vault/vaultErrors"
 import { useMobileColors } from "@/hooks/useMobileColors"
+import { getMobileVaultFolderName } from "@/platform/vaultAccess"
 import { triggerSelectionHaptic } from "@/utils/haptics"
 
 type OnboardingStep = "welcome" | "identity" | "sync"
-type PickMode = "create" | "open"
 
 export interface PendingVaultFolder {
 	path: string
-	defaultName: string
+	name: string
 }
 
 interface OnboardingScreenProps {
 	startupError?: string | null
 	initialFolder?: PendingVaultFolder | null
-	onCancel?: () => void
 	onCreated?: () => void
-}
-
-interface OnboardingStatus {
-	error: string | null
-	submitting: boolean
+	renderChrome?: (title: string) => ReactNode
 }
 
 async function runOnboardingTask(
-	setStatus: (status: OnboardingStatus) => void,
+	setBusy: (busy: boolean) => void,
+	errorTitle: string,
 	task: () => Promise<void>,
 ): Promise<void> {
-	setStatus({ error: null, submitting: true })
+	setBusy(true)
 	try {
 		await task()
-		setStatus({ error: null, submitting: false })
 	} catch (error) {
-		setStatus({ error: getErrorMessage(error), submitting: false })
+		showVaultError(errorTitle, error)
+	} finally {
+		setBusy(false)
 	}
 }
 
@@ -62,29 +62,50 @@ async function persistVaultColor(uuid: string, color: string): Promise<void> {
 		.catch(() => undefined)
 }
 
+function confirmReauthorize(entry: VaultRegistryEntry, onConfirm: () => void): void {
+	Alert.alert(
+		`Reauthorize “${entry.name}”`,
+		`Choose the “${entry.name}” folder again so Cortex can open it.`,
+		[
+			{ style: "cancel", text: "Cancel" },
+			{ isPreferred: true, onPress: onConfirm, text: "Reauthorize" },
+		],
+	)
+}
+
+function confirmForgetMissing(entry: VaultRegistryEntry, onConfirm: () => void): void {
+	Alert.alert(`“${entry.name}” was not found`, "The vault folder is no longer on this device.", [
+		{ style: "cancel", text: "Cancel" },
+		{ onPress: onConfirm, style: "destructive", text: "Remove from list" },
+	])
+}
+
 export function OnboardingScreen({
 	startupError,
 	initialFolder,
-	onCancel,
 	onCreated,
+	renderChrome,
 }: OnboardingScreenProps) {
 	const { colors } = useMobileColors()
+	const insets = useSafeAreaInsets()
 	const firstRunOnboardingSeen = useAppStore((state) => state.firstRunOnboardingSeen)
 	const recentVaults = useVaultStore((state) => state.recentVaults)
+	const removeRecentVault = useVaultStore((state) => state.removeRecentVault)
 	const [step, setStep] = useState<OnboardingStep>(initialFolder ? "identity" : "welcome")
-	const [folderPath, setFolderPath] = useState(initialFolder?.path ?? null)
-	const [name, setName] = useState(initialFolder?.defaultName ?? DEFAULT_VAULT_NAME)
-	const [icon, setIcon] = useState(vaultIconOptions[0].icon)
-	const [color, setColor] = useState(() => getVaultColorOptions(colors)[0].hex)
+	const [folderPath, setFolderPath] = useState<string | null>(initialFolder?.path ?? null)
+	const [initialName, setInitialName] = useState(initialFolder?.name ?? "")
+	const [name, setName] = useState(initialFolder?.name ?? "")
+	const [icon, setIcon] = useState(vaultIconOptions[0].value)
+	const [color, setColor] = useState(DEFAULT_VAULT_COLOR)
 	const [preferences, setPreferences] = useState<SyncPreferences>(() =>
 		createDefaultSyncPreferences(),
 	)
-	const [status, setStatus] = useState<OnboardingStatus>({
-		error: startupError ?? null,
-		submitting: false,
-	})
+	const [busy, setBusy] = useState(false)
 	const [signInVisible, setSignInVisible] = useState(false)
+	const [accessGeneration, setAccessGeneration] = useState(0)
 	const visibleRecents = firstRunOnboardingSeen === false ? [] : recentVaults
+	const access = useVaultAccess(visibleRecents, accessGeneration)
+	const showTitle = !renderChrome
 
 	function finish() {
 		if (!onCreated) return
@@ -93,89 +114,139 @@ export function OnboardingScreen({
 	}
 
 	function openRecent(entry: VaultRegistryEntry) {
-		void runOnboardingTask(setStatus, async () => {
-			await openVaultSession(entry.path, getRegistryOpenOptions(entry))
-			finish()
+		void runOnboardingTask(setBusy, `Couldn't open “${entry.name}”`, async () => {
+			const opened = await openRegisteredVault(entry)
+			setAccessGeneration((value) => value + 1)
+			if (opened) finish()
 		})
 	}
 
-	function chooseFolder(mode: PickMode) {
+	function selectRecent(entry: VaultRegistryEntry) {
 		triggerSelectionHaptic()
-		void runOnboardingTask(setStatus, async () => {
+		const state = access.get(entry.uuid)
+		if (state === "needsAccess") {
+			confirmReauthorize(entry, () => openRecent(entry))
+			return
+		}
+		if (state === "missing") {
+			confirmForgetMissing(entry, () => void removeRecentVault(entry.uuid))
+			return
+		}
+		openRecent(entry)
+	}
+
+	function startCreate() {
+		triggerSelectionHaptic()
+		setFolderPath(null)
+		setInitialName("")
+		setName("")
+		setStep("identity")
+	}
+
+	function openFolder() {
+		triggerSelectionHaptic()
+		void runOnboardingTask(setBusy, "Couldn't open the folder", async () => {
 			const picked = await getPlatform().dialog.pickFolder()
 			if (!picked) return
-			if (mode === "open") {
-				const resolved = await resolvePickedFolder(picked)
-				if (resolved.kind === "existing") {
-					await openVaultSession(resolved.entry.path, getRegistryOpenOptions(resolved.entry))
-					finish()
-					return
-				}
-				setName(resolved.defaultName)
-			} else {
-				setName(await getDefaultVaultName(picked))
+			const resolved = await resolvePickedFolder(picked)
+			if (resolved.kind === "existing") {
+				await openVaultSession(resolved.entry.path, getRegistryOpenOptions(resolved.entry))
+				finish()
+				return
 			}
+			const folderName = (await getMobileVaultFolderName(picked)) ?? ""
 			setFolderPath(picked)
+			setInitialName(folderName)
+			setName(folderName)
 			setStep("identity")
 		})
 	}
 
 	function createVault() {
-		if (!folderPath) {
-			setStatus({ error: "Choose a folder before creating a vault.", submitting: false })
-			setStep("welcome")
+		const vaultName = name.trim()
+		if (!vaultName) {
+			setStep("identity")
 			return
 		}
-		void runOnboardingTask(setStatus, async () => {
-			const vault = await createVaultFromFolder(folderPath, {
+		void runOnboardingTask(setBusy, "Couldn't create the vault", async () => {
+			const path = folderPath ?? (await createVaultFolder(null, vaultName))
+			setFolderPath(path)
+			const vault = await createVaultFromFolder(path, {
 				icon,
-				name,
+				name: vaultName,
 				syncPreferences: preferences,
 			})
 			await persistVaultColor(vault.uuid, color)
+			if (!folderPath) {
+				await useSettingsStore.getState().updateSetting("editor", "showLineNumbers", false)
+			}
 			finish()
 		})
 	}
 
+	const title = step === "sync" ? "Sync preferences" : step === "identity" ? "New vault" : "Cortex"
+	let content: ReactNode
 	if (step === "identity") {
-		return (
+		content = (
 			<OnboardingIdentity
 				color={color}
+				fieldKey={folderPath ?? "new"}
 				icon={icon}
+				initialName={initialName}
 				name={name}
-				onBack={onCancel && initialFolder ? onCancel : () => setStep("welcome")}
+				onBack={initialFolder ? undefined : () => setStep("welcome")}
 				onChangeColor={setColor}
 				onChangeIcon={setIcon}
 				onChangeName={setName}
 				onContinue={() => setStep("sync")}
+				showTitle={showTitle}
 			/>
 		)
-	}
-
-	if (step === "sync") {
-		return (
+	} else if (step === "sync") {
+		content = (
 			<OnboardingSync
+				busy={busy}
 				onBack={() => setStep("identity")}
 				onChange={setPreferences}
 				onCreate={createVault}
 				preferences={preferences}
-				submitting={status.submitting}
+				showTitle={showTitle}
 			/>
+		)
+	} else {
+		content = (
+			<>
+				<OnboardingWelcome
+					access={access}
+					busy={busy}
+					notice={startupError ?? null}
+					onCreate={startCreate}
+					onOpen={openFolder}
+					onOpenRecent={selectRecent}
+					onSignIn={() => setSignInVisible(true)}
+					recentVaults={visibleRecents}
+				/>
+				<SignInSheet onClose={() => setSignInVisible(false)} visible={signInVisible} />
+			</>
 		)
 	}
 
 	return (
-		<>
-			<OnboardingWelcome
-				error={status.error}
-				onCreate={() => chooseFolder("create")}
-				onOpen={() => chooseFolder("open")}
-				onOpenRecent={openRecent}
-				onSignIn={() => setSignInVisible(true)}
-				recentVaults={visibleRecents}
-				submitting={status.submitting}
-			/>
-			<SignInSheet onClose={() => setSignInVisible(false)} visible={signInVisible} />
-		</>
+		<View
+			style={[
+				styles.root,
+				{ backgroundColor: colors.groupedBackground },
+				Platform.OS === "android" && showTitle ? { paddingTop: insets.top } : null,
+			]}
+		>
+			{renderChrome?.(title)}
+			{content}
+		</View>
 	)
 }
+
+const styles = StyleSheet.create({
+	root: {
+		flex: 1,
+	},
+})

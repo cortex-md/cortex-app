@@ -1,174 +1,143 @@
 import type { SyncPreferences } from "@cortex/platform"
-import { Host, Switch } from "@expo/ui"
-import {
-	Bookmark,
-	FileText,
-	Folder,
-	Image as ImageIcon,
-	LayoutDashboard,
-	type LucideIcon,
-	Plus,
-	SlidersHorizontal,
-	X,
-} from "lucide-react-native"
 import { useState } from "react"
-import { Platform, Pressable, ScrollView, StyleSheet, View } from "react-native"
+import { Alert, Platform } from "react-native"
 
-import { GroupedFooter, GroupedList, GroupedRow, GroupedSectionHeader } from "@/components/ui/GroupedList"
+import { FormRow, FormSection, FormToggle, NativeForm } from "@/components/ui/Form"
+import type { SymbolName } from "@/components/ui/Symbol"
 import { TextPromptDialog } from "@/components/ui/TextPromptDialog"
-import { OnboardingButton, OnboardingTitle, OnboardingTopBar } from "@/features/onboarding/OnboardingChrome"
-import { useMobileColors } from "@/hooks/useMobileColors"
-
-const IS_IOS = Platform.OS === "ios"
+import { FormButton, FormHeader } from "@/features/onboarding/FormControls"
 
 type ToggleKey = "ignoreImages" | "syncSettings" | "syncWorkspace" | "syncBookmarks"
 
-const toggleRows: { key: ToggleKey; label: string; Icon: LucideIcon }[] = [
-	{ Icon: ImageIcon, key: "ignoreImages", label: "Ignore images" },
-	{ Icon: SlidersHorizontal, key: "syncSettings", label: "Sync app settings" },
-	{ Icon: LayoutDashboard, key: "syncWorkspace", label: "Sync workspace layout" },
-	{ Icon: Bookmark, key: "syncBookmarks", label: "Sync bookmarks" },
+const toggleRows: { key: ToggleKey; label: string; icon: SymbolName }[] = [
+	{ icon: { md: "image", sf: "photo" }, key: "ignoreImages", label: "Ignore images" },
+	{
+		icon: { md: "tune", sf: "slider.horizontal.3" },
+		key: "syncSettings",
+		label: "Sync app settings",
+	},
+	{
+		icon: { md: "dashboard", sf: "rectangle.split.2x1" },
+		key: "syncWorkspace",
+		label: "Sync workspace layout",
+	},
+	{ icon: { md: "bookmark", sf: "bookmark" }, key: "syncBookmarks", label: "Sync bookmarks" },
 ]
 
+const ADD_PATH_MESSAGE = "A folder, a file, or a pattern such as *.pdf"
+
+function pathSymbol(path: string): SymbolName {
+	return path.includes("*") || path.includes(".")
+		? { md: "description", sf: "doc" }
+		: { md: "folder", sf: "folder" }
+}
+
 export function OnboardingSync({
+	busy,
 	onBack,
 	onChange,
 	onCreate,
 	preferences,
-	submitting,
+	showTitle,
 }: {
+	busy: boolean
 	onBack: () => void
 	onChange: (preferences: SyncPreferences) => void
 	onCreate: () => void
 	preferences: SyncPreferences
-	submitting: boolean
+	showTitle: boolean
 }) {
-	const { colors } = useMobileColors()
 	const [addingPath, setAddingPath] = useState(false)
 
-	function addExcludedPath(path: string) {
+	function addExcludedPath(value: string) {
 		setAddingPath(false)
-		if (preferences.excludedPaths.includes(path)) return
+		const path = value.trim()
+		if (!path || preferences.excludedPaths.includes(path)) return
 		onChange({ ...preferences, excludedPaths: [...preferences.excludedPaths, path] })
 	}
 
-	function removeExcludedPath(path: string) {
-		onChange({
-			...preferences,
-			excludedPaths: preferences.excludedPaths.filter((candidate) => candidate !== path),
-		})
+	function promptExcludedPath() {
+		if (Platform.OS !== "ios") {
+			setAddingPath(true)
+			return
+		}
+		Alert.prompt("Add path", ADD_PATH_MESSAGE, [
+			{ style: "cancel", text: "Cancel" },
+			{ onPress: (value?: string) => addExcludedPath(value ?? ""), text: "Add" },
+		])
+	}
+
+	function confirmRemove(path: string) {
+		Alert.alert(`Remove “${path}”?`, undefined, [
+			{ style: "cancel", text: "Cancel" },
+			{
+				onPress: () =>
+					onChange({
+						...preferences,
+						excludedPaths: preferences.excludedPaths.filter((candidate) => candidate !== path),
+					}),
+				style: "destructive",
+				text: "Remove",
+			},
+		])
 	}
 
 	return (
-		<View style={[styles.root, { backgroundColor: colors.groupedBackground }]}>
-			<OnboardingTopBar onBack={submitting ? undefined : onBack} />
-			<ScrollView contentContainerStyle={styles.content} style={styles.scroll}>
-				<OnboardingTitle
-					subtitle="Set sync preferences before this vault connects to any remote."
-					title="Sync preferences"
-				/>
-				<GroupedSectionHeader>Sync</GroupedSectionHeader>
-				<GroupedList>
+		<>
+			<NativeForm>
+				{showTitle ? (
+					<FormSection>
+						<FormHeader title="Sync preferences" />
+					</FormSection>
+				) : null}
+				<FormSection title="Sync">
 					{toggleRows.map((row) => (
-						<GroupedRow
+						<FormToggle
+							icon={row.icon}
 							key={row.key}
-							leading={IS_IOS ? undefined : <row.Icon color={colors.secondaryLabel} size={24} strokeWidth={2} />}
-							onPress={() => onChange({ ...preferences, [row.key]: !preferences[row.key] })}
+							onValueChange={(value) => onChange({ ...preferences, [row.key]: value })}
 							title={row.label}
-							trailing={
-								<Host matchContents>
-									<Switch
-										label={row.label}
-										onValueChange={(value) => onChange({ ...preferences, [row.key]: value })}
-										value={preferences[row.key]}
-									/>
-								</Host>
-							}
+							value={preferences[row.key]}
 						/>
 					))}
-				</GroupedList>
-
-				<GroupedSectionHeader>Excluded paths</GroupedSectionHeader>
-				<GroupedList>
-					{preferences.excludedPaths.map((path) => {
-						const PathIcon = path.includes("*") || path.includes(".") ? FileText : Folder
-						return (
-							<GroupedRow
-								key={path}
-								leading={<PathIcon color={colors.secondaryLabel} size={IS_IOS ? 20 : 24} strokeWidth={2} />}
-								title={path}
-								trailing={
-									<Pressable
-										accessibilityLabel={`Remove ${path}`}
-										hitSlop={8}
-										onPress={() => removeExcludedPath(path)}
-									>
-										<X color={colors.tertiaryLabel} size={18} strokeWidth={2.4} />
-									</Pressable>
-								}
-							/>
-						)
-					})}
-					<GroupedRow
-						leading={<Plus color={colors.tint} size={IS_IOS ? 20 : 24} strokeWidth={2.2} />}
-						onPress={() => setAddingPath(true)}
+				</FormSection>
+				<FormSection footer="Excluded files and folders are never uploaded." title="Excluded paths">
+					{preferences.excludedPaths.map((path) => (
+						<FormRow
+							icon={pathSymbol(path)}
+							key={path}
+							onPress={() => confirmRemove(path)}
+							title={path}
+						/>
+					))}
+					<FormRow
+						icon={{ md: "add", sf: "plus" }}
+						onPress={promptExcludedPath}
 						tint
 						title="Add path"
 					/>
-				</GroupedList>
-				<GroupedFooter>
-					Files, folders, and patterns excluded from sync will not be uploaded to the remote vault.
-				</GroupedFooter>
-			</ScrollView>
-			<View style={IS_IOS ? styles.footerIos : styles.footerAndroid}>
-				{IS_IOS ? (
-					<>
-						<OnboardingButton busy={submitting} label="Create vault" onPress={onCreate} variant="primary" />
-						<OnboardingButton disabled={submitting} label="Back" onPress={onBack} variant="plain" />
-					</>
-				) : (
-					<>
-						<OnboardingButton disabled={submitting} label="Back" onPress={onBack} variant="plain" />
-						<OnboardingButton busy={submitting} label="Create vault" onPress={onCreate} variant="primary" />
-					</>
-				)}
-			</View>
-			<TextPromptDialog
-				confirmLabel="Add"
-				key={addingPath ? "open" : "closed"}
-				message="A folder, a file, or a pattern such as *.pdf"
-				onCancel={() => setAddingPath(false)}
-				onConfirm={addExcludedPath}
-				placeholder="Archive"
-				title="Add path"
-				visible={addingPath}
-			/>
-		</View>
+				</FormSection>
+				<FormSection>
+					<FormButton
+						disabled={busy}
+						label={busy ? "Creating…" : "Create vault"}
+						onPress={onCreate}
+					/>
+					<FormButton disabled={busy} label="Back" onPress={onBack} variant="plain" />
+				</FormSection>
+			</NativeForm>
+			{Platform.OS === "ios" ? null : (
+				<TextPromptDialog
+					confirmLabel="Add"
+					key={addingPath ? "open" : "closed"}
+					message={ADD_PATH_MESSAGE}
+					onCancel={() => setAddingPath(false)}
+					onConfirm={addExcludedPath}
+					placeholder="Archive"
+					title="Add path"
+					visible={addingPath}
+				/>
+			)}
+		</>
 	)
 }
-
-const styles = StyleSheet.create({
-	content: {
-		paddingBottom: 24,
-	},
-	footerAndroid: {
-		alignItems: "center",
-		flexDirection: "row",
-		justifyContent: "space-between",
-		paddingBottom: 48,
-		paddingHorizontal: 24,
-		paddingTop: 12,
-	},
-	footerIos: {
-		gap: 6,
-		paddingBottom: 44,
-		paddingHorizontal: 20,
-		paddingTop: 12,
-	},
-	root: {
-		flex: 1,
-	},
-	scroll: {
-		flex: 1,
-	},
-})

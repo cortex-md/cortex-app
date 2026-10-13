@@ -1,16 +1,7 @@
-import {
-	createVaultFolder,
-	formatVaultPath,
-	getDefaultVaultLocation,
-	useRemoteVaultStore,
-	useSyncStore,
-	useVaultStore,
-} from "@cortex/core"
+import { useRemoteVaultStore, useSyncStore, useVaultStore } from "@cortex/core"
 import type { RemoteVaultInfo, VaultRegistryEntry } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
-import { Directory, Paths } from "expo-file-system"
 import { useEffect, useState } from "react"
-import { Platform } from "react-native"
 
 import {
 	FIXTURE_CLOUD_REMOTE_VAULTS,
@@ -21,7 +12,6 @@ import {
 
 export type RemoteServerKind = "cloud" | "selfHosted"
 
-const DEFAULT_LOCATION_LABEL = Platform.OS === "ios" ? "On My iPhone › Cortex" : "Documents › Cortex"
 const PROGRESS_TICK_MS = 1200
 const PROGRESS_STEP = 0.04
 
@@ -78,30 +68,7 @@ export function useDownloadProgress(active: boolean): number {
 	return progress
 }
 
-export async function createLocalVaultFolder(
-	parentPath: string | null,
-	name: string,
-): Promise<string> {
-	// stub: the platform has no createVaultFolder yet; the folder is created in app storage
-	try {
-		return await createVaultFolder(parentPath, name)
-	} catch {
-		const parent = parentPath ? new Directory(parentPath) : new Directory(Paths.document, "Cortex")
-		if (!parent.exists) parent.create({ intermediates: true })
-		const folder = new Directory(parent, name)
-		if (!folder.exists) folder.create()
-		return folder.uri
-	}
-}
-
-export async function getDefaultLocationLabel(): Promise<string> {
-	// stub: shows the app-storage location when the platform has no default vault location
-	const location = await getDefaultVaultLocation()
-	return location ? formatVaultPath(location) : DEFAULT_LOCATION_LABEL
-}
-
 export async function locateVaultFolder(entry: VaultRegistryEntry): Promise<boolean> {
-	// stub: patchVaultRegistry is missing on mobile, so the registry entry is re-registered at the picked path
 	const path = await getPlatform().dialog.pickFolder({ title: `Locate ${entry.name}` })
 	if (!path) return false
 	const vault = getPlatform().vault
@@ -112,13 +79,4 @@ export async function locateVaultFolder(entry: VaultRegistryEntry): Promise<bool
 	}
 	await useVaultStore.getState().loadRecentVaults()
 	return true
-}
-
-export async function showVaultInFiles(entry: VaultRegistryEntry): Promise<void> {
-	// stub: revealing a folder in the system Files app is not available on mobile yet
-	try {
-		await getPlatform().dialog.revealFolder(entry.path)
-	} catch (error) {
-		if (!isUnsupported(error)) throw error
-	}
 }

@@ -2,9 +2,9 @@ import type { MenuGroup } from "@/components/ui/menuTypes"
 
 export interface VaultActionsMenuProps {
 	accessibilityLabel: string
+	color: string
 	groups: MenuGroup[]
-	message: string
-	onPresentedChange: (presented: boolean) => void
-	presented: boolean
+	subtitle?: string
 	title: string
+	value?: string
 }
