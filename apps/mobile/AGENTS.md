@@ -23,7 +23,8 @@ src/
   bootstrap/              # mobileHost (one-time init), pluginHost (plugin UI mirror facade),
                           # marketplace, appCommands, crypto
   hooks/                  # useMobileRuntime, useSettingsColorScheme, useActiveTheme, useMobileColors
-  components/ui/          # Shared primitives: MobileTextField, SheetActionButton, ActionSheet,
+  components/ui/          # Shared primitives: Symbol, Form (NativeForm/FormSection/FormRow/FormToggle),
+                          # dialogs, NativeMenu, SegmentedControl, MobileTextField,
                           # MarkdownBlock ("use dom" sanitized Markdown)
   features/               # layout (AppGate), workspace (persistent WebView), sidebar, file-explorer,
                           # vault, notes, editor, onboarding, settings, search, themes (themeSync),
@@ -43,29 +44,56 @@ src/
 - The sidebar drawer (`features/sidebar/`) owns the drawer, `useMobileSidebar`, and one UI reducer
   (`sidebarUiState.ts`); `features/file-explorer/useFileExplorerActions` and
   `features/vault/useVaultSwitcher` hold the tree and vault-switching handlers over that state.
-  Bottom sheets compose `components/ui/ActionSheet`.
+  Item actions use native context menus (see UI Rules).
 
 ## UI Rules
 
-- Use `@expo/ui` universal components for settings-style grouped controls, toggles, sliders,
-  buttons, menus, and similar native controls.
-- The main workspace follows the Inkdown mobile shell as a visual/UX reference only: calm
-  onboarding before any shell, workspace switcher at the top of the drawer, icon action bar,
-  Lucide file tree rows, and long-press bottom sheets. Do not import Inkdown code or business
-  logic.
-- Do not use `@expo/ui` `TextInput` in mobile forms until the Android Expo Go view-config warnings
-  are resolved. Use the app-local React Native `MobileTextField` wrapper for onboarding and sheets.
+- Everything interactive is native: SwiftUI (`@expo/ui/swift-ui`) on iOS with Liquid Glass, Jetpack
+  Compose (`@expo/ui/jetpack-compose`) / Material 3 on Android, the universal `@expo/ui` entry where it
+  exists. Do not hand-draw headers, buttons, dialogs, action sheets, segmented controls or settings rows
+  in React Native.
+- `@expo/ui/swift-ui*` imports only in `*.ios.tsx`; `@expo/ui/jetpack-compose*` only in `*.android.tsx`,
+  with a base `X.tsx` stub that returns null and a shared `xTypes.ts`.
+- A SwiftUI element always lives inside a `Host`; React Native content inside a SwiftUI/Compose tree
+  goes in `RNHostView matchContents`. Never pass SwiftUI/Compose elements as `leading`/`trailing` of
+  the universal `ListItem` (it wraps them in `RNHostView`, which crashes on iOS).
+- One `Host` per screen or control group. Never a `Host` per row of a `FlatList`/`SectionList`, never a
+  `FieldGroup`/`Form` inside a `ScrollView`.
+- Icons: only `components/ui/Symbol` (`{ sf, md }` → expo-symbols `SymbolView`), SwiftUI
+  `Image systemName` inside SwiftUI trees, and SF names in `Stack.Toolbar`. `lucide-react-native` is
+  only used by `PluginIcon` to resolve icons declared by plugins.
+- Short static lists and settings pages use `components/ui/Form` (`NativeForm`, `FormSection`,
+  `FormRow`, `FormToggle`): iOS SwiftUI `Form`/`Section`, Android a Compose `LazyColumn` with M3
+  connected rows. `NativeForm` scrolls by itself and is the screen's root content. Feature folders own
+  their platform form controls (pickers, text fields, date pickers) next to their screens.
+- Large collections (files, search results, tasks, logs, versions) stay on `FlatList`/`SectionList`
+  with React Native rows styled like native inset lists.
+- Text fields: SwiftUI `TextField`/`SecureField` inside forms on iOS; on Android Compose text fields
+  or `MobileTextField`. Do not use the universal `@expo/ui` `TextInput` (Android Expo Go warnings).
+- Item actions are native context menus: iOS wraps rows in expo-router `Link` + `Link.Menu`
+  (`onPress` prevents navigation and runs the handler), Android opens a Compose `DropdownMenu`
+  (`features/file-explorer/FileExplorerHost.android.tsx`). Confirmations use RN `Alert.alert`
+  (native) or `ConfirmDialog`; name prompts use `Alert.prompt` on iOS and `TextPromptDialog` on Android.
+- Every screen and sheet has a native title; no subtitles that repeat the title, no duplicated actions,
+  no footers that restate rows. Never show UUIDs, logical `/mobile-vaults/...` paths or provider URIs.
 - Do not import `@cortex/ui`; desktop/web primitives are not mobile shell components.
 - Do not add Electron, IPC, Node, browser DOM, or desktop-only platform imports to native React Native
   screens.
 - Do not use `SafeAreaView` for route chrome. Let Expo Router native tabs/stacks and automatic
-  content insets own safe areas; scroll screens should use
-  `contentInsetAdjustmentBehavior="automatic"`.
-- Future large note lists should use virtualized React Native list surfaces, not `@expo/ui` `List`.
-- Note lists use React Native virtualized lists. Use `@expo/ui` for sheets, grouped controls,
-  settings rows, and other native controls around those lists.
-- Native note actions should live in stack header actions, gestures, context sheets, and swipe
-  affordances. Keep large note collections on `FlatList`.
+  content insets own safe areas; scroll screens use `contentInsetAdjustmentBehavior="automatic"`.
+- Colors come only from `useMobileColors()` roles derived from Cortex tokens.
+
+## Navigation and Sheets
+
+- `features/navigation/sheetPresentation.ts` presents sheets and modals with the native header
+  (`headerShown: true`, `headerTransparent` on iOS for Liquid Glass bars). Screens set `title` through
+  `Stack.Screen` and their buttons through `Stack.Toolbar` (iOS) or `headerLeft`/`headerRight` with
+  `HeaderIconButton` / `@expo/ui` `Button` (Android). `fitToContents` detents do not support a header.
+- Multi-step sheets are folder routes with their own `Stack` (`app/properties/`, `app/add-vault/`,
+  `app/import/`, `app/share-template/`, `app/from-template/`); AppGate declares them with
+  `headerShown: false` so each step gets a native header and back button.
+- `openNote` replaces the current note screen when a note is already on top of the focused tab stack,
+  so opening notes from inside a note does not grow the stack.
 
 ## App Gate and Onboarding
 
@@ -73,13 +101,13 @@ src/
   and `openLastVault()` (the registry's most recent vault, honoring `autoOpenLastVault`). There is no
   mobile-only startup file.
 - If no vault opens during startup, render only `OnboardingScreen`. Do not mount the sidebar,
-  stack shell, file list, or workspace chrome before onboarding completes.
-- Mobile onboarding should stay calm and focused: pick a vault folder, collect vault identity
-  (name, icon), save basic sync preferences through core, then open the pending welcome note.
-- The sidebar is workspace-only. Vault creation/opening belongs in onboarding and vault-switcher
-  flows, not in an empty notes list. The switcher's "Browse folder" uses core `resolvePickedFolder`;
-  new folders open `OnboardingScreen` with `initialFolder` in a modal so they get the same
-  create flow (`createVaultFromFolder`) as desktop.
+  stack shell, file list, or workspace chrome before onboarding completes. A last vault that needs
+  folder access again is not a startup error: onboarding lists it under Recent vaults as "Needs access".
+- Onboarding is native and minimal: Welcome (Create new vault, Open folder, Sign in, Recent vaults),
+  Identity (empty name field, color, icon), Sync preferences, then the pending welcome note. Creating
+  a vault on mobile turns `editor.showLineNumbers` off.
+- "Create new vault" never asks for a folder: the vault is created inside the app container (see
+  Platform Adapter). "Open folder" keeps the native picker. Names never come from logical paths.
 
 ## Workspace WebView
 
@@ -213,9 +241,16 @@ stores, note sessions, and draws plugin UI from a mirror.
   moves children (or copies bytes), and deletes the source.
 - Android `content://` vault roots cannot be watched with Expo FileSystem in Expo Go. Return a
   no-op watcher and rely on manual refresh until a platform-specific watcher exists.
-- `dialog.pickFolder` is implemented with `Directory.pickDirectoryAsync()`. Android should reopen
-  through persistable URI grants. iOS scoped directory access may need reauthorization after restart;
-  surface that as an explicit reauthorize/open-folder state instead of silently falling back.
+- Vault roots are `internal` or `external` (`platform/vaultRoots.ts`, persisted in
+  `Cortex/mobile-vault-roots.json`). `vault.createVaultFolder` creates internal vaults in
+  `Paths.document/Cortex/Vaults/<name>` and stores only the path relative to `Paths.document`, so they
+  reopen after restarts and app updates without any permission.
+- `dialog.pickFolder` (`Directory.pickDirectoryAsync()`) registers external roots. Android reopens
+  through persistable URI grants. iOS external access is session-only: listing a lost root throws
+  `MobileReauthorizationRequiredError` (`platform/errors.ts`), onboarding shows the vault as "Needs
+  access", and "Reauthorize" re-picks the folder (`registerPickedDirectory` matches it by URI or vault
+  id). Persistent security-scoped bookmarks need a native module and a dev build (follow-up).
+- `readVaultRegistry` migrates entries whose name is the vault UUID to the folder name once.
 - Keep the remote sync engine out of this foundation pass.
   Import/export contracts may be present on the platform shape, but unsupported mobile methods,
   including native PDF text extraction, should reject clearly until native document picker/share
@@ -234,7 +269,7 @@ stores, note sessions, and draws plugin UI from a mirror.
   core `openVaultSession`; never call `setActiveFile` manually.
 - Plugins run in the workspace WebView (see Workspace WebView). `bootstrap/pluginHost.ts` exports
   `mobilePluginHost`, the `createPluginUiMirror` facade (enable/disable, settings, discover/reload,
-  modals) that `PluginsSettings`, `PluginSettingsForm`, `PluginModalHost`, and the marketplace use, and
+  modals) that `PluginsSettingsScreen`, `PluginSettingsForm`, `PluginModalHost`, and the marketplace use, and
   `useMobileCommunityStyles()`.
 - `features/themes/themeSync.ts` keeps the `@cortex/theme` ThemeManager active theme in sync with
   `appearance.theme`/`colorscheme` and `platform.appearance`; `useActiveTheme()` reads it.
@@ -270,12 +305,12 @@ stores, note sessions, and draws plugin UI from a mirror.
   rows (`sidebarItems`, `features/sidebar/PluginSidebarSection`) call `openPluginView`, which
   pushes `app/(notes)/plugin-view` (`PluginViewScreen`, title from the registered view).
   `selectVisibleStatusBarItems` feeds the note header `Stack.Toolbar` menu (`PluginStatusMenu`);
-  `selectContextMenuItems(state, "file", ...)` appends plugin actions to `EntryActionsSheet`;
+  `selectContextMenuItems(state, "file", ...)` appends plugin actions to the entry context menu;
   `PluginModalHost` (mounted once in `AppGate`) presents `modalInstances` as page sheets with
   controlled state (`mobilePluginHost.updateModalState`/`closeModal`, forwarded to the host).
 - Native plugin contributions are proxies: commands run through the WebView host and views are remote
   (`RegisteredView.remote`), rendered by the same `PluginView`.
-- Settings lists plugins in a "Plugins" section (`features/settings/PluginsSettings.tsx`):
+- Settings lists plugins in a "Plugins" section (`features/settings/PluginsSettingsScreen.tsx`):
   `enablePlugin`/`disablePlugin` followed by `saveEnabledPlugins`, like desktop. Rows with a
   settings page push `app/(settings)/plugin-settings`, where `PluginSettingsForm` renders
   `resolvePluginSettingFields` with `@expo/ui` rows and writes through `setPluginSetting`
@@ -303,184 +338,118 @@ stores, note sessions, and draws plugin UI from a mirror.
 - `@cortex/marketplace` owns registry, install/update/uninstall, and catalog selectors. Mobile
   renders `selectMarketplaceEntries`, `groupMarketplaceEntries`, and `getMarketplaceEntryState`; do not
   re-implement filtering, grouping, or action state in screens.
-- Mobile shows plugins only. Community themes are CSS and mobile theming is token-based, so
-  `bootstrap/marketplace.ts` wires `setMarketplaceCallbacks` with `mobilePluginHost` (the UI mirror
-  facade; reloads run in the WebView host), no themes
-  directory, and `notify` (`reportAppError` for failures, a `dialog.showAlert` after an install).
-  `initializeMobileHost()` calls `registerMobileMarketplace()`.
-- Settings → Plugins has a "Browse community plugins" row that pushes `app/(settings)/marketplace`
-  (`MarketplaceScreen`: `SectionList` grouped Updates/Installed/Available, `Stack.SearchBar`,
-  `Stack.Toolbar` menu for "Installed only" and sort, pull to refresh). Rows push
-  `marketplace-detail` (`MarketplaceDetailScreen`: `@expo/ui` `FieldGroup` with actions, compatibility,
-  information, permissions); its README row pushes `marketplace-readme` (`MarkdownBlock`), so the
-  WebView only starts when the README is opened. Navigation helpers live in
-  `features/marketplace/marketplaceNavigation.ts`.
-- Install never enables a plugin; the user enables it in Settings → Plugins. Uninstall asks through
-  `dialog.showConfirm`. Installed state reads `usePluginStore` records so screens re-render when the
-  host registers or removes a plugin.
+- `bootstrap/marketplace.ts` wires `setMarketplaceCallbacks` with `mobilePluginHost`, no themes
+  directory, and `notify`. `initializeMobileHost()` calls `registerMobileMarketplace()`.
+- `MarketplaceScreen` (`app/settings/marketplace`): React Native `SectionList` rows (fixed-size artwork
+  with a symbol fallback, status text on the right, no `Host` and no actions per row),
+  `Stack.SearchBar`, a segmented kind control and a filter/sort toolbar menu, pull to refresh, `tab`
+  param. `MarketplaceDetailScreen` is one `NativeForm` per kind with the install/update/uninstall
+  actions; the README pushes `marketplace-readme` (`MarkdownBlock`).
+- Install never enables a plugin; uninstall confirms through `dialog.showConfirm`. Installed state reads
+  `usePluginStore`. Themes and templates come from `marketplaceAdapter.ts` fixtures.
 
 ## Settings and Theme
 
-- The Settings screen reads and writes `@cortex/settings` `useSettingsStore` with the desktop schema
-  keys (`general.autoOpenLastVault`, `appearance.colorscheme`, `appearance.editorFontSize`,
-  `editor.wordWrap`, `editor.showLineNumbers`, `editor.slashCommands`, `plugins.allowCommunity`). Do not keep local-only
-  setting state or invent mobile-only keys; persistence follows `SettingsManager` rules.
+- Settings screens read and write `@cortex/settings` `useSettingsStore` with the desktop schema keys;
+  no local-only setting state or mobile-only keys.
+- Every settings page is one `NativeForm`. `features/settings/SettingsControls.{ios,android}.tsx`
+  provides `SettingsPicker`, `SettingsSlider` and `SettingsTextField`; `appearanceOptions.ts` maps
+  Paper | Ink | System. Settings Home search is `Stack.SearchBar`; only the index has a large title.
+- Plugins: `PluginsSettingsScreen` (core/community toggles, "Allow community plugins", marketplace) and
+  `PluginSettingsScreen` (`PluginSettingsForm` over `resolvePluginSettingFields`).
 - `useSettingsColorScheme` (root layout) applies `appearance.colorscheme` through
-  `Appearance.setColorScheme`, so `useColorScheme()` and native chrome follow the setting.
-- `src/theme/colors.ts` owns only the native `PlatformColor` mapping. Hex fallbacks,
-  `mobileStaticColors`, and `mobileIconColors` derive from `@cortex/theme` `paperTheme`/`inkTheme`
-  tokens; do not add hard-coded palette hex values.
+  `Appearance.setColorScheme`. `src/theme/colors.ts` owns the native color roles derived from
+  `@cortex/theme` tokens; do not add hard-coded palette hex values.
 
 ## Today, Tasks and Notifications
 
-- `features/today/` owns the Today tab root (`TodayScreen`: `SectionList` over `useTodayTasks`,
-  which reads `useTasksStore`/`selectAllTasks` and groups with `@cortex/tasks` `groupTasks` /
-  `groupTasksByDay`; never re-group or re-parse in screens), `TaskRow`, the `QuickAddOverlay`
-  (RN `Modal` over `parseQuickAdd` + `addTaskFromQuickAdd`; always writes to the inbox file) and
-  `TaskDetailSheet` (`app/task.tsx`, `taskId` param, `findTaskById`, saves one `TaskPatch` through
-  `updateTask`; iOS pushes Repeat / Remind panes inside the sheet, Android uses `RadioDialog`).
-  Completing goes through core `toggleTaskWithUndo` + `revertTaskEditSafely` with `toastWithUndo`.
-  `taskOptions.ts` maps the fixed Repeat / Remind / Time choices onto `TaskRepeat` and
-  `ReminderPreset`.
-- `startAppRuntime` already starts `startTasksRuntime`; it is a no-op on mobile until the platform
-  adapter implements `notifications.schedule`.
-- `features/notifications/` owns Settings → Notifications (`app/settings/notifications.tsx`): the
-  switches and segmented choices write the desktop `settings.tasks` keys; permission state, channels,
-  exact alarms and the test reminder live behind `notificationsAdapter.ts` (`// stub:` until
-  `expo-notifications` is wired). `NotificationPermissionPrompt` is the pre-prompt shown before the
-  OS request.
-- `components/ui/FloatingActionButton` is split: SwiftUI glass-prominent `Button` on iOS, Compose
-  `ExtendedFloatingActionButton` on Android. `RadioDialog` is the Android M3 radio-list dialog and
-  `MiniCalendar` the shared Monday-start month grid.
+- `features/today/` owns the Today tab root (`TodayScreen`: native large title, toolbar buttons for the
+  drawer, notifications and New task on iOS, FAB on Android, a SegmentedControl Today / Upcoming / Inbox,
+  `SectionList` over `useTodayTasks`, which groups with `@cortex/tasks`; never re-group in screens),
+  `TaskRow`, the `quick-add` sheet (`QuickAddSheet`, `quickAddActions.ts`: `ensureTaskInbox()` then
+  `addTaskFromQuickAdd`, dismiss and toast "Added to Inbox", native Alert on failure) and
+  `TaskDetailSheet` (`app/task.tsx`, one native form, saves one `TaskPatch` through `updateTask`).
+  Platform form controls live in `TaskFormControls.{ios,android}.tsx`.
+- Completing goes through core `toggleTaskWithUndo` + `revertTaskEditSafely` with `toastWithUndo`.
+- `features/notifications/` owns Settings → Notifications (one `NativeForm` writing `settings.tasks`
+  keys); permission, channels and the test reminder stay behind `notificationsAdapter.ts`
+  (`// stub:`). `promptNotificationPermission()` shows a native Alert before the OS request.
 
 ## Sync, History and Recovery
 
-- `features/sync/` owns Settings → Sync (`app/settings/sync/index|prefs|members|self-hosted|link`,
-  `sync-logs`). Screens read `useSyncStore`, `useRemoteVaultStore`, `useDevicesStore`,
-  `useSyncLogStore` and core presentation helpers (`resolveSyncIndicatorStatus`,
-  `formatLastSyncedAt`, `buildSyncLogItems`/`groupSyncLogItems`, `serializeSelfHostedEnvironment`).
-  `SettingsPage.tsx` holds the shared page scaffold (`SettingsPage`, `SettingsGroup`, `SettingsBlock`,
-  `ActionButton` = `@expo/ui` `Button` in a `Host`).
-- `syncAdapter.ts` is the only door to what the engine does not provide on mobile (`// stub:`):
-  remote vault list/link options, devices, Sync now, log fixtures, excludes seed. Preferences and
-  excludes persist through `updateSyncPreference`/`toggleExcludedPath`; self-hosted secrets go to
-  `getPlatform().keychain` under `createSyncEnvironmentSecretKey`. The link flow is an in-page
-  `@expo/ui` `BottomSheet` (Step 1 of 2 / Step 2 of 2 / done) and unlink uses `ConfirmDialog`.
-- `features/members/membersAdapter.ts` maps `useMembersStore` data when present and otherwise keeps
-  the fixture members and pending invites in memory (invite, cancel, role, remove are stubs).
-- `features/history/` owns Version history (`version-history`, `version` pushed in the tab stacks,
-  `filePath`/`versionId` params) and Deleted notes (`settings/deleted-notes`, `deleted-note`).
-  `versionHistoryAdapter.ts` uses real `listLocalVersions`/`readLocalVersion`/`restoreLocalVersion`
-  and core `buildDiffRows`/`countWordChanges`; it falls back to fixtures when a note has no local
-  versions. `deletedNotesAdapter.ts` is a fixture trash; restore recreates the note with
-  `createFileWithContent`.
-- Marketplace themes and templates come from `features/marketplace/marketplaceAdapter.ts`
-  (fixtures). "Use" on Paper/Ink writes `appearance.theme = "default"` plus `appearance.colorscheme`;
-  community themes toast that they are not available yet. Template Use/Open present the
-  `from-template` sheet with `templateId`. `marketplace-detail` takes `kind` (`plugin` | `theme` |
-  `template`) besides `id`.
+- `features/sync/` owns Settings → Sync (`app/settings/sync/index|prefs|members|self-hosted|link|choose`,
+  `sync-logs`), each page one `NativeForm` with `FormControls.{ios,android}.tsx` (`FormTextField`,
+  `FormMenu`, `FormCheck`). Screens read `useSyncStore`, `useRemoteVaultStore`, `useDevicesStore`,
+  `useSyncLogStore` and core presentation helpers.
+- `syncAdapter.ts` is the only door to what the engine does not provide on mobile (`// stub:`).
+  Linking a remote vault pushes `sync/choose`; unlinking confirms with a native Alert. Self-hosted
+  secrets go to `getPlatform().keychain` under `createSyncEnvironmentSecretKey`.
+- `features/members/membersAdapter.ts` maps `useMembersStore` data or fixtures (stubs).
+- `features/history/` owns Version history (`version-history`, `version`) and Deleted notes
+  (`settings/deleted-notes`, `deleted-note`) as React Native lists (`InsetListRow`) with native
+  toolbars. `versionHistoryAdapter.ts` uses real local versions and falls back to fixtures;
+  `deletedNotesAdapter.ts` is a fixture trash.
+- `features/collab/PeopleSheet` (title "Share") and `features/comments/CommentsSheet` use native
+  headers; `collabAdapter.ts` is the stub door to presence, members, invites and link sharing.
 
 ## Search, Quick Finder, Bookmarks and Tags
 
-- Indexing stays lazy at boot. `features/search/vaultIndexing.ts` `useEnsureVaultIndexed()` (Search,
-  Quick finder, Tags, Tag page) runs `useSearchStore.indexVault` then `useTagsStore.buildIndexFromFiles`
-  once per vault file list and returns whether the current vault is indexed.
-- Search tab (`SearchScreen`): `Stack.SearchBar` "Search in vault"; completed `tag:`/`path:`/`file:`
-  words become removable `FilterChip` tokens (`searchQuery.ts` parses the mode: results, suggest,
-  path/tag values). Results come from `useSearchStore.runQuery`, are grouped per note with
-  `splitSnippet` highlights, and a hit sets `setNoteHighlight` before `openNote`. Suggestions
-  (`SearchSuggestions`) use `getFolderNoteCounts`, `selectSortedTags` and the store's
-  `recentQueries`. The tab accepts a `tag` param (Tag page "Search in tag").
-- `quick-finder` sheet (`QuickFinderSheet` + `useQuickFinderResults`): title results plus debounced
-  content matches like desktop, recent files when empty, folder/tag/title-only/sort filters, preview
-  (`noteExcerpts.ts` reads frontmatter + first body lazily), Create via `vaultStore.createFile`, `>`
-  or "Commands" replaces it with `command-palette`. Params `query`, `folder`, `relinkBookmark`
-  (relinks a missing bookmark through `renameBookmarkPath`).
-- `command-palette` sheet renders `commandRegistry` grouped by `category` and runs `executeCommand`
-  with `source: "palette"`.
-- Bookmarks tab reads `useBookmarksStore`; missing bookmarks are paths not in `useVaultStore.files`
-  ("Find note" opens the quick finder in relink mode). Edit mode removes and reorders with
-  `reorderBookmark` (up/down buttons).
-- Tags tab shows `buildTagTree` roots (flat `selectSortedTags` while filtering); the Tag page uses
-  `getTagPageModel` with `getFileModifiedTimes`, renames through `renameTag` and colours through
-  `setTagColor` with the theme-derived palette in `features/tags/tagColors.ts`.
+- Indexing stays lazy at boot. `features/search/vaultIndexing.ts` `useEnsureVaultIndexed()` runs
+  `useSearchStore.indexVault` then `useTagsStore.buildIndexFromFiles` once per vault file list.
+- Search tab: `Stack.SearchBar`; typed `tag:`/`path:`/`file:` words become filters shown in a header
+  scope menu (no chips). Results come from `useSearchStore.runQuery`, one grouped row per note.
+- `quick-finder` sheet: native title, `Stack.SearchBar`, filters (folder, tags, titles only, sort,
+  Commands) in a toolbar menu, a Create row when nothing matches exactly, recent files when empty.
+  `>` or "Commands" opens `command-palette`. Params `query`, `folder`, `relinkBookmark`.
+- `features/search/ListCell.tsx` is the shared inset list row; `RowContextMenu.tsx` wraps rows in the
+  iOS `Link.Menu` context menu.
+- Bookmarks, Tags and Tag page use `Stack.SearchBar`, toolbar menus and context menus; tag rename and
+  colours live in `features/tags/tagActions.ts`.
 
 ## Templates and Sync Conflicts
 
-- `features/templates/` owns New from template (`app/from-template.tsx`, `FromTemplateSheet` list +
-  `TemplatePreviewStep`; optional `templateId` param opens a marketplace template's preview),
-  the template editor (`template-editor` in the tab stacks, `filePath` = the template body under
-  `VAULT_FILES.templates`; it hosts `NoteEditorScreen` with a placeholder bar, a Preview | Source
-  switch and the in-screen `TemplateSettingsSheet` "New notes" `BottomSheet`), Insert template
-  (`app/insert-template.tsx`, opened with `presentInsertTemplate(filePath)`) and Settings → Templates.
-- Data comes from `useTemplateStore` (`readTemplateBody`, `createNoteFromTemplate`,
-  `renderTemplateForInsert`, `updateTemplate`) and `@cortex/templates` (`getTemplateGroups`,
-  `renderTemplate`, `splitTemplateSegments`, `getTemplateValueGroups`). Insert writes the body at the
-  last WebView cursor through `noteCache.writeExternal` and merges properties with
-  `mergeMissingNoteProperties` (Undo uses `removeNoteProperties`).
-- `templatesAdapter.ts` (`// stub:`) seeds the team templates (Design review, Research interview) as
-  remote templates, falls back to the fixture Sprint board database preset, and maps marketplace
-  template ids to fixtures. Placeholders are copied to the clipboard because the editor protocol has
-  no insert-text command.
-- `features/conflict/` owns the `conflict` tab-stack screen (`openConflict(filePath)`): local content
-  from `useSyncStore.conflicts` or the note cache, a fixture remote version, and the diff from core
-  `buildDiffRows`. Keep Local / Keep Remote are `conflictAdapter.ts` stubs (Keep Remote writes the
-  remote content through `noteCache.writeExternal`).
+- `features/templates/` owns New from template (`app/from-template/` stack: list + `preview`),
+  Insert template (`app/insert-template.tsx`), the template editor (`template-editor`, Preview | Source
+  in the toolbar, "New note settings" pushes `template-settings`) and Settings → Templates.
+- Data comes from `useTemplateStore` and `@cortex/templates`; `templatesAdapter.ts` (`// stub:`) seeds
+  team and marketplace template fixtures.
+- `features/importExport/` owns Import (`app/import/` stack: source, Obsidian, progress, review,
+  preview, result) and Settings → Import & export; `features/share/` owns Share as template
+  (`app/share-template/`). Shared native form fields live in `importExport/FormFields.*` and header
+  buttons in `importExport/HeaderActions.tsx` (`useCloseSheetStack()` closes a nested sheet).
+- `features/conflict/` owns the `conflict` screen (Keep local / Keep remote in the toolbar,
+  `conflictAdapter.ts` stubs, diff from core `buildDiffRows`).
 
-## Files, Note Chrome, Properties and Collaboration
+## Files, Note Chrome and Properties
 
-- `features/files/` owns the Files tab root and `folder` route (`FilesScreen`, `path` param): a
-  `SectionList` (Databases / Folders / Notes) built by `useFilesScreenModel` over `useVaultStore`
-  files, `useDatabaseStore` (expandable rows; `DatabaseItemRows` calls `retainDatabase`) and the
-  in-memory sort in `filesSort.ts`. Note rows swipe with `ReanimatedSwipeable` (Bookmark, Delete).
-  Create / More menus come from `filesMenus.ts` (iOS `Stack.Toolbar.Menu`, Android `NativeMenu` and
-  the `CreateFabMenu.android.tsx` speed-dial). `SyncChip` opens the sync `NativeMenu` over
-  `features/sync/syncAdapter`. New folder, rename and delete are `TextPromptDialog` /
-  `ConfirmDialog` (`NewFolderDialog`, `FilesDialogs`, `DeleteEntryDialog`); long-press still uses
-  `file-explorer/EntryActionsSheet`.
-- `features/note/NoteScreen` owns the note header (custom `NoteTitleView` with the sync tone, mode
-  button cycling `useEditorStore` `live-preview` → `source` → `reading`, the ⋯ menu from
-  `noteMenu.ts`, plugin status items appended as a group) and the bottom slot: `FloatingNoteToolbar`
-  (collapses on the WebView `scroll` message), `FormattingBar` while the keyboard is up (type-only
-  `MarkdownToolbarCommandId`; native never imports the command runtime) and the find bar.
-  `NoteEditorScreen` is now chrome-less (`filePath`, `top`, `bottom` props) and keeps the WebView
-  placement logic. The WebView sits above all RN views, so floating chrome is reserved below the
-  placeholder instead of overlapping the editor.
-- Protocol additions: web → native `scroll` (throttled, `direction`/`offset`), native → web `find`
-  (request answered with `{ current, total }`) and `command` with `mobile.blur`, `mobile.focus`,
-  `mobile.slash`, `mobile.reveal-line` (payload: 0-based body line) or any registered editor command
-  id; `serviceCall` `openProperties` (`step`, `key`) presents the `properties` sheet. The WebView
-  shows a compact properties strip (no format toolbar) whose rows send `openProperties`.
-- Sheets: `properties` (`features/properties/PropertiesSheet`, in-sheet step stack values / add /
-  settings / select / option / person / date / auto over `useNoteProperties`, which wraps
-  `loadNotePropertiesSnapshot`, `setProperty`, `updateVaultSchema`), `outline`, `export`
-  (`exportAdapter.ts`: `@cortex/import-export` HTML/CSV, PDF stub → RN `Share`), `tabs`
-  (`TabsScreen` over `useWorkspaceStore`), `comments` (`features/comments/`, real sidecar via
-  `useCommentsStore`; fixtures only for the live fixture note) and `people` (`features/collab/`).
-  Sheets read `filePath` from params and fall back to `useEditorStore.activeFilePath`.
-- `features/collab/collabAdapter.ts` is the only door to presence, follow, remote members and
-  invites (`// stub:`); "Launch plan" is the fixture live note.
+- `features/files/` owns the Files tab root and `folder` route: a `SectionList` built by
+  `useFilesScreenModel`, rows with swipe (Bookmark, Delete) and the native context menu
+  (`features/file-explorer/EntryContextMenu`, `entryActions.ts` over core `getFileEntryActions`,
+  `validateEntryName`, `getMoveDestinations` and the `file.*` commands, plus plugin context items).
+  The root title is the vault name; Create / More menus come from `filesMenus.ts`.
+- The drawer (`features/sidebar/`) shows the vault switcher row, Today, Databases, the file tree,
+  Plugins, Marketplace and Settings over the `sidebarBackground` token.
+- `features/note/NoteScreen`: native title and ⋯ toolbar menu; a compact native "Properties · N" button
+  above the editor opens the `properties` sheet; while reading, one glass `NoteBottomMenu` button
+  (Find or create a note, New note, Open tabs); while editing, the glass `KeyboardToolbar` above the
+  keyboard (Heading, Bold, Italic, Task, List, Link, More menu, Hide keyboard) sends command ids from
+  `@cortex/editor/markdown-format-commands` plus `mobile.insert-divider`, `mobile.insert-tag`,
+  `mobile.insert-wikilink`, `mobile.slash` through the `command` message. Nothing about properties is
+  rendered inside the WebView.
+- Protocol additions: native → web `find` (request answered with `{ current, total }`) and `command`
+  with `mobile.blur`, `mobile.focus`, `mobile.reveal-line` or any registered editor command id.
+- `app/properties/` stack (`index`, `add`, `edit`, `option`, `value`, `select`, `person`, `date`,
+  `auto`) shares one `useNoteProperties` through `PropertiesContext`; controls live in
+  `PropertyControls.{ios,android}.tsx`.
+- `outline`, `export` and `tabs` sheets use native headers and lists.
 
 ## Databases
 
-- `features/database/` owns the database screen (`database`, pushed in the tab stacks with
-  `folderPath`/`view`), the row page (`database-row`, `folderPath`/`filePath`/`viewId`, opened with
-  `openDatabaseRow`), the view options sheet (`db-view-options`, `folderPath`/`viewId`/`tab`) and the
-  New database form (`db-new`, optional `parentPath` and `start=folder`).
-- `useDatabaseView` is the single data hook: `retainDatabase`, `useDatabaseStore` selectors, the vault
-  schema snapshot, `getDatabaseQueryContext` + `resolveAuthorConfig`, and `@cortex/properties/database`
-  `resolveDatabaseProperties`/`queryDatabaseView`/`getDatabaseViewColumns`. Never filter, sort or
-  group rows in screens; tokens and the options sheet only edit the active `DatabaseView` through
-  `updateDatabaseView`, so the screen and the sheet stay in sync through the store.
-- Generic roles replace the prototype's fixed columns (`databaseFormat.ts` `resolveDatabaseRoles`):
-  status = the accent select (`getDatabaseAccentKey`), owner = first person property, due = the view
-  date / sort date / first date property. "Status is not Done" and "Owner is me" are real filters
-  (`is_not` done option, `is $me`).
-- Table keeps the Name column sticky with one `Animated.Value` driven by the horizontal scroll.
-  Calendar reuses `MiniCalendar` (Monday start, 6 rows). The row page renders properties natively and
-  the body with `RowNoteBody` (headings, lists, tasks toggled via `@cortex/tasks` `toggleTaskLine`);
-  editing happens in the note editor ("Open in a new tab" → `openNote`). The status chooser is split:
-  SwiftUI `ConfirmationDialog` on iOS, `@expo/ui` `BottomSheet` radio list on Android.
-- `databaseAdapter.ts` (`// stub:`) falls back to fixture row templates (Project brief, Bug report)
-  when the config has none and to fixture team presets (Sprint board, Research log) when
-  `useTemplateSharingStore.teamDatabasePresets` is empty.
+- `features/database/` owns the database screen (`database`), the row page (`database-row`), the view
+  options sheet (`db-view-options`, one titled `NativeForm` per chip) and New database (`db-new`,
+  `NativeForm`).
+- `useDatabaseView` is the single data hook (`retainDatabase`, `useDatabaseStore`, the vault schema
+  snapshot, `@cortex/properties/database`). Never filter, sort or group rows in screens.
+- Table, board, calendar and gallery views stay React Native; headers, toolbars, search and menus are
+  native. The status chooser is a SwiftUI `ConfirmationDialog` on iOS and a Compose `AlertDialog` on
+  Android. `databaseAdapter.ts` (`// stub:`) supplies fixture row templates and team presets.
