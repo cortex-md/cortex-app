@@ -20,7 +20,9 @@ interface MarketplaceExtrasState {
 
 const listeners = new Set<() => void>()
 let state: MarketplaceExtrasState = {
-	installedThemeIds: new Set(FIXTURE_THEMES.filter((theme) => theme.group === "installed").map((theme) => theme.id)),
+	installedThemeIds: new Set(
+		FIXTURE_THEMES.filter((theme) => theme.group === "installed").map((theme) => theme.id),
+	),
 	addedTemplateIds: new Set(),
 }
 
@@ -90,11 +92,17 @@ export function findTemplate(id: string | null): MarketplaceTemplate | null {
 	return FIXTURE_TEMPLATES.find((template) => template.id === id) ?? null
 }
 
-export function isTemplateInVault(extras: MarketplaceExtrasState, template: MarketplaceTemplate): boolean {
+export function isTemplateInVault(
+	extras: MarketplaceExtrasState,
+	template: MarketplaceTemplate,
+): boolean {
 	return template.group === "vault" || extras.addedTemplateIds.has(template.id)
 }
 
-export function matchesTemplateKind(template: MarketplaceTemplate, filter: TemplateKindFilter): boolean {
+export function matchesTemplateKind(
+	template: MarketplaceTemplate,
+	filter: TemplateKindFilter,
+): boolean {
 	if (filter === "all") return true
 	return filter === "database" ? template.isDatabase : !template.isDatabase
 }

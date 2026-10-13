@@ -1,3 +1,3 @@
-import { PluginSettingsScreen } from "@/features/settings/PluginsSettings"
+import { PluginSettingsScreen } from "@/features/settings/PluginSettingsScreen"
 
 export default PluginSettingsScreen

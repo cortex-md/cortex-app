@@ -1,15 +1,8 @@
 import { type HotkeyBinding, parseHotkey, useHotkeysStore } from "@cortex/hotkeys"
 import { useMemo } from "react"
-import { Platform, StyleSheet, Text, View } from "react-native"
+import { Platform } from "react-native"
 
-import { SettingsRow } from "@/components/ui/SettingsRow"
-import {
-	SettingsBlock,
-	SettingsIntro,
-	SettingsScroll,
-	SettingsSection,
-} from "@/features/settings/SettingsLayout"
-import { useMobileColors } from "@/hooks/useMobileColors"
+import { FormRow, FormSection, NativeForm } from "@/components/ui/Form"
 
 const IS_IOS = Platform.OS === "ios"
 
@@ -77,14 +70,9 @@ function groupBindings(bindings: HotkeyBinding[]): ShortcutGroup[] {
 	return [...groups.values()]
 }
 
-function KeyChip({ keys }: { keys: string }) {
-	const { colors } = useMobileColors()
-	return (
-		<View style={[styles.chip, { backgroundColor: colors.fill }]}>
-			<Text style={[styles.chipLabel, { color: colors.secondaryLabel }]}>{formatShortcut(keys)}</Text>
-		</View>
-	)
-}
+const FOOTER = IS_IOS
+	? "Available with a hardware keyboard. Hold Command to see them."
+	: "Available with a hardware keyboard. Press Meta + / to see them."
 
 export function HotkeysSettingsScreen() {
 	const bindings = useHotkeysStore((state) => state.bindings)
@@ -94,34 +82,18 @@ export function HotkeysSettingsScreen() {
 	}, [bindings])
 
 	return (
-		<SettingsScroll>
-			<SettingsIntro>
-				{IS_IOS
-					? "Available when a hardware keyboard is connected. Hold Command in any screen to see them."
-					: "Available when a hardware keyboard is connected. Press Meta + / to see them anywhere."}
-			</SettingsIntro>
-			{groups.map((group) => (
-				<SettingsBlock key={group.title}>
-					<SettingsSection title={group.title}>
-						{group.items.map((item) => (
-							<SettingsRow key={item.id} title={item.label} trailing={<KeyChip keys={item.keys} />} />
-						))}
-					</SettingsSection>
-				</SettingsBlock>
+		<NativeForm>
+			{groups.map((group, index) => (
+				<FormSection
+					footer={index === groups.length - 1 ? FOOTER : undefined}
+					key={group.title}
+					title={group.title}
+				>
+					{group.items.map((item) => (
+						<FormRow key={item.id} title={item.label} value={formatShortcut(item.keys)} />
+					))}
+				</FormSection>
 			))}
-		</SettingsScroll>
+		</NativeForm>
 	)
 }
-
-const styles = StyleSheet.create({
-	chip: {
-		borderRadius: 7,
-		paddingHorizontal: 8,
-		paddingVertical: 3,
-	},
-	chipLabel: {
-		fontFamily: IS_IOS ? "Menlo" : "monospace",
-		fontSize: 13,
-		lineHeight: 18,
-	},
-})

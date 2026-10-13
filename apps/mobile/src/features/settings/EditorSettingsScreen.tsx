@@ -1,140 +1,126 @@
-import { formatVaultPath } from "@cortex/core"
+import { useVaultStore } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
 import { type EditorSettings, useSettingsStore } from "@cortex/settings"
-import { ListItem, Picker, Text } from "@expo/ui"
-import { Platform } from "react-native"
 
-import { SettingsRow } from "@/components/ui/SettingsRow"
-import {
-	SettingsBlock,
-	SettingsFooter,
-	SettingsScroll,
-	SettingsSection,
-} from "@/features/settings/SettingsLayout"
+import { FormRow, FormSection, FormToggle, NativeForm } from "@/components/ui/Form"
+import { SettingsPicker } from "@/features/settings/SettingsControls"
+import type { SettingsOption } from "@/features/settings/settingsControlTypes"
 import { updateSetting } from "@/features/settings/settingsPages"
-import { useMobileColors } from "@/hooks/useMobileColors"
 
-const IS_IOS = Platform.OS === "ios"
+type ImageLocation = EditorSettings["imageStorageLocation"]
 
-const TAB_SIZES = [2, 4, 8]
+const TAB_SIZES: SettingsOption<number>[] = [2, 4, 8].map((size) => ({
+	label: String(size),
+	value: size,
+}))
 
-const imageLocationLabels: Record<EditorSettings["imageStorageLocation"], string> = {
-	custom: "Custom folder",
-	root: "Vault root",
-	same: "Same folder as the note",
-}
-
-const imageLocations = Object.keys(imageLocationLabels) as EditorSettings["imageStorageLocation"][]
+const IMAGE_LOCATIONS: SettingsOption<ImageLocation>[] = [
+	{ label: "Same folder as the note", value: "same" },
+	{ label: "Vault root", value: "root" },
+	{ label: "Custom folder", value: "custom" },
+]
 
 async function pickImageFolder(): Promise<void> {
-	const folder = await getPlatform().dialog.pickFolder({ title: "Custom image folder" })
+	const folder = await getPlatform().dialog.pickFolder({ title: "Image folder" })
 	if (folder) updateSetting("editor", "imageStorageCustomPath", folder)
 }
 
+function trimSlashes(value: string): string {
+	return value.replace(/^\/+|\/+$/g, "")
+}
+
+function safeDecode(value: string): string {
+	try {
+		return decodeURIComponent(value)
+	} catch {
+		return value
+	}
+}
+
+function folderLabel(path: string, vaultPath: string | undefined, vaultName: string): string {
+	const decoded = safeDecode(path)
+	if (vaultPath && decoded.startsWith(vaultPath)) {
+		return trimSlashes(decoded.slice(vaultPath.length)) || vaultName
+	}
+	return trimSlashes(decoded).split(/[/:]/).pop() || decoded
+}
+
 export function EditorSettingsScreen() {
-	const { colors } = useMobileColors()
 	const editor = useSettingsStore((state) => state.settings.editor)
+	const vault = useVaultStore((state) => state.vault)
 	const customFolder = editor.imageStorageCustomPath
-		? formatVaultPath(editor.imageStorageCustomPath)
-		: "Select a folder..."
+		? folderLabel(editor.imageStorageCustomPath, vault?.path, vault?.name ?? "Vault")
+		: "Choose…"
 
 	return (
-		<SettingsScroll>
-			<SettingsSection title="Editor behavior">
-				<SettingsRow
-					onToggle={(value) => updateSetting("editor", "wordWrap", value)}
+		<NativeForm>
+			<FormSection title="Editing">
+				<FormToggle
+					onValueChange={(value) => updateSetting("editor", "wordWrap", value)}
 					title="Word wrap"
-					toggled={editor.wordWrap}
+					value={editor.wordWrap}
 				/>
-				<SettingsRow
-					onToggle={(value) => updateSetting("editor", "folding", value)}
-					subtitle="Show folding controls for headings, lists, quotes, and code blocks."
+				<FormToggle
+					onValueChange={(value) => updateSetting("editor", "folding", value)}
 					title="Fold sections"
-					toggled={editor.folding}
+					value={editor.folding}
 				/>
-				<SettingsRow
-					onToggle={(value) => updateSetting("editor", "showLineNumbers", value)}
-					title="Show line numbers"
-					toggled={editor.showLineNumbers}
+				<FormToggle
+					onValueChange={(value) => updateSetting("editor", "showLineNumbers", value)}
+					title="Line numbers"
+					value={editor.showLineNumbers}
 				/>
-				<SettingsRow
-					onToggle={(value) => updateSetting("editor", "slashCommands", value)}
-					subtitle="Show Markdown actions after typing / in the editor."
+				<FormToggle
+					onValueChange={(value) => updateSetting("editor", "slashCommands", value)}
 					title="Slash commands"
-					toggled={editor.slashCommands}
+					value={editor.slashCommands}
 				/>
-				<SettingsRow
-					onToggle={(value) => updateSetting("editor", "markdownToolbar", value)}
-					subtitle="Show common formatting controls above the keyboard."
+				<FormToggle
+					onValueChange={(value) => updateSetting("editor", "markdownToolbar", value)}
 					title="Markdown toolbar"
-					toggled={editor.markdownToolbar}
+					value={editor.markdownToolbar}
 				/>
-				<SettingsRow
-					onToggle={(value) => updateSetting("editor", "vimMode", value)}
-					subtitle="Use Vim motions with a hardware keyboard."
-					title="Vim mode"
-					toggled={editor.vimMode}
-				/>
-				<SettingsRow
-					onToggle={(value) => updateSetting("editor", "autoSave", value)}
+				<FormToggle
+					onValueChange={(value) => updateSetting("editor", "autoSave", value)}
 					title="Auto-save"
-					toggled={editor.autoSave}
+					value={editor.autoSave}
 				/>
-			</SettingsSection>
-
-			<SettingsBlock>
-				<SettingsSection title="Indentation">
-					<ListItem
-						colors={{ containerColor: colors.cell, contentColor: colors.label }}
-						trailing={
-							<Picker
-								onValueChange={(value) => updateSetting("editor", "tabSize", Number(value))}
-								selectedValue={String(editor.tabSize)}
-							>
-								{TAB_SIZES.map((size) => (
-									<Picker.Item key={size} label={String(size)} value={String(size)} />
-								))}
-							</Picker>
-						}
-					>
-						<Text textStyle={{ color: colors.label }}>Tab size</Text>
-					</ListItem>
-					<SettingsRow
-						onToggle={(value) => updateSetting("editor", "useSpaces", value)}
-						title="Use spaces instead of tabs"
-						toggled={editor.useSpaces}
-					/>
-				</SettingsSection>
-			</SettingsBlock>
-
-			<SettingsBlock>
-				<SettingsSection title="Images">
-					<ListItem
-						colors={{ containerColor: colors.cell, contentColor: colors.label }}
-						supportingText={IS_IOS ? undefined : imageLocationLabels[editor.imageStorageLocation]}
-						trailing={
-							<Picker
-								onValueChange={(value) => updateSetting("editor", "imageStorageLocation", value)}
-								selectedValue={editor.imageStorageLocation}
-							>
-								{imageLocations.map((location) => (
-									<Picker.Item key={location} label={imageLocationLabels[location]} value={location} />
-								))}
-							</Picker>
-						}
-					>
-						<Text textStyle={{ color: colors.label }}>Image storage location</Text>
-					</ListItem>
-					<SettingsRow
+				<FormToggle
+					onValueChange={(value) => updateSetting("editor", "vimMode", value)}
+					subtitle="With a hardware keyboard"
+					title="Vim mode"
+					value={editor.vimMode}
+				/>
+			</FormSection>
+			<FormSection title="Indentation">
+				<SettingsPicker
+					onChange={(value) => updateSetting("editor", "tabSize", value)}
+					options={TAB_SIZES}
+					title="Tab size"
+					value={editor.tabSize}
+				/>
+				<FormToggle
+					onValueChange={(value) => updateSetting("editor", "useSpaces", value)}
+					title="Use spaces"
+					value={editor.useSpaces}
+				/>
+			</FormSection>
+			<FormSection title="Images">
+				<SettingsPicker
+					onChange={(value) => updateSetting("editor", "imageStorageLocation", value)}
+					options={IMAGE_LOCATIONS}
+					title="Save images in"
+					value={editor.imageStorageLocation}
+				/>
+				{editor.imageStorageLocation === "custom" ? (
+					<FormRow
 						chevron
-						disabled={editor.imageStorageLocation !== "custom"}
 						onPress={() => void pickImageFolder()}
-						title="Custom image folder"
+						title="Folder"
 						value={customFolder}
 					/>
-				</SettingsSection>
-				<SettingsFooter>Images will be saved relative to the active vault.</SettingsFooter>
-			</SettingsBlock>
-		</SettingsScroll>
+				) : null}
+			</FormSection>
+		</NativeForm>
 	)
 }
