@@ -59,6 +59,7 @@
 	],
 	"overrides": {
 		"undici": "7.28.0",
-		"yjs": "13.6.33"
+		"yjs": "13.6.33",
+		"react-native-screens": "4.26.2"
 	}
 }

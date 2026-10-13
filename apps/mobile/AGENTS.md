@@ -1,8 +1,8 @@
 # Cortex Mobile
 
-## Expo SDK 56
+## Expo SDK 57
 
-- Read the exact versioned docs at https://docs.expo.dev/versions/v56.0.0/ before changing Expo APIs.
+- Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before changing Expo APIs.
 - Keep this app native-first: Expo Router nested `Stack` headers, the mobile sidebar/drawer,
   gestures, platform colors, iOS glass/material behavior, and Material/UIKit defaults should own the
   shell.
