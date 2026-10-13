@@ -51,7 +51,9 @@ export interface VersionDayGroup {
 
 export type DeviceFilter = "all" | "device" | "others"
 
-function withStats(entries: Omit<VersionEntry, "added" | "removed" | "previousContent">[]): VersionEntry[] {
+function withStats(
+	entries: Omit<VersionEntry, "added" | "removed" | "previousContent">[],
+): VersionEntry[] {
 	return entries.map((entry, index) => {
 		const previousContent = entries[index + 1]?.content ?? ""
 		const { added, removed } = countWordChanges(previousContent, entry.content)
@@ -125,7 +127,10 @@ export async function loadVersionHistory(filePath: string | null): Promise<Versi
 	}
 }
 
-export function filterVersions(versions: readonly VersionEntry[], filter: DeviceFilter): VersionEntry[] {
+export function filterVersions(
+	versions: readonly VersionEntry[],
+	filter: DeviceFilter,
+): VersionEntry[] {
 	if (filter === "all") return [...versions]
 	return versions.filter((version) => (filter === "device" ? version.isMine : !version.isMine))
 }
@@ -154,7 +159,11 @@ export function formatVersionTime(timestamp: number): string {
 export function formatVersionMoment(timestamp: number): string {
 	const label = historyDayLabel(timestamp)
 	const date = new Date(timestamp)
-	const time = date.toLocaleTimeString(undefined, { hour: "2-digit", hour12: false, minute: "2-digit" })
+	const time = date.toLocaleTimeString(undefined, {
+		hour: "2-digit",
+		hour12: false,
+		minute: "2-digit",
+	})
 	if (label === "Earlier") {
 		return `${date.toLocaleDateString(undefined, { day: "numeric", month: "short" })} at ${time}`
 	}
@@ -165,7 +174,10 @@ export function getVersionDiff(version: VersionEntry): DiffRow[] {
 	return buildDiffRows(version.previousContent, version.content)
 }
 
-export async function restoreVersion(filePath: string | null, version: VersionEntry): Promise<void> {
+export async function restoreVersion(
+	filePath: string | null,
+	version: VersionEntry,
+): Promise<void> {
 	if (version.isCurrent) return
 	if (version.source === "local" && filePath) {
 		await restoreLocalVersion(filePath, version.id)

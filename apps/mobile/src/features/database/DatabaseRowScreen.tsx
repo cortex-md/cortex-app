@@ -17,22 +17,6 @@ import {
 } from "@cortex/properties"
 import { type DatabaseRow, getPropertyBaseType } from "@cortex/properties/database"
 import { router, Stack, useLocalSearchParams } from "expo-router"
-import {
-	AppWindow,
-	Calendar,
-	ChevronDown,
-	ChevronUp,
-	CircleDot,
-	EllipsisVertical,
-	FilePen,
-	Hash,
-	SlidersHorizontal,
-	SquareCheck,
-	Table2,
-	Tags,
-	Type,
-	User,
-} from "lucide-react-native"
 import { type ReactNode, useMemo, useState } from "react"
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 
@@ -40,6 +24,7 @@ import { Avatar } from "@/components/ui/Avatar"
 import { EmptyState } from "@/components/ui/EmptyState"
 import type { MenuGroup } from "@/components/ui/menuTypes"
 import { NativeMenu } from "@/components/ui/NativeMenu"
+import { Symbol, type SymbolName } from "@/components/ui/Symbol"
 import { dueToneColor, OptionPill } from "@/features/database/DatabaseCells"
 import {
 	formatEditedAgo,
@@ -62,24 +47,19 @@ import { triggerSelectionHaptic } from "@/utils/haptics"
 
 const IS_IOS = Platform.OS === "ios"
 
+const PROPERTY_ICONS: Record<string, SymbolName> = {
+	checkbox: { md: "check_box", sf: "checkmark.square" },
+	date: { md: "calendar_today", sf: "calendar" },
+	number: { md: "tag", sf: "number" },
+	person: { md: "person", sf: "person" },
+	select: { md: "radio_button_checked", sf: "smallcircle.filled.circle" },
+	tags: { md: "sell", sf: "tag" },
+}
+const TEXT_ICON: SymbolName = { md: "notes", sf: "textformat" }
+
 function PropertyIcon({ color, definition }: { color: string; definition: PropertyDefinition }) {
-	const props = { color, size: 16, strokeWidth: 2 }
-	switch (getPropertyBaseType(definition)) {
-		case "select":
-			return <CircleDot {...props} />
-		case "person":
-			return <User {...props} />
-		case "date":
-			return <Calendar {...props} />
-		case "tags":
-			return <Tags {...props} />
-		case "number":
-			return <Hash {...props} />
-		case "checkbox":
-			return <SquareCheck {...props} />
-		default:
-			return <Type {...props} />
-	}
+	const icon = PROPERTY_ICONS[getPropertyBaseType(definition)] ?? TEXT_ICON
+	return <Symbol color={color} name={icon} size={14} />
 }
 
 function useBacklinkCount(filePath: string): number {
@@ -201,7 +181,11 @@ function RowPager({
 					icon="chevron.up"
 					onPress={() => onStep(-1)}
 				/>
-				<Stack.Toolbar.Button accessibilityLabel="Next note" icon="chevron.down" onPress={() => onStep(1)} />
+				<Stack.Toolbar.Button
+					accessibilityLabel="Next note"
+					icon="chevron.down"
+					onPress={() => onStep(1)}
+				/>
 				<Stack.Toolbar.View>
 					<View style={styles.positionPill}>
 						<Text style={[styles.positionText, { color: colors.secondaryLabel }]}>{position}</Text>
@@ -226,7 +210,11 @@ function RowPager({
 					onPress={() => onStep(-1)}
 					style={styles.androidIcon}
 				>
-					<ChevronUp color={colors.label} size={24} strokeWidth={2} />
+					<Symbol
+						color={colors.label}
+						name={{ md: "keyboard_arrow_up", sf: "chevron.up" }}
+						size={24}
+					/>
 				</Pressable>
 				<Pressable
 					accessibilityLabel="Next note"
@@ -234,7 +222,11 @@ function RowPager({
 					onPress={() => onStep(1)}
 					style={styles.androidIcon}
 				>
-					<ChevronDown color={colors.label} size={24} strokeWidth={2} />
+					<Symbol
+						color={colors.label}
+						name={{ md: "keyboard_arrow_down", sf: "chevron.down" }}
+						size={24}
+					/>
 				</Pressable>
 				<Text style={[styles.androidPosition, { color: colors.secondaryLabel }]}>{position}</Text>
 			</View>
@@ -245,7 +237,11 @@ function RowPager({
 				onPress={() => openNote(filePath)}
 				style={[styles.androidFab, { backgroundColor: colors.accentSubtle }]}
 			>
-				<AppWindow color={colors.tint} size={24} strokeWidth={2} />
+				<Symbol
+					color={colors.tint}
+					name={{ md: "open_in_new", sf: "plus.square.on.square" }}
+					size={24}
+				/>
 			</Pressable>
 		</View>
 	)
@@ -304,7 +300,12 @@ export function DatabaseRowScreen() {
 	function selectStatus(id: string) {
 		if (!statusDefinition || !row) return
 		triggerSelectionHaptic()
-		void updateDatabaseCell(folderPath, row.path, statusDefinition.key, statusDefinition.multiple ? [id] : id)
+		void updateDatabaseCell(
+			folderPath,
+			row.path,
+			statusDefinition.key,
+			statusDefinition.multiple ? [id] : id,
+		)
 	}
 
 	function saveAsTemplate() {
@@ -317,36 +318,25 @@ export function DatabaseRowScreen() {
 	const moreGroups: MenuGroup[] = [
 		[
 			{
-				icon: { Lucide: FilePen, sf: "square.and.pencil" },
+				icon: { md: "edit_note", sf: "square.and.pencil" },
 				key: "open",
 				label: "Open in editor",
 				onPress: () => openNote(filePath),
 			},
 			{
-				icon: { Lucide: SlidersHorizontal, sf: "slider.horizontal.3" },
+				icon: { md: "tune", sf: "slider.horizontal.3" },
 				key: "properties",
 				label: "Properties",
 				onPress: () => presentSheet("properties", { filePath }),
 			},
 			{
-				icon: { Lucide: Table2, sf: "doc.badge.plus" },
+				icon: { md: "note_add", sf: "doc.badge.plus" },
 				key: "template",
 				label: "Save as row template",
 				onPress: saveAsTemplate,
 			},
 		],
 	]
-
-	const headerTitle = () => (
-		<View style={styles.headerTitle}>
-			<Text numberOfLines={1} style={[styles.headerTitleText, { color: colors.label }]}>
-				{title}
-			</Text>
-			<Text numberOfLines={1} style={[styles.headerSubtitle, { color: colors.secondaryLabel }]}>
-				{databaseName}
-			</Text>
-		</View>
-	)
 
 	return (
 		<>
@@ -357,12 +347,6 @@ export function DatabaseRowScreen() {
 			>
 				{row ? (
 					<>
-						<View style={styles.crumb}>
-							<Table2 color={colors.secondaryLabel} size={14} strokeWidth={2} />
-							<Text numberOfLines={1} style={[styles.crumbText, { color: colors.secondaryLabel }]}>
-								{`${databaseName} / ${getBaseName(filePath)}`}
-							</Text>
-						</View>
 						<Text accessibilityRole="header" style={[styles.h1, { color: colors.label }]}>
 							{title}
 						</Text>
@@ -377,9 +361,13 @@ export function DatabaseRowScreen() {
 												onPress={() => setStatusOpen(true)}
 											>
 												{statusValue !== undefined && statusDefinition ? (
-													<OptionPill option={resolvePropertyOption(statusDefinition, statusValue)} />
+													<OptionPill
+														option={resolvePropertyOption(statusDefinition, statusValue)}
+													/>
 												) : (
-													<Text style={[styles.valueText, { color: colors.tertiaryLabel }]}>Empty</Text>
+													<Text style={[styles.valueText, { color: colors.tertiaryLabel }]}>
+														Empty
+													</Text>
 												)}
 											</Pressable>
 										) : (
@@ -419,13 +407,14 @@ export function DatabaseRowScreen() {
 							)}
 						</View>
 						<Text style={[styles.footer, { color: colors.tertiaryLabel }]}>
-							<Text style={styles.footerStrong}>Live Preview</Text>
-							{` · Edited ${formatEditedAgo(row.mtime)} · ${backlinks} ${backlinks === 1 ? "backlink" : "backlinks"}`}
+							{`Edited ${formatEditedAgo(row.mtime)} · ${backlinks} ${backlinks === 1 ? "backlink" : "backlinks"}`}
 						</Text>
 					</>
 				) : (
 					<EmptyState
-						description={model.registryReady ? "This note is no longer in the database." : undefined}
+						description={
+							model.registryReady ? "This note is no longer in the database." : undefined
+						}
 						title={model.registryReady ? "Note not found" : "Loading…"}
 					/>
 				)}
@@ -438,11 +427,10 @@ export function DatabaseRowScreen() {
 								<NativeMenu
 									accessibilityLabel="Note actions"
 									groups={moreGroups}
-									icon={{ Lucide: EllipsisVertical, sf: "ellipsis" }}
+									icon={{ md: "more_vert", sf: "ellipsis" }}
 								/>
 							),
-					headerTitle,
-					title,
+					title: databaseName,
 				}}
 			/>
 			{IS_IOS ? (
@@ -457,7 +445,12 @@ export function DatabaseRowScreen() {
 				</Stack.Toolbar>
 			) : null}
 			{row && ordered.length > 0 ? (
-				<RowPager filePath={filePath} index={Math.max(index, 0)} onStep={step} total={ordered.length} />
+				<RowPager
+					filePath={filePath}
+					index={Math.max(index, 0)}
+					onStep={step}
+					total={ordered.length}
+				/>
 			) : null}
 			{statusDefinition ? (
 				<StatusPicker
@@ -520,44 +513,17 @@ const styles = StyleSheet.create({
 		paddingBottom: 140,
 		paddingHorizontal: 20,
 	},
-	crumb: {
-		alignItems: "center",
-		flexDirection: "row",
-		gap: 6,
-		marginTop: 8,
-	},
-	crumbText: {
-		flexShrink: 1,
-		fontSize: 13,
-		lineHeight: 18,
-	},
 	footer: {
 		fontSize: 13,
 		lineHeight: 18,
 		marginTop: 24,
-	},
-	footerStrong: {
-		fontWeight: "600",
 	},
 	h1: {
 		fontSize: 28,
 		fontWeight: "700",
 		lineHeight: 34,
 		marginBottom: 12,
-		marginTop: 6,
-	},
-	headerSubtitle: {
-		fontSize: 12,
-		lineHeight: 15,
-	},
-	headerTitle: {
-		alignItems: IS_IOS ? "center" : "flex-start",
-		maxWidth: 240,
-	},
-	headerTitleText: {
-		fontSize: IS_IOS ? 17 : 20,
-		fontWeight: IS_IOS ? "600" : "400",
-		lineHeight: IS_IOS ? 21 : 26,
+		marginTop: 8,
 	},
 	inline: {
 		alignItems: "center",

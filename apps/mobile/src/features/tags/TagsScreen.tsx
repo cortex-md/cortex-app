@@ -1,27 +1,19 @@
-import { buildTagTree, selectSortedTags, useTagsStore } from "@cortex/core"
-import { Stack } from "expo-router"
-import { ArrowDownWideNarrow, ChevronRight, Tag } from "lucide-react-native"
+import { buildTagTree, selectSortedTags, useTagsStore, useVaultStore } from "@cortex/core"
+import { type Href, router, Stack } from "expo-router"
 import { useMemo, useState } from "react"
-import {
-	ActivityIndicator,
-	FlatList,
-	Platform,
-	Pressable,
-	StyleSheet,
-	Text,
-	View,
-} from "react-native"
+import { ActivityIndicator, FlatList, Platform, StyleSheet, Text, View } from "react-native"
 
-import { Badge } from "@/components/ui/Badge"
 import { EmptyState } from "@/components/ui/EmptyState"
-import { GroupedSectionHeader } from "@/components/ui/GroupedList"
 import { NativeMenu } from "@/components/ui/NativeMenu"
-import { SearchField } from "@/components/ui/SearchField"
+import { Symbol } from "@/components/ui/Symbol"
 import { openTagPage } from "@/features/navigation/routes"
+import { ListCell, ListSectionHeader, listCellStyles } from "@/features/search/ListCell"
+import { RowContextMenu } from "@/features/search/RowContextMenu"
 import { useEnsureVaultIndexed } from "@/features/search/vaultIndexing"
 import { SidebarToggleButton } from "@/features/sidebar/SidebarToggleButton"
 import { useMobileSidebar } from "@/features/sidebar/useMobileSidebar"
-import { resolveTagColor } from "@/features/tags/tagColors"
+import { getTagColorChoices, promptRenameTag, setTagColorInVault } from "@/features/tags/tagActions"
+import { getTagColorOptions, resolveTagColor } from "@/features/tags/tagColors"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 const IS_IOS = Platform.OS === "ios"
@@ -43,11 +35,13 @@ const sortOrders = Object.keys(sortLabels) as TagSort[]
 export function TagsScreen() {
 	const { colors } = useMobileColors()
 	const { openSidebar } = useMobileSidebar()
+	const vaultPath = useVaultStore((state) => state.vault?.path ?? "")
 	const tagIndex = useTagsStore((state) => state.tagIndex)
 	const tagColors = useTagsStore((state) => state.tagColors)
 	const [filter, setFilter] = useState("")
 	const [sort, setSort] = useState<TagSort>("count")
 	const indexReady = useEnsureVaultIndexed()
+	const colorChoices = getTagColorChoices(getTagColorOptions(colors))
 
 	const needle = filter.trim().replace(/^#/, "").toLowerCase()
 	const items = useMemo<TagListItem[]>(() => {
@@ -56,10 +50,18 @@ export function TagsScreen() {
 			? entries
 					.filter((entry) => entry.tag.toLowerCase().includes(needle))
 					.map((entry) => ({ tag: entry.tag, color: entry.color, count: entry.filePaths.length }))
-			: buildTagTree(entries).map((node) => ({ tag: node.tag, color: node.color, count: node.count }))
+			: buildTagTree(entries).map((node) => ({
+					tag: node.tag,
+					color: node.color,
+					count: node.count,
+				}))
 		if (sort === "name") return [...list].sort((a, b) => a.tag.localeCompare(b.tag))
 		return list
 	}, [needle, sort, tagColors, tagIndex])
+
+	const searchInTag = (tag: string) => {
+		router.navigate({ pathname: "/(tabs)/(search)", params: { tag } } as Href)
+	}
 
 	return (
 		<>
@@ -72,7 +74,10 @@ export function TagsScreen() {
 				keyExtractor={(item) => item.tag}
 				ListEmptyComponent={
 					needle ? (
-						<EmptyState title={`No tags match “${filter.trim()}”`} />
+						<EmptyState
+							icon={{ md: "search_off", sf: "magnifyingglass" }}
+							title={`No tags match “${filter.trim()}”`}
+						/>
 					) : !indexReady ? (
 						<View style={styles.loading}>
 							<ActivityIndicator color={colors.tint} />
@@ -80,80 +85,102 @@ export function TagsScreen() {
 					) : (
 						<EmptyState
 							description="Add #tags to your notes to see them here."
-							Icon={Tag}
+							icon={{ md: "tag", sf: "number" }}
 							title="No tags yet"
 						/>
 					)
 				}
 				ListHeaderComponent={
-					<>
-						<View style={styles.filter}>
-							<SearchField
-								accessibilityLabel="Filter tags"
-								onChangeText={setFilter}
-								onClear={() => setFilter("")}
-								placeholder="Filter tags..."
-								value={filter}
-							/>
-						</View>
-						{items.length > 0 ? (
-							<GroupedSectionHeader>
-								{`${items.length} ${items.length === 1 ? "tag" : "tags"}`}
-							</GroupedSectionHeader>
-						) : null}
-					</>
+					items.length > 0 ? (
+						<ListSectionHeader>
+							{`${items.length} ${items.length === 1 ? "tag" : "tags"}`}
+						</ListSectionHeader>
+					) : null
 				}
 				renderItem={({ item, index }) => (
-					<View
-						style={[
-							styles.card,
-							{ backgroundColor: colors.cell },
-							index === 0 ? styles.first : null,
-							index === items.length - 1 ? styles.last : null,
+					<RowContextMenu
+						entries={[
+							{
+								icon: "magnifyingglass",
+								key: "search",
+								label: "Search in tag",
+								onPress: () => searchInTag(item.tag),
+							},
+							{
+								icon: "pencil",
+								key: "rename",
+								label: "Rename…",
+								onPress: () => promptRenameTag(vaultPath, item.tag),
+							},
+							{
+								actions: colorChoices.map((choice) => ({
+									isOn: item.color === choice.value,
+									key: choice.key,
+									label: choice.label,
+									onPress: () => setTagColorInVault(vaultPath, item.tag, choice.value),
+								})),
+								icon: "paintpalette",
+								key: "colour",
+								label: "Colour",
+							},
 						]}
+						href={{ pathname: "/tag", params: { tag: item.tag } } as Href}
+						onPress={() => openTagPage(item.tag)}
 					>
-						<Pressable
-							accessibilityRole="button"
-							android_ripple={{ color: colors.hover }}
-							onPress={() => openTagPage(item.tag)}
-							style={({ pressed }) => [
-								styles.row,
-								{ backgroundColor: pressed && IS_IOS ? colors.hover : "transparent" },
-							]}
-						>
-							<View style={styles.dotWrap}>
-								<View
-									style={[styles.dot, { backgroundColor: resolveTagColor(item.color, colors) }]}
+						{(onPress) => (
+							<ListCell
+								first={index === 0}
+								last={index === items.length - 1}
+								onPress={onPress}
+								separatorInset={56}
+							>
+								<View style={styles.dotWrap}>
+									<View
+										style={[styles.dot, { backgroundColor: resolveTagColor(item.color, colors) }]}
+									/>
+								</View>
+								<Text
+									numberOfLines={1}
+									style={[listCellStyles.title, styles.name, { color: colors.label }]}
+								>
+									{item.tag}
+								</Text>
+								<Text style={[listCellStyles.value, { color: colors.secondaryLabel }]}>
+									{String(item.count)}
+								</Text>
+								<Symbol
+									color={colors.tertiaryLabel}
+									name={{ md: "chevron_right", sf: "chevron.right" }}
+									size={IS_IOS ? 13 : 24}
 								/>
-							</View>
-							<Text numberOfLines={1} style={[styles.name, { color: colors.label }]}>
-								{item.tag}
-							</Text>
-							<Badge label={String(item.count)} />
-							<ChevronRight
-								color={colors.tertiaryLabel}
-								size={IS_IOS ? 14 : 24}
-								strokeWidth={2.4}
-							/>
-						</Pressable>
-						{IS_IOS && index < items.length - 1 ? (
-							<View style={[styles.separator, { backgroundColor: colors.separator }]} />
-						) : null}
-					</View>
+							</ListCell>
+						)}
+					</RowContextMenu>
 				)}
 				style={{ backgroundColor: colors.groupedBackground }}
+			/>
+			<Stack.SearchBar
+				autoCapitalize="none"
+				hideWhenScrolling={false}
+				onCancelButtonPress={() => setFilter("")}
+				onChangeText={(event) => setFilter(event.nativeEvent.text)}
+				placeholder="Filter tags"
 			/>
 			{IS_IOS ? (
 				<>
 					<Stack.Toolbar placement="left">
 						<Stack.Toolbar.Button
-							accessibilityLabel="Show sidebar"
+							accessibilityLabel="Open sidebar"
 							icon="sidebar.left"
 							onPress={openSidebar}
 						/>
 					</Stack.Toolbar>
 					<Stack.Toolbar placement="right">
-						<Stack.Toolbar.Menu accessibilityLabel="More" icon="ellipsis" title="More">
+						<Stack.Toolbar.Menu
+							accessibilityLabel="Sort"
+							icon="arrow.up.arrow.down"
+							title="Sort by"
+						>
 							<Stack.Toolbar.Menu inline title="Sort by">
 								{sortOrders.map((order) => (
 									<Stack.Toolbar.MenuAction
@@ -174,7 +201,7 @@ export function TagsScreen() {
 						headerLeft: () => <SidebarToggleButton />,
 						headerRight: () => (
 							<NativeMenu
-								accessibilityLabel="More"
+								accessibilityLabel="Sort"
 								groups={[
 									sortOrders.map((order) => ({
 										checked: sort === order,
@@ -184,7 +211,7 @@ export function TagsScreen() {
 									})),
 								]}
 								header="Sort by"
-								icon={{ Lucide: ArrowDownWideNarrow, sf: "arrow.up.arrow.down" }}
+								icon={{ md: "sort", sf: "arrow.up.arrow.down" }}
 							/>
 						),
 					}}
@@ -195,10 +222,6 @@ export function TagsScreen() {
 }
 
 const styles = StyleSheet.create({
-	card: {
-		marginHorizontal: 16,
-		overflow: "hidden",
-	},
 	content: {
 		paddingBottom: 32,
 	},
@@ -209,38 +232,12 @@ const styles = StyleSheet.create({
 	},
 	dotWrap: {
 		alignItems: "center",
-		width: 30,
-	},
-	filter: {
-		paddingBottom: 2,
-		paddingTop: 4,
-	},
-	first: {
-		borderTopLeftRadius: IS_IOS ? 26 : 20,
-		borderTopRightRadius: IS_IOS ? 26 : 20,
-	},
-	last: {
-		borderBottomLeftRadius: IS_IOS ? 26 : 20,
-		borderBottomRightRadius: IS_IOS ? 26 : 20,
+		width: 28,
 	},
 	loading: {
 		paddingVertical: 40,
 	},
 	name: {
 		flex: 1,
-		fontSize: IS_IOS ? 17 : 16,
-		lineHeight: IS_IOS ? 22 : 24,
-	},
-	row: {
-		alignItems: "center",
-		flexDirection: "row",
-		gap: IS_IOS ? 12 : 16,
-		minHeight: IS_IOS ? 52 : 56,
-		paddingHorizontal: 16,
-		paddingVertical: 10,
-	},
-	separator: {
-		height: StyleSheet.hairlineWidth,
-		marginLeft: 58,
 	},
 })

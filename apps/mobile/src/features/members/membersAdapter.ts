@@ -59,7 +59,10 @@ function formatExpires(expiresAt: string): string {
 	return `Expires in ${days} ${days === 1 ? "day" : "days"}`
 }
 
-export function mapVaultMembers(members: VaultMember[], currentUserId: string | null): MemberRecord[] {
+export function mapVaultMembers(
+	members: VaultMember[],
+	currentUserId: string | null,
+): MemberRecord[] {
 	return members.map((member, index) => ({
 		id: member.userId,
 		name: member.displayName || member.email,

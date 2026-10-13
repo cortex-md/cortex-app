@@ -1,11 +1,9 @@
 import type { DiffRow } from "@cortex/core"
 import { router, Stack, useLocalSearchParams } from "expo-router"
-import { Copy, FilePlus, RotateCcw } from "lucide-react-native"
 import { useState } from "react"
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, View } from "react-native"
 
-import { FloatingActionButton } from "@/components/ui/FloatingActionButton"
-import { HeaderIconButton } from "@/components/ui/HeaderIconButton"
+import { NativeMenu } from "@/components/ui/NativeMenu"
 import MarkdownBlock from "@/components/ui/MarkdownBlock"
 import { SegmentedControl } from "@/components/ui/SegmentedControl"
 import { useMobileEditorThemeTokens } from "@/features/editor/editorTheme"
@@ -47,7 +45,11 @@ function DiffLine({ row }: { row: DiffRow }) {
 	}
 	const isAdd = row.kind === "add"
 	const isDel = row.kind === "del"
-	const background = isAdd ? colors.successBackground : isDel ? colors.errorBackground : "transparent"
+	const background = isAdd
+		? colors.successBackground
+		: isDel
+			? colors.errorBackground
+			: "transparent"
 	const foreground = isAdd ? colors.successText : isDel ? colors.destructiveText : colors.label
 	const highlight = isAdd ? colors.success : colors.destructive
 	const onHighlight = isAdd ? colors.background : colors.onDestructive
@@ -80,17 +82,20 @@ export function VersionDetailScreen() {
 	useHideTabBar()
 	const { colors } = useMobileColors()
 	const themeTokens = useMobileEditorThemeTokens()
-	const params = useLocalSearchParams<{ filePath?: string | string[]; versionId?: string | string[] }>()
+	const params = useLocalSearchParams<{
+		filePath?: string | string[]
+		versionId?: string | string[]
+	}>()
 	const filePath = readParam(params.filePath)
 	const versionId = readParam(params.versionId)
 	const { history } = useVersionHistory(filePath)
 	const [mode, setMode] = useState<DetailMode>("changes")
 
-	const version: VersionEntry | undefined = history?.versions.find((entry) => entry.id === versionId)
+	const version: VersionEntry | undefined = history?.versions.find(
+		(entry) => entry.id === versionId,
+	)
 	const noteName = history?.noteName ?? ""
-	const subtitle = version
-		? `${version.who} · ${version.device} · ${formatVersionMoment(version.timestamp)}`
-		: ""
+	const subtitle = version ? `${version.who} · ${formatVersionMoment(version.timestamp)}` : ""
 
 	const handleCopy = () => {
 		if (!version) return
@@ -120,28 +125,54 @@ export function VersionDetailScreen() {
 			<Stack.Screen
 				options={{
 					headerLargeTitleEnabled: false,
-					title: version?.title ?? "",
+					title: version?.title ?? "Version",
 					headerRight: IS_IOS
 						? undefined
 						: () => (
-								<View style={styles.headerActions}>
-									<HeaderIconButton accessibilityLabel="Copy text" Icon={Copy} onPress={handleCopy} />
-									<HeaderIconButton accessibilityLabel="Open as copy" Icon={FilePlus} onPress={handleOpenCopy} />
-								</View>
+								<NativeMenu
+									accessibilityLabel="Version actions"
+									groups={[
+										[
+											{
+												disabled: restoreDisabled,
+												icon: { sf: "clock.arrow.circlepath", md: "history" },
+												key: "restore",
+												label: "Restore this version",
+												onPress: handleRestore,
+											},
+										],
+										[
+											{
+												icon: { sf: "doc.on.doc", md: "content_copy" },
+												key: "copy",
+												label: "Copy text",
+												onPress: handleCopy,
+											},
+											{
+												icon: { sf: "doc.badge.plus", md: "note_add" },
+												key: "open-copy",
+												label: "Open as copy",
+												onPress: handleOpenCopy,
+											},
+										],
+									]}
+									icon={{ sf: "ellipsis", md: "more_vert" }}
+								/>
 							),
 				}}
 			/>
 			{IS_IOS ? (
-				<Stack.Toolbar placement="bottom">
-					<Stack.Toolbar.Button icon="doc.on.doc" onPress={handleCopy}>
-						Copy text
-					</Stack.Toolbar.Button>
-					<Stack.Toolbar.Button icon="doc.badge.plus" onPress={handleOpenCopy}>
-						Open as copy
-					</Stack.Toolbar.Button>
-					<Stack.Toolbar.Spacer />
-					<Stack.Toolbar.Button disabled={restoreDisabled} onPress={handleRestore} variant="prominent">
-						Restore this version
+				<Stack.Toolbar placement="right">
+					<Stack.Toolbar.Menu accessibilityLabel="More" icon="ellipsis">
+						<Stack.Toolbar.MenuAction icon="doc.on.doc" onPress={handleCopy}>
+							Copy text
+						</Stack.Toolbar.MenuAction>
+						<Stack.Toolbar.MenuAction icon="doc.badge.plus" onPress={handleOpenCopy}>
+							Open as copy
+						</Stack.Toolbar.MenuAction>
+					</Stack.Toolbar.Menu>
+					<Stack.Toolbar.Button disabled={restoreDisabled} onPress={handleRestore} variant="done">
+						Restore
 					</Stack.Toolbar.Button>
 				</Stack.Toolbar>
 			) : null}
@@ -163,16 +194,11 @@ export function VersionDetailScreen() {
 							value={mode}
 						/>
 						{mode === "changes" ? (
-							<>
-								<Text style={[styles.caption, { color: colors.secondaryLabel }]}>
-									Compared with the version before it. Unchanged lines are folded.
-								</Text>
-								<View style={[styles.diff, { backgroundColor: colors.cell }]}>
-									{getVersionDiff(version).map((row) => (
-										<DiffLine key={row.id} row={row} />
-									))}
-								</View>
-							</>
+							<View style={[styles.diff, { backgroundColor: colors.cell }]}>
+								{getVersionDiff(version).map((row) => (
+									<DiffLine key={row.id} row={row} />
+								))}
+							</View>
 						) : (
 							<View style={[styles.full, { backgroundColor: colors.cell }]}>
 								<MarkdownBlock
@@ -190,33 +216,16 @@ export function VersionDetailScreen() {
 					</>
 				)}
 			</ScrollView>
-			{!IS_IOS && !restoreDisabled ? (
-				<View style={styles.fab}>
-					<FloatingActionButton
-						Icon={RotateCcw}
-						label="Restore this version"
-						onPress={handleRestore}
-						sf="clock.arrow.circlepath"
-					/>
-				</View>
-			) : null}
 		</>
 	)
 }
 
 const styles = StyleSheet.create({
-	caption: {
-		fontSize: 13,
-		lineHeight: 18,
-		marginBottom: 8,
-		marginHorizontal: 20,
-		marginTop: 16,
-	},
 	changed: {
 		borderRadius: 3,
 	},
 	content: {
-		paddingBottom: 120,
+		paddingBottom: 40,
 	},
 	deleted: {
 		textDecorationLine: "line-through",
@@ -225,13 +234,9 @@ const styles = StyleSheet.create({
 		borderCurve: "continuous",
 		borderRadius: IS_IOS ? 20 : 16,
 		marginHorizontal: 16,
+		marginTop: 16,
 		overflow: "hidden",
 		paddingVertical: 6,
-	},
-	fab: {
-		bottom: 24,
-		position: "absolute",
-		right: 16,
 	},
 	full: {
 		borderCurve: "continuous",
@@ -249,9 +254,6 @@ const styles = StyleSheet.create({
 	gapText: {
 		fontSize: 12,
 		lineHeight: 16,
-	},
-	headerActions: {
-		flexDirection: "row",
 	},
 	line: {
 		flexDirection: "row",
@@ -283,7 +285,6 @@ const styles = StyleSheet.create({
 		lineHeight: 18,
 		marginHorizontal: 20,
 		marginTop: 8,
-		textAlign: IS_IOS ? "center" : "left",
 	},
 	transparent: {
 		backgroundColor: "transparent",

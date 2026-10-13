@@ -1,245 +1,156 @@
-import {
-	ChevronRight,
-	ChevronsUpDown,
-	Code2,
-	FileText,
-	Folder,
-	Gem,
-	SkipForward,
-	Table2,
-} from "lucide-react-native"
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
+import { router, Stack } from "expo-router"
+import { Platform, ScrollView, StyleSheet, Text, View } from "react-native"
 
-import { Badge } from "@/components/ui/Badge"
-import { GroupedFooter, GroupedList, GroupedRow, GroupedSectionHeader } from "@/components/ui/GroupedList"
-import { NativeMenu } from "@/components/ui/NativeMenu"
-import { SegmentedControl } from "@/components/ui/SegmentedControl"
-import type { SegmentedOption } from "@/components/ui/segmentedTypes"
-import { formatCount } from "@/features/importExport/importPlan"
+import { FormRow, FormSection, NativeForm } from "@/components/ui/Form"
+import type { SymbolName } from "@/components/ui/Symbol"
+import { FormPicker } from "@/features/importExport/FormFields"
+import type { FormPickerOption } from "@/features/importExport/formFieldTypes"
+import { HeaderActions, useCloseSheetStack } from "@/features/importExport/HeaderActions"
+import { useImport } from "@/features/importExport/ImportContext"
+import { pushImportStep } from "@/features/importExport/importNavigation"
+import { destinationPath, formatCount, previewPathLabel } from "@/features/importExport/importPlan"
 import type {
 	ConflictPolicy,
 	CsvMode,
 	ImportFileKind,
 	ImportPreview,
-	PlannedImportFile,
 } from "@/features/importExport/importTypes"
-import { SheetBody, SheetButton, SheetHero } from "@/features/importExport/SheetParts"
-import type { ImportSheetController } from "@/features/importExport/useImportSheet"
+import { goToFilesRoot, openFolder } from "@/features/navigation/routes"
 import { useMobileColors } from "@/hooks/useMobileColors"
-import type { MobileColors } from "@/theme/colors"
 
 const IS_IOS = Platform.OS === "ios"
 
-const CONFLICT_OPTIONS: SegmentedOption<ConflictPolicy>[] = [
+const CONFLICT_OPTIONS: FormPickerOption<ConflictPolicy>[] = [
 	{ label: "Keep both", value: "both" },
 	{ label: "Skip", value: "skip" },
 ]
 
-const CSV_OPTIONS: SegmentedOption<CsvMode>[] = [
+const CSV_OPTIONS: FormPickerOption<CsvMode>[] = [
 	{ label: "Table", value: "table" },
 	{ label: "Database", value: "database" },
 ]
 
-const FILE_KINDS: { label: string; title: string; subtitle: string; swatch: keyof MobileColors }[] = [
-	{ label: "CSV", subtitle: "One note with a table, or one note per row", swatch: "swatchGreen", title: "A table or a database" },
-	{ label: "HTML", subtitle: "Headings, lists, links and tables kept", swatch: "swatchYellow", title: "A note" },
-	{ label: "PDF", subtitle: "Extracted page by page", swatch: "swatchRed", title: "A note with the text" },
-]
-
-function KindSwatch({ color, label }: { color: string; label: string }) {
-	return (
-		<View style={styles.kindSwatch}>
-			<Text style={[styles.kindSwatchText, { color }]}>{label}</Text>
-		</View>
-	)
+const KIND_ICONS: Record<ImportFileKind, SymbolName> = {
+	csv: { md: "table", sf: "tablecells" },
+	html: { md: "code", sf: "chevron.left.forwardslash.chevron.right" },
+	pdf: { md: "picture_as_pdf", sf: "doc.richtext" },
+	unsupported: { md: "block", sf: "nosign" },
 }
 
-function ObsidianIcon({ colors }: { colors: MobileColors }) {
-	return (
-		<View style={[styles.obsidianIcon, { backgroundColor: colors.accentSubtle }]}>
-			<Gem color={colors.headingViolet} size={20} strokeWidth={2} />
-		</View>
-	)
-}
+export function ImportReviewScreen() {
+	const { actions, derived, state } = useImport()
+	const count = state.files.length
+	const hasCsv = state.files.some((file) => file.kind === "csv")
+	const destinationOptions = derived.destinations.map((item, index) => ({
+		label: item.label,
+		value: String(index),
+	}))
 
-export function ImportChooseStage({
-	busy,
-	onChooseFiles,
-	onChooseFolder,
-	onObsidian,
-	vaultName,
-}: {
-	busy: boolean
-	onChooseFiles: () => void
-	onChooseFolder: () => void
-	onObsidian: () => void
-	vaultName: string
-}) {
-	const { colors } = useMobileColors()
-	const footer = IS_IOS
-		? `A folder with .obsidian inside is recognised as a vault. Markdown files are already notes: move them into ${vaultName} in the Files app. Word, Pages or Keynote: export as PDF first.`
-		: `A folder with .obsidian inside is recognised as a vault. Markdown files are already notes: move them into ${vaultName}. Word or Keynote: export as PDF first.`
+	function runImport() {
+		void actions.runImport().then((imported) => {
+			if (imported) pushImportStep("done")
+		})
+	}
 
 	return (
-		<SheetBody>
-			<Text style={[styles.lead, { color: colors.secondaryLabel }]}>What do you want to bring in?</Text>
-			<GroupedSectionHeader>Obsidian</GroupedSectionHeader>
-			<GroupedList>
-				<GroupedRow
-					chevron
-					leading={<ObsidianIcon colors={colors} />}
-					onPress={onObsidian}
-					subtitle="Notes, attachments, templates, daily notes and bookmarks. The vault isn’t changed."
-					title="Obsidian vault"
-				/>
-			</GroupedList>
-			<GroupedSectionHeader>Files</GroupedSectionHeader>
-			<GroupedList>
-				{FILE_KINDS.map((kind) => (
-					<GroupedRow
-						key={kind.label}
-						leading={<KindSwatch color={colors[kind.swatch]} label={kind.label} />}
-						subtitle={kind.subtitle}
-						title={kind.title}
-					/>
-				))}
-				{IS_IOS ? (
-					<GroupedRow disabled={busy} onPress={onChooseFiles} tint title="Choose files…" />
-				) : null}
-				{IS_IOS ? (
-					<GroupedRow disabled={busy} onPress={onChooseFolder} tint title="Choose a folder…" />
-				) : null}
-			</GroupedList>
-			{!IS_IOS ? (
-				<View style={styles.m3Actions}>
-					<SheetButton disabled={busy} label="Choose files" onPress={onChooseFiles} />
-					<SheetButton disabled={busy} label="Choose a folder" onPress={onChooseFolder} variant="gray" />
-				</View>
-			) : null}
-			<GroupedFooter>{footer}</GroupedFooter>
-		</SheetBody>
-	)
-}
-
-function fileIcon(kind: ImportFileKind, colors: MobileColors) {
-	const color = colors.secondaryLabel
-	if (kind === "csv") return <Table2 color={color} size={22} strokeWidth={2} />
-	if (kind === "html") return <Code2 color={color} size={22} strokeWidth={2} />
-	if (kind === "pdf") return <FileText color={color} size={22} strokeWidth={2} />
-	return <SkipForward color={color} size={22} strokeWidth={2} />
-}
-
-function PlanRow({ onPress, plan }: { onPress: () => void; plan: PlannedImportFile }) {
-	const { colors } = useMobileColors()
-	const subtitleColor = plan.status === "ok" ? colors.secondaryLabel : colors.warningText
-	return (
-		<Pressable
-			accessibilityRole="button"
-			android_ripple={{ color: colors.hover }}
-			onPress={onPress}
-			style={({ pressed }) => [styles.planRow, { backgroundColor: pressed && IS_IOS ? colors.hover : "transparent" }]}
-		>
-			{fileIcon(plan.file.kind, colors)}
-			<View style={styles.planBody}>
-				<Text numberOfLines={1} style={[styles.planTitle, { color: colors.label }]}>
-					{plan.file.name}
-				</Text>
-				<Text numberOfLines={1} style={[styles.planTarget, { color: subtitleColor }]}>
-					{`→ ${plan.targetLabel}`}
-				</Text>
-			</View>
-			{plan.status === "skipped" ? <Badge label="Skipped" /> : null}
-			<ChevronRight color={colors.tertiaryLabel} size={IS_IOS ? 14 : 24} strokeWidth={2.4} />
-		</Pressable>
-	)
-}
-
-export function ImportReviewStage({ controller }: { controller: ImportSheetController }) {
-	const { colors } = useMobileColors()
-	const { actions, derived, state } = controller
-	const importLabel = `Import ${derived.importable} ${derived.importable === 1 ? "file" : "files"}`
-
-	return (
-		<SheetBody>
-			<GroupedSectionHeader
-				trailing={
-					<Pressable accessibilityRole="button" disabled={state.busy} hitSlop={8} onPress={actions.chooseFiles}>
-						<Text style={[styles.inlineAction, { color: colors.tint }]}>Add files</Text>
-					</Pressable>
-				}
-			>
-				Files
-			</GroupedSectionHeader>
-			<GroupedList>
-				{derived.plans.map((plan) => (
-					<PlanRow key={plan.file.id} onPress={() => actions.openPreview(plan.file.id)} plan={plan} />
-				))}
-			</GroupedList>
-			<GroupedSectionHeader>Save to</GroupedSectionHeader>
-			<GroupedList>
-				<GroupedRow
-					leading={<Folder color={colors.secondaryLabel} size={22} strokeWidth={2} />}
-					title={derived.destination.label}
-					trailing={
-						<NativeMenu
-							accessibilityLabel="Save to"
-							anchorStyle="plain"
-							groups={[
-								derived.destinations.map((item, index) => ({
-									checked: index === state.destinationIndex,
-									key: item.relativePath || "root",
-									label: item.label,
-									onPress: () => actions.setDestinationIndex(index),
-								})),
-							]}
-							icon={{ Lucide: ChevronsUpDown, sf: "chevron.up.chevron.down" }}
-						/>
-					}
-				/>
-			</GroupedList>
-			<GroupedSectionHeader>Same name already exists</GroupedSectionHeader>
-			<SegmentedControl
-				accessibilityLabel="Same name already exists"
-				onChange={actions.setConflict}
-				options={CONFLICT_OPTIONS}
-				style={styles.segment}
-				value={state.conflict}
+		<>
+			<Stack.Screen options={{ title: `Import ${count} ${count === 1 ? "file" : "files"}` }} />
+			<HeaderActions
+				right={{
+					disabled: state.busy || derived.importable === 0,
+					label: "Import",
+					onPress: runImport,
+					primary: true,
+				}}
 			/>
-			<GroupedSectionHeader>CSV files become</GroupedSectionHeader>
-			<SegmentedControl
-				accessibilityLabel="CSV files become"
-				onChange={actions.setCsvMode}
-				options={CSV_OPTIONS}
-				style={styles.segment}
-				value={state.csvMode}
-			/>
-			<GroupedFooter>{`${formatCount(derived.plannedNotes)} notes · tap a file to preview it`}</GroupedFooter>
-			<View style={styles.cta}>
-				<SheetButton
-					disabled={state.busy || derived.importable === 0}
-					label={importLabel}
-					onPress={actions.runImport}
-				/>
-			</View>
-		</SheetBody>
+			<NativeForm>
+				<FormSection title="Files">
+					{[
+						...derived.plans.map((plan) => (
+							<FormRow
+								chevron
+								icon={KIND_ICONS[plan.file.kind]}
+								key={plan.file.id}
+								onPress={() => {
+									actions.openPreview(plan.file.id)
+									pushImportStep("preview")
+								}}
+								subtitle={plan.targetLabel}
+								title={plan.file.name}
+							/>
+						)),
+						<FormRow
+							disabled={state.busy}
+							icon={{ md: "add", sf: "plus" }}
+							key="add"
+							onPress={() => void actions.chooseFiles()}
+							tint
+							title="Add files"
+						/>,
+					]}
+				</FormSection>
+				<FormSection footer={`${formatCount(derived.plannedNotes)} notes`} title="Options">
+					{[
+						<FormPicker
+							key="destination"
+							label="Save to"
+							onChange={(value) => actions.setDestinationIndex(Number(value))}
+							options={destinationOptions}
+							value={String(Math.min(state.destinationIndex, destinationOptions.length - 1))}
+						/>,
+						<FormPicker
+							key="conflict"
+							label="If the name exists"
+							onChange={actions.setConflict}
+							options={CONFLICT_OPTIONS}
+							value={state.conflict}
+						/>,
+						hasCsv ? (
+							<FormPicker
+								key="csv"
+								label="CSV files become"
+								onChange={actions.setCsvMode}
+								options={CSV_OPTIONS}
+								value={state.csvMode}
+							/>
+						) : null,
+					]}
+				</FormSection>
+			</NativeForm>
+		</>
 	)
 }
 
 function CsvTablePreview({ preview }: { preview: Extract<ImportPreview, { kind: "csv-table" }> }) {
 	const { colors } = useMobileColors()
 	return (
-		<View style={[styles.table, { backgroundColor: colors.cell, borderColor: colors.borderSubtle }]}>
-			<View style={[styles.tableRow, styles.tableHeader, { borderBottomColor: colors.borderSubtle }]}>
+		<View
+			style={[styles.table, { backgroundColor: colors.cell, borderColor: colors.borderSubtle }]}
+		>
+			<View
+				style={[styles.tableRow, styles.tableHeader, { borderBottomColor: colors.borderSubtle }]}
+			>
 				{preview.header.map((cell) => (
-					<Text key={cell} numberOfLines={1} style={[styles.tableCell, styles.tableHeaderCell, { color: colors.secondaryLabel }]}>
+					<Text
+						key={cell}
+						numberOfLines={1}
+						style={[styles.tableCell, styles.tableHeaderCell, { color: colors.secondaryLabel }]}
+					>
 						{cell}
 					</Text>
 				))}
 			</View>
 			{preview.rows.map((row) => (
-				<View key={row.join("\u0000")} style={[styles.tableRow, { borderBottomColor: colors.borderSubtle }]}>
+				<View
+					key={row.join("\u0000")}
+					style={[styles.tableRow, { borderBottomColor: colors.borderSubtle }]}
+				>
 					{row.map((cell, index) => (
-						<Text key={`${preview.header[index] ?? index}`} numberOfLines={1} style={[styles.tableCell, { color: colors.label }]}>
+						<Text
+							key={`${preview.header[index] ?? index}`}
+							numberOfLines={1}
+							style={[styles.tableCell, { color: colors.label }]}
+						>
 							{cell}
 						</Text>
 					))}
@@ -249,7 +160,11 @@ function CsvTablePreview({ preview }: { preview: Extract<ImportPreview, { kind: 
 	)
 }
 
-function CsvDatabasePreview({ preview }: { preview: Extract<ImportPreview, { kind: "csv-database" }> }) {
+function CsvDatabasePreview({
+	preview,
+}: {
+	preview: Extract<ImportPreview, { kind: "csv-database" }>
+}) {
 	const { colors } = useMobileColors()
 	return (
 		<View style={styles.previewStack}>
@@ -299,16 +214,23 @@ function MarkdownPreview({ markdown }: { markdown: string }) {
 	)
 }
 
-export function ImportPreviewStage({ controller }: { controller: ImportSheetController }) {
+export function ImportPreviewScreen() {
 	const { colors } = useMobileColors()
-	const { derived } = controller
+	const { derived } = useImport()
 	const preview = derived.selectedPreview
-	const title = preview?.title ?? derived.selectedPlan?.file.name ?? ""
+	const title = derived.selectedPlan?.file.name ?? "Preview"
 
 	return (
-		<SheetBody>
-			<View style={styles.previewContent}>
-				<Text style={[styles.previewTitle, { color: colors.label }]}>{title}</Text>
+		<>
+			<Stack.Screen options={{ title }} />
+			<ScrollView
+				contentContainerStyle={styles.previewContent}
+				contentInsetAdjustmentBehavior="automatic"
+				style={{ backgroundColor: colors.background }}
+			>
+				<Text style={[styles.caption, { color: colors.secondaryLabel }]}>
+					{previewPathLabel(derived.selectedPlan, derived.destination)}
+				</Text>
 				{!preview ? (
 					<Text style={[styles.placeholder, { color: colors.tertiaryLabel }]}>Reading file…</Text>
 				) : preview.kind === "csv-table" ? (
@@ -320,7 +242,10 @@ export function ImportPreviewStage({ controller }: { controller: ImportSheetCont
 				) : preview.kind === "pdf" ? (
 					<View style={styles.previewStack}>
 						{preview.pages.map((page, index) => (
-							<Text key={`page-${index + 1}`} style={[styles.placeholder, { color: colors.tertiaryLabel }]}>
+							<Text
+								key={`page-${index + 1}`}
+								style={[styles.previewParagraph, { color: colors.label }]}
+							>
 								{page}
 							</Text>
 						))}
@@ -328,125 +253,85 @@ export function ImportPreviewStage({ controller }: { controller: ImportSheetCont
 				) : (
 					<Text style={[styles.previewParagraph, { color: colors.label }]}>{preview.message}</Text>
 				)}
-			</View>
-		</SheetBody>
+			</ScrollView>
+		</>
 	)
 }
 
-export function ImportDoneStage({
-	controller,
-	onOpenFolder,
-}: {
-	controller: ImportSheetController
-	onOpenFolder: () => void
-}) {
-	const { colors } = useMobileColors()
-	const { actions, derived, state } = controller
+export function ImportDoneScreen() {
+	const { actions, derived, state } = useImport()
+	const close = useCloseSheetStack()
 	const result = state.runResult
+	const notes = result?.notes ?? 0
+
+	function openImportedFolder() {
+		const path = destinationPath(derived.vaultPath, derived.destination)
+		close()
+		if (path === derived.vaultPath) goToFilesRoot()
+		else openFolder(path)
+	}
+
+	function undo() {
+		void actions.undoImport().then((undone) => {
+			if (undone && router.canGoBack()) router.back()
+		})
+	}
 
 	return (
-		<SheetBody>
-			<SheetHero
-				subtitle={`Saved to ${derived.destination.label}.`}
-				title={`${formatCount(result?.notes ?? 0)} notes imported`}
-			/>
-			<GroupedList>
-				{(result?.rows ?? []).map((row) => (
-					<View key={row.label} style={styles.resultRow}>
-						<Text numberOfLines={1} style={[styles.resultText, { color: row.ok ? colors.successText : colors.warningText }]}>
-							{row.label}
-						</Text>
-					</View>
-				))}
-			</GroupedList>
-			<View style={styles.doneActions}>
-				<View style={styles.doneAction}>
-					<SheetButton label="Open folder" onPress={onOpenFolder} variant="gray" />
-				</View>
-				<View style={styles.doneAction}>
-					<SheetButton disabled={state.busy} label="Undo import" onPress={actions.undoImport} variant="gray" />
-				</View>
-			</View>
-		</SheetBody>
+		<>
+			<Stack.Screen options={{ title: "Imported" }} />
+			<HeaderActions right={{ label: "Done", onPress: close, primary: true }} />
+			<NativeForm>
+				<FormSection
+					footer={`Saved to ${derived.destination.label}.`}
+					title={`${formatCount(notes)} ${notes === 1 ? "note" : "notes"}`}
+				>
+					{(result?.rows ?? []).map((row) => (
+						<FormRow
+							icon={
+								row.ok
+									? { md: "check_circle", sf: "checkmark.circle" }
+									: { md: "warning", sf: "exclamationmark.triangle" }
+							}
+							key={row.label}
+							title={row.label}
+						/>
+					))}
+				</FormSection>
+				<FormSection>
+					<FormRow
+						icon={{ md: "folder_open", sf: "folder" }}
+						onPress={openImportedFolder}
+						tint
+						title="Open folder"
+					/>
+					<FormRow
+						destructive
+						disabled={state.busy}
+						icon={{ md: "undo", sf: "arrow.uturn.backward" }}
+						onPress={undo}
+						title="Undo import"
+					/>
+				</FormSection>
+			</NativeForm>
+		</>
 	)
 }
 
 const styles = StyleSheet.create({
-	cta: {
-		paddingTop: 10,
-	},
-	doneAction: {
-		flex: 1,
-	},
-	doneActions: {
-		flexDirection: "row",
-		marginHorizontal: -16,
-		paddingHorizontal: 16,
-		paddingTop: 18,
-	},
-	inlineAction: {
-		fontSize: IS_IOS ? 15 : 14,
-		fontWeight: "500",
-		lineHeight: 20,
-	},
-	kindSwatch: {
-		alignItems: "center",
-		height: 32,
-		justifyContent: "center",
-		width: 32,
-	},
-	kindSwatchText: {
-		fontSize: 9,
-		fontWeight: "700",
-		lineHeight: 11,
-	},
-	lead: {
-		fontSize: IS_IOS ? 15 : 14,
-		lineHeight: 20,
-		marginBottom: 4,
-		marginHorizontal: 20,
-		marginTop: IS_IOS ? 0 : 8,
-	},
-	m3Actions: {
-		gap: 10,
-		paddingTop: 16,
-	},
-	obsidianIcon: {
-		alignItems: "center",
-		borderRadius: 9,
-		height: 32,
-		justifyContent: "center",
-		width: 32,
+	caption: {
+		fontSize: IS_IOS ? 13 : 12,
+		lineHeight: 18,
 	},
 	placeholder: {
 		fontSize: 13,
 		lineHeight: 18,
 	},
-	planBody: {
-		flex: 1,
-		gap: 2,
-		minWidth: 0,
-	},
-	planRow: {
-		alignItems: "center",
-		flexDirection: "row",
-		gap: IS_IOS ? 12 : 16,
-		minHeight: IS_IOS ? 60 : 72,
-		paddingHorizontal: 16,
-		paddingVertical: 10,
-	},
-	planTarget: {
-		fontSize: IS_IOS ? 13 : 14,
-		lineHeight: IS_IOS ? 18 : 20,
-	},
-	planTitle: {
-		fontSize: IS_IOS ? 17 : 16,
-		lineHeight: IS_IOS ? 22 : 24,
-	},
 	previewContent: {
 		gap: 12,
+		paddingBottom: 40,
 		paddingHorizontal: 20,
-		paddingTop: 4,
+		paddingTop: 8,
 	},
 	previewHeading: {
 		fontSize: 18,
@@ -460,11 +345,6 @@ const styles = StyleSheet.create({
 	},
 	previewStack: {
 		gap: 10,
-	},
-	previewTitle: {
-		fontSize: 22,
-		fontWeight: "700",
-		lineHeight: 28,
 	},
 	propKey: {
 		fontSize: 14,
@@ -489,19 +369,6 @@ const styles = StyleSheet.create({
 		borderRadius: 14,
 		borderWidth: StyleSheet.hairlineWidth,
 		paddingVertical: 2,
-	},
-	resultRow: {
-		justifyContent: "center",
-		minHeight: IS_IOS ? 52 : 56,
-		paddingHorizontal: 16,
-		paddingVertical: 10,
-	},
-	resultText: {
-		fontSize: IS_IOS ? 17 : 16,
-		lineHeight: IS_IOS ? 22 : 24,
-	},
-	segment: {
-		marginHorizontal: 16,
 	},
 	table: {
 		borderCurve: "continuous",

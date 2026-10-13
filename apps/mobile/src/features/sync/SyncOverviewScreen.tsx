@@ -8,56 +8,17 @@ import {
 	useSyncStore,
 	useVaultStore,
 } from "@cortex/core"
-import { FieldGroup } from "@expo/ui"
-import {
-	CircleCheck,
-	CirclePause,
-	Clock,
-	FileText,
-	Monitor,
-	Smartphone,
-	Trash2,
-} from "lucide-react-native"
 import { useEffect, useState } from "react"
-import { Platform, StyleSheet, Text, View } from "react-native"
 
-import { Badge } from "@/components/ui/Badge"
-import { GroupedList, GroupedRow } from "@/components/ui/GroupedList"
-import { SettingsRow } from "@/components/ui/SettingsRow"
+import { FormRow, FormSection, FormToggle, NativeForm } from "@/components/ui/Form"
 import { openSettings, openVersionHistory } from "@/features/navigation/routes"
-import {
-	ActionButton,
-	SettingsBlock,
-	SettingsCard,
-	SettingsFooterText,
-	SettingsGroup,
-	SettingsPage,
-} from "@/features/sync/SettingsPage"
-import {
-	countSyncedNotes,
-	listSyncDevices,
-	resolveLinkedRemoteVault,
-	syncNow,
-} from "@/features/sync/syncAdapter"
+import { listSyncDevices, resolveLinkedRemoteVault, syncNow } from "@/features/sync/syncAdapter"
 import { DEVICE_LABEL } from "@/features/sync/syncFixtures"
-import { useMobileColors } from "@/hooks/useMobileColors"
 
 const SYNC_NOW_FEEDBACK_MS = 1400
 
-function StatTile({ label, value }: { label: string; value: string }) {
-	const { colors } = useMobileColors()
-	return (
-		<View style={[styles.tile, { backgroundColor: colors.cell }]}>
-			<Text style={[styles.tileValue, { color: colors.label }]}>{value}</Text>
-			<Text style={[styles.tileLabel, { color: colors.secondaryLabel }]}>{label}</Text>
-		</View>
-	)
-}
-
 export function SyncOverviewScreen() {
-	const { colors } = useMobileColors()
 	const vault = useVaultStore((state) => state.vault)
-	const files = useVaultStore((state) => state.files)
 	const engineState = useSyncStore((state) => state.engineState)
 	const lastSyncedAt = useSyncStore((state) => state.lastSyncedAt)
 	const syncingFiles = useSyncStore((state) => state.syncingFiles)
@@ -78,7 +39,6 @@ export function SyncOverviewScreen() {
 		return () => clearTimeout(timer)
 	}, [syncingNow])
 
-	const vaultName = vault?.name ?? "This vault"
 	const enabled = syncConfig.enabled
 	const linked = resolveLinkedRemoteVault(remoteVaults, linkedVaultId, syncConfig)
 	const serverLabel = getSyncServerLabel(syncConfig)
@@ -92,15 +52,11 @@ export function SyncOverviewScreen() {
 		lastSyncedAt,
 	})
 	const busy = syncingNow || Boolean(indicator?.busy)
-	const lastSynced = formatLastSyncedAt(lastSyncedAt)
-	const heroTitle = enabled ? `${vaultName} is up to date` : "Sync is paused"
-	const heroSubtitle = busy
-		? "Syncing…"
-		: enabled
-			? `Synced ${lastSynced.toLowerCase()} · ${serverLabel}`
-			: `Changes stay on this ${DEVICE_LABEL} until you resume`
+	const statusTitle = busy ? "Syncing…" : enabled ? "Up to date" : "Paused"
+	const statusSubtitle = enabled
+		? `Synced ${formatLastSyncedAt(lastSyncedAt).toLowerCase()}`
+		: `Changes stay on this ${DEVICE_LABEL}`
 	const devices = listSyncDevices(deviceEntries, lastSyncedAt)
-	const HeroIcon = enabled ? CircleCheck : CirclePause
 
 	const handleSyncNow = () => {
 		setSyncingNow(true)
@@ -108,168 +64,84 @@ export function SyncOverviewScreen() {
 	}
 
 	return (
-		<SettingsPage subtitle="Keep this vault the same on every device.">
-			<View style={styles.heroWrap}>
-				<SettingsCard>
-					<View style={styles.heroHead}>
-						<HeroIcon
-							color={enabled ? colors.successText : colors.secondaryLabel}
-							size={28}
-							strokeWidth={2}
-						/>
-						<View style={styles.heroText}>
-							<Text style={[styles.heroTitle, { color: colors.label }]}>{heroTitle}</Text>
-							<Text style={[styles.heroSubtitle, { color: colors.secondaryLabel }]}>
-								{heroSubtitle}
-							</Text>
-						</View>
-					</View>
-					<View style={styles.heroAction}>
-						<ActionButton
-							disabled={busy || !enabled}
-							label={busy ? "Syncing…" : "Sync now"}
-							onPress={handleSyncNow}
-							variant="filled"
-							wide
-						/>
-					</View>
-				</SettingsCard>
-			</View>
-
-			<View style={styles.tiles}>
-				<StatTile label="Notes synced" value={String(countSyncedNotes(files))} />
-				<StatTile label="Devices" value={String(devices.length)} />
-				<StatTile label="Your access" value={linked?.role ?? "Owner"} />
-			</View>
-
-			<SettingsGroup>
-				<FieldGroup.Section>
-					<SettingsRow
-						onToggle={(value) => {
-							if (vault) void setSyncEnabled(vault.path, value)
-						}}
-						subtitle="Pause without unlinking the remote vault."
-						title="Sync this vault"
-						toggled={enabled}
-					/>
-				</FieldGroup.Section>
-				<FieldGroup.Section title="Remote vault">
-					<SettingsRow
-						chevron
-						onPress={() => openSettings("sync/link")}
-						subtitle="Linked remote vault"
-						title={linked?.name ?? "Not linked"}
-						value="Change"
-					/>
-					<SettingsRow
-						chevron
-						onPress={() => openSettings("sync/self-hosted")}
-						title="Server"
-						value={serverLabel}
-					/>
-					<SettingsRow chevron onPress={() => openSettings("sync/members")} title="Members" />
-					<SettingsRow chevron onPress={() => openSettings("sync/prefs")} title="Preferences" />
-				</FieldGroup.Section>
-			</SettingsGroup>
-
-			<SettingsBlock title="Devices">
-				<GroupedList>
+		<NativeForm>
+			<FormSection>
+				<FormRow
+					icon={
+						enabled
+							? { sf: "checkmark.icloud", md: "cloud_done" }
+							: { sf: "pause.circle", md: "pause_circle" }
+					}
+					subtitle={statusSubtitle}
+					title={statusTitle}
+				/>
+				<FormToggle
+					onValueChange={(value) => {
+						if (vault) void setSyncEnabled(vault.path, value)
+					}}
+					title="Sync this vault"
+					value={enabled}
+				/>
+				<FormRow
+					disabled={busy || !enabled}
+					icon={{ sf: "arrow.triangle.2.circlepath", md: "sync" }}
+					onPress={handleSyncNow}
+					tint
+					title="Sync now"
+				/>
+			</FormSection>
+			<FormSection title="Connection">
+				<FormRow
+					chevron
+					onPress={() => openSettings("sync/link")}
+					title="Remote vault"
+					value={linked?.name ?? "Not linked"}
+				/>
+				<FormRow
+					chevron
+					onPress={() => openSettings("sync/self-hosted")}
+					title="Server"
+					value={serverLabel}
+				/>
+				<FormRow chevron onPress={() => openSettings("sync/members")} title="Members" />
+				<FormRow chevron onPress={() => openSettings("sync/prefs")} title="Preferences" />
+			</FormSection>
+			{devices.length > 0 ? (
+				<FormSection title="Devices">
 					{devices.map((device) => (
-						<GroupedRow
-							key={device.id}
-							leading={
-								device.isCurrent ? (
-									<Smartphone color={colors.secondaryLabel} size={22} strokeWidth={2} />
-								) : (
-									<Monitor color={colors.secondaryLabel} size={22} strokeWidth={2} />
-								)
+						<FormRow
+							icon={
+								device.isCurrent
+									? { sf: "iphone", md: "smartphone" }
+									: { sf: "desktopcomputer", md: "computer" }
 							}
-							subtitle={device.lastSyncedLabel}
+							key={device.id}
+							subtitle={device.isCurrent ? "This device" : device.lastSyncedLabel}
 							title={device.name}
-							trailing={device.isCurrent ? <Badge label="This device" tint /> : null}
 						/>
 					))}
-				</GroupedList>
-				<SettingsFooterText>Devices appear here after signing in to this vault.</SettingsFooterText>
-			</SettingsBlock>
-
-			<SettingsGroup>
-				<FieldGroup.Section title="History & recovery">
-					<SettingsRow
-						chevron
-						Icon={Clock}
-						onPress={() => openSettings("sync-logs")}
-						subtitle="Every upload, download and conflict"
-						title="Sync logs"
-					/>
-					<SettingsRow
-						chevron
-						Icon={FileText}
-						onPress={() => openVersionHistory(activeFilePath ?? undefined)}
-						subtitle="Restore earlier versions of a note"
-						title="Version history"
-					/>
-					<SettingsRow
-						chevron
-						Icon={Trash2}
-						onPress={() => openSettings("deleted-notes")}
-						subtitle="Bring back notes removed on any device"
-						title="Deleted notes"
-					/>
-				</FieldGroup.Section>
-			</SettingsGroup>
-		</SettingsPage>
+				</FormSection>
+			) : null}
+			<FormSection title="History">
+				<FormRow
+					chevron
+					icon={{ sf: "list.bullet.rectangle", md: "receipt_long" }}
+					onPress={() => openSettings("sync-logs")}
+					title="Sync logs"
+				/>
+				<FormRow
+					chevron
+					icon={{ sf: "clock.arrow.circlepath", md: "history" }}
+					onPress={() => openVersionHistory(activeFilePath ?? undefined)}
+					title="Version history"
+				/>
+				<FormRow
+					chevron
+					icon={{ sf: "trash", md: "delete" }}
+					onPress={() => openSettings("deleted-notes")}
+					title="Deleted notes"
+				/>
+			</FormSection>
+		</NativeForm>
 	)
 }
-
-const styles = StyleSheet.create({
-	heroAction: {
-		marginTop: 14,
-	},
-	heroHead: {
-		alignItems: "center",
-		flexDirection: "row",
-		gap: 12,
-	},
-	heroSubtitle: {
-		fontSize: 13,
-		lineHeight: 18,
-		marginTop: 2,
-	},
-	heroText: {
-		flex: 1,
-		minWidth: 0,
-	},
-	heroTitle: {
-		fontSize: 17,
-		fontWeight: "600",
-		lineHeight: 22,
-	},
-	heroWrap: {
-		marginTop: 12,
-	},
-	tile: {
-		borderCurve: "continuous",
-		borderRadius: Platform.OS === "ios" ? 18 : 16,
-		flex: 1,
-		gap: 2,
-		paddingHorizontal: 12,
-		paddingVertical: 12,
-	},
-	tileLabel: {
-		fontSize: 12,
-		lineHeight: 16,
-	},
-	tileValue: {
-		fontSize: 22,
-		fontVariant: ["tabular-nums"],
-		fontWeight: "600",
-		lineHeight: 28,
-	},
-	tiles: {
-		flexDirection: "row",
-		gap: 8,
-		marginHorizontal: 16,
-		marginTop: 12,
-	},
-})

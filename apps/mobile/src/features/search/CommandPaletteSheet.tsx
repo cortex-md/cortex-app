@@ -1,28 +1,21 @@
 import { type CommandEntry, commandRegistry, executeCommand } from "@cortex/commands"
-import { Terminal } from "lucide-react-native"
-import { useMemo, useState, useSyncExternalStore } from "react"
-import {
-	Platform,
-	Pressable,
-	ScrollView,
-	StyleSheet,
-	Text,
-	TextInput,
-	View,
-} from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { Stack } from "expo-router"
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
+import { Platform, SectionList, StyleSheet, Text } from "react-native"
+import type { SearchBarCommands } from "react-native-screens"
 
 import { EmptyState } from "@/components/ui/EmptyState"
-import { GroupedList, GroupedSectionHeader } from "@/components/ui/GroupedList"
-import { SheetHeader } from "@/components/ui/SheetHeader"
+import { HeaderIconButton } from "@/components/ui/HeaderIconButton"
 import { dismissSheet } from "@/features/navigation/routes"
+import { ListCell, ListSectionHeader, listCellStyles } from "@/features/search/ListCell"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 const IS_IOS = Platform.OS === "ios"
+const FOCUS_DELAY_MS = 350
 
-interface CommandGroup {
-	category: string
-	commands: CommandEntry[]
+interface CommandSection {
+	title: string
+	data: CommandEntry[]
 }
 
 function subscribe(listener: () => void): () => void {
@@ -41,7 +34,7 @@ function matchesQuery(command: CommandEntry, needle: string): boolean {
 	return needle.split(/\s+/).every((term) => haystack.includes(term))
 }
 
-function groupCommands(commands: readonly CommandEntry[], needle: string): CommandGroup[] {
+function groupCommands(commands: readonly CommandEntry[], needle: string): CommandSection[] {
 	const groups = new Map<string, CommandEntry[]>()
 	for (const command of commands) {
 		if (!matchesQuery(command, needle)) continue
@@ -49,20 +42,22 @@ function groupCommands(commands: readonly CommandEntry[], needle: string): Comma
 		existing.push(command)
 		groups.set(command.category, existing)
 	}
-	return Array.from(groups.entries()).map(([category, entries]) => ({
-		category,
-		commands: entries,
-	}))
+	return Array.from(groups.entries()).map(([title, data]) => ({ title, data }))
 }
 
 export function CommandPaletteSheet() {
 	const { colors } = useMobileColors()
-	const insets = useSafeAreaInsets()
 	const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+	const searchBarRef = useRef<SearchBarCommands>(null)
 	const [query, setQuery] = useState("")
 	const needle = query.trim().replace(/^>/, "").trim().toLowerCase()
-	const groups = useMemo(() => groupCommands(snapshot.commands, needle), [needle, snapshot])
-	const firstCommandId = groups[0]?.commands[0]?.id ?? null
+	const sections = useMemo(() => groupCommands(snapshot.commands, needle), [needle, snapshot])
+
+	useEffect(() => {
+		if (!IS_IOS) return
+		const timer = setTimeout(() => searchBarRef.current?.focus(), FOCUS_DELAY_MS)
+		return () => clearTimeout(timer)
+	}, [])
 
 	const run = (command: CommandEntry) => {
 		dismissSheet()
@@ -70,133 +65,88 @@ export function CommandPaletteSheet() {
 	}
 
 	return (
-		<View style={[styles.root, { backgroundColor: colors.groupedBackground }]}>
-			<SheetHeader onClose={dismissSheet} title="Command palette" />
-			<View style={styles.fieldWrap}>
-				<View style={[styles.field, { backgroundColor: colors.fill }]}>
-					{IS_IOS ? null : <Terminal color={colors.secondaryLabel} size={22} strokeWidth={2} />}
-					<TextInput
-						accessibilityLabel="Command"
-						autoCapitalize="none"
-						autoCorrect={false}
-						autoFocus
-						onChangeText={setQuery}
-						onSubmitEditing={() => {
-							const first = groups[0]?.commands[0]
-							if (first) run(first)
-						}}
-						placeholder="Type a command..."
-						placeholderTextColor={colors.secondaryLabel}
-						returnKeyType="go"
-						style={[styles.input, { color: colors.label }]}
-						value={query}
-					/>
-				</View>
-			</View>
-			<ScrollView
-				contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
+		<>
+			<Stack.Screen
+				options={{
+					headerLeft: IS_IOS
+						? undefined
+						: () => (
+								<HeaderIconButton
+									accessibilityLabel="Close"
+									icon={{ md: "close", sf: "xmark" }}
+									onPress={dismissSheet}
+								/>
+							),
+					title: "Commands",
+				}}
+			/>
+			<Stack.SearchBar
+				autoCapitalize="none"
+				autoFocus
+				hideNavigationBar={false}
+				hideWhenScrolling={false}
+				obscureBackground={false}
+				onChangeText={(event) => setQuery(event.nativeEvent.text)}
+				onSearchButtonPress={() => {
+					const first = sections[0]?.data[0]
+					if (first) run(first)
+				}}
+				placeholder="Search commands"
+				placement="stacked"
+				ref={searchBarRef}
+			/>
+			{IS_IOS ? (
+				<Stack.Toolbar placement="left">
+					<Stack.Toolbar.Button accessibilityLabel="Close" icon="xmark" onPress={dismissSheet} />
+				</Stack.Toolbar>
+			) : null}
+			<SectionList
+				contentContainerStyle={styles.content}
+				contentInsetAdjustmentBehavior="automatic"
 				keyboardDismissMode="on-drag"
 				keyboardShouldPersistTaps="handled"
-			>
-				{groups.length === 0 ? (
+				keyExtractor={(command) => command.id}
+				ListEmptyComponent={
 					<EmptyState
-						description={needle ? `Nothing matches “${needle}”.` : "Commands appear here once registered."}
-						title="No commands"
+						icon={{ md: "terminal", sf: "terminal" }}
+						title={needle ? `No commands match “${needle}”` : "No commands"}
 					/>
-				) : (
-					groups.map((group) => (
-						<View key={group.category}>
-							<GroupedSectionHeader>{group.category}</GroupedSectionHeader>
-							<GroupedList>
-								{group.commands.map((command) => {
-									const highlighted = command.id === firstCommandId && needle.length > 0
-									return (
-										<Pressable
-											accessibilityRole="button"
-											android_ripple={{ color: colors.hover }}
-											key={command.id}
-											onPress={() => run(command)}
-											style={({ pressed }) => [
-												styles.row,
-												{
-													backgroundColor: highlighted
-														? colors.accentSubtle
-														: pressed && IS_IOS
-															? colors.hover
-															: "transparent",
-												},
-											]}
-										>
-											<Text
-												numberOfLines={1}
-												style={[
-													styles.rowLabel,
-													{
-														color: highlighted ? colors.tint : colors.label,
-														fontWeight: highlighted ? "600" : "400",
-													},
-												]}
-											>
-												{command.label}
-											</Text>
-											{command.hotkey ? (
-												<Text style={[styles.rowMeta, { color: colors.tertiaryLabel }]}>
-													{command.hotkey.defaultKeys}
-												</Text>
-											) : null}
-										</Pressable>
-									)
-								})}
-							</GroupedList>
-						</View>
-					))
+				}
+				renderItem={({ item, index, section }) => (
+					<ListCell
+						first={index === 0}
+						last={index === section.data.length - 1}
+						onPress={() => run(item)}
+					>
+						<Text
+							numberOfLines={1}
+							style={[listCellStyles.title, styles.label, { color: colors.label }]}
+						>
+							{item.label}
+						</Text>
+						{item.hotkey ? (
+							<Text style={[listCellStyles.value, { color: colors.tertiaryLabel }]}>
+								{item.hotkey.defaultKeys}
+							</Text>
+						) : null}
+					</ListCell>
 				)}
-			</ScrollView>
-		</View>
+				renderSectionHeader={({ section }) => (
+					<ListSectionHeader>{section.title}</ListSectionHeader>
+				)}
+				sections={sections}
+				stickySectionHeadersEnabled={false}
+				style={{ backgroundColor: IS_IOS ? colors.groupedBackground : colors.background }}
+			/>
+		</>
 	)
 }
 
 const styles = StyleSheet.create({
 	content: {
-		paddingTop: 4,
+		paddingBottom: 32,
 	},
-	field: {
-		alignItems: "center",
-		borderRadius: IS_IOS ? 999 : 28,
-		flexDirection: "row",
-		gap: 10,
-		height: IS_IOS ? 44 : 52,
-		paddingHorizontal: 14,
-	},
-	fieldWrap: {
-		paddingBottom: 8,
-		paddingHorizontal: 16,
-	},
-	input: {
+	label: {
 		flex: 1,
-		fontSize: IS_IOS ? 17 : 16,
-		lineHeight: 22,
-		minWidth: 0,
-		padding: 0,
-	},
-	root: {
-		flex: 1,
-	},
-	row: {
-		alignItems: "center",
-		flexDirection: "row",
-		gap: 12,
-		minHeight: IS_IOS ? 52 : 56,
-		paddingHorizontal: 16,
-		paddingVertical: 10,
-	},
-	rowLabel: {
-		flex: 1,
-		fontSize: IS_IOS ? 17 : 16,
-		lineHeight: 22,
-	},
-	rowMeta: {
-		fontSize: 13,
-		lineHeight: 18,
 	},
 })

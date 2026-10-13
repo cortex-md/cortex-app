@@ -1,14 +1,7 @@
-import { getBaseName } from "@cortex/core"
 import type { DatabaseSort, DatabaseView } from "@cortex/properties/database"
-import { FieldGroup, Host } from "@expo/ui"
-import { useLocalSearchParams } from "expo-router"
-import { Check } from "lucide-react-native"
-import { type ReactNode, useState } from "react"
-import { Platform, ScrollView, StyleSheet, Text, View } from "react-native"
+import { Stack, useLocalSearchParams } from "expo-router"
 
-import { SegmentedControl } from "@/components/ui/SegmentedControl"
-import { SettingsRow } from "@/components/ui/SettingsRow"
-import { SheetHeader } from "@/components/ui/SheetHeader"
+import { FormSection, FormToggle, NativeForm } from "@/components/ui/Form"
 import {
 	describeFilter,
 	groupableProperties,
@@ -21,36 +14,19 @@ import {
 	sortableDateProperty,
 	VIEW_OPTIONS_TABS,
 	type ViewOptionsTab,
-	viewTitle,
 } from "@/features/database/databaseFormat"
 import { readParam } from "@/features/database/databaseNavigation"
 import { type DatabaseViewModel, useDatabaseView } from "@/features/database/useDatabaseView"
+import { FormChoiceRow } from "@/features/importExport/FormFields"
+import { HeaderActions } from "@/features/importExport/HeaderActions"
 import { dismissSheet } from "@/features/navigation/routes"
-import { useMobileColors } from "@/hooks/useMobileColors"
 import { triggerSelectionHaptic } from "@/utils/haptics"
 
-const IS_IOS = Platform.OS === "ios"
-
-function RadioMark({ selected }: { selected: boolean }) {
-	const { colors } = useMobileColors()
-	if (IS_IOS) {
-		return selected ? <Check color={colors.tint} size={20} strokeWidth={2.4} /> : null
-	}
-	return (
-		<View style={[styles.radio, { borderColor: selected ? colors.tintFill : colors.secondaryLabel }]}>
-			{selected ? <View style={[styles.radioDot, { backgroundColor: colors.tintFill }]} /> : null}
-		</View>
-	)
-}
-
-function OptionsSection({ children, title }: { children: ReactNode; title: string }) {
-	return (
-		<Host matchContents style={styles.host}>
-			<FieldGroup>
-				<FieldGroup.Section title={title}>{children}</FieldGroup.Section>
-			</FieldGroup>
-		</Host>
-	)
+const TAB_TITLES: Record<ViewOptionsTab, string> = {
+	filter: "Filter",
+	group: "Group by",
+	props: "Properties",
+	sort: "Sort by",
 }
 
 function FilterTab({ model }: { model: DatabaseViewModel }) {
@@ -66,28 +42,27 @@ function FilterTab({ model }: { model: DatabaseViewModel }) {
 		return <Hint text="Add a status or person property to filter this view." />
 	}
 	return (
-		<OptionsSection title="Show notes where">
+		<FormSection title="Show notes where">
 			{rows.map((filter) => {
 				const label = describeFilter(filter, model.resolved, model.authorConfig)
 				return (
-					<SettingsRow
+					<FormToggle
 						key={`${filter.key}-${filter.op}-${JSON.stringify(filter.value)}`}
-						onToggle={(on) => {
+						onValueChange={(on) => {
 							triggerSelectionHaptic()
 							model.updateView((current) => setFilter(current, filter, on))
 						}}
 						title={`${label.property} ${label.operator}${label.value ? ` ${label.value}` : ""}`}
-						toggled={hasFilter(view, filter)}
+						value={hasFilter(view, filter)}
 					/>
 				)
 			})}
-		</OptionsSection>
+		</FormSection>
 	)
 }
 
 function Hint({ text }: { text: string }) {
-	const { colors } = useMobileColors()
-	return <Text style={[styles.hint, { color: colors.secondaryLabel }]}>{text}</Text>
+	return <FormSection footer={text}>{null}</FormSection>
 }
 
 function SortTab({ model }: { model: DatabaseViewModel }) {
@@ -112,19 +87,19 @@ function SortTab({ model }: { model: DatabaseViewModel }) {
 		sort ? current?.key === sort.key && current.dir === sort.dir : !current
 
 	return (
-		<OptionsSection title="Sort by">
+		<FormSection>
 			{options.map((option) => (
-				<SettingsRow
+				<FormChoiceRow
 					key={option.key}
 					onPress={() => {
 						triggerSelectionHaptic()
 						model.updateView((view) => ({ ...view, sort: option.sort ? [option.sort] : undefined }))
 					}}
+					selected={isSelected(option.sort)}
 					title={option.label}
-					trailing={<RadioMark selected={isSelected(option.sort)} />}
 				/>
 			))}
-		</OptionsSection>
+		</FormSection>
 	)
 }
 
@@ -136,25 +111,26 @@ function GroupTab({ model }: { model: DatabaseViewModel }) {
 		model.updateView((view) => ({ ...view, group }))
 	}
 	return (
-		<OptionsSection title="Group by">
+		<FormSection>
 			{groupableProperties(model.resolved).map((definition) => (
-				<SettingsRow
+				<FormChoiceRow
 					key={definition.key}
 					onPress={() => pick(definition.key)}
+					selected={current === definition.key}
 					title={definition.name}
-					trailing={<RadioMark selected={current === definition.key} />}
 				/>
 			))}
-			<SettingsRow
-				onPress={() => pick(undefined)}
-				title="No grouping"
-				trailing={<RadioMark selected={!grouped} />}
-			/>
-		</OptionsSection>
+			<FormChoiceRow onPress={() => pick(undefined)} selected={!grouped} title="No grouping" />
+		</FormSection>
 	)
 }
 
-function toggleColumn(view: DatabaseView, allKeys: string[], key: string, on: boolean): DatabaseView {
+function toggleColumn(
+	view: DatabaseView,
+	allKeys: string[],
+	key: string,
+	on: boolean,
+): DatabaseView {
 	const shown = new Set(view.columns ?? allKeys)
 	if (on) shown.add(key)
 	else shown.delete(key)
@@ -169,19 +145,19 @@ function PropertiesTab({ model }: { model: DatabaseViewModel }) {
 		return <Hint text="This database has no properties yet. Add one from any row." />
 	}
 	return (
-		<OptionsSection title={IS_IOS ? `Shown in ${view?.type ?? "table"}` : "Properties"}>
+		<FormSection title={`Shown in ${view?.type ?? "table"}`}>
 			{model.resolved.properties.map((definition) => (
-				<SettingsRow
+				<FormToggle
 					key={definition.key}
-					onToggle={(on) => {
+					onValueChange={(on) => {
 						triggerSelectionHaptic()
 						model.updateView((current) => toggleColumn(current, allKeys, definition.key, on))
 					}}
 					title={definition.name}
-					toggled={shown.has(definition.key)}
+					value={shown.has(definition.key)}
 				/>
 			))}
-		</OptionsSection>
+		</FormSection>
 	)
 }
 
@@ -191,97 +167,30 @@ export function DatabaseViewOptionsSheet() {
 		tab?: string | string[]
 		viewId?: string | string[]
 	}>()
-	const { colors } = useMobileColors()
 	const folderPath = readParam(params.folderPath) ?? ""
 	const model = useDatabaseView(folderPath, readParam(params.viewId))
-	const [tab, setTab] = useState<ViewOptionsTab>(() => {
-		const requested = readParam(params.tab)
-		return VIEW_OPTIONS_TABS.find((option) => option.value === requested)?.value ?? "filter"
-	})
-	const viewNoteName = model.entry
-		? getBaseName(model.entry.viewNotePath)
-		: `${getBaseName(folderPath)}.md`
+	const requested = readParam(params.tab)
+	const tab = VIEW_OPTIONS_TABS.find((option) => option.value === requested)?.value ?? "filter"
 
 	return (
-		<ScrollView
-			contentContainerStyle={styles.content}
-			style={{ backgroundColor: colors.groupedBackground }}
-		>
-			<SheetHeader
-				onClose={IS_IOS ? undefined : dismissSheet}
-				onDone={IS_IOS ? dismissSheet : undefined}
-				title={viewTitle(model.activeView?.type)}
-			/>
-			<SegmentedControl
-				accessibilityLabel="Options"
-				onChange={(value: ViewOptionsTab) => {
-					triggerSelectionHaptic()
-					setTab(value)
-				}}
-				options={VIEW_OPTIONS_TABS}
-				style={styles.segmented}
-				value={tab}
-			/>
-			{model.activeView ? (
-				tab === "filter" ? (
-					<FilterTab model={model} />
-				) : tab === "sort" ? (
-					<SortTab model={model} />
-				) : tab === "group" ? (
-					<GroupTab model={model} />
+		<>
+			<Stack.Screen options={{ title: TAB_TITLES[tab] }} />
+			<HeaderActions right={{ label: "Done", onPress: dismissSheet, primary: true }} />
+			<NativeForm>
+				{model.activeView ? (
+					tab === "filter" ? (
+						<FilterTab model={model} />
+					) : tab === "sort" ? (
+						<SortTab model={model} />
+					) : tab === "group" ? (
+						<GroupTab model={model} />
+					) : (
+						<PropertiesTab model={model} />
+					)
 				) : (
-					<PropertiesTab model={model} />
-				)
-			) : (
-				<Hint text="This database is still loading." />
-			)}
-			<Text style={[styles.footer, { color: colors.secondaryLabel }]}>
-				{"Saved to the "}
-				<Text style={styles.code}>database</Text>
-				{` block in ${viewNoteName}`}
-			</Text>
-		</ScrollView>
+					<Hint text="This database is still loading." />
+				)}
+			</NativeForm>
+		</>
 	)
 }
-
-const styles = StyleSheet.create({
-	code: {
-		fontFamily: IS_IOS ? "Menlo" : "monospace",
-	},
-	content: {
-		paddingBottom: 32,
-	},
-	footer: {
-		fontSize: IS_IOS ? 13 : 12,
-		letterSpacing: IS_IOS ? 0 : 0.4,
-		lineHeight: IS_IOS ? 18 : 16,
-		marginHorizontal: 32,
-		marginTop: 10,
-	},
-	hint: {
-		fontSize: IS_IOS ? 15 : 14,
-		lineHeight: 20,
-		marginHorizontal: 32,
-		marginTop: 16,
-	},
-	host: {
-		marginTop: 8,
-	},
-	radio: {
-		alignItems: "center",
-		borderRadius: 999,
-		borderWidth: 2,
-		height: 20,
-		justifyContent: "center",
-		width: 20,
-	},
-	radioDot: {
-		borderRadius: 999,
-		height: 10,
-		width: 10,
-	},
-	segmented: {
-		marginBottom: 6,
-		marginHorizontal: 16,
-	},
-})

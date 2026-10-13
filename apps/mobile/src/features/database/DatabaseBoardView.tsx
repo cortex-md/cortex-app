@@ -1,6 +1,6 @@
-import { Plus } from "lucide-react-native"
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 
+import { Symbol } from "@/components/ui/Symbol"
 import { PersonLabel, RowDue, rowOwnerName } from "@/features/database/DatabaseCells"
 import {
 	type DatabaseCollectionProps,
@@ -20,7 +20,9 @@ export function DatabaseBoardView({
 }: Omit<DatabaseCollectionProps, "collapsed" | "onToggleGroup">) {
 	const { colors } = useMobileColors()
 	const groups = visibleGroups(model)
-	const grouped = Boolean(model.activeView?.group && model.resolved.byKey.has(model.activeView.group))
+	const grouped = Boolean(
+		model.activeView?.group && model.resolved.byKey.has(model.activeView.group),
+	)
 
 	return (
 		<ScrollView
@@ -37,7 +39,9 @@ export function DatabaseBoardView({
 				>
 					<View style={styles.columnHeader}>
 						<GroupLabel group={group} model={model} />
-						<Text style={[styles.count, { color: colors.secondaryLabel }]}>{group.rows.length}</Text>
+						<Text style={[styles.count, { color: colors.secondaryLabel }]}>
+							{group.rows.length}
+						</Text>
 					</View>
 					{group.rows.map((row) => {
 						const owner = rowOwnerName(row, model)
@@ -72,7 +76,7 @@ export function DatabaseBoardView({
 						onPress={() => onCreate(grouped ? group : null)}
 						style={({ pressed }) => [styles.add, { opacity: pressed ? 0.5 : 1 }]}
 					>
-						<Plus color={colors.secondaryLabel} size={18} strokeWidth={2.2} />
+						<Symbol color={colors.secondaryLabel} name={{ md: "add", sf: "plus" }} size={16} />
 						<Text style={[styles.addLabel, { color: colors.secondaryLabel }]}>New</Text>
 					</Pressable>
 				</View>

@@ -1,15 +1,5 @@
 import type { ObsidianProgress } from "@cortex/import-export"
 
-export type ImportStage =
-	| "choose"
-	| "review"
-	| "preview"
-	| "done"
-	| "detect"
-	| "obs"
-	| "run"
-	| "obsdone"
-
 export type ImportFileKind = "csv" | "html" | "pdf" | "unsupported"
 
 export type ConflictPolicy = "both" | "skip"
@@ -85,7 +75,13 @@ export interface ObsidianOutcome {
 	convertedEmbeds: number
 	renamed: number
 	settingsApplied: boolean
-	settings: { attachmentLocation: string; dailyNotes: string; templates: number; bookmarks: number; propertyTypes: number }
+	settings: {
+		attachmentLocation: string
+		dailyNotes: string
+		templates: number
+		bookmarks: number
+		propertyTypes: number
+	}
 	findings: ObsidianFindingRow[]
 	destinationLabel: string
 }

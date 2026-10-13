@@ -1,12 +1,11 @@
 import type { FolderNoteCount, TagEntry } from "@cortex/core"
 import { useSearchStore } from "@cortex/search"
-import { Folder, History, Tag } from "lucide-react-native"
-import type { ReactNode } from "react"
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 
 import { Badge } from "@/components/ui/Badge"
 import { EmptyState } from "@/components/ui/EmptyState"
-import { GroupedFooter, GroupedList, GroupedRow, GroupedSectionHeader } from "@/components/ui/GroupedList"
+import { GroupedList, GroupedRow, GroupedSectionHeader } from "@/components/ui/GroupedList"
+import { Symbol } from "@/components/ui/Symbol"
 import {
 	formatFilter,
 	parseQueryState,
@@ -31,7 +30,13 @@ function RecentQueryRow({
 	const parsed = parseQueryState(raw)
 	return (
 		<GroupedRow
-			leading={<History color={colors.tertiaryLabel} size={IS_IOS ? 18 : 24} strokeWidth={2} />}
+			leading={
+				<Symbol
+					color={colors.tertiaryLabel}
+					name={{ md: "history", sf: "clock.arrow.circlepath" }}
+					size={IS_IOS ? 18 : 24}
+				/>
+			}
 			onPress={onPress}
 			title={parsed.text || raw}
 			trailing={
@@ -48,14 +53,12 @@ function RecentQueryRow({
 }
 
 export function SearchSuggestions({
-	chips,
 	folders,
 	mode,
 	onApplyQuery,
 	onReplaceActiveWord,
 	tags,
 }: {
-	chips: ReactNode
 	folders: readonly FolderNoteCount[]
 	mode: Exclude<SearchMode, { kind: "results" }>
 	onApplyQuery: (state: SearchQueryState) => void
@@ -82,7 +85,6 @@ export function SearchSuggestions({
 			keyboardShouldPersistTaps="handled"
 			style={{ backgroundColor: colors.groupedBackground }}
 		>
-			{chips}
 			{mode.kind === "suggest" ? (
 				<>
 					<GroupedSectionHeader>Filters</GroupedSectionHeader>
@@ -100,9 +102,7 @@ export function SearchSuggestions({
 										{ backgroundColor: selected ? colors.accentSubtle : "transparent" },
 									]}
 								>
-									<Text style={[styles.operatorCode, { color: colors.tint }]}>
-										{operator.key}:
-									</Text>
+									<Text style={[styles.operatorCode, { color: colors.tint }]}>{operator.key}:</Text>
 									<Text style={[styles.operatorLabel, { color: colors.secondaryLabel }]}>
 										{operator.label}
 									</Text>
@@ -125,9 +125,6 @@ export function SearchSuggestions({
 							</GroupedList>
 						</>
 					) : null}
-					{IS_IOS ? (
-						<GroupedFooter>Tap a filter to complete it, then type to search.</GroupedFooter>
-					) : null}
 				</>
 			) : null}
 			{mode.kind === "values" && mode.key === "path" ? (
@@ -139,7 +136,11 @@ export function SearchSuggestions({
 								<GroupedRow
 									key={folder.path}
 									leading={
-										<Folder color={colors.tint} size={IS_IOS ? 20 : 24} strokeWidth={2} />
+										<Symbol
+											color={colors.tint}
+											name={{ md: "folder", sf: "folder" }}
+											size={IS_IOS ? 20 : 24}
+										/>
 									}
 									onPress={() => onReplaceActiveWord(`path:${folder.path} `)}
 									title={folder.path}
@@ -160,7 +161,13 @@ export function SearchSuggestions({
 							{matchingTags.map((entry) => (
 								<GroupedRow
 									key={entry.tag}
-									leading={<Tag color={colors.tint} size={IS_IOS ? 20 : 24} strokeWidth={2} />}
+									leading={
+										<Symbol
+											color={colors.tint}
+											name={{ md: "tag", sf: "number" }}
+											size={IS_IOS ? 20 : 24}
+										/>
+									}
 									onPress={() => onReplaceActiveWord(`tag:${entry.tag} `)}
 									title={`#${entry.tag}`}
 									value={`${entry.filePaths.length} ${entry.filePaths.length === 1 ? "note" : "notes"}`}
@@ -178,7 +185,7 @@ export function SearchSuggestions({
 
 const styles = StyleSheet.create({
 	listContent: {
-		paddingBottom: IS_IOS ? 140 : 32,
+		paddingBottom: 32,
 	},
 	operatorCode: {
 		fontFamily: Platform.select({ android: "monospace", ios: "Menlo" }),

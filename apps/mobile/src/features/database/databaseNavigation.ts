@@ -15,7 +15,10 @@ export function openDatabaseViewOptions(
 	presentSheet("db-view-options", { folderPath, tab, viewId })
 }
 
-export function openNewDatabase(params?: { parentPath?: string; start?: "blank" | "folder" }): void {
+export function openNewDatabase(params?: {
+	parentPath?: string
+	start?: "blank" | "folder"
+}): void {
 	presentSheet("db-new", params)
 }
 

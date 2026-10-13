@@ -1,8 +1,4 @@
-import {
-	type SearchFilterKey,
-	type SearchResult,
-	tokenizeSearchQuery,
-} from "@cortex/search"
+import { type SearchFilterKey, type SearchResult, tokenizeSearchQuery } from "@cortex/search"
 
 export interface SearchFilter {
 	key: SearchFilterKey
@@ -41,10 +37,7 @@ export function getActiveWord(text: string): string {
 	return text.slice(text.search(/\S*$/))
 }
 
-export function extractCompleteFilters(
-	filters: SearchFilter[],
-	text: string,
-): SearchQueryState {
+export function extractCompleteFilters(filters: SearchFilter[], text: string): SearchQueryState {
 	const nextFilters = [...filters]
 	let changed = false
 	const remaining = text.replace(COMPLETE_FILTER_PATTERN, (_match, key: string, value: string) => {
@@ -91,7 +84,10 @@ export function getSearchMode(state: SearchQueryState): SearchMode {
 	return { kind: "results" }
 }
 
-export function formatResultsMeta(results: readonly SearchResult[], filters: SearchFilter[]): string {
+export function formatResultsMeta(
+	results: readonly SearchResult[],
+	filters: SearchFilter[],
+): string {
 	const matches = results.reduce((total, result) => total + result.matchCount, 0)
 	const parts = [
 		`${results.length} ${results.length === 1 ? "note" : "notes"}`,

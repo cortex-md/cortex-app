@@ -46,8 +46,20 @@ export const FIXTURE_LINKED_REMOTE_VAULT: LinkedRemoteVault = {
 
 export const FIXTURE_REMOTE_VAULTS: LinkedRemoteVault[] = [
 	FIXTURE_LINKED_REMOTE_VAULT,
-	{ id: "remote-design", name: "Design", serverLabel: "Cortex Cloud", role: "Viewer", memberCount: 7 },
-	{ id: "remote-family", name: "Family", serverLabel: "Cortex Cloud", role: "Owner", memberCount: 2 },
+	{
+		id: "remote-design",
+		name: "Design",
+		serverLabel: "Cortex Cloud",
+		role: "Viewer",
+		memberCount: 7,
+	},
+	{
+		id: "remote-family",
+		name: "Family",
+		serverLabel: "Cortex Cloud",
+		role: "Owner",
+		memberCount: 2,
+	},
 ]
 
 export const FIXTURE_REMOTE_VAULT_OPTIONS: RemoteVaultLinkOption[] = [
@@ -86,7 +98,12 @@ export const FIXTURE_REMOTE_VAULT_OPTIONS: RemoteVaultLinkOption[] = [
 ]
 
 export const FIXTURE_SYNC_DEVICES: SyncDevice[] = [
-	{ id: "device-current", name: CURRENT_DEVICE_NAME, lastSyncedLabel: "Synced just now", isCurrent: true },
+	{
+		id: "device-current",
+		name: CURRENT_DEVICE_NAME,
+		lastSyncedLabel: "Synced just now",
+		isCurrent: true,
+	},
 	{ id: "device-macbook", name: "MacBook Pro", lastSyncedLabel: "2 hours ago", isCurrent: false },
 ]
 
@@ -123,7 +140,12 @@ export function createFixtureSyncLogEntries(now: number): SyncLogEntry[] {
 			level: "error",
 			message: "Conflict detected: Projects/Cortex/Sync engine notes.md",
 		},
-		{ id: -7, timestamp: now - 4_000, level: "info", message: "Pushed: Projects/Cortex/Roadmap.md" },
+		{
+			id: -7,
+			timestamp: now - 4_000,
+			level: "info",
+			message: "Pushed: Projects/Cortex/Roadmap.md",
+		},
 		{ id: -8, timestamp: now - 3_000, level: "info", message: "Pushed: Inbox.md" },
 	]
 }

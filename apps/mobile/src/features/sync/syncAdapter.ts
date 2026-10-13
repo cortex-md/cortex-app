@@ -18,7 +18,6 @@ import { Share } from "react-native"
 import {
 	createFixtureSyncLogEntries,
 	CURRENT_DEVICE_NAME,
-	DEVICE_LABEL,
 	type ExcludedPathEntry,
 	FIXTURE_EXCLUDED_PATHS,
 	FIXTURE_REMOTE_VAULT_OPTIONS,
@@ -87,7 +86,6 @@ export function resolveLinkedRemoteVault(
 export function getRemoteVaultLinkOptions(
 	remoteVaults: readonly RemoteVaultInfo[],
 	linkedVaultId: string | null,
-	localVaultName: string,
 ): RemoteVaultLinkOption[] {
 	// stub: fixture remote vaults stand in for the account's vaults until the sync API runs on mobile
 	if (remoteVaults.length === 0) {
@@ -96,7 +94,7 @@ export function getRemoteVaultLinkOptions(
 				? {
 						...option,
 						taken: true,
-						description: `${option.description.split(" · linked")[0]} · linked to "${localVaultName}" on this ${DEVICE_LABEL}`,
+						description: `${option.description.split(" · linked")[0]} · linked to this vault`,
 					}
 				: option.id === "remote-work" && linkedVaultId
 					? { ...option, taken: false, description: "4 members · Owner" }
@@ -110,9 +108,7 @@ export function getRemoteVaultLinkOptions(
 		return {
 			id: remote.id,
 			name: remote.name,
-			description: taken
-				? `${base} · linked to "${localVaultName}" on this ${DEVICE_LABEL}`
-				: base,
+			description: taken ? `${base} · linked to this vault` : base,
 			encrypted: remote.hasKey,
 			taken,
 			isNew: false,

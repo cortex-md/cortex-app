@@ -1,4 +1,10 @@
-import { getErrorMessage, openNoteDocumentSession, type TemplateVault } from "@cortex/core"
+import {
+	getErrorMessage,
+	openNoteDocumentSession,
+	type TemplateDefinition,
+	type TemplateVault,
+	useTemplateStore,
+} from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
 import { parseFrontmatter } from "@cortex/properties"
 import {
@@ -6,14 +12,13 @@ import {
 	getTemplateValueLabel,
 	splitTemplateSegments,
 } from "@cortex/templates"
-import { Stack, useLocalSearchParams } from "expo-router"
-import { Share2, SlidersHorizontal } from "lucide-react-native"
+import { router, Stack, useLocalSearchParams } from "expo-router"
 import { useEffect, useMemo, useState } from "react"
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 
-import { Badge } from "@/components/ui/Badge"
-import { HeaderIconButton } from "@/components/ui/HeaderIconButton"
 import MarkdownBlock from "@/components/ui/MarkdownBlock"
+import type { MenuGroup } from "@/components/ui/menuTypes"
+import { NativeMenu } from "@/components/ui/NativeMenu"
 import { SegmentedControl } from "@/components/ui/SegmentedControl"
 import { NoteEditorScreen } from "@/features/editor/NoteEditorScreen"
 import { useMobileEditorThemeTokens } from "@/features/editor/editorTheme"
@@ -21,7 +26,7 @@ import { toast } from "@/features/feedback/useToast"
 import { presentSheet } from "@/features/navigation/routes"
 import { useHideTabBar } from "@/features/navigation/tabBarVisibility"
 import { PropertiesBox } from "@/features/templates/TemplateFields"
-import { TemplateSettingsSheet } from "@/features/templates/TemplateSettingsSheet"
+import { openTemplateSettings } from "@/features/templates/TemplateSettingsScreen"
 import {
 	createTemplateContext,
 	getTemplateBodyFilePath,
@@ -87,20 +92,6 @@ function replacePlaceholders(source: string): string {
 		.join("")
 }
 
-function HeaderTitle({ subtitle, title }: { subtitle: string; title: string }) {
-	const { colors } = useMobileColors()
-	return (
-		<View style={IS_IOS ? styles.headerTitleIos : undefined}>
-			<Text numberOfLines={1} style={[styles.headerTitle, { color: colors.label }]}>
-				{title}
-			</Text>
-			<Text numberOfLines={1} style={[styles.headerSubtitle, { color: colors.secondaryLabel }]}>
-				{subtitle}
-			</Text>
-		</View>
-	)
-}
-
 function PlaceholderBar({ examples }: { examples: Record<string, string> }) {
 	const { colors } = useMobileColors()
 	return (
@@ -140,8 +131,7 @@ function PlaceholderBar({ examples }: { examples: Record<string, string> }) {
 	)
 }
 
-function TemplatePreview({ name, raw }: { name: string; raw: string | null }) {
-	const { colors } = useMobileColors()
+function TemplatePreview({ raw }: { raw: string | null }) {
 	const themeTokens = useMobileEditorThemeTokens()
 	const parsed = useMemo(() => (raw === null ? null : parseFrontmatter(raw)), [raw])
 	const properties = useMemo(
@@ -159,14 +149,7 @@ function TemplatePreview({ name, raw }: { name: string; raw: string | null }) {
 	const body = useMemo(() => replacePlaceholders(parsed?.body ?? ""), [parsed])
 
 	return (
-		<ScrollView contentContainerStyle={styles.preview}>
-			<Text
-				style={[styles.crumb, { color: colors.secondaryLabel }]}
-			>{`Templates / ${name}.md`}</Text>
-			<View style={styles.titleRow}>
-				<Text style={[styles.previewTitle, { color: colors.label }]}>{name}</Text>
-				<Badge label="Template" tint />
-			</View>
+		<ScrollView contentContainerStyle={styles.preview} contentInsetAdjustmentBehavior="automatic">
 			<PropertiesBox properties={properties} />
 			{body.trim() ? (
 				<MarkdownBlock
@@ -197,6 +180,24 @@ function placeholderExamples(
 	return examples
 }
 
+async function deleteTemplate(vault: TemplateVault, template: TemplateDefinition): Promise<void> {
+	try {
+		await useTemplateStore.getState().deleteTemplate(vault, template.id)
+		toast(`Deleted “${template.name}”`)
+		if (router.canGoBack()) router.back()
+	} catch (error) {
+		toast(getErrorMessage(error))
+	}
+}
+
+function confirmDelete(vault: TemplateVault | null, template: TemplateDefinition | null) {
+	if (!vault || !template) return
+	Alert.alert(`Delete “${template.name}”?`, "Notes already created from it stay as they are.", [
+		{ style: "cancel", text: "Cancel" },
+		{ onPress: () => void deleteTemplate(vault, template), style: "destructive", text: "Delete" },
+	])
+}
+
 export function TemplateEditorScreen() {
 	useHideTabBar()
 	const params = useLocalSearchParams<{ filePath?: string | string[] }>()
@@ -204,7 +205,6 @@ export function TemplateEditorScreen() {
 	const { colors } = useMobileColors()
 	const { templates, vault } = useVaultTemplates()
 	const [mode, setMode] = useState<DisplayMode>("source")
-	const [settingsOpen, setSettingsOpen] = useState(false)
 
 	const template = useMemo(
 		() =>
@@ -220,10 +220,50 @@ export function TemplateEditorScreen() {
 		[name, template?.id, vault],
 	)
 
-	const openTemplateSettings = () => setSettingsOpen(true)
+	const openSettings = () => {
+		if (template) openTemplateSettings(template.id)
+	}
 	const shareTemplate = () => {
 		if (filePath) presentSheet("share-template", { filePath, templateId: template?.id })
 	}
+
+	const menuGroups: MenuGroup[] = [
+		...(IS_IOS
+			? []
+			: [
+					MODE_OPTIONS.map((option) => ({
+						checked: mode === option.value,
+						key: option.value,
+						label: option.label,
+						onPress: () => setMode(option.value),
+					})),
+				]),
+		[
+			{
+				disabled: !template,
+				icon: { md: "tune", sf: "slider.horizontal.3" },
+				key: "settings",
+				label: "New note settings",
+				onPress: openSettings,
+			},
+			{
+				icon: { md: "share", sf: "square.and.arrow.up" },
+				key: "share",
+				label: "Share as template",
+				onPress: shareTemplate,
+			},
+		],
+		[
+			{
+				destructive: true,
+				disabled: !template,
+				icon: { md: "delete", sf: "trash" },
+				key: "delete",
+				label: "Delete template",
+				onPress: () => confirmDelete(vault, template),
+			},
+		],
+	]
 
 	return (
 		<View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -233,112 +273,58 @@ export function TemplateEditorScreen() {
 					headerRight: IS_IOS
 						? undefined
 						: () => (
-								<View style={styles.androidActions}>
-									<HeaderIconButton
-										Icon={SlidersHorizontal}
-										accessibilityLabel="Template settings"
-										onPress={openTemplateSettings}
-									/>
-									<HeaderIconButton
-										Icon={Share2}
-										accessibilityLabel="Share template"
-										onPress={shareTemplate}
-									/>
-								</View>
+								<NativeMenu
+									accessibilityLabel="Template actions"
+									groups={menuGroups}
+									icon={{ md: "more_vert", sf: "ellipsis" }}
+								/>
 							),
-					headerTitle: () => <HeaderTitle subtitle="Saved" title={name} />,
+					title: name,
 				}}
 			/>
 			{IS_IOS ? (
 				<Stack.Toolbar placement="right">
-					<Stack.Toolbar.Button
-						accessibilityLabel="Template settings"
-						icon="slider.horizontal.3"
-						onPress={openTemplateSettings}
-					/>
-					<Stack.Toolbar.Button
-						accessibilityLabel="Share template"
-						icon="square.and.arrow.up"
-						onPress={shareTemplate}
-					/>
+					<Stack.Toolbar.View>
+						<View style={styles.segmentedSlot}>
+							<SegmentedControl
+								accessibilityLabel="Show template as"
+								onChange={setMode}
+								options={MODE_OPTIONS}
+								style={styles.segmented}
+								value={mode}
+							/>
+						</View>
+					</Stack.Toolbar.View>
+					<Stack.Toolbar.Menu accessibilityLabel="Template actions" icon="ellipsis" title={name}>
+						{menuGroups.flat().map((item) => (
+							<Stack.Toolbar.MenuAction
+								destructive={item.destructive}
+								disabled={item.disabled}
+								icon={item.icon?.sf}
+								key={item.key}
+								onPress={item.onPress}
+							>
+								{item.label}
+							</Stack.Toolbar.MenuAction>
+						))}
+					</Stack.Toolbar.Menu>
 				</Stack.Toolbar>
 			) : null}
-			<View style={styles.controls}>
-				<SegmentedControl
-					accessibilityLabel="Show placeholders as"
-					onChange={setMode}
-					options={MODE_OPTIONS}
-					value={mode}
-				/>
-				{mode === "source" ? (
-					<View style={styles.crumbRow}>
-						<Text
-							numberOfLines={1}
-							style={[styles.crumb, styles.crumbFlex, { color: colors.secondaryLabel }]}
-						>
-							{`Templates / ${name}.md`}
-						</Text>
-						<Badge label="Template" tint />
-					</View>
-				) : null}
-			</View>
 			{mode === "source" ? (
 				<View style={styles.editor}>
 					<NoteEditorScreen filePath={filePath} top={<PlaceholderBar examples={examples} />} />
 				</View>
 			) : (
-				<TemplatePreview name={name} raw={raw} />
+				<TemplatePreview raw={raw} />
 			)}
-			<TemplateSettingsSheet
-				isPresented={settingsOpen}
-				onDismiss={() => setSettingsOpen(false)}
-				template={template}
-				vault={vault}
-			/>
 		</View>
 	)
 }
 
 const styles = StyleSheet.create({
-	androidActions: {
-		flexDirection: "row",
-	},
-	controls: {
-		gap: 8,
-		paddingBottom: 6,
-		paddingHorizontal: 16,
-		paddingTop: 4,
-	},
-	crumb: {
-		fontSize: 13,
-		lineHeight: 18,
-	},
-	crumbFlex: {
-		flex: 1,
-	},
-	crumbRow: {
-		alignItems: "center",
-		flexDirection: "row",
-		gap: 8,
-		paddingHorizontal: 4,
-	},
 	editor: {
 		flex: 1,
 		minHeight: 0,
-	},
-	headerSubtitle: {
-		fontSize: 12,
-		lineHeight: 16,
-		textAlign: IS_IOS ? "center" : "left",
-	},
-	headerTitle: {
-		fontSize: IS_IOS ? 17 : 22,
-		fontWeight: IS_IOS ? "600" : "400",
-		lineHeight: IS_IOS ? 22 : 28,
-		textAlign: IS_IOS ? "center" : "left",
-	},
-	headerTitleIos: {
-		alignItems: "center",
 	},
 	placeholderBar: {
 		gap: 6,
@@ -376,18 +362,16 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 20,
 		paddingTop: 8,
 	},
-	previewTitle: {
-		fontSize: 28,
-		fontWeight: "700",
-		lineHeight: 34,
-	},
 	root: {
 		flex: 1,
 	},
-	titleRow: {
-		alignItems: "center",
-		flexDirection: "row",
-		gap: 10,
+	segmented: {
+		width: 168,
+	},
+	segmentedSlot: {
+		height: 32,
+		justifyContent: "center",
+		width: 168,
 	},
 	transparent: {
 		backgroundColor: "transparent",

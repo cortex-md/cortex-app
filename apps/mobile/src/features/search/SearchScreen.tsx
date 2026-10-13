@@ -8,7 +8,6 @@ import {
 } from "@cortex/core"
 import { type SearchResult, useSearchStore } from "@cortex/search"
 import { Stack, useLocalSearchParams } from "expo-router"
-import { ChevronRight, Search } from "lucide-react-native"
 import { useEffect, useMemo, useRef, useState } from "react"
 import {
 	ActivityIndicator,
@@ -21,10 +20,10 @@ import {
 } from "react-native"
 import type { SearchBarCommands } from "react-native-screens"
 
-import { Badge } from "@/components/ui/Badge"
 import { EmptyState } from "@/components/ui/EmptyState"
-import { FilterChip } from "@/components/ui/FilterChip"
 import { GroupedList } from "@/components/ui/GroupedList"
+import type { MenuGroup } from "@/components/ui/menuTypes"
+import { NativeMenu } from "@/components/ui/NativeMenu"
 import { openNote } from "@/features/navigation/routes"
 import { SearchSnippetText } from "@/features/search/SearchSnippetText"
 import { SearchSuggestions } from "@/features/search/SearchSuggestions"
@@ -49,73 +48,65 @@ const EMPTY_FILTERS: SearchFilter[] = []
 
 function SearchResultGroup({
 	active,
-	collapsed,
 	colors,
 	onOpen,
-	onToggle,
 	result,
+	vaultName,
 	vaultPath,
 }: {
 	active: boolean
-	collapsed: boolean
 	colors: MobileColors
 	onOpen: (filePath: string, matchIndex: number) => void
-	onToggle: () => void
 	result: SearchResult
+	vaultName: string
 	vaultPath: string
 }) {
 	const filePath = joinPath(vaultPath, result.id)
 	const folder = getParentPath(result.id)
+	const matches = result.matchCount || result.snippets.length
 	return (
 		<View style={styles.group}>
 			<GroupedList>
 				<Pressable
 					accessibilityRole="button"
-					accessibilityState={{ expanded: !collapsed }}
 					android_ripple={{ color: colors.hover }}
-					onPress={onToggle}
+					onPress={() => onOpen(filePath, 0)}
 					style={({ pressed }) => [
 						styles.groupHeader,
 						{ backgroundColor: pressed && IS_IOS ? colors.hover : "transparent" },
 					]}
 				>
-					<ChevronRight
-						color={colors.tertiaryLabel}
-						size={18}
-						strokeWidth={2.4}
-						style={{ transform: [{ rotate: collapsed ? "0deg" : "90deg" }] }}
-					/>
 					<View style={styles.groupTitles}>
 						<Text numberOfLines={1} style={[styles.groupTitle, { color: colors.label }]}>
 							{result.title}
 						</Text>
 						<Text numberOfLines={1} style={[styles.groupPath, { color: colors.secondaryLabel }]}>
-							{folder || "Vault root"}
+							{folder ? folder.slice(folder.lastIndexOf("/") + 1) : vaultName}
 						</Text>
 					</View>
-					<Badge label={String(result.matchCount || result.snippets.length)} />
+					<Text style={[styles.groupCount, { color: colors.secondaryLabel }]}>
+						{String(matches)}
+					</Text>
 				</Pressable>
-				{collapsed
-					? null
-					: result.snippets.map((snippet, index) => {
-							const matchIndex = result.snippets
-								.slice(0, index)
-								.reduce((total, candidate) => total + candidate.ranges.length, 0)
-							return (
-								<Pressable
-									accessibilityRole="button"
-									android_ripple={{ color: colors.hover }}
-									key={snippet.text}
-									onPress={() => onOpen(filePath, matchIndex)}
-									style={({ pressed }) => [
-										styles.hit,
-										{ backgroundColor: pressed && IS_IOS ? colors.hover : "transparent" },
-									]}
-								>
-									<SearchSnippetText active={active && index === 0} snippet={snippet} />
-								</Pressable>
-							)
-						})}
+				{result.snippets.map((snippet, index) => {
+					const matchIndex = result.snippets
+						.slice(0, index)
+						.reduce((total, candidate) => total + candidate.ranges.length, 0)
+					return (
+						<Pressable
+							accessibilityRole="button"
+							android_ripple={{ color: colors.hover }}
+							key={snippet.text}
+							onPress={() => onOpen(filePath, matchIndex)}
+							style={({ pressed }) => [
+								styles.hit,
+								{ backgroundColor: pressed && IS_IOS ? colors.hover : "transparent" },
+							]}
+						>
+							<SearchSnippetText active={active && index === 0} snippet={snippet} />
+						</Pressable>
+					)
+				})}
 			</GroupedList>
 		</View>
 	)
@@ -136,7 +127,6 @@ export function SearchScreen() {
 	const [state, setState] = useState<SearchQueryState>({ filters: EMPTY_FILTERS, text: "" })
 	const [appliedTagParam, setAppliedTagParam] = useState<string | undefined>(undefined)
 	const [barRequest, setBarRequest] = useState<{ id: number; text: string } | null>(null)
-	const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(() => new Set())
 	useEnsureVaultIndexed()
 
 	const setBarText = (text: string) => {
@@ -154,6 +144,7 @@ export function SearchScreen() {
 	const raw = buildRawQuery(state)
 	const mode = getSearchMode(state)
 	const vaultPath = vault?.path ?? ""
+	const vaultName = vault?.name ?? "Vault"
 
 	useEffect(() => {
 		if (barRequest) searchBarRef.current?.setText(barRequest.text)
@@ -172,6 +163,12 @@ export function SearchScreen() {
 		[files, vault],
 	)
 	const tags = useMemo(() => selectSortedTags({ tagIndex, tagColors }), [tagColors, tagIndex])
+	const folderScope = state.filters.find((filter) => filter.key === "path")?.value ?? null
+	const tagScope = state.filters
+		.filter((filter) => filter.key === "tag")
+		.map((filter) => filter.value)
+	const fileFilters = state.filters.filter((filter) => filter.key === "file")
+	const hasFilters = state.filters.length > 0
 
 	const applyState = (next: SearchQueryState) => {
 		const extracted = extractCompleteFilters(next.filters, next.text)
@@ -191,13 +188,28 @@ export function SearchScreen() {
 		void useSearchStore.getState().runQuery(raw)
 	}
 
+	const setFilters = (filters: SearchFilter[]) => {
+		setState((current) => ({ ...current, filters }))
+	}
+
+	const setFolderScope = (path: string | null) => {
+		const rest = state.filters.filter((filter) => filter.key !== "path")
+		setFilters(path ? [...rest, { key: "path", value: path }] : rest)
+	}
+
+	const toggleTagScope = (tag: string) => {
+		const exists = tagScope.includes(tag)
+		setFilters(
+			exists
+				? state.filters.filter((filter) => !(filter.key === "tag" && filter.value === tag))
+				: [...state.filters, { key: "tag", value: tag }],
+		)
+	}
+
 	const removeFilter = (filter: SearchFilter) => {
-		setState((current) => ({
-			...current,
-			filters: current.filters.filter(
-				(candidate) => formatFilter(candidate) !== formatFilter(filter),
-			),
-		}))
+		setFilters(
+			state.filters.filter((candidate) => formatFilter(candidate) !== formatFilter(filter)),
+		)
 	}
 
 	const replaceActiveWord = (replacement: string) => {
@@ -210,21 +222,61 @@ export function SearchScreen() {
 		openNote(filePath)
 	}
 
-	const toggleCollapsed = (id: string) => {
-		setCollapsedIds((current) => {
-			const next = new Set(current)
-			if (next.has(id)) next.delete(id)
-			else next.add(id)
-			return next
-		})
-	}
+	const androidGroups: MenuGroup[] = [
+		[
+			{
+				checked: !folderScope,
+				key: "folder:any",
+				label: "Any folder",
+				onPress: () => setFolderScope(null),
+			},
+			...folders.map((folder) => ({
+				checked: folderScope === folder.path,
+				key: `folder:${folder.path}`,
+				label: folder.path,
+				onPress: () => setFolderScope(folder.path),
+			})),
+		],
+		tags.map((entry) => ({
+			checked: tagScope.includes(entry.tag),
+			key: `tag:${entry.tag}`,
+			label: `#${entry.tag}`,
+			onPress: () => toggleTagScope(entry.tag),
+		})),
+		fileFilters.map((filter) => ({
+			checked: true,
+			key: formatFilter(filter),
+			label: `File: ${filter.value}`,
+			onPress: () => removeFilter(filter),
+		})),
+		hasFilters
+			? [
+					{
+						destructive: true,
+						key: "clear",
+						label: "Clear filters",
+						onPress: () => setFilters(EMPTY_FILTERS),
+					},
+				]
+			: [],
+	].filter((group) => group.length > 0)
 
 	const header = (
 		<>
 			<Stack.Screen
 				options={{
-					title: "Search",
 					headerLeft: IS_IOS ? undefined : () => <SidebarToggleButton />,
+					headerRight: IS_IOS
+						? undefined
+						: () => (
+								<NativeMenu
+									accessibilityLabel="Search scope"
+									groups={androidGroups}
+									header="Search in"
+									icon={{ md: "filter_list", sf: "line.3.horizontal.decrease.circle" }}
+								/>
+							),
+					title: "Search",
 				}}
 			/>
 			<Stack.SearchBar
@@ -237,36 +289,82 @@ export function SearchScreen() {
 				ref={searchBarRef}
 			/>
 			{IS_IOS ? (
-				<Stack.Toolbar placement="left">
-					<Stack.Toolbar.Button
-						accessibilityLabel="Open sidebar"
-						icon="sidebar.left"
-						onPress={openSidebar}
-					/>
-				</Stack.Toolbar>
+				<>
+					<Stack.Toolbar placement="left">
+						<Stack.Toolbar.Button
+							accessibilityLabel="Open sidebar"
+							icon="sidebar.left"
+							onPress={openSidebar}
+						/>
+					</Stack.Toolbar>
+					<Stack.Toolbar placement="right">
+						<Stack.Toolbar.Menu
+							accessibilityLabel="Search scope"
+							icon={
+								hasFilters
+									? "line.3.horizontal.decrease.circle.fill"
+									: "line.3.horizontal.decrease.circle"
+							}
+							title="Search in"
+						>
+							<Stack.Toolbar.Menu
+								icon="folder"
+								title={folderScope ? `Folder: ${folderScope}` : "Folder"}
+							>
+								<Stack.Toolbar.MenuAction isOn={!folderScope} onPress={() => setFolderScope(null)}>
+									Any folder
+								</Stack.Toolbar.MenuAction>
+								{folders.map((folder) => (
+									<Stack.Toolbar.MenuAction
+										isOn={folderScope === folder.path}
+										key={folder.path}
+										onPress={() => setFolderScope(folder.path)}
+									>
+										{folder.path}
+									</Stack.Toolbar.MenuAction>
+								))}
+							</Stack.Toolbar.Menu>
+							<Stack.Toolbar.Menu
+								icon="number"
+								title={tagScope.length > 0 ? `Tags: ${tagScope.length}` : "Tags"}
+							>
+								{tags.map((entry) => (
+									<Stack.Toolbar.MenuAction
+										isOn={tagScope.includes(entry.tag)}
+										key={entry.tag}
+										onPress={() => toggleTagScope(entry.tag)}
+										unstable_keepPresented
+									>
+										{`#${entry.tag}`}
+									</Stack.Toolbar.MenuAction>
+								))}
+							</Stack.Toolbar.Menu>
+							<Stack.Toolbar.Menu inline>
+								{fileFilters.map((filter) => (
+									<Stack.Toolbar.MenuAction
+										icon="doc"
+										isOn
+										key={formatFilter(filter)}
+										onPress={() => removeFilter(filter)}
+									>
+										{`File: ${filter.value}`}
+									</Stack.Toolbar.MenuAction>
+								))}
+								<Stack.Toolbar.MenuAction
+									destructive
+									hidden={!hasFilters}
+									icon="xmark.circle"
+									onPress={() => setFilters(EMPTY_FILTERS)}
+								>
+									Clear filters
+								</Stack.Toolbar.MenuAction>
+							</Stack.Toolbar.Menu>
+						</Stack.Toolbar.Menu>
+					</Stack.Toolbar>
+				</>
 			) : null}
 		</>
 	)
-
-	const chips =
-		state.filters.length > 0 ? (
-			<FlatList
-				contentContainerStyle={styles.chips}
-				data={state.filters}
-				horizontal
-				keyboardShouldPersistTaps="handled"
-				keyExtractor={formatFilter}
-				renderItem={({ item }) => (
-					<FilterChip
-						accessibilityLabel={`Remove ${formatFilter(item)} filter`}
-						label={formatFilter(item)}
-						onRemove={() => removeFilter(item)}
-						selected
-					/>
-				)}
-				showsHorizontalScrollIndicator={false}
-			/>
-		) : null
 
 	if (mode.kind === "results") {
 		const activeQuery = storeQuery === raw
@@ -290,37 +388,26 @@ export function SearchScreen() {
 							</View>
 						) : (
 							<EmptyState
-								description="Try another word or remove a filter."
-								Icon={Search}
-								title={`No results for “${raw}”`}
+								description={
+									hasFilters ? "Try another word or clear the filters." : "Try another word."
+								}
+								icon={{ md: "search_off", sf: "magnifyingglass" }}
+								title={state.text.trim() ? `No results for “${state.text.trim()}”` : "No results"}
 							/>
 						)
 					}
 					ListHeaderComponent={
-						<>
-							{chips}
-							{activeQuery && results.length > 0 ? (
-								<View style={styles.metaRow}>
-									<Text style={[styles.meta, { color: colors.secondaryLabel }]}>{meta}</Text>
-									<Pressable
-										accessibilityRole="button"
-										hitSlop={8}
-										onPress={() => setCollapsedIds(new Set(results.map((result) => result.id)))}
-									>
-										<Text style={[styles.metaAction, { color: colors.tint }]}>Collapse all</Text>
-									</Pressable>
-								</View>
-							) : null}
-						</>
+						activeQuery && results.length > 0 ? (
+							<Text style={[styles.meta, { color: colors.secondaryLabel }]}>{meta}</Text>
+						) : null
 					}
 					renderItem={({ item, index }) => (
 						<SearchResultGroup
 							active={index === 0}
-							collapsed={collapsedIds.has(item.id)}
 							colors={colors}
 							onOpen={openMatch}
-							onToggle={() => toggleCollapsed(item.id)}
 							result={item}
+							vaultName={vaultName}
 							vaultPath={vaultPath}
 						/>
 					)}
@@ -334,7 +421,6 @@ export function SearchScreen() {
 	return (
 		<>
 			<SearchSuggestions
-				chips={chips}
 				folders={folders}
 				mode={mode}
 				onApplyQuery={applyState}
@@ -347,20 +433,18 @@ export function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-	chips: {
-		flexDirection: "row",
-		gap: 8,
-		paddingBottom: 4,
-		paddingHorizontal: 16,
-		paddingTop: 8,
-	},
 	group: {
 		marginBottom: 10,
+	},
+	groupCount: {
+		fontSize: IS_IOS ? 15 : 14,
+		fontVariant: ["tabular-nums"],
+		lineHeight: 20,
 	},
 	groupHeader: {
 		alignItems: "center",
 		flexDirection: "row",
-		gap: 10,
+		gap: 12,
 		minHeight: IS_IOS ? 56 : 64,
 		paddingHorizontal: 16,
 		paddingVertical: 8,
@@ -380,12 +464,11 @@ const styles = StyleSheet.create({
 	},
 	hit: {
 		minHeight: 44,
-		paddingLeft: IS_IOS ? 42 : 56,
-		paddingRight: 16,
+		paddingHorizontal: 16,
 		paddingVertical: 10,
 	},
 	listContent: {
-		paddingBottom: IS_IOS ? 140 : 32,
+		paddingBottom: 32,
 	},
 	loading: {
 		alignItems: "center",
@@ -397,21 +480,10 @@ const styles = StyleSheet.create({
 		lineHeight: 20,
 	},
 	meta: {
-		flex: 1,
 		fontSize: IS_IOS ? 13 : 14,
 		lineHeight: 18,
-	},
-	metaAction: {
-		fontSize: IS_IOS ? 15 : 14,
-		fontWeight: "500",
-		lineHeight: 20,
-	},
-	metaRow: {
-		alignItems: "center",
-		flexDirection: "row",
-		gap: 12,
-		marginBottom: 6,
-		marginHorizontal: IS_IOS ? 20 : 24,
+		marginBottom: 8,
+		marginHorizontal: IS_IOS ? 36 : 32,
 		marginTop: 12,
 	},
 })

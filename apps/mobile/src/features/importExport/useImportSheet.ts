@@ -25,14 +25,12 @@ import type {
 	ImportPreview,
 	ImportRunResult,
 	ImportSourceFile,
-	ImportStage,
 	InspectedFolder,
 	ObsidianMode,
 	ObsidianOutcome,
 } from "@/features/importExport/importTypes"
 
 interface ImportSheetState {
-	stage: ImportStage
 	files: ImportSourceFile[]
 	destinationIndex: number
 	conflict: ConflictPolicy
@@ -48,7 +46,10 @@ interface ImportSheetState {
 	progress: ObsidianProgress | null
 	outcome: ObsidianOutcome | null
 	busy: boolean
+	run: ObsidianRunStatus
 }
+
+export type ObsidianRunStatus = "idle" | "running" | "done" | "failed"
 
 type Attempt<T> = { ok: true; value: T } | { ok: false; error: string }
 
@@ -68,10 +69,12 @@ const initialState: ImportSheetState = {
 	outcome: null,
 	previews: EMPTY_PREVIEWS,
 	progress: null,
+	run: "idle",
 	runResult: null,
 	selectedFileId: null,
-	stage: "choose",
 }
+
+export type FolderPickResult = "obsidian" | "review" | null
 
 async function attempt<T>(task: Promise<T>): Promise<Attempt<T>> {
 	try {
@@ -135,55 +138,51 @@ export function useImportSheet() {
 		setState((current) => ({ ...current, previews: { ...current.previews, [key]: preview } }))
 	}, [])
 
-	const chooseFiles = useCallback(async () => {
+	const chooseFiles = useCallback(async (): Promise<boolean> => {
 		patch({ busy: true })
 		const result = await attempt(pickImportFiles())
 		if (!result.ok) {
 			patch({ busy: false })
 			toast(result.error)
-			return
+			return false
 		}
 		if (result.value.length === 0) {
 			patch({ busy: false })
-			return
+			return false
 		}
 		const picked = result.value
 		setState((current) => {
 			const known = new Set(current.files.map((file) => file.id))
 			const files = [...current.files, ...picked.filter((file) => !known.has(file.id))]
-			return { ...current, busy: false, files, stage: "review" }
+			return { ...current, busy: false, files }
 		})
+		return true
 	}, [patch])
 
-	const chooseFolder = useCallback(async () => {
+	const chooseFolder = useCallback(async (): Promise<FolderPickResult> => {
 		patch({ busy: true })
 		const result = await attempt(pickImportFolder())
 		if (!result.ok) {
 			patch({ busy: false })
 			toast(result.error)
-			return
+			return null
 		}
 		const folder = result.value
 		if (!folder) {
 			patch({ busy: false })
-			return
+			return null
 		}
 		if (folder.isObsidian) {
-			patch({
-				busy: false,
-				destinationFolder: folder.name,
-				detectChoice: "obs",
-				folder,
-				stage: "detect",
-			})
-			return
+			patch({ busy: false, destinationFolder: folder.name, detectChoice: "obs", folder })
+			return "obsidian"
 		}
 		if (folder.importableFiles.length === 0) {
 			patch({ busy: false, folder })
 			toast(`No CSV, HTML or PDF files in ${folder.name}.`)
-			return
+			return null
 		}
-		patch({ busy: false, files: folder.importableFiles, folder, stage: "review" })
+		patch({ busy: false, files: folder.importableFiles, folder })
+		return "review"
 	}, [patch])
 
 	const changeFolder = useCallback(async () => {
@@ -198,50 +197,46 @@ export function useImportSheet() {
 		(fileId: string) => {
 			const file = state.files.find((item) => item.id === fileId)
 			if (!file) return
-			patch({ selectedFileId: fileId, stage: "preview" })
+			patch({ selectedFileId: fileId })
 			if (!state.previews[previewKey(fileId, state.csvMode)]) void loadPreview(file, state.csvMode)
 		},
 		[loadPreview, patch, state.csvMode, state.files, state.previews],
 	)
 
-	const runImport = useCallback(async () => {
-		if (!vault || importable === 0 || state.busy) return
+	const runImport = useCallback(async (): Promise<boolean> => {
+		if (!vault || importable === 0 || state.busy) return false
 		patch({ busy: true })
 		const result = await attempt(runFileImport(plans, destination, state.csvMode))
 		if (!result.ok) {
 			patch({ busy: false })
 			toast(result.error)
-			return
+			return false
 		}
-		patch({ busy: false, runResult: result.value, stage: "done" })
+		patch({ busy: false, runResult: result.value })
+		return true
 	}, [destination, importable, patch, plans, state.busy, state.csvMode, vault])
 
-	const undoImport = useCallback(async () => {
-		if (!state.runResult || state.busy) return
+	const undoImport = useCallback(async (): Promise<boolean> => {
+		if (!state.runResult || state.busy) return false
 		patch({ busy: true })
 		const result = await attempt(undoFileImport(state.runResult))
 		if (!result.ok) {
 			patch({ busy: false })
 			toast(result.error)
-			return
+			return false
 		}
-		patch({ busy: false, runResult: null, stage: "review" })
+		patch({ busy: false, runResult: null })
 		toast("Import undone")
+		return true
 	}, [patch, state.busy, state.runResult])
 
-	const detectNext = useCallback(() => {
-		const folder = state.folder
-		if (!folder) return
-		if (state.detectChoice === "files") {
-			patch({ files: folder.importableFiles, stage: "review" })
-			return
-		}
-		patch({ obsidianMode: state.detectChoice === "open" ? "open" : "copy", stage: "obs" })
-	}, [patch, state.detectChoice, state.folder])
+	const takeFolderFiles = useCallback(() => {
+		if (state.folder) patch({ files: state.folder.importableFiles })
+	}, [patch, state.folder])
 
-	const runObsidian = useCallback(async () => {
+	const runObsidian = useCallback(async (): Promise<boolean> => {
 		const folder = state.folder
-		if (!folder || state.busy) return
+		if (!folder || state.busy) return false
 		const controller = new AbortController()
 		abortRef.current = controller
 		const isCopy = state.obsidianMode === "copy"
@@ -249,7 +244,7 @@ export function useImportSheet() {
 			busy: true,
 			outcome: null,
 			progress: isCopy ? { completed: 0, total: folder.totalFiles } : null,
-			stage: isCopy ? "run" : "obs",
+			run: "running",
 		})
 		const result = await attempt(
 			runObsidianImport({
@@ -263,11 +258,12 @@ export function useImportSheet() {
 		)
 		abortRef.current = null
 		if (!result.ok) {
-			patch({ busy: false, progress: null, stage: "obs" })
+			patch({ busy: false, progress: null, run: "failed" })
 			toast(result.error)
-			return
+			return false
 		}
-		patch({ busy: false, outcome: result.value, stage: "obsdone" })
+		patch({ busy: false, outcome: result.value, run: "done" })
+		return true
 	}, [
 		patch,
 		state.applySettings,
@@ -298,7 +294,6 @@ export function useImportSheet() {
 			changeFolder,
 			chooseFiles,
 			chooseFolder,
-			detectNext,
 			openPreview,
 			runImport,
 			runObsidian,
@@ -307,10 +302,10 @@ export function useImportSheet() {
 			setCsvMode,
 			setDestinationFolder: (destinationFolder: string) => patch({ destinationFolder }),
 			setDestinationIndex: (destinationIndex: number) => patch({ destinationIndex }),
-			setDetectChoice: (detectChoice: DetectChoice) => patch({ detectChoice }),
-			setObsidianMode: (obsidianMode: ObsidianMode) => patch({ obsidianMode }),
-			setStage: (stage: ImportStage) => patch({ stage }),
+			setDetectChoice: (detectChoice: DetectChoice) =>
+				patch({ detectChoice, obsidianMode: detectChoice === "open" ? "open" : "copy" }),
 			undoImport,
+			takeFolderFiles,
 		},
 		derived: {
 			destination,

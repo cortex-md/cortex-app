@@ -104,7 +104,10 @@ export const fixtureObsidianFolder: InspectedFolder = {
 	totalFiles: 1596,
 }
 
-export const fixtureObsidianOutcome: Omit<ObsidianOutcome, "mode" | "cancelled" | "destinationLabel" | "settingsApplied"> = {
+export const fixtureObsidianOutcome: Omit<
+	ObsidianOutcome,
+	"mode" | "cancelled" | "destinationLabel" | "settingsApplied"
+> = {
 	attachments: 312,
 	convertedEmbeds: 418,
 	findings: [

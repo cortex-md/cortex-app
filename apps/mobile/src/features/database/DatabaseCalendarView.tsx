@@ -1,9 +1,9 @@
 import { bucketRowsByDate, type DatabaseRow } from "@cortex/properties/database"
 import { addMonths } from "@cortex/tasks"
-import { ChevronLeft, ChevronRight } from "lucide-react-native"
 import { useMemo, useState } from "react"
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 
+import { Symbol } from "@/components/ui/Symbol"
 import { GroupedList, GroupedRow, GroupedSectionHeader } from "@/components/ui/GroupedList"
 import { formatMonthTitle, MiniCalendar } from "@/components/ui/MiniCalendar"
 import { OptionPill, rowOwnerName, rowStatusOption } from "@/features/database/DatabaseCells"
@@ -53,7 +53,9 @@ export function DatabaseCalendarView({
 	const buckets = useMemo(() => bucketRowsByDate(rows ?? [], dateKey), [dateKey, rows])
 	const marks = useMemo(
 		() =>
-			Object.fromEntries([...buckets.byDate.entries()].map(([date, items]) => [date, items.length])),
+			Object.fromEntries(
+				[...buckets.byDate.entries()].map(([date, items]) => [date, items.length]),
+			),
 		[buckets],
 	)
 	const dayRows = buckets.byDate.get(selected) ?? []
@@ -86,7 +88,11 @@ export function DatabaseCalendarView({
 						onPress={() => changeMonth(-1)}
 						style={styles.navButton}
 					>
-						<ChevronLeft color={colors.tint} size={22} strokeWidth={2.4} />
+						<Symbol
+							color={colors.tint}
+							name={{ md: "chevron_left", sf: "chevron.left" }}
+							size={20}
+						/>
 					</Pressable>
 					<Pressable
 						accessibilityLabel="Next month"
@@ -94,7 +100,11 @@ export function DatabaseCalendarView({
 						onPress={() => changeMonth(1)}
 						style={styles.navButton}
 					>
-						<ChevronRight color={colors.tint} size={22} strokeWidth={2.4} />
+						<Symbol
+							color={colors.tint}
+							name={{ md: "chevron_right", sf: "chevron.right" }}
+							size={20}
+						/>
 					</Pressable>
 				</View>
 			</View>

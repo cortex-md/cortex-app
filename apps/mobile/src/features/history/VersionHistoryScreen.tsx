@@ -1,11 +1,11 @@
 import { Stack, useLocalSearchParams } from "expo-router"
-import { ActivityIndicator, Platform, SectionList, StyleSheet, Text, View } from "react-native"
 import { useState } from "react"
+import { ActivityIndicator, Platform, SectionList, StyleSheet, Text } from "react-native"
 
 import { Avatar } from "@/components/ui/Avatar"
-import { FilterChip } from "@/components/ui/FilterChip"
-import { GroupedFooter, GroupedRow, GroupedSectionHeader } from "@/components/ui/GroupedList"
-import { SegmentedControl } from "@/components/ui/SegmentedControl"
+import { EmptyState } from "@/components/ui/EmptyState"
+import { NativeMenu } from "@/components/ui/NativeMenu"
+import { InsetListRow, InsetSectionHeader } from "@/features/history/InsetListRow"
 import { readParam, useVersionHistory } from "@/features/history/useVersionHistory"
 import {
 	type DeviceFilter,
@@ -21,60 +21,14 @@ import { useMobileColors } from "@/hooks/useMobileColors"
 const IS_IOS = Platform.OS === "ios"
 
 const FILTER_OPTIONS: { label: string; value: DeviceFilter }[] = [
-	{ label: "All", value: "all" },
+	{ label: "All devices", value: "all" },
 	{ label: "This device", value: "device" },
-	{ label: "Others", value: "others" },
+	{ label: "Other devices", value: "others" },
 ]
 
-function statLabel(version: VersionEntry): string {
-	return `+${version.added} −${version.removed} words`
-}
-
-function VersionRow({
-	first,
-	last,
-	onPress,
-	version,
-}: {
-	first: boolean
-	last: boolean
-	onPress: () => void
-	version: VersionEntry
-}) {
-	const { colors } = useMobileColors()
-	const meta = `${version.who} · ${version.device}`
-	return (
-		<View
-			style={[
-				styles.cell,
-				{ backgroundColor: colors.cell },
-				first ? styles.cellFirst : null,
-				last ? styles.cellLast : null,
-				!IS_IOS && !last ? styles.m3Gap : null,
-			]}
-		>
-			<GroupedRow
-				chevron={IS_IOS}
-				leading={<Avatar name={version.who} size={36} tint={version.isMine ? "accent" : "blue"} />}
-				onPress={onPress}
-				subtitle={IS_IOS ? meta : `${meta} · ${statLabel(version)}`}
-				title={version.title}
-				trailing={
-					<View style={styles.trailing}>
-						<Text style={[styles.time, { color: colors.secondaryLabel }]}>
-							{formatVersionTime(version.timestamp)}
-						</Text>
-						{IS_IOS ? (
-							<Text style={[styles.stat, { color: colors.tertiaryLabel }]}>{statLabel(version)}</Text>
-						) : null}
-					</View>
-				}
-			/>
-			{IS_IOS && !last ? (
-				<View style={[styles.separator, { backgroundColor: colors.separator }]} />
-			) : null}
-		</View>
-	)
+function versionSummary(version: VersionEntry): string {
+	if (version.isCurrent) return version.who
+	return `${version.who} · +${version.added} −${version.removed} words`
 }
 
 export function VersionHistoryScreen() {
@@ -87,12 +41,9 @@ export function VersionHistoryScreen() {
 
 	const versions = history ? filterVersions(history.versions, filter) : []
 	const sections = groupVersionsByDay(versions).map((group) => ({
-		label: group.label,
 		data: group.versions,
+		title: group.label,
 	}))
-	const subtitle = history
-		? `${history.noteName} · ${history.versions.length} ${history.versions.length === 1 ? "version" : "versions"}`
-		: ""
 
 	return (
 		<>
@@ -100,72 +51,77 @@ export function VersionHistoryScreen() {
 				options={{
 					headerLargeTitleEnabled: false,
 					title: "Version history",
-					...(IS_IOS
-						? { headerTitle: "Version history" }
-						: {
-								headerTitle: () => (
-									<View>
-										<Text style={[styles.androidTitle, { color: colors.label }]}>Version history</Text>
-										<Text style={[styles.androidSubtitle, { color: colors.secondaryLabel }]}>
-											{subtitle}
-										</Text>
-									</View>
-								),
-							}),
+					headerRight: IS_IOS
+						? undefined
+						: () => (
+								<NativeMenu
+									accessibilityLabel="Show versions from"
+									groups={[
+										FILTER_OPTIONS.map((option) => ({
+											checked: filter === option.value,
+											key: option.value,
+											label: option.label,
+											onPress: () => setFilter(option.value),
+										})),
+									]}
+									icon={{ sf: "line.3.horizontal.decrease", md: "filter_list" }}
+								/>
+							),
 				}}
 			/>
+			{IS_IOS ? (
+				<Stack.Toolbar placement="right">
+					<Stack.Toolbar.Menu
+						accessibilityLabel="Show versions from"
+						icon={
+							filter === "all"
+								? "line.3.horizontal.decrease.circle"
+								: "line.3.horizontal.decrease.circle.fill"
+						}
+					>
+						{FILTER_OPTIONS.map((option) => (
+							<Stack.Toolbar.MenuAction
+								isOn={filter === option.value}
+								key={option.value}
+								onPress={() => setFilter(option.value)}
+							>
+								{option.label}
+							</Stack.Toolbar.MenuAction>
+						))}
+					</Stack.Toolbar.Menu>
+				</Stack.Toolbar>
+			) : null}
 			<SectionList
 				contentContainerStyle={styles.content}
 				contentInsetAdjustmentBehavior="automatic"
 				keyExtractor={(version) => version.id}
 				ListEmptyComponent={
-					history ? null : <ActivityIndicator color={colors.tint} style={styles.loading} />
-				}
-				ListFooterComponent={
 					history ? (
-						<GroupedFooter>
-							Kept by Cortex Sync. Restoring keeps the current text as a new version, so nothing is
-							lost.
-						</GroupedFooter>
-					) : null
-				}
-				ListHeaderComponent={
-					<View style={styles.header}>
-						{IS_IOS ? (
-							<>
-								<Text style={[styles.iosSubtitle, { color: colors.secondaryLabel }]}>{subtitle}</Text>
-								<SegmentedControl
-									accessibilityLabel="Show versions from"
-									onChange={setFilter}
-									options={FILTER_OPTIONS}
-									value={filter}
-								/>
-							</>
-						) : (
-							<View style={styles.chips}>
-								{FILTER_OPTIONS.map((option) => (
-									<FilterChip
-										key={option.value}
-										label={option.label}
-										onPress={() => setFilter(option.value)}
-										selected={filter === option.value}
-									/>
-								))}
-							</View>
-						)}
-					</View>
+						<EmptyState
+							icon={{ sf: "clock.arrow.circlepath", md: "history" }}
+							title="No versions from these devices"
+						/>
+					) : (
+						<ActivityIndicator color={colors.tint} style={styles.loading} />
+					)
 				}
 				renderItem={({ index, item, section }) => (
-					<VersionRow
+					<InsetListRow
+						chevron
 						first={index === 0}
 						last={index === section.data.length - 1}
+						leading={<Avatar name={item.who} size={26} tint={item.isMine ? "accent" : "blue"} />}
 						onPress={() => openVersion(filePath ?? "", item.id)}
-						version={item}
+						subtitle={versionSummary(item)}
+						title={item.title}
+						trailing={
+							<Text style={[styles.time, { color: colors.secondaryLabel }]}>
+								{formatVersionTime(item.timestamp)}
+							</Text>
+						}
 					/>
 				)}
-				renderSectionHeader={({ section }) => (
-					<GroupedSectionHeader>{IS_IOS ? section.label.toUpperCase() : section.label}</GroupedSectionHeader>
-				)}
+				renderSectionHeader={({ section }) => <InsetSectionHeader title={section.title} />}
 				sections={sections}
 				stickySectionHeadersEnabled={false}
 				style={{ backgroundColor: colors.groupedBackground }}
@@ -175,66 +131,15 @@ export function VersionHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-	androidSubtitle: {
-		fontSize: 12,
-		letterSpacing: 0.4,
-		lineHeight: 16,
-	},
-	androidTitle: {
-		fontSize: 18,
-		lineHeight: 24,
-	},
-	cell: {
-		borderCurve: "continuous",
-		marginHorizontal: 16,
-		overflow: "hidden",
-	},
-	cellFirst: {
-		borderTopLeftRadius: IS_IOS ? 26 : 20,
-		borderTopRightRadius: IS_IOS ? 26 : 20,
-	},
-	cellLast: {
-		borderBottomLeftRadius: IS_IOS ? 26 : 20,
-		borderBottomRightRadius: IS_IOS ? 26 : 20,
-	},
-	chips: {
-		flexDirection: "row",
-		gap: 8,
-	},
 	content: {
 		paddingBottom: 40,
 	},
-	header: {
-		gap: 12,
-		marginHorizontal: 16,
-		marginTop: 8,
-	},
-	iosSubtitle: {
-		fontSize: 15,
-		lineHeight: 20,
-		textAlign: "center",
-	},
 	loading: {
 		marginTop: 32,
-	},
-	m3Gap: {
-		marginBottom: 2,
-	},
-	separator: {
-		height: StyleSheet.hairlineWidth,
-		marginLeft: 64,
-	},
-	stat: {
-		fontSize: 12,
-		fontVariant: ["tabular-nums"],
-		lineHeight: 16,
 	},
 	time: {
 		fontSize: 15,
 		fontVariant: ["tabular-nums"],
 		lineHeight: 20,
-	},
-	trailing: {
-		alignItems: "flex-end",
 	},
 })

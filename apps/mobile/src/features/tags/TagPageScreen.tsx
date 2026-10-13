@@ -1,6 +1,5 @@
 import {
 	formatRelativeTime,
-	getErrorMessage,
 	getFileModifiedTimes,
 	getNoteTitle,
 	getParentPath,
@@ -11,32 +10,26 @@ import {
 	useVaultStore,
 } from "@cortex/core"
 import { type Href, router, Stack, useLocalSearchParams } from "expo-router"
-import { MoreVertical, Palette, Pencil, Search } from "lucide-react-native"
 import { useMemo, useState } from "react"
-import {
-	ActivityIndicator,
-	FlatList,
-	Platform,
-	Pressable,
-	SectionList,
-	StyleSheet,
-	Text,
-	View,
-} from "react-native"
+import { ActivityIndicator, Platform, SectionList, StyleSheet, Text, View } from "react-native"
 
 import { EmptyState } from "@/components/ui/EmptyState"
-import { FilterChip } from "@/components/ui/FilterChip"
-import { GroupedSectionHeader } from "@/components/ui/GroupedList"
-import { HeaderIconButton } from "@/components/ui/HeaderIconButton"
-import type { MenuItem } from "@/components/ui/menuTypes"
+import type { MenuGroup } from "@/components/ui/menuTypes"
 import { NativeMenu } from "@/components/ui/NativeMenu"
 import { TextPromptDialog } from "@/components/ui/TextPromptDialog"
-import { toast } from "@/features/feedback/useToast"
 import { openNote } from "@/features/navigation/routes"
 import { useHideTabBar } from "@/features/navigation/tabBarVisibility"
+import { ListCell, ListSectionHeader } from "@/features/search/ListCell"
 import { useNoteExcerpt } from "@/features/search/noteExcerpts"
 import { useEnsureVaultIndexed } from "@/features/search/vaultIndexing"
-import { getTagColorOptions, resolveTagColor } from "@/features/tags/tagColors"
+import {
+	getTagColorChoices,
+	getTagNameError,
+	promptRenameTag,
+	renameTagInVault,
+	setTagColorInVault,
+} from "@/features/tags/tagActions"
+import { getTagColorOptions } from "@/features/tags/tagColors"
 import { useMobileColors } from "@/hooks/useMobileColors"
 import type { MobileColors } from "@/theme/colors"
 
@@ -47,53 +40,31 @@ function normalizeTagParam(value: string | string[] | undefined): string {
 	return (raw ?? "").replace(/^#/, "").trim()
 }
 
-function getTagNameError(value: string): string | null {
-	const name = value.trim().replace(/^#/, "")
-	if (!name) return "Enter a tag name"
-	if (/\s/.test(name)) return "Tags can't contain spaces"
-	if (name.startsWith("/") || name.endsWith("/") || name.includes("//")) {
-		return "Use / only between nested tag names"
-	}
-	return null
-}
-
 function TagNoteRow({
 	colors,
 	first,
 	last,
 	note,
+	vaultName,
 	vaultPath,
 }: {
 	colors: MobileColors
 	first: boolean
 	last: boolean
 	note: TagPageNote
+	vaultName: string
 	vaultPath: string
 }) {
 	const excerpt = useNoteExcerpt(note.filePath, note.modifiedAt)
 	const relativePath = toVaultRelativePath(note.filePath, vaultPath) ?? note.filePath
-	const folder = getParentPath(relativePath) || "Vault root"
+	const folderPath = getParentPath(relativePath)
+	const folder = folderPath ? folderPath.slice(folderPath.lastIndexOf("/") + 1) : vaultName
 	const when = formatRelativeTime(note.modifiedAt)
 	const meta = when ? `${folder} · ${when.charAt(0).toUpperCase()}${when.slice(1)}` : folder
 
 	return (
-		<View
-			style={[
-				styles.card,
-				{ backgroundColor: colors.cell },
-				first ? styles.first : null,
-				last ? styles.last : null,
-			]}
-		>
-			<Pressable
-				accessibilityRole="button"
-				android_ripple={{ color: colors.hover }}
-				onPress={() => openNote(note.filePath)}
-				style={({ pressed }) => [
-					styles.row,
-					{ backgroundColor: pressed && IS_IOS ? colors.hover : "transparent" },
-				]}
-			>
+		<ListCell first={first} last={last} onPress={() => openNote(note.filePath)}>
+			<View style={styles.row}>
 				<Text numberOfLines={1} style={[styles.rowTitle, { color: colors.label }]}>
 					{getNoteTitle(note.filePath)}
 				</Text>
@@ -114,11 +85,8 @@ function TagNoteRow({
 						))}
 					</View>
 				) : null}
-			</Pressable>
-			{IS_IOS && !last ? (
-				<View style={[styles.separator, { backgroundColor: colors.separator }]} />
-			) : null}
-		</View>
+			</View>
+		</ListCell>
 	)
 }
 
@@ -128,6 +96,7 @@ export function TagPageScreen() {
 	const params = useLocalSearchParams<{ tag?: string }>()
 	const tag = normalizeTagParam(params.tag)
 	const vaultPath = useVaultStore((state) => state.vault?.path ?? "")
+	const vaultName = useVaultStore((state) => state.vault?.name ?? "Vault")
 	const files = useVaultStore((state) => state.files)
 	const tagIndex = useTagsStore((state) => state.tagIndex)
 	const fileTags = useTagsStore((state) => state.fileTags)
@@ -151,51 +120,70 @@ export function TagPageScreen() {
 		{ title: "Recently edited", data: model.recent },
 		{ title: "Older", data: model.older },
 	].filter((section) => section.data.length > 0)
-	const colorOptions = getTagColorOptions(colors)
-	const dotColor = resolveTagColor(tagColor, colors)
+	const colorChoices = getTagColorChoices(getTagColorOptions(colors))
+	const hasChildren = allModel.childTags.length > 0
 
 	const openSearch = () => {
 		router.navigate({ pathname: "/(tabs)/(search)", params: { tag } } as Href)
 	}
 
-	const setColor = (color: string | null) => {
-		if (!vaultPath) return
-		void useTagsStore
-			.getState()
-			.setTagColor(vaultPath, tag, color)
-			.catch((error: unknown) => toast(getErrorMessage(error)))
+	const handleRenamed = (nextTag: string) => {
+		router.setParams({ tag: nextTag })
+		setChildTag(null)
 	}
 
-	const rename = async (value: string) => {
-		const nextTag = value.trim().replace(/^#/, "")
-		setRenaming(false)
-		if (!vaultPath || nextTag === tag) return
-		try {
-			const count = await useTagsStore.getState().renameTag(vaultPath, tag, nextTag)
-			toast(`Renamed #${tag} in ${count} ${count === 1 ? "note" : "notes"}`)
-			router.setParams({ tag: nextTag })
-			setChildTag(null)
-		} catch (error) {
-			toast(getErrorMessage(error))
+	const startRename = () => {
+		if (IS_IOS) {
+			promptRenameTag(vaultPath, tag, handleRenamed)
+			return
 		}
+		setRenameError(null)
+		setRenaming(true)
 	}
 
-	const colourItems: MenuItem[] = [
-		...colorOptions.map((option) => ({
-			checked: tagColor === option.value,
-			key: option.key,
-			label: option.label,
-			onPress: () => setColor(option.value),
-		})),
+	const confirmRename = async (value: string) => {
+		setRenaming(false)
+		const nextTag = await renameTagInVault(vaultPath, tag, value)
+		if (nextTag) handleRenamed(nextTag)
+	}
+
+	const showItems = [
 		{
-			checked: tagColor === null,
-			key: "none",
-			label: "No colour",
-			onPress: () => setColor(null),
+			checked: childTag === null,
+			key: "all",
+			label: `All notes (${allModel.noteCount})`,
+			onPress: () => setChildTag(null),
 		},
+		...allModel.childTags.map((child) => ({
+			checked: childTag === child.tag,
+			key: child.tag,
+			label: `#${child.tag} (${child.count})`,
+			onPress: () => setChildTag(child.tag),
+		})),
 	]
 
-	const subtitle = `${allModel.noteCount} ${allModel.noteCount === 1 ? "note" : "notes"}`
+	const androidGroups: MenuGroup[] = [
+		[
+			{
+				icon: { md: "search", sf: "magnifyingglass" },
+				key: "search",
+				label: "Search in tag",
+				onPress: openSearch,
+			},
+			{
+				icon: { md: "edit", sf: "pencil" },
+				key: "rename",
+				label: "Rename tag…",
+				onPress: startRename,
+			},
+		],
+		colorChoices.map((choice) => ({
+			checked: tagColor === choice.value,
+			key: `colour:${choice.key}`,
+			label: choice.label,
+			onPress: () => setTagColorInVault(vaultPath, tag, choice.value),
+		})),
+	]
 
 	return (
 		<>
@@ -206,35 +194,18 @@ export function TagPageScreen() {
 						? undefined
 						: () => (
 								<View style={styles.androidActions}>
-									<HeaderIconButton
-										accessibilityLabel="Search in tag"
-										Icon={Search}
-										onPress={openSearch}
-									/>
+									{hasChildren ? (
+										<NativeMenu
+											accessibilityLabel="Show nested tags"
+											groups={[showItems]}
+											header="Show"
+											icon={{ md: "filter_list", sf: "line.3.horizontal.decrease.circle" }}
+										/>
+									) : null}
 									<NativeMenu
-										accessibilityLabel="Tag actions: rename, change colour"
-										groups={[
-											[
-												{
-													icon: { Lucide: Pencil, sf: "pencil" },
-													key: "rename",
-													label: "Rename tag…",
-													onPress: () => {
-														setRenameError(null)
-														setRenaming(true)
-													},
-												},
-												{
-													disabled: true,
-													icon: { Lucide: Palette, sf: "paintpalette" },
-													key: "colour",
-													label: "Change colour",
-													onPress: () => {},
-												},
-											],
-											colourItems,
-										]}
-										icon={{ Lucide: MoreVertical, sf: "ellipsis" }}
+										accessibilityLabel="Tag actions"
+										groups={androidGroups}
+										icon={{ md: "more_vert", sf: "ellipsis" }}
 									/>
 								</View>
 							),
@@ -243,29 +214,38 @@ export function TagPageScreen() {
 			/>
 			{IS_IOS ? (
 				<Stack.Toolbar placement="right">
-					<Stack.Toolbar.Button
-						accessibilityLabel="Search in tag"
-						icon="magnifyingglass"
-						onPress={openSearch}
-					/>
-					<Stack.Toolbar.Menu
-						accessibilityLabel="Tag actions: rename, change colour"
-						icon="ellipsis"
-						title="Tag actions"
-					>
-						<Stack.Toolbar.MenuAction
-							icon="pencil"
-							onPress={() => {
-								setRenameError(null)
-								setRenaming(true)
-							}}
+					{hasChildren ? (
+						<Stack.Toolbar.Menu
+							accessibilityLabel="Show nested tags"
+							icon={
+								childTag
+									? "line.3.horizontal.decrease.circle.fill"
+									: "line.3.horizontal.decrease.circle"
+							}
+							title="Show"
 						>
-							Rename tag…
-						</Stack.Toolbar.MenuAction>
-						<Stack.Toolbar.Menu icon="paintpalette" title="Change colour">
-							{colourItems.map((item) => (
+							{showItems.map((item) => (
 								<Stack.Toolbar.MenuAction isOn={item.checked} key={item.key} onPress={item.onPress}>
 									{item.label}
+								</Stack.Toolbar.MenuAction>
+							))}
+						</Stack.Toolbar.Menu>
+					) : null}
+					<Stack.Toolbar.Menu accessibilityLabel="Tag actions" icon="ellipsis" title={`#${tag}`}>
+						<Stack.Toolbar.MenuAction icon="magnifyingglass" onPress={openSearch}>
+							Search in tag
+						</Stack.Toolbar.MenuAction>
+						<Stack.Toolbar.MenuAction icon="pencil" onPress={startRename}>
+							Rename tag…
+						</Stack.Toolbar.MenuAction>
+						<Stack.Toolbar.Menu icon="paintpalette" title="Colour">
+							{colorChoices.map((choice) => (
+								<Stack.Toolbar.MenuAction
+									isOn={tagColor === choice.value}
+									key={choice.key}
+									onPress={() => setTagColorInVault(vaultPath, tag, choice.value)}
+								>
+									{choice.label}
 								</Stack.Toolbar.MenuAction>
 							))}
 						</Stack.Toolbar.Menu>
@@ -278,44 +258,16 @@ export function TagPageScreen() {
 				keyExtractor={(note) => note.filePath}
 				ListEmptyComponent={
 					indexReady ? (
-						<EmptyState description={`No notes are tagged #${childTag ?? tag}.`} title="No notes" />
+						<EmptyState
+							description={`No notes are tagged #${childTag ?? tag}.`}
+							icon={{ md: "tag", sf: "number" }}
+							title="No notes"
+						/>
 					) : (
 						<View style={styles.loading}>
 							<ActivityIndicator color={colors.tint} />
 						</View>
 					)
-				}
-				ListHeaderComponent={
-					<>
-						<View style={styles.subtitleRow}>
-							<View style={[styles.dot, { backgroundColor: dotColor }]} />
-							<Text style={[styles.subtitle, { color: colors.secondaryLabel }]}>{subtitle}</Text>
-						</View>
-						{allModel.childTags.length > 0 ? (
-							<FlatList
-								contentContainerStyle={styles.chips}
-								data={[null, ...allModel.childTags]}
-								horizontal
-								keyExtractor={(child) => child?.tag ?? "__all"}
-								renderItem={({ item: child }) =>
-									child ? (
-										<FilterChip
-											label={`#${child.tag} ${child.count}`}
-											onPress={() => setChildTag(child.tag)}
-											selected={childTag === child.tag}
-										/>
-									) : (
-										<FilterChip
-											label={`All ${allModel.noteCount}`}
-											onPress={() => setChildTag(null)}
-											selected={childTag === null}
-										/>
-									)
-								}
-								showsHorizontalScrollIndicator={false}
-							/>
-						) : null}
-					</>
 				}
 				renderItem={({ item, index, section }) => (
 					<TagNoteRow
@@ -323,29 +275,34 @@ export function TagPageScreen() {
 						first={index === 0}
 						last={index === section.data.length - 1}
 						note={item}
+						vaultName={vaultName}
 						vaultPath={vaultPath}
 					/>
 				)}
 				renderSectionHeader={({ section }) => (
-					<GroupedSectionHeader>{section.title}</GroupedSectionHeader>
+					<ListSectionHeader>
+						{childTag ? `#${childTag} · ${section.title}` : section.title}
+					</ListSectionHeader>
 				)}
 				sections={sections}
 				stickySectionHeadersEnabled={false}
 				style={{ backgroundColor: colors.groupedBackground }}
 			/>
-			<TextPromptDialog
-				confirmLabel="Rename"
-				error={renameError}
-				initialValue={tag}
-				key={renaming ? `rename-${tag}` : "rename-closed"}
-				message={`Updates #${tag} and its nested tags in every note.`}
-				onCancel={() => setRenaming(false)}
-				onChangeText={(value) => setRenameError(getTagNameError(value))}
-				onConfirm={(value) => void rename(value)}
-				placeholder="Tag name"
-				title="Rename tag"
-				visible={renaming}
-			/>
+			{IS_IOS ? null : (
+				<TextPromptDialog
+					confirmLabel="Rename"
+					error={renameError}
+					initialValue={tag}
+					key={renaming ? `rename-${tag}` : "rename-closed"}
+					message={`Updates #${tag} and its nested tags in every note.`}
+					onCancel={() => setRenaming(false)}
+					onChangeText={(value) => setRenameError(getTagNameError(value))}
+					onConfirm={(value) => void confirmRename(value)}
+					placeholder="Tag name"
+					title="Rename tag"
+					visible={renaming}
+				/>
+			)}
 		</>
 	)
 }
@@ -355,40 +312,17 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		flexDirection: "row",
 	},
-	card: {
-		marginHorizontal: 16,
-		overflow: "hidden",
-	},
-	chips: {
-		flexDirection: "row",
-		gap: 8,
-		paddingBottom: 4,
-		paddingHorizontal: 16,
-		paddingTop: 8,
-	},
 	content: {
 		paddingBottom: 32,
-	},
-	dot: {
-		borderRadius: 4,
-		height: 14,
-		width: 14,
-	},
-	first: {
-		borderTopLeftRadius: IS_IOS ? 26 : 20,
-		borderTopRightRadius: IS_IOS ? 26 : 20,
-	},
-	last: {
-		borderBottomLeftRadius: IS_IOS ? 26 : 20,
-		borderBottomRightRadius: IS_IOS ? 26 : 20,
 	},
 	loading: {
 		paddingVertical: 40,
 	},
 	row: {
+		flex: 1,
 		gap: 2,
-		paddingHorizontal: 16,
-		paddingVertical: 12,
+		minWidth: 0,
+		paddingVertical: 2,
 	},
 	rowMeta: {
 		fontSize: IS_IOS ? 13 : 14,
@@ -409,21 +343,6 @@ const styles = StyleSheet.create({
 		fontSize: IS_IOS ? 17 : 16,
 		fontWeight: IS_IOS ? "400" : "500",
 		lineHeight: IS_IOS ? 22 : 24,
-	},
-	separator: {
-		height: StyleSheet.hairlineWidth,
-		marginLeft: 16,
-	},
-	subtitle: {
-		fontSize: 15,
-		lineHeight: 20,
-	},
-	subtitleRow: {
-		alignItems: "center",
-		flexDirection: "row",
-		gap: 10,
-		paddingHorizontal: 20,
-		paddingTop: 2,
 	},
 	tagPill: {
 		borderRadius: 999,

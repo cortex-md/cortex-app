@@ -31,7 +31,14 @@ import {
 	resolveDatabaseProperties,
 	toIsoDate,
 } from "@cortex/properties/database"
-import { useCallback, useDeferredValue, useEffect, useMemo, useState, useSyncExternalStore } from "react"
+import {
+	useCallback,
+	useDeferredValue,
+	useEffect,
+	useMemo,
+	useState,
+	useSyncExternalStore,
+} from "react"
 
 import type { DatabaseRowTemplateChoice } from "@/features/database/databaseAdapter"
 import { resolveDatabaseRoles } from "@/features/database/databaseFormat"

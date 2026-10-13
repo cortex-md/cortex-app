@@ -1,7 +1,7 @@
-import { X } from "lucide-react-native"
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 
 import { Avatar } from "@/components/ui/Avatar"
+import { Symbol } from "@/components/ui/Symbol"
 import {
 	type CollabNoteSession,
 	stopFollowing,
@@ -58,7 +58,9 @@ export function PresenceRow({ session }: { session: CollabNoteSession }) {
 							: { backgroundColor: colors.accentSubtle, borderColor: "transparent" },
 					]}
 				>
-					<Text style={[styles.followingLabel, { color: IS_IOS ? colors.headingBlue : colors.tint }]}>
+					<Text
+						style={[styles.followingLabel, { color: IS_IOS ? colors.headingBlue : colors.tint }]}
+					>
 						{`Following ${following.person.name.split(" ")[0]}`}
 					</Text>
 					<Pressable
@@ -69,7 +71,7 @@ export function PresenceRow({ session }: { session: CollabNoteSession }) {
 						style={styles.stop}
 					>
 						<Text style={[styles.stopLabel, { color: colors.label }]}>Stop</Text>
-						<X color={colors.label} size={14} strokeWidth={2.4} />
+						<Symbol color={colors.label} name={{ sf: "xmark", md: "close" }} size={14} />
 					</Pressable>
 				</View>
 			) : null}

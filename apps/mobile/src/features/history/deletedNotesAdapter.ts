@@ -90,7 +90,11 @@ export function retentionLabel(note: DeletedNote): string {
 export function deletedMomentLabel(note: DeletedNote): string {
 	const label = historyDayLabel(note.deletedAt).toLowerCase()
 	const date = new Date(note.deletedAt)
-	const time = date.toLocaleTimeString(undefined, { hour: "2-digit", hour12: false, minute: "2-digit" })
+	const time = date.toLocaleTimeString(undefined, {
+		hour: "2-digit",
+		hour12: false,
+		minute: "2-digit",
+	})
 	if (label === "earlier") {
 		return `${date.toLocaleDateString(undefined, { day: "numeric", month: "short" })} at ${time}`
 	}

@@ -1,7 +1,7 @@
-import { Check } from "lucide-react-native"
 import { Fragment } from "react"
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 
+import { Symbol } from "@/components/ui/Symbol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 import type { MobileColors } from "@/theme/colors"
 
@@ -68,7 +68,12 @@ export function parseRowBody(body: string, title: string): RowBodyBlock[] {
 		}
 		const bullet = BULLET_PATTERN.exec(line)
 		if (bullet) {
-			blocks.push({ depth: Math.floor(bullet[1].length / 2), kind: "bullet", marker: "•", text: bullet[2] })
+			blocks.push({
+				depth: Math.floor(bullet[1].length / 2),
+				kind: "bullet",
+				marker: "•",
+				text: bullet[2],
+			})
 			continue
 		}
 		if (line.startsWith(">")) {
@@ -107,7 +112,10 @@ function InlineText({ colors, text }: { colors: MobileColors; text: string }) {
 				}
 				if (part.startsWith("`") && part.endsWith("`")) {
 					return (
-						<Text key={index} style={[styles.inlineCode, { backgroundColor: colors.codeBackground }]}>
+						<Text
+							key={index}
+							style={[styles.inlineCode, { backgroundColor: colors.codeBackground }]}
+						>
 							{part.slice(1, -1)}
 						</Text>
 					)
@@ -158,7 +166,13 @@ export function RowNoteBody({
 											: { borderColor: colors.tertiaryLabel },
 									]}
 								>
-									{block.checked ? <Check color={colors.onTint} size={15} strokeWidth={3} /> : null}
+									{block.checked ? (
+										<Symbol
+											color={colors.onTint}
+											name={{ md: "check", sf: "checkmark" }}
+											size={13}
+										/>
+									) : null}
 								</Pressable>
 								<Text
 									style={[
@@ -201,7 +215,10 @@ export function RowNoteBody({
 						return (
 							<Text
 								key={index}
-								style={[styles.code, { backgroundColor: colors.codeBackground, color: colors.label }]}
+								style={[
+									styles.code,
+									{ backgroundColor: colors.codeBackground, color: colors.label },
+								]}
 							>
 								{block.text}
 							</Text>

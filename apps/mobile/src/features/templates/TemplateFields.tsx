@@ -1,68 +1,6 @@
-import { Platform, StyleSheet, Text, TextInput, View } from "react-native"
+import { StyleSheet, Text, View } from "react-native"
 
-import { Avatar } from "@/components/ui/Avatar"
-import { MobileTextField } from "@/components/ui/MobileTextField"
 import { useMobileColors } from "@/hooks/useMobileColors"
-
-const IS_IOS = Platform.OS === "ios"
-
-export function TemplateField({
-	code = false,
-	label,
-	onChangeText,
-	placeholder,
-	value,
-}: {
-	code?: boolean
-	label: string
-	onChangeText: (value: string) => void
-	placeholder?: string
-	value: string
-}) {
-	const { colors } = useMobileColors()
-
-	if (!IS_IOS) {
-		return (
-			<MobileTextField
-				autoCapitalize="none"
-				autoCorrect={false}
-				label={label}
-				onChangeText={onChangeText}
-				placeholder={placeholder}
-				style={code ? styles.code : undefined}
-				value={value}
-			/>
-		)
-	}
-
-	return (
-		<View style={styles.row}>
-			<Text style={[styles.label, { color: colors.secondaryLabel }]}>{label}</Text>
-			<TextInput
-				accessibilityLabel={label}
-				autoCapitalize="none"
-				autoCorrect={false}
-				onChangeText={onChangeText}
-				placeholder={placeholder}
-				placeholderTextColor={colors.placeholder}
-				style={[styles.input, { color: colors.label }, code ? styles.code : null]}
-				value={value}
-			/>
-		</View>
-	)
-}
-
-export function TemplateGroupHeader({ team, title }: { team?: string | null; title: string }) {
-	const { colors } = useMobileColors()
-	return (
-		<View style={styles.groupHeader}>
-			{team ? <Avatar name={team} size={18} /> : null}
-			<Text style={[styles.groupTitle, { color: IS_IOS ? colors.secondaryLabel : colors.tint }]}>
-				{title}
-			</Text>
-		</View>
-	)
-}
 
 export function PlaceholderValue({ placeholder, value }: { placeholder: boolean; value: string }) {
 	const { colors } = useMobileColors()
@@ -124,35 +62,6 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 8,
 		paddingVertical: 2,
 	},
-	code: {
-		fontFamily: Platform.select({ android: "monospace", default: "Menlo" }),
-		fontSize: 14,
-	},
-	groupHeader: {
-		alignItems: "center",
-		flexDirection: "row",
-		gap: 6,
-		marginBottom: 8,
-		marginHorizontal: IS_IOS ? 36 : 32,
-		marginTop: 20,
-	},
-	groupTitle: {
-		fontSize: IS_IOS ? 13 : 14,
-		fontWeight: IS_IOS ? "400" : "500",
-		lineHeight: IS_IOS ? 18 : 20,
-	},
-	input: {
-		flex: 1,
-		fontSize: 17,
-		lineHeight: 22,
-		minWidth: 0,
-		padding: 0,
-	},
-	label: {
-		fontSize: 17,
-		lineHeight: 22,
-		width: 88,
-	},
 	placeholder: {
 		alignSelf: "flex-start",
 		borderRadius: 6,
@@ -180,13 +89,6 @@ const styles = StyleSheet.create({
 	propertyValue: {
 		flex: 1,
 		minWidth: 0,
-	},
-	row: {
-		alignItems: "center",
-		flexDirection: "row",
-		gap: 8,
-		minHeight: 52,
-		paddingHorizontal: 16,
 	},
 	value: {
 		fontSize: 15,

@@ -50,7 +50,9 @@ export function useFolderCandidates(): FolderCandidate[] {
 				notePaths,
 				path,
 			}))
-			.sort((left, right) => right.noteCount - left.noteCount || left.label.localeCompare(right.label))
+			.sort(
+				(left, right) => right.noteCount - left.noteCount || left.label.localeCompare(right.label),
+			)
 			.slice(0, MAX_FOLDERS)
 	}, [databases, files, vaultPath])
 }

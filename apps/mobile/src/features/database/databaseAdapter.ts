@@ -1,10 +1,7 @@
 import type { SharedDatabasePreset } from "@cortex/core"
 import type { DatabaseConfig } from "@cortex/properties/database"
 
-import {
-	ROW_TEMPLATE_FIXTURES,
-	TEAM_PRESET_FIXTURES,
-} from "@/features/database/databaseFixtures"
+import { ROW_TEMPLATE_FIXTURES, TEAM_PRESET_FIXTURES } from "@/features/database/databaseFixtures"
 
 export interface DatabaseRowTemplateChoice {
 	id: string

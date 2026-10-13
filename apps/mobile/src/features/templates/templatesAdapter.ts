@@ -13,9 +13,9 @@ import { parseFrontmatter } from "@cortex/properties"
 import { getDatabasePreset } from "@cortex/properties/database"
 import { useSettingsStore } from "@cortex/settings"
 import { getTemplateGroups, isTeamTemplate, renderTemplate } from "@cortex/templates"
-import { CalendarDays, FileText, type LucideIcon, Table2 } from "lucide-react-native"
 import { useEffect, useMemo } from "react"
 
+import type { SymbolName } from "@/components/ui/Symbol"
 import { FIXTURE_TEMPLATES } from "@/features/marketplace/marketplaceFixtures"
 import {
 	type DatabaseTemplate,
@@ -36,7 +36,7 @@ interface EntryBase {
 	key: string
 	name: string
 	hint: string
-	Icon: LucideIcon
+	icon: SymbolName
 	team: TeamTemplateMeta | null
 }
 
@@ -117,8 +117,12 @@ export function getTeamTemplateMeta(template: TemplateDefinition): TeamTemplateM
 	}
 }
 
-function noteTemplateIcon(fileNamePattern: string): LucideIcon {
-	return fileNamePattern.includes("date.") ? CalendarDays : FileText
+const NOTE_ICON: SymbolName = { md: "description", sf: "doc.text" }
+const DATED_NOTE_ICON: SymbolName = { md: "calendar_today", sf: "calendar" }
+const DATABASE_ICON: SymbolName = { md: "table", sf: "tablecells" }
+
+function noteTemplateIcon(fileNamePattern: string): SymbolName {
+	return fileNamePattern.includes("date.") ? DATED_NOTE_ICON : NOTE_ICON
 }
 
 function describeNoteTemplate(
@@ -144,7 +148,7 @@ export function toNoteEntry(template: TemplateDefinition, vault: TemplateVault):
 		key: `note:${template.id}`,
 		name: template.name,
 		hint: describeNoteTemplate(template, vault, team),
-		Icon: noteTemplateIcon(template.fileNamePattern),
+		icon: noteTemplateIcon(template.fileNamePattern),
 		team,
 		template,
 		market: null,
@@ -159,7 +163,7 @@ function toDatabaseEntry(database: DatabaseTemplate): DatabaseTemplateEntry {
 		hint: database.meta
 			? `Database · shared by ${firstName(database.meta.ownerName)}`
 			: `Database · ${database.preset.hint}`,
-		Icon: Table2,
+		icon: DATABASE_ICON,
 		team: database.meta,
 		database,
 	}
@@ -170,7 +174,7 @@ export const BLANK_TEMPLATE_ENTRY: BlankTemplateEntry = {
 	key: "blank",
 	name: "Blank note",
 	hint: BLANK_TEMPLATE_FOLDER,
-	Icon: FileText,
+	icon: NOTE_ICON,
 	team: null,
 }
 
@@ -315,7 +319,7 @@ export function resolveMarketplaceEntry(
 			key: `market:${market.id}`,
 			name: market.name,
 			hint: market.targetFolderPattern,
-			Icon: noteTemplateIcon(market.fileNamePattern),
+			icon: noteTemplateIcon(market.fileNamePattern),
 			team: null,
 			template: null,
 			market,

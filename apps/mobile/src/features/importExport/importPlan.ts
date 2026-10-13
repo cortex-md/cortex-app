@@ -71,9 +71,14 @@ export function todayFolderName(): string {
 	return new Date().toISOString().slice(0, 10)
 }
 
-export function buildDestinations(vaultPath: string, files: readonly FileEntry[]): ImportDestination[] {
+export function buildDestinations(
+	vaultPath: string,
+	files: readonly FileEntry[],
+): ImportDestination[] {
 	const topLevelFolders = files
-		.filter((file) => file.isDir && getParentPath(file.path) === vaultPath && !file.name.startsWith("."))
+		.filter(
+			(file) => file.isDir && getParentPath(file.path) === vaultPath && !file.name.startsWith("."),
+		)
 		.map((file) => ({ label: file.name, relativePath: file.name }))
 		.sort((left, right) => left.label.localeCompare(right.label))
 	const imported = `Imported/${todayFolderName()}`
@@ -88,10 +93,16 @@ export function destinationPath(vaultPath: string, destination: ImportDestinatio
 	return destination.relativePath ? joinPath(vaultPath, destination.relativePath) : vaultPath
 }
 
-function existingNames(vaultPath: string, destination: ImportDestination, files: readonly FileEntry[]) {
+function existingNames(
+	vaultPath: string,
+	destination: ImportDestination,
+	files: readonly FileEntry[],
+) {
 	const folder = destinationPath(vaultPath, destination)
 	return new Set(
-		files.filter((file) => getParentPath(file.path) === folder).map((file) => file.name.toLowerCase()),
+		files
+			.filter((file) => getParentPath(file.path) === folder)
+			.map((file) => file.name.toLowerCase()),
 	)
 }
 
@@ -131,7 +142,13 @@ export function planImport(input: {
 		const wanted = isDatabase ? stem : `${stem}.md`
 		const exists = taken.has(wanted.toLowerCase())
 		if (exists && input.conflict === "skip") {
-			return { file, notes: 0, status: "skipped", targetLabel: "Already in the vault", targetName: wanted }
+			return {
+				file,
+				notes: 0,
+				status: "skipped",
+				targetLabel: "Already in the vault",
+				targetName: wanted,
+			}
 		}
 		const targetName = uniqueName(wanted, taken)
 		taken.add(targetName.toLowerCase())

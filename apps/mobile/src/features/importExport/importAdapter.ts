@@ -79,7 +79,15 @@ async function toSourceFile(path: string): Promise<ImportSourceFile> {
 			csvRowCount = 0
 		}
 	}
-	return { csvRowCount, extensionLabel: extensionLabel(name), id: path, kind, name, path, stub: false }
+	return {
+		csvRowCount,
+		extensionLabel: extensionLabel(name),
+		id: path,
+		kind,
+		name,
+		path,
+		stub: false,
+	}
 }
 
 export async function pickImportFiles(): Promise<ImportSourceFile[]> {
@@ -135,7 +143,9 @@ function countBookmarkItems(value: unknown): number {
 	}, 0)
 }
 
-async function countObsidianExtras(path: string): Promise<{ templates: number; bookmarks: number }> {
+async function countObsidianExtras(
+	path: string,
+): Promise<{ templates: number; bookmarks: number }> {
 	const config = joinPath(path, OBSIDIAN_CONFIG_DIR)
 	const [templates, bookmarks] = await Promise.all([
 		readJson(joinPath(config, "templates.json")),
@@ -167,7 +177,9 @@ export async function inspectFolder(path: string): Promise<InspectedFolder> {
 	])
 	const notes = entries.filter((entry) => entry.name.toLowerCase().endsWith(".md")).length
 	const importable = await Promise.all(
-		entries.filter((entry) => fileKindFromName(entry.name) !== "unsupported").map((entry) => toSourceFile(entry.path)),
+		entries
+			.filter((entry) => fileKindFromName(entry.name) !== "unsupported")
+			.map((entry) => toSourceFile(entry.path)),
 	)
 	return {
 		attachments: entries.length - notes,
@@ -197,7 +209,8 @@ export async function pickImportFolder(): Promise<InspectedFolder | null> {
 
 function formatCell(value: string): string {
 	const numeric = Number(value.replace(/,/gu, ""))
-	if (value.trim() === "" || Number.isNaN(numeric) || !/^-?\d+(\.\d+)?$/u.test(value.trim())) return value
+	if (value.trim() === "" || Number.isNaN(numeric) || !/^-?\d+(\.\d+)?$/u.test(value.trim()))
+		return value
 	return numeric.toLocaleString("en-US")
 }
 
@@ -218,7 +231,12 @@ export async function previewImportFile(
 		const records = parseCsvRecords(await readSource(file))
 		const [header = [], ...rows] = records
 		if (csvMode === "table") {
-			return { header, kind: "csv-table", rows: rows.slice(0, PREVIEW_ROWS).map((row) => row.map(formatCell)), title }
+			return {
+				header,
+				kind: "csv-table",
+				rows: rows.slice(0, PREVIEW_ROWS).map((row) => row.map(formatCell)),
+				title,
+			}
 		}
 		const first = rows[0] ?? []
 		return {
@@ -251,7 +269,9 @@ async function ensureFolder(path: string): Promise<void> {
 }
 
 function frontmatterNote(header: string[], row: string[]): string {
-	const lines = header.slice(1).map((key, index) => `${key}: ${JSON.stringify(row[index + 1] ?? "")}`)
+	const lines = header
+		.slice(1)
+		.map((key, index) => `${key}: ${JSON.stringify(row[index + 1] ?? "")}`)
 	return lines.length > 0 ? `---\n${lines.join("\n")}\n---\n` : ""
 }
 
@@ -275,7 +295,11 @@ async function importCsvDatabase(
 		taken.add(name.toLowerCase())
 		await useVaultStore
 			.getState()
-			.createFileWithContent(folderPath, name, `${frontmatterNote(header, row)}# ${row[0] || stem}\n`)
+			.createFileWithContent(
+				folderPath,
+				name,
+				`${frontmatterNote(header, row)}# ${row[0] || stem}\n`,
+			)
 		notes += 1
 	}
 	try {
@@ -289,7 +313,8 @@ async function importCsvDatabase(
 async function stubMarkdown(file: ImportSourceFile): Promise<string> {
 	// stub: fixture files carry their content inline instead of living on disk
 	const title = fileStem(file.name)
-	if (file.kind === "csv") return `# ${title}\n\n${csvRecordsToMarkdownTable(parseCsvRecords(await readSource(file)))}\n`
+	if (file.kind === "csv")
+		return `# ${title}\n\n${csvRecordsToMarkdownTable(parseCsvRecords(await readSource(file)))}\n`
 	if (file.kind === "html") return htmlToMarkdown(await readSource(file))
 	return `# ${title}\n\n${FIXTURE_PDF_PAGES.join("\n\n")}\n`
 }
@@ -367,7 +392,9 @@ function settingsSummary(settings: VaultSettingsImport, applied: VaultSettingsIm
 	return {
 		attachmentLocation,
 		bookmarks: applied?.bookmarks ?? settings.bookmarks.length,
-		dailyNotes: settings.dailyNotes ? `${settings.dailyNotes.folder.replace(/\/+$/u, "") || "Daily"}/` : "Unchanged",
+		dailyNotes: settings.dailyNotes
+			? `${settings.dailyNotes.folder.replace(/\/+$/u, "") || "Daily"}/`
+			: "Unchanged",
 		propertyTypes: applied?.propertyTypes ?? settings.propertyTypes.length,
 		templates: applied?.templates ?? settings.templates.length,
 	}
@@ -399,7 +426,11 @@ function toOutcome(
 	}
 }
 
-async function writeReportNote(folder: string, outcome: ObsidianOutcome, result: ObsidianImportResult) {
+async function writeReportNote(
+	folder: string,
+	outcome: ObsidianOutcome,
+	result: ObsidianImportResult,
+) {
 	const lines = [
 		"# Imported from Obsidian",
 		"",
@@ -409,8 +440,12 @@ async function writeReportNote(folder: string, outcome: ObsidianOutcome, result:
 		`Renamed to avoid conflicts: ${outcome.renamed}`,
 		"",
 		"## Not supported in Cortex",
-		...outcome.findings.map((finding) => `- ${finding.label} (${finding.count}): ${finding.examples}`),
-		...(result.failed.length > 0 ? ["", "## Failed", ...result.failed.map((item) => `- ${item.path}: ${item.error}`)] : []),
+		...outcome.findings.map(
+			(finding) => `- ${finding.label} (${finding.count}): ${finding.examples}`,
+		),
+		...(result.failed.length > 0
+			? ["", "## Failed", ...result.failed.map((item) => `- ${item.path}: ${item.error}`)]
+			: []),
 		"",
 	]
 	try {
@@ -430,7 +465,10 @@ function wait(ms: number, signal: AbortSignal): Promise<void> {
 	})
 }
 
-async function runFixtureObsidian(options: ObsidianRunOptions, destinationLabel: string): Promise<ObsidianOutcome> {
+async function runFixtureObsidian(
+	options: ObsidianRunOptions,
+	destinationLabel: string,
+): Promise<ObsidianOutcome> {
 	// stub: the fixture vault simulates copy progress instead of touching the filesystem
 	const total = options.folder.totalFiles
 	let done = 0
@@ -445,7 +483,9 @@ async function runFixtureObsidian(options: ObsidianRunOptions, destinationLabel:
 	const cancelled = options.mode === "copy" && done < total
 	return {
 		...fixtureObsidianOutcome,
-		attachments: cancelled ? Math.max(0, done - fixtureObsidianOutcome.notes) : fixtureObsidianOutcome.attachments,
+		attachments: cancelled
+			? Math.max(0, done - fixtureObsidianOutcome.notes)
+			: fixtureObsidianOutcome.attachments,
 		cancelled,
 		destinationLabel,
 		mode: options.mode,
@@ -485,7 +525,9 @@ export async function runObsidianImport(options: ObsidianRunOptions): Promise<Ob
 	await useVaultStore.getState().refreshFiles()
 	const applied = result.cancelled
 		? null
-		: await applyVaultSettingsImport(vault, result.settings, { applyVaultSettings: options.applySettings })
+		: await applyVaultSettingsImport(vault, result.settings, {
+				applyVaultSettings: options.applySettings,
+			})
 	const outcome = toOutcome(result, applied, options, destinationLabel)
 	if (!result.cancelled) await writeReportNote(destination, outcome, result)
 	return outcome

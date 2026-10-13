@@ -253,7 +253,11 @@ export function describeFilter(
 ): FilterChipLabel {
 	const definition = resolved.byKey.get(filter.key)
 	const property =
-		filter.key === "$title" ? "Name" : filter.key === "$edited" ? "Edited" : (definition?.name ?? filter.key)
+		filter.key === "$title"
+			? "Name"
+			: filter.key === "$edited"
+				? "Edited"
+				: (definition?.name ?? filter.key)
 	return {
 		operator: OPERATOR_LABELS[filter.op],
 		property,

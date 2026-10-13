@@ -5,10 +5,18 @@ import {
 	type DatabaseRow,
 	getPropertyBaseType,
 } from "@cortex/properties/database"
-import { ChevronDown, Plus } from "lucide-react-native"
 import { useState } from "react"
-import { Animated, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native"
+import {
+	Animated,
+	Platform,
+	Pressable,
+	StyleSheet,
+	Text,
+	useWindowDimensions,
+	View,
+} from "react-native"
 
+import { Symbol } from "@/components/ui/Symbol"
 import { Avatar } from "@/components/ui/Avatar"
 import { DatabaseCellValue, OptionPill } from "@/features/database/DatabaseCells"
 import { columnWidth, firstName, resolvePersonName } from "@/features/database/databaseFormat"
@@ -59,7 +67,9 @@ export function GroupLabel({ group, model }: { group: DatabaseGroup; model: Data
 			</View>
 		)
 	}
-	return <Text style={[styles.groupLabel, { color: colors.label }]}>{group.label || "All notes"}</Text>
+	return (
+		<Text style={[styles.groupLabel, { color: colors.label }]}>{group.label || "All notes"}</Text>
+	)
 }
 
 export function DatabaseTableView({
@@ -75,9 +85,14 @@ export function DatabaseTableView({
 	const [scrollX] = useState(() => new Animated.Value(0))
 	const columns = model.columns
 	const widths = columns.map((definition) => columnWidth(definition, model.roles))
-	const tableWidth = Math.max(windowWidth, NAME_WIDTH + widths.reduce((sum, width) => sum + width, 0))
+	const tableWidth = Math.max(
+		windowWidth,
+		NAME_WIDTH + widths.reduce((sum, width) => sum + width, 0),
+	)
 	const sort = model.activeView?.sort?.[0]
-	const grouped = Boolean(model.activeView?.group && model.resolved.byKey.has(model.activeView.group))
+	const grouped = Boolean(
+		model.activeView?.group && model.resolved.byKey.has(model.activeView.group),
+	)
 	const groups = visibleGroups(model)
 	const sticky = { transform: [{ translateX: scrollX }] }
 	const stickyWidth = { width: windowWidth }
@@ -100,7 +115,11 @@ export function DatabaseTableView({
 					]}
 				>
 					<Animated.View
-						style={[styles.nameCell, sticky, { backgroundColor: colors.background, height: HEADER_HEIGHT }]}
+						style={[
+							styles.nameCell,
+							sticky,
+							{ backgroundColor: colors.background, height: HEADER_HEIGHT },
+						]}
 					>
 						<Text style={[styles.headerText, { color: colors.secondaryLabel }]}>Name</Text>
 					</Animated.View>
@@ -119,9 +138,14 @@ export function DatabaseTableView({
 							>
 								<Text
 									numberOfLines={1}
-									style={[styles.headerText, { color: sorted ? colors.tint : colors.secondaryLabel }]}
+									style={[
+										styles.headerText,
+										{ color: sorted ? colors.tint : colors.secondaryLabel },
+									]}
 								>
-									{sorted ? `${definition.name} ${sort?.dir === "desc" ? "↓" : "↑"}` : definition.name}
+									{sorted
+										? `${definition.name} ${sort?.dir === "desc" ? "↓" : "↑"}`
+										: definition.name}
 								</Text>
 							</Pressable>
 						)
@@ -142,11 +166,14 @@ export function DatabaseTableView({
 										}}
 										style={[styles.groupHeader, { backgroundColor: colors.background }]}
 									>
-										<ChevronDown
+										<Symbol
 											color={colors.secondaryLabel}
-											size={14}
-											strokeWidth={2.4}
-											style={isCollapsed ? styles.chevronCollapsed : undefined}
+											name={
+												isCollapsed
+													? { md: "chevron_right", sf: "chevron.right" }
+													: { md: "expand_more", sf: "chevron.down" }
+											}
+											size={13}
 										/>
 										<GroupLabel group={group} model={model} />
 										<Text style={[styles.groupCount, { color: colors.secondaryLabel }]}>
@@ -178,12 +205,18 @@ export function DatabaseTableView({
 												<Animated.View
 													style={[styles.nameCell, sticky, { backgroundColor: rowBackground }]}
 												>
-													<Text numberOfLines={1} style={[styles.nameText, { color: colors.label }]}>
+													<Text
+														numberOfLines={1}
+														style={[styles.nameText, { color: colors.label }]}
+													>
 														{row.title}
 													</Text>
 												</Animated.View>
 												{columns.map((definition, index) => (
-													<View key={definition.key} style={[styles.cell, { width: widths[index] }]}>
+													<View
+														key={definition.key}
+														style={[styles.cell, { width: widths[index] }]}
+													>
 														<DatabaseCellValue definition={definition} model={model} row={row} />
 													</View>
 												))}
@@ -197,7 +230,11 @@ export function DatabaseTableView({
 									onPress={() => onCreate(grouped ? group : null)}
 									style={({ pressed }) => [styles.addRow, { opacity: pressed ? 0.5 : 1 }]}
 								>
-									<Plus color={colors.secondaryLabel} size={18} strokeWidth={2.2} />
+									<Symbol
+										color={colors.secondaryLabel}
+										name={{ md: "add", sf: "plus" }}
+										size={16}
+									/>
 									<Text style={[styles.addLabel, { color: colors.secondaryLabel }]}>New</Text>
 								</Pressable>
 							</Animated.View>
@@ -225,9 +262,6 @@ const styles = StyleSheet.create({
 		height: ROW_HEIGHT,
 		justifyContent: "center",
 		paddingHorizontal: 10,
-	},
-	chevronCollapsed: {
-		transform: [{ rotate: "-90deg" }],
 	},
 	groupCount: {
 		fontSize: 13,

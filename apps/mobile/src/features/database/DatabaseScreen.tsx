@@ -7,17 +7,6 @@ import {
 	getDatabaseRowTitle,
 } from "@cortex/properties/database"
 import { Stack, useLocalSearchParams } from "expo-router"
-import {
-	Bug,
-	EllipsisVertical,
-	FileText,
-	Share,
-	SlidersHorizontal,
-	SquarePen,
-	SquarePlus,
-	StickyNote,
-	Table2,
-} from "lucide-react-native"
 import { useMemo, useState } from "react"
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, View } from "react-native"
 
@@ -25,9 +14,12 @@ import { EmptyState } from "@/components/ui/EmptyState"
 import { FilterChip } from "@/components/ui/FilterChip"
 import type { MenuGroup, MenuItem } from "@/components/ui/menuTypes"
 import { NativeMenu } from "@/components/ui/NativeMenu"
-import { SearchField } from "@/components/ui/SearchField"
 import { SegmentedControl } from "@/components/ui/SegmentedControl"
-import { type DatabaseRowTemplateChoice, listDatabaseRowTemplates } from "@/features/database/databaseAdapter"
+import { Symbol } from "@/components/ui/Symbol"
+import {
+	type DatabaseRowTemplateChoice,
+	listDatabaseRowTemplates,
+} from "@/features/database/databaseAdapter"
 import { DatabaseBoardView } from "@/features/database/DatabaseBoardView"
 import { DatabaseCalendarView } from "@/features/database/DatabaseCalendarView"
 import { DatabaseFabMenu } from "@/features/database/DatabaseFabMenu"
@@ -47,7 +39,10 @@ import {
 	openNewDatabase,
 	readParam,
 } from "@/features/database/databaseNavigation"
-import { type DatabaseCollectionProps, DatabaseTableView } from "@/features/database/DatabaseTableView"
+import {
+	type DatabaseCollectionProps,
+	DatabaseTableView,
+} from "@/features/database/DatabaseTableView"
 import { type DatabaseViewModel, useDatabaseView } from "@/features/database/useDatabaseView"
 import { showToast } from "@/features/feedback/toastStore"
 import { presentSheet } from "@/features/navigation/routes"
@@ -56,10 +51,11 @@ import { useMobileColors } from "@/hooks/useMobileColors"
 import { triggerSelectionHaptic } from "@/utils/haptics"
 
 const IS_IOS = Platform.OS === "ios"
+const TABLE_ICON = { md: "table", sf: "tablecells" } as const
 
 function templateIcon(template: DatabaseRowTemplateChoice): MenuItem["icon"] {
-	if (/bug/iu.test(template.id)) return { Lucide: Bug, sf: "ladybug" }
-	return { Lucide: FileText, sf: "doc.text" }
+	if (/bug/iu.test(template.id)) return { md: "bug_report", sf: "ladybug" }
+	return { md: "description", sf: "doc.text" }
 }
 
 function buildNewGroups(
@@ -69,7 +65,7 @@ function buildNewGroups(
 	return [
 		[
 			{
-				icon: { Lucide: SquarePen, sf: "square.and.pencil" },
+				icon: { md: "edit_square", sf: "square.and.pencil" },
 				key: "new-note",
 				label: "New note",
 				onPress: () => create(),
@@ -84,7 +80,7 @@ function buildNewGroups(
 				subtitle: template.subtitle || undefined,
 			})),
 			{
-				icon: { Lucide: StickyNote, sf: "note.text" },
+				icon: { md: "sticky_note_2", sf: "note.text" },
 				key: "blank-note",
 				label: "Blank note",
 				onPress: () => create(),
@@ -97,19 +93,19 @@ function buildMoreGroups(folderPath: string, viewId: string | undefined): MenuGr
 	return [
 		[
 			{
-				icon: { Lucide: Share, sf: "square.and.arrow.up" },
+				icon: { md: "share", sf: "square.and.arrow.up" },
 				key: "share-template",
 				label: "Share as template…",
 				onPress: () => presentSheet("share-template", { folderPath }),
 			},
 			{
-				icon: { Lucide: SlidersHorizontal, sf: "slider.horizontal.3" },
+				icon: { md: "tune", sf: "slider.horizontal.3" },
 				key: "properties",
 				label: "Properties",
 				onPress: () => openDatabaseViewOptions(folderPath, viewId, "props"),
 			},
 			{
-				icon: { Lucide: SquarePlus, sf: "plus.rectangle.on.rectangle" },
+				icon: { md: "library_add", sf: "plus.rectangle.on.rectangle" },
 				key: "new-database",
 				label: "New database",
 				onPress: () => openNewDatabase({ parentPath: getParentPath(folderPath) }),
@@ -135,20 +131,14 @@ function DatabaseHeaderIos({
 	moreGroups,
 	name,
 	newGroups,
-	onSearch,
 }: {
 	moreGroups: MenuGroup[]
 	name: string
 	newGroups: MenuGroup[]
-	onSearch: (value: string) => void
 }) {
 	const [first = [], templates = []] = newGroups
 	return (
 		<>
-			<Stack.SearchBar
-				onChangeText={(event) => onSearch(event.nativeEvent.text)}
-				placeholder={`Search ${name}`}
-			/>
 			<Stack.Toolbar placement="right">
 				<Stack.Toolbar.Menu accessibilityLabel="More" icon="ellipsis" title={name}>
 					{toolbarActions(moreGroups.flat())}
@@ -173,13 +163,7 @@ function DatabaseHeaderIos({
 	)
 }
 
-function ViewTokens({
-	folderPath,
-	model,
-}: {
-	folderPath: string
-	model: DatabaseViewModel
-}) {
+function ViewTokens({ folderPath, model }: { folderPath: string; model: DatabaseViewModel }) {
 	const view = model.activeView
 	const filters = view?.filters ?? []
 	const open = (tab: ViewOptionsTab) => {
@@ -207,14 +191,8 @@ function ViewTokens({
 					onPress={() => open("filter")}
 					selected={filters.length > 0}
 				/>
-				<FilterChip
-					label={sortTokenLabel(view, model.resolved)}
-					onPress={() => open("sort")}
-				/>
-				<FilterChip
-					label={groupTokenLabel(view, model.resolved)}
-					onPress={() => open("group")}
-				/>
+				<FilterChip label={sortTokenLabel(view, model.resolved)} onPress={() => open("sort")} />
+				<FilterChip label={groupTokenLabel(view, model.resolved)} onPress={() => open("group")} />
 				<FilterChip label="Properties" onPress={() => open("props")} />
 			</ScrollView>
 			{filters.length > 0 ? (
@@ -256,7 +234,10 @@ function DatabaseCollection(props: DatabaseCollectionProps) {
 
 export function DatabaseScreen() {
 	useHideTabBar()
-	const params = useLocalSearchParams<{ folderPath?: string | string[]; view?: string | string[] }>()
+	const params = useLocalSearchParams<{
+		folderPath?: string | string[]
+		view?: string | string[]
+	}>()
 	const folderPath = readParam(params.folderPath) ?? ""
 	const { colors } = useMobileColors()
 	const [search, setSearch] = useState("")
@@ -303,7 +284,7 @@ export function DatabaseScreen() {
 				style={{ backgroundColor: colors.background }}
 			>
 				<View style={styles.countRow}>
-					<Table2 color={colors.tint} size={20} strokeWidth={2.2} />
+					<Symbol color={colors.tint} name={TABLE_ICON} size={18} />
 					<Text style={[styles.count, { color: colors.secondaryLabel }]}>
 						{noteCountLabel(model.result?.matchedCount ?? 0)}
 					</Text>
@@ -321,17 +302,6 @@ export function DatabaseScreen() {
 							value={viewType}
 						/>
 						<ViewTokens folderPath={folderPath} model={model} />
-						{IS_IOS ? null : (
-							<View style={styles.search}>
-								<SearchField
-									accessibilityLabel={`Search ${name}`}
-									onChangeText={setSearch}
-									onClear={() => setSearch("")}
-									placeholder={`Search ${name}`}
-									value={search}
-								/>
-							</View>
-						)}
 						<DatabaseCollection
 							collapsed={collapsed}
 							highlighted={highlighted}
@@ -343,7 +313,7 @@ export function DatabaseScreen() {
 					</>
 				) : model.registryReady ? (
 					<EmptyState
-						Icon={Table2}
+						icon={TABLE_ICON}
 						description="This folder has no database view note yet. Use New database to turn it into one."
 						title="Not a database"
 					/>
@@ -359,19 +329,19 @@ export function DatabaseScreen() {
 								<NativeMenu
 									accessibilityLabel="More"
 									groups={moreGroups}
-									icon={{ Lucide: EllipsisVertical, sf: "ellipsis" }}
+									icon={{ md: "more_vert", sf: "ellipsis" }}
 								/>
 							),
 					title: name,
 				}}
 			/>
+			<Stack.SearchBar
+				hideWhenScrolling={false}
+				onChangeText={(event) => setSearch(event.nativeEvent.text)}
+				placeholder={`Search ${name}`}
+			/>
 			{IS_IOS ? (
-				<DatabaseHeaderIos
-					moreGroups={moreGroups}
-					name={name}
-					newGroups={newGroups}
-					onSearch={setSearch}
-				/>
+				<DatabaseHeaderIos moreGroups={moreGroups} name={name} newGroups={newGroups} />
 			) : model.entry ? (
 				<DatabaseFabMenu groups={newGroups} />
 			) : null}
@@ -404,9 +374,6 @@ const styles = StyleSheet.create({
 	},
 	loading: {
 		marginTop: 40,
-	},
-	search: {
-		paddingBottom: 8,
 	},
 	segmented: {
 		marginHorizontal: 16,

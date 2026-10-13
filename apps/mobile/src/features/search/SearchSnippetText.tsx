@@ -17,7 +17,10 @@ export function SearchSnippetText({
 	const { colors } = useMobileColors()
 	const parts = splitSnippet(snippet)
 	return (
-		<Text numberOfLines={numberOfLines} style={[styles.text, { color: colors.secondaryLabel }, style]}>
+		<Text
+			numberOfLines={numberOfLines}
+			style={[styles.text, { color: colors.secondaryLabel }, style]}
+		>
 			{parts.map((part, index) =>
 				part.match ? (
 					<Text

@@ -1,4 +1,5 @@
 import { useMembersStore, useVaultStore } from "@cortex/core"
+import { getPlatform } from "@cortex/platform"
 import { getNoteTitle } from "@cortex/platform/utils"
 import { useSyncExternalStore } from "react"
 
@@ -30,10 +31,11 @@ export interface CollabNoteSession {
 interface CollabStoreState {
 	followingId: string | null
 	pendingInvites: CollabPendingInvite[]
+	linkSharing: Record<string, boolean>
 }
 
 const listeners = new Set<() => void>()
-let state: CollabStoreState = { followingId: null, pendingInvites: [] }
+let state: CollabStoreState = { followingId: null, pendingInvites: [], linkSharing: {} }
 
 function setState(next: Partial<CollabStoreState>): void {
 	state = { ...state, ...next }
@@ -165,4 +167,21 @@ export function inviteToVault(email: string, role: CollabRole): CollabPendingInv
 export function cancelInvite(inviteId: string): void {
 	// stub: cancelling calls useMembersStore.deleteInvite when invites are remote
 	setState({ pendingInvites: state.pendingInvites.filter((invite) => invite.id !== inviteId) })
+}
+
+export function useLinkSharing(filePath: string | null): boolean {
+	const linkSharing = useSyncExternalStore(subscribe, getState, getState).linkSharing
+	return filePath ? Boolean(linkSharing[filePath]) : false
+}
+
+export function setLinkSharing(filePath: string, enabled: boolean): void {
+	// stub: link sharing is a local flag until note share links come from the sync server
+	setState({ linkSharing: { ...state.linkSharing, [filePath]: enabled } })
+}
+
+export async function copyNoteLink(filePath: string): Promise<void> {
+	// stub: the share link points at the note title until the sync server issues real share links
+	await getPlatform().clipboard.writeText(
+		`cortex://open?note=${encodeURIComponent(getNoteTitle(filePath))}`,
+	)
 }

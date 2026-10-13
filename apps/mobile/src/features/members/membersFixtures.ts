@@ -59,5 +59,10 @@ export const FIXTURE_MEMBERS: MemberRecord[] = [
 ]
 
 export const FIXTURE_PENDING_INVITES: PendingInviteRecord[] = [
-	{ id: "invite-1", email: "invitee@example.com", role: "viewer", expiresLabel: "Expires in 7 days" },
+	{
+		id: "invite-1",
+		email: "invitee@example.com",
+		role: "viewer",
+		expiresLabel: "Expires in 7 days",
+	},
 ]

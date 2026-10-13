@@ -9,11 +9,7 @@ import {
 import { useEffect, useMemo, useSyncExternalStore } from "react"
 
 import type { AvatarTint } from "@/components/ui/Avatar"
-import {
-	getCurrentPerson,
-	isLiveCollabNote,
-	listNotePeople,
-} from "@/features/collab/collabAdapter"
+import { getCurrentPerson, isLiveCollabNote, listNotePeople } from "@/features/collab/collabAdapter"
 import type { CollabPerson } from "@/features/collab/collabFixtures"
 import {
 	FIXTURE_COMMENT_THREADS,

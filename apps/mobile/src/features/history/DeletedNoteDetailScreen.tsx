@@ -1,11 +1,8 @@
 import { router, Stack, useLocalSearchParams } from "expo-router"
-import { ArchiveRestore, Copy } from "lucide-react-native"
 import { Platform, ScrollView, StyleSheet, Text, View } from "react-native"
 
-import { Badge } from "@/components/ui/Badge"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { FloatingActionButton } from "@/components/ui/FloatingActionButton"
-import { GroupedFooter } from "@/components/ui/GroupedList"
 import { HeaderIconButton } from "@/components/ui/HeaderIconButton"
 import MarkdownBlock from "@/components/ui/MarkdownBlock"
 import { useMobileEditorThemeTokens } from "@/features/editor/editorTheme"
@@ -31,24 +28,23 @@ export function DeletedNoteDetailScreen() {
 	if (!note) {
 		return (
 			<View style={[styles.empty, { backgroundColor: colors.groupedBackground }]}>
-				<Stack.Screen options={{ title: "" }} />
-				<EmptyState title="No deleted notes" />
+				<Stack.Screen options={{ title: "Deleted note" }} />
+				<EmptyState
+					icon={{ sf: "trash", md: "delete" }}
+					title="This note is no longer in the trash"
+				/>
 			</View>
 		)
 	}
 
-	const subtitle = IS_IOS
-		? `Deleted ${deletedMomentLabel(note)} by ${note.who} · ${note.device}`
-		: `Deleted ${deletedMomentLabel(note)} by ${note.who}`
-
 	const handleCopy = () => {
-		void copyDeletedNoteText(note).then(() => toast(`Copied the text of ${note.title}`))
+		void copyDeletedNoteText(note).then(() => toast("Copied the text"))
 	}
 
 	const handleRestore = () => {
 		void restoreDeletedNote(note)
 			.then(() => {
-				toast(`${note.title} restored to ${note.folder}`)
+				toast(`Restored to ${note.folder}`)
 				if (router.canGoBack()) router.back()
 			})
 			.catch((error: unknown) => toast(error instanceof Error ? error.message : String(error)))
@@ -61,7 +57,13 @@ export function DeletedNoteDetailScreen() {
 					title: note.title,
 					headerRight: IS_IOS
 						? undefined
-						: () => <HeaderIconButton accessibilityLabel="Copy text" Icon={Copy} onPress={handleCopy} />,
+						: () => (
+								<HeaderIconButton
+									accessibilityLabel="Copy text"
+									icon={{ sf: "doc.on.doc", md: "content_copy" }}
+									onPress={handleCopy}
+								/>
+							),
 				}}
 			/>
 			{IS_IOS ? (
@@ -71,7 +73,7 @@ export function DeletedNoteDetailScreen() {
 					</Stack.Toolbar.Button>
 					<Stack.Toolbar.Spacer />
 					<Stack.Toolbar.Button onPress={handleRestore} variant="prominent">
-						Restore note
+						Restore
 					</Stack.Toolbar.Button>
 				</Stack.Toolbar>
 			) : null}
@@ -80,10 +82,17 @@ export function DeletedNoteDetailScreen() {
 				contentInsetAdjustmentBehavior="automatic"
 				style={{ backgroundColor: colors.groupedBackground }}
 			>
-				<View style={styles.head}>
-					<Text style={[styles.subtitle, { color: colors.secondaryLabel }]}>{subtitle}</Text>
-					<Badge label={retentionLabel(note)} tint={!note.expiresSoon} />
-				</View>
+				<Text style={[styles.meta, { color: colors.secondaryLabel }]}>
+					{`Deleted ${deletedMomentLabel(note)} by ${note.who} · ${note.folder}`}
+				</Text>
+				<Text
+					style={[
+						styles.meta,
+						{ color: note.expiresSoon ? colors.warningText : colors.secondaryLabel },
+					]}
+				>
+					{retentionLabel(note)}
+				</Text>
 				<View style={[styles.preview, { backgroundColor: colors.cell }]}>
 					<MarkdownBlock
 						content={note.body}
@@ -96,15 +105,13 @@ export function DeletedNoteDetailScreen() {
 						themeTokens={themeTokens}
 					/>
 				</View>
-				<GroupedFooter>{`Restores to ${note.folder}`}</GroupedFooter>
 			</ScrollView>
 			{IS_IOS ? null : (
 				<View style={styles.fab}>
 					<FloatingActionButton
-						Icon={ArchiveRestore}
-						label="Restore note"
+						icon={{ sf: "arrow.uturn.backward", md: "restore_page" }}
+						label="Restore"
 						onPress={handleRestore}
-						sf="arrow.uturn.backward"
 					/>
 				</View>
 			)}
@@ -124,23 +131,19 @@ const styles = StyleSheet.create({
 		position: "absolute",
 		right: 16,
 	},
-	head: {
-		alignItems: "flex-start",
-		gap: 8,
+	meta: {
+		fontSize: 13,
+		lineHeight: 18,
 		marginHorizontal: 20,
-		marginTop: 8,
+		marginTop: 4,
 	},
 	preview: {
 		borderCurve: "continuous",
-		borderRadius: IS_IOS ? 20 : 16,
+		borderRadius: IS_IOS ? 26 : 20,
 		marginHorizontal: 16,
-		marginTop: 16,
+		marginTop: 12,
 		overflow: "hidden",
 		padding: 12,
-	},
-	subtitle: {
-		fontSize: 13,
-		lineHeight: 18,
 	},
 	transparent: {
 		backgroundColor: "transparent",

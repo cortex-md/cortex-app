@@ -1,275 +1,151 @@
-import { Host, Switch } from "@expo/ui"
-import { Check, Download, Gem, Type, X } from "lucide-react-native"
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
+import { router, Stack } from "expo-router"
+import { useEffect } from "react"
 
-import { FloatingActionButton } from "@/components/ui/FloatingActionButton"
-import { GroupedFooter, GroupedList, GroupedRow, GroupedSectionHeader } from "@/components/ui/GroupedList"
-import { MobileTextField } from "@/components/ui/MobileTextField"
-import { SegmentedControl } from "@/components/ui/SegmentedControl"
-import type { SegmentedOption } from "@/components/ui/segmentedTypes"
-import { ImportProgressBar } from "@/features/importExport/ImportProgressBar"
-import { formatCount } from "@/features/importExport/importPlan"
-import type { DetectChoice, ObsidianMode } from "@/features/importExport/importTypes"
-import {
-	KeyValueRow,
-	SheetBody,
-	SheetBottomBar,
-	SheetButton,
-	SheetHero,
-} from "@/features/importExport/SheetParts"
-import type { ImportSheetController } from "@/features/importExport/useImportSheet"
-import { useMobileColors } from "@/hooks/useMobileColors"
+import { FormRow, FormSection, FormToggle, NativeForm } from "@/components/ui/Form"
+import { FormChoiceRow, FormProgress, FormTextField } from "@/features/importExport/FormFields"
+import { HeaderActions, useCloseSheetStack } from "@/features/importExport/HeaderActions"
+import { useImport } from "@/features/importExport/ImportContext"
+import { pushImportStep, replaceImportStep } from "@/features/importExport/importNavigation"
+import { formatCount, obsidianTitle } from "@/features/importExport/importPlan"
+import type { DetectChoice } from "@/features/importExport/importTypes"
+import { goToFilesRoot } from "@/features/navigation/routes"
 
-const IS_IOS = Platform.OS === "ios"
+const COMPATIBILITY =
+	"Notes, attachments, properties, templates, daily notes and bookmarks come over. Dataview, Templater, Canvas and community plugins don’t. The Obsidian vault is never changed."
 
-const NOOP = () => undefined
+const PRIMARY_LABELS: Record<DetectChoice, string> = {
+	files: "Next",
+	obs: "Import",
+	open: "Open",
+}
 
-const MODE_OPTIONS = (vaultName: string): SegmentedOption<ObsidianMode>[] => [
-	{ label: `Copy into ${vaultName}`, value: "copy" },
-	{ label: "Open as a vault", value: "open" },
-]
-
-const COMES_OVER: [string, string][] = [
-	["Notes and folders", "Markdown and frontmatter as they are"],
-	["Attachments", "Images, PDFs, audio and video"],
-	["Image embeds", "![[photo.png]] become Markdown images"],
-	["Properties", "Text, number, checkbox and date types"],
-	["Templates and daily notes", "Folders, date format and placeholders"],
-	["Bookmarks", "Bookmarked notes"],
-]
-
-const KEPT_AS_TEXT: [string, string][] = [
-	["Note embeds", "Shown as links"],
-	["Highlights, comments, block IDs", "Kept in the text as written"],
-]
-
-const NOT_SUPPORTED: [string, string][] = [
-	["Dataview and Templater", "The code stays in the note"],
-	["Canvas and Excalidraw", "Copied as files"],
-	["Community plugins", "Look for alternatives in the Marketplace"],
-]
-
-export function ImportDetectStage({ controller }: { controller: ImportSheetController }) {
-	const { colors } = useMobileColors()
-	const { actions, derived, state } = controller
+export function ImportObsidianScreen() {
+	const { actions, derived, state } = useImport()
 	const folder = state.folder
 	if (!folder) return null
-	const options: { id: DetectChoice; title: string; subtitle: string }[] = [
-		{
-			id: "obs",
-			subtitle: `Copies notes and attachments into ${derived.vaultName} and moves its settings.`,
-			title: "Import it as an Obsidian vault",
-		},
-		{
-			id: "open",
-			subtitle: "Notes stay where they are. Obsidian and Cortex can both open it.",
-			title: "Open it as its own vault",
-		},
-		{
-			id: "files",
-			subtitle: `${folder.importableFiles.length} files. Markdown notes and attachments are left out.`,
-			title: "Only its CSV, HTML and PDF files",
-		},
-	]
+	const choice = state.detectChoice
+
+	function proceed() {
+		if (choice === "files") {
+			actions.takeFolderFiles()
+			pushImportStep("review")
+			return
+		}
+		void actions.runObsidian()
+		pushImportStep("progress")
+	}
 
 	return (
-		<SheetBody>
-			<SheetHero
-				Icon={Gem}
-				subtitle={`${formatCount(folder.notes)} notes · ${formatCount(folder.attachments)} attachments · ${folder.templates} templates · ${folder.bookmarks} bookmarks`}
-				tint
-				title={`“${folder.name}” is an Obsidian vault`}
+		<>
+			<Stack.Screen options={{ title: folder.name }} />
+			<HeaderActions
+				right={{
+					disabled: state.busy || (choice === "files" && folder.importableFiles.length === 0),
+					label: PRIMARY_LABELS[choice],
+					onPress: proceed,
+					primary: true,
+				}}
 			/>
-			<GroupedSectionHeader>How to bring it in</GroupedSectionHeader>
-			<GroupedList>
-				{options.map((option) => (
-					<GroupedRow
-						accessibilityLabel={option.title}
-						key={option.id}
-						onPress={() => actions.setDetectChoice(option.id)}
-						subtitle={option.subtitle}
-						title={option.title}
-						trailing={
-							state.detectChoice === option.id ? (
-								<Check color={colors.tint} size={20} strokeWidth={2.4} />
-							) : null
-						}
+			<NativeForm>
+				<FormSection title="Obsidian vault">
+					<FormRow title="Notes" value={formatCount(folder.notes)} />
+					<FormRow title="Attachments" value={formatCount(folder.attachments)} />
+					<FormRow title="Templates" value={formatCount(folder.templates)} />
+					<FormRow title="Bookmarks" value={formatCount(folder.bookmarks)} />
+					<FormRow
+						disabled={state.busy}
+						onPress={() => void actions.changeFolder()}
+						tint
+						title="Choose another folder"
 					/>
-				))}
-			</GroupedList>
-		</SheetBody>
-	)
-}
-
-function CapabilityList({
-	Icon,
-	iconColor,
-	rows,
-}: {
-	Icon: typeof Check
-	iconColor: string
-	rows: [string, string][]
-}) {
-	return (
-		<GroupedList>
-			{rows.map(([title, subtitle]) => (
-				<GroupedRow
-					key={title}
-					leading={<Icon color={iconColor} size={20} strokeWidth={2.2} />}
-					subtitle={subtitle}
-					title={title}
-				/>
-			))}
-		</GroupedList>
-	)
-}
-
-export function ImportObsidianStage({ controller }: { controller: ImportSheetController }) {
-	const { colors } = useMobileColors()
-	const { actions, derived, state } = controller
-	const folder = state.folder
-	if (!folder) return null
-	const isCopy = state.obsidianMode === "copy"
-	const modeHelp = isCopy
-		? `Copies notes and attachments into a folder of ${derived.vaultName}. Existing files are never replaced; conflicting names get a number.`
-		: `Adds ${folder.name} to your vaults and applies its Obsidian settings. Notes stay where they are.`
-
-	return (
-		<SheetBody style={{ paddingBottom: 120 }}>
-				<GroupedList>
-					<GroupedRow
-						leading={
-							<View style={[styles.obsidianIcon, { backgroundColor: colors.accentSubtle }]}>
-								<Gem color={colors.headingViolet} size={20} strokeWidth={2} />
-							</View>
-						}
-						subtitle={`${folder.locationLabel} · ${formatCount(folder.totalFiles)} files`}
-						title={folder.name}
-						trailing={
-							<Pressable accessibilityRole="button" disabled={state.busy} hitSlop={8} onPress={actions.changeFolder}>
-								<Text style={[styles.inlineAction, { color: colors.tint }]}>Change</Text>
-							</Pressable>
-						}
+				</FormSection>
+				<FormSection title="Import as">
+					<FormChoiceRow
+						onPress={() => actions.setDetectChoice("obs")}
+						selected={choice === "obs"}
+						subtitle="Notes and attachments are copied"
+						title={`Copy into ${derived.vaultName}`}
 					/>
-				</GroupedList>
-				<SegmentedControl
-					accessibilityLabel="How"
-					onChange={actions.setObsidianMode}
-					options={MODE_OPTIONS(derived.vaultName)}
-					style={styles.segment}
-					value={state.obsidianMode}
-				/>
-				<GroupedFooter>{modeHelp}</GroupedFooter>
-				{isCopy ? (
-					<>
-						<GroupedSectionHeader>{`Destination folder in ${derived.vaultName}`}</GroupedSectionHeader>
-						<View style={styles.field}>
-							<MobileTextField
-								accessibilityLabel="Destination folder"
-								autoCapitalize="sentences"
-								autoCorrect={false}
-								onChangeText={actions.setDestinationFolder}
-								placeholder="Vault root"
-								value={state.destinationFolder}
-							/>
-						</View>
-						<View style={styles.switchList}>
-							<GroupedList>
-								<GroupedRow
-									subtitle="Attachments/ and Daily/ named YYYY-MM-DD"
-									title="Use Obsidian attachment and daily note settings"
-									trailing={
-										<Host matchContents>
-											<Switch
-												label="Use Obsidian attachment and daily note settings"
-												onValueChange={actions.setApplySettings}
-												value={state.applySettings}
-											/>
-										</Host>
-									}
-								/>
-							</GroupedList>
-						</View>
-					</>
-				) : null}
-				<GroupedSectionHeader>Comes over</GroupedSectionHeader>
-				<CapabilityList Icon={Check} iconColor={colors.successText} rows={COMES_OVER} />
-				<GroupedSectionHeader>Kept as text</GroupedSectionHeader>
-				<CapabilityList Icon={Type} iconColor={colors.secondaryLabel} rows={KEPT_AS_TEXT} />
-				<GroupedSectionHeader>Not supported in Cortex</GroupedSectionHeader>
-				<CapabilityList Icon={X} iconColor={colors.secondaryLabel} rows={NOT_SUPPORTED} />
-				<GroupedFooter>
-					Cortex reads .obsidian but never writes to it. You get a list of everything it couldn’t
-					convert.
-				</GroupedFooter>
-		</SheetBody>
-	)
-}
-
-export function ImportObsidianCta({ controller }: { controller: ImportSheetController }) {
-	const { actions, state } = controller
-	const folder = state.folder
-	if (!folder) return null
-	const cta =
-		state.obsidianMode === "copy" ? `Import ${formatCount(folder.totalFiles)} files` : `Open ${folder.name}`
-	return (
-		<SheetBottomBar>
-			{IS_IOS ? (
-				<SheetButton disabled={state.busy} label={cta} onPress={actions.runObsidian} />
-			) : (
-				<View style={styles.fabRow}>
-					<FloatingActionButton
-						Icon={Download}
-						label={cta}
-						onPress={state.busy ? NOOP : actions.runObsidian}
-						sf="arrow.down.circle"
+					<FormChoiceRow
+						onPress={() => actions.setDetectChoice("open")}
+						selected={choice === "open"}
+						subtitle="Notes stay where they are"
+						title="Open as its own vault"
 					/>
-				</View>
-			)}
-		</SheetBottomBar>
+					<FormChoiceRow
+						onPress={() => actions.setDetectChoice("files")}
+						selected={choice === "files"}
+						subtitle={`${formatCount(folder.importableFiles.length)} files`}
+						title="Only its CSV, HTML and PDF files"
+					/>
+				</FormSection>
+				{choice === "obs" ? (
+					<FormSection footer={COMPATIBILITY} title="Destination">
+						<FormTextField
+							initialValue={state.destinationFolder}
+							key={folder.path}
+							label="Folder"
+							onChangeText={actions.setDestinationFolder}
+							placeholder="Vault root"
+						/>
+						<FormToggle
+							onValueChange={actions.setApplySettings}
+							subtitle="Attachment folder and daily note format"
+							title="Use Obsidian settings"
+							value={state.applySettings}
+						/>
+					</FormSection>
+				) : (
+					<FormSection footer={COMPATIBILITY}>{null}</FormSection>
+				)}
+			</NativeForm>
+		</>
 	)
 }
 
-export function ImportRunStage({ controller }: { controller: ImportSheetController }) {
-	const { colors } = useMobileColors()
-	const { actions, state } = controller
+export function ImportProgressScreen() {
+	const { actions, state } = useImport()
 	const folder = state.folder
 	const progress = state.progress
 	const completed = progress?.completed ?? 0
 	const total = progress?.total ?? folder?.totalFiles ?? 0
 	const phase = folder && completed > folder.notes ? "attachments" : "notes"
-	const text =
-		completed === 0
-			? "Reading vault…"
-			: `${formatCount(completed)} of ${formatCount(total)} files · ${phase}`
-	const footer = IS_IOS
-		? "Keep Cortex open. If you cancel, files copied so far are kept."
-		: "Continues in the background with a notification. If you cancel, files copied so far are kept."
+	const label =
+		state.obsidianMode === "open"
+			? "Opening the vault…"
+			: completed === 0
+				? "Reading the vault…"
+				: `${formatCount(completed)} of ${formatCount(total)} files · ${phase}`
+
+	useEffect(() => {
+		if (state.run === "done") replaceImportStep("obsidian-done")
+		else if (state.run === "failed" && router.canGoBack()) router.back()
+	}, [state.run])
 
 	return (
-		<SheetBody>
-			<View style={styles.runBlock}>
-				<ImportProgressBar value={total > 0 ? completed / total : 0} />
-				<Text style={[styles.runText, { color: colors.secondaryLabel }]}>{text}</Text>
-			</View>
-			<Text style={[styles.runFooter, { color: colors.secondaryLabel }]}>{footer}</Text>
-			<View style={styles.runCancel}>
-				<SheetButton label="Cancel" onPress={actions.cancelRun} variant="gray" />
-			</View>
-		</SheetBody>
+		<>
+			<Stack.Screen options={{ title: state.obsidianMode === "open" ? "Opening" : "Importing" }} />
+			{state.obsidianMode === "copy" ? (
+				<HeaderActions left={{ label: "Cancel", onPress: actions.cancelRun }} />
+			) : null}
+			<NativeForm>
+				<FormSection footer="If you cancel, files copied so far are kept." title={folder?.name}>
+					<FormProgress label={label} value={total > 0 ? completed / total : 0} />
+				</FormSection>
+			</NativeForm>
+		</>
 	)
 }
 
-export function ImportObsidianDoneStage({
-	controller,
-	onOpenFiles,
-}: {
-	controller: ImportSheetController
-	onOpenFiles: () => void
-}) {
-	const { derived, state } = controller
+export function ImportObsidianDoneScreen() {
+	const { derived, state } = useImport()
+	const close = useCloseSheetStack()
 	const folder = state.folder
 	const outcome = state.outcome
+	const finish = () => {
+		close()
+		goToFilesRoot()
+	}
 	if (!folder || !outcome) return null
 	const isCopy = outcome.mode === "copy"
 	const copied = outcome.notes + outcome.attachments
@@ -278,113 +154,52 @@ export function ImportObsidianDoneStage({
 		: outcome.cancelled
 			? `${formatCount(copied)} files imported`
 			: `${folder.name} imported`
-	const subtitle = !isCopy
+	const footer = !isCopy
 		? "Its Obsidian settings now apply. Nothing in the folder was rewritten."
-		: `Saved to ${derived.vaultName} / ${outcome.destinationLabel}. Your Obsidian vault wasn’t changed.`
+		: outcome.cancelled
+			? "Import cancelled. Files copied before cancelling were kept."
+			: `Saved to ${outcome.destinationLabel || derived.vaultName}. The full list is in Imported from Obsidian.md.`
 	const showSettings = isCopy ? outcome.settingsApplied : true
 
 	return (
-		<SheetBody>
-			<SheetHero subtitle={subtitle} title={title} />
-			{outcome.cancelled ? (
-				<GroupedFooter>Import cancelled. Files copied before cancelling were kept.</GroupedFooter>
-			) : null}
-			{isCopy ? (
-				<>
-					<GroupedSectionHeader>Content</GroupedSectionHeader>
-					<GroupedList>
-						<KeyValueRow label="Notes" value={formatCount(outcome.notes)} />
-						<KeyValueRow label="Attachments" value={formatCount(outcome.attachments)} />
-						<KeyValueRow label="Image embeds converted" value={formatCount(outcome.convertedEmbeds)} />
-						<KeyValueRow label="Renamed to avoid conflicts" value={formatCount(outcome.renamed)} />
-					</GroupedList>
-				</>
-			) : null}
-			{showSettings ? (
-				<>
-					<GroupedSectionHeader>Settings migrated</GroupedSectionHeader>
-					<GroupedList>
-						<KeyValueRow label="Attachment location" value={outcome.settings.attachmentLocation} />
-						<KeyValueRow label="Daily notes" value={outcome.settings.dailyNotes} />
-						<KeyValueRow label="Templates" value={formatCount(outcome.settings.templates)} />
-						<KeyValueRow label="Bookmarks" value={formatCount(outcome.settings.bookmarks)} />
-						<KeyValueRow label="Property types" value={formatCount(outcome.settings.propertyTypes)} />
-					</GroupedList>
-				</>
-			) : null}
-			{outcome.findings.length > 0 ? (
-				<>
-					<GroupedSectionHeader>Not supported in Cortex</GroupedSectionHeader>
-					<GroupedList>
+		<>
+			<Stack.Screen options={{ title: obsidianTitle(outcome.mode) }} />
+			<HeaderActions right={{ label: "Done", onPress: finish, primary: true }} />
+			<NativeForm>
+				{isCopy ? (
+					<FormSection footer={footer} title={title}>
+						<FormRow title="Notes" value={formatCount(outcome.notes)} />
+						<FormRow title="Attachments" value={formatCount(outcome.attachments)} />
+						<FormRow title="Image embeds converted" value={formatCount(outcome.convertedEmbeds)} />
+						<FormRow title="Renamed to avoid conflicts" value={formatCount(outcome.renamed)} />
+					</FormSection>
+				) : (
+					<FormSection footer={footer} title={title}>
+						{null}
+					</FormSection>
+				)}
+				{showSettings ? (
+					<FormSection title="Settings">
+						<FormRow title="Attachment location" value={outcome.settings.attachmentLocation} />
+						<FormRow title="Daily notes" value={outcome.settings.dailyNotes} />
+						<FormRow title="Templates" value={formatCount(outcome.settings.templates)} />
+						<FormRow title="Bookmarks" value={formatCount(outcome.settings.bookmarks)} />
+						<FormRow title="Property types" value={formatCount(outcome.settings.propertyTypes)} />
+					</FormSection>
+				) : null}
+				{outcome.findings.length > 0 ? (
+					<FormSection title="Not supported in Cortex">
 						{outcome.findings.map((finding) => (
-							<KeyValueRow
+							<FormRow
 								key={finding.label}
-								label={finding.label}
-								subtitle={finding.examples}
+								subtitle={finding.examples || undefined}
+								title={finding.label}
 								value={formatCount(finding.count)}
 							/>
 						))}
-					</GroupedList>
-				</>
-			) : null}
-			{isCopy && !outcome.cancelled ? (
-				<GroupedFooter>The full list is saved in Imported from Obsidian.md.</GroupedFooter>
-			) : null}
-			<View style={styles.doneCta}>
-				<SheetButton label="Open in Files" onPress={onOpenFiles} />
-			</View>
-		</SheetBody>
+					</FormSection>
+				) : null}
+			</NativeForm>
+		</>
 	)
 }
-
-const styles = StyleSheet.create({
-	doneCta: {
-		paddingTop: 8,
-	},
-	fabRow: {
-		alignItems: "flex-end",
-	},
-	field: {
-		paddingHorizontal: 16,
-	},
-	inlineAction: {
-		fontSize: IS_IOS ? 15 : 14,
-		fontWeight: "500",
-		lineHeight: 20,
-	},
-	obsidianIcon: {
-		alignItems: "center",
-		borderRadius: 9,
-		height: 32,
-		justifyContent: "center",
-		width: 32,
-	},
-	runBlock: {
-		gap: 12,
-		paddingHorizontal: 24,
-		paddingTop: 40,
-	},
-	runCancel: {
-		paddingTop: 8,
-	},
-	runFooter: {
-		fontSize: IS_IOS ? 13 : 12,
-		lineHeight: IS_IOS ? 18 : 16,
-		marginHorizontal: 36,
-		marginTop: 8,
-		textAlign: "center",
-	},
-	runText: {
-		fontSize: IS_IOS ? 15 : 14,
-		fontVariant: ["tabular-nums"],
-		lineHeight: 20,
-		textAlign: "center",
-	},
-	segment: {
-		marginHorizontal: 16,
-		marginTop: 16,
-	},
-	switchList: {
-		marginTop: 16,
-	},
-})

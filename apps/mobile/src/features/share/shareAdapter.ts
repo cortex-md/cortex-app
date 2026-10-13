@@ -110,7 +110,11 @@ export function loadShareGroups(vaultName: string): ShareGroup[] {
 	const { groups, members } = useMembersStore.getState()
 	if (!remoteVaultId || groups.length === 0) return fixtureShareGroups(vaultName)
 	return [
-		...groups.map((group) => ({ id: group.id, memberCount: group.memberIds.length, name: group.name })),
+		...groups.map((group) => ({
+			id: group.id,
+			memberCount: group.memberIds.length,
+			name: group.name,
+		})),
 		{ id: null, memberCount: members.length, name: `Everyone in ${vaultName}` },
 	]
 }

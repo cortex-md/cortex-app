@@ -42,10 +42,7 @@ export function OptionPill({ option }: { option: PropertyOption }) {
 	return <StatusPill label={option.label} tone={optionTone(option.color)} />
 }
 
-export function rowStatusOption(
-	row: DatabaseRow,
-	model: DatabaseViewModel,
-): PropertyOption | null {
+export function rowStatusOption(row: DatabaseRow, model: DatabaseViewModel): PropertyOption | null {
 	const key = model.roles.statusKey
 	const definition = key ? model.resolved.byKey.get(key) : undefined
 	const value = key ? getPropertyValueList(row.meta[key])[0] : undefined
@@ -93,11 +90,18 @@ export function RowDue({
 	const { colors } = useMobileColors()
 	const key = model.roles.dateKey
 	if (!key) return null
-	const due = formatRelativeDue(row.meta[key], model.queryContext.today, isRowDone(row, model.roles))
+	const due = formatRelativeDue(
+		row.meta[key],
+		model.queryContext.today,
+		isRowDone(row, model.roles),
+	)
 	return (
 		<Text
 			numberOfLines={1}
-			style={[small ? styles.smallText : styles.cellText, { color: dueToneColor(due.tone, colors) }]}
+			style={[
+				small ? styles.smallText : styles.cellText,
+				{ color: dueToneColor(due.tone, colors) },
+			]}
 		>
 			{due.label}
 		</Text>
