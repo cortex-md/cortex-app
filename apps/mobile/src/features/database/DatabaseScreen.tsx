@@ -1,5 +1,423 @@
-import { PlaceholderScreen } from "@/components/ui/PlaceholderScreen"
+import { getBaseName, getParentPath } from "@cortex/core"
+import {
+	type DatabaseFilter,
+	type DatabaseGroup,
+	type DatabaseRow,
+	type DatabaseViewType,
+	getDatabaseRowTitle,
+} from "@cortex/properties/database"
+import { Stack, useLocalSearchParams } from "expo-router"
+import {
+	Bug,
+	EllipsisVertical,
+	FileText,
+	Share,
+	SlidersHorizontal,
+	SquarePen,
+	SquarePlus,
+	StickyNote,
+	Table2,
+} from "lucide-react-native"
+import { useMemo, useState } from "react"
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, View } from "react-native"
+
+import { EmptyState } from "@/components/ui/EmptyState"
+import { FilterChip } from "@/components/ui/FilterChip"
+import type { MenuGroup, MenuItem } from "@/components/ui/menuTypes"
+import { NativeMenu } from "@/components/ui/NativeMenu"
+import { SearchField } from "@/components/ui/SearchField"
+import { SegmentedControl } from "@/components/ui/SegmentedControl"
+import { type DatabaseRowTemplateChoice, listDatabaseRowTemplates } from "@/features/database/databaseAdapter"
+import { DatabaseBoardView } from "@/features/database/DatabaseBoardView"
+import { DatabaseCalendarView } from "@/features/database/DatabaseCalendarView"
+import { DatabaseFabMenu } from "@/features/database/DatabaseFabMenu"
+import {
+	DATABASE_VIEW_OPTIONS,
+	describeFilter,
+	groupTokenLabel,
+	noteCountLabel,
+	sameFilter,
+	sortTokenLabel,
+	type ViewOptionsTab,
+} from "@/features/database/databaseFormat"
+import { DatabaseGalleryView } from "@/features/database/DatabaseGalleryView"
+import {
+	openDatabaseRow,
+	openDatabaseViewOptions,
+	openNewDatabase,
+	readParam,
+} from "@/features/database/databaseNavigation"
+import { type DatabaseCollectionProps, DatabaseTableView } from "@/features/database/DatabaseTableView"
+import { type DatabaseViewModel, useDatabaseView } from "@/features/database/useDatabaseView"
+import { showToast } from "@/features/feedback/toastStore"
+import { presentSheet } from "@/features/navigation/routes"
+import { useHideTabBar } from "@/features/navigation/tabBarVisibility"
+import { useMobileColors } from "@/hooks/useMobileColors"
+import { triggerSelectionHaptic } from "@/utils/haptics"
+
+const IS_IOS = Platform.OS === "ios"
+
+function templateIcon(template: DatabaseRowTemplateChoice): MenuItem["icon"] {
+	if (/bug/iu.test(template.id)) return { Lucide: Bug, sf: "ladybug" }
+	return { Lucide: FileText, sf: "doc.text" }
+}
+
+function buildNewGroups(
+	templates: DatabaseRowTemplateChoice[],
+	create: (template?: DatabaseRowTemplateChoice) => void,
+): MenuGroup[] {
+	return [
+		[
+			{
+				icon: { Lucide: SquarePen, sf: "square.and.pencil" },
+				key: "new-note",
+				label: "New note",
+				onPress: () => create(),
+			},
+		],
+		[
+			...templates.map((template) => ({
+				icon: templateIcon(template),
+				key: `template-${template.id}`,
+				label: template.name,
+				onPress: () => create(template),
+				subtitle: template.subtitle || undefined,
+			})),
+			{
+				icon: { Lucide: StickyNote, sf: "note.text" },
+				key: "blank-note",
+				label: "Blank note",
+				onPress: () => create(),
+			},
+		],
+	]
+}
+
+function buildMoreGroups(folderPath: string, viewId: string | undefined): MenuGroup[] {
+	return [
+		[
+			{
+				icon: { Lucide: Share, sf: "square.and.arrow.up" },
+				key: "share-template",
+				label: "Share as template…",
+				onPress: () => presentSheet("share-template", { folderPath }),
+			},
+			{
+				icon: { Lucide: SlidersHorizontal, sf: "slider.horizontal.3" },
+				key: "properties",
+				label: "Properties",
+				onPress: () => openDatabaseViewOptions(folderPath, viewId, "props"),
+			},
+			{
+				icon: { Lucide: SquarePlus, sf: "plus.rectangle.on.rectangle" },
+				key: "new-database",
+				label: "New database",
+				onPress: () => openNewDatabase({ parentPath: getParentPath(folderPath) }),
+			},
+		],
+	]
+}
+
+function ToolbarActions({ items }: { items: MenuItem[] }) {
+	return (
+		<>
+			{items.map((item) => (
+				<Stack.Toolbar.MenuAction
+					icon={item.icon?.sf}
+					key={item.key}
+					onPress={item.onPress}
+					subtitle={item.subtitle}
+				>
+					{item.label}
+				</Stack.Toolbar.MenuAction>
+			))}
+		</>
+	)
+}
+
+function DatabaseHeaderIos({
+	moreGroups,
+	name,
+	newGroups,
+	onSearch,
+}: {
+	moreGroups: MenuGroup[]
+	name: string
+	newGroups: MenuGroup[]
+	onSearch: (value: string) => void
+}) {
+	const [first = [], templates = []] = newGroups
+	return (
+		<>
+			<Stack.SearchBar
+				onChangeText={(event) => onSearch(event.nativeEvent.text)}
+				placeholder={`Search ${name}`}
+			/>
+			<Stack.Toolbar placement="right">
+				<Stack.Toolbar.Menu accessibilityLabel="More" icon="ellipsis" title={name}>
+					<ToolbarActions items={moreGroups.flat()} />
+				</Stack.Toolbar.Menu>
+			</Stack.Toolbar>
+			<Stack.Toolbar placement="bottom">
+				<Stack.Toolbar.SearchBarSlot />
+				<Stack.Toolbar.Menu
+					accessibilityLabel={`New note in ${name}`}
+					icon="plus"
+					separateBackground
+					title="New"
+					variant="prominent"
+				>
+					<ToolbarActions items={first} />
+					<Stack.Toolbar.Menu inline title="Start from a template">
+						<ToolbarActions items={templates} />
+					</Stack.Toolbar.Menu>
+				</Stack.Toolbar.Menu>
+			</Stack.Toolbar>
+		</>
+	)
+}
+
+function ViewTokens({
+	folderPath,
+	model,
+}: {
+	folderPath: string
+	model: DatabaseViewModel
+}) {
+	const view = model.activeView
+	const filters = view?.filters ?? []
+	const open = (tab: ViewOptionsTab) => {
+		triggerSelectionHaptic()
+		openDatabaseViewOptions(folderPath, view?.id, tab)
+	}
+	const removeFilter = (filter: DatabaseFilter) => {
+		triggerSelectionHaptic()
+		model.updateView((current) => {
+			const next = (current.filters ?? []).filter((item) => !sameFilter(item, filter))
+			return { ...current, filters: next.length ? next : undefined }
+		})
+	}
+
+	return (
+		<>
+			<ScrollView
+				accessibilityLabel="View options"
+				contentContainerStyle={styles.tokens}
+				horizontal
+				showsHorizontalScrollIndicator={false}
+			>
+				<FilterChip
+					label={filters.length ? `Filter · ${filters.length}` : "Filter"}
+					onPress={() => open("filter")}
+					selected={filters.length > 0}
+				/>
+				<FilterChip
+					label={sortTokenLabel(view, model.resolved)}
+					onPress={() => open("sort")}
+				/>
+				<FilterChip
+					label={groupTokenLabel(view, model.resolved)}
+					onPress={() => open("group")}
+				/>
+				<FilterChip label="Properties" onPress={() => open("props")} />
+			</ScrollView>
+			{filters.length > 0 ? (
+				<View accessibilityLabel="Active filters" style={styles.activeFilters}>
+					{filters.map((filter) => {
+						const label = describeFilter(filter, model.resolved, model.authorConfig)
+						const text = `${label.property} ${label.operator}${label.value ? ` ${label.value}` : ""}`
+						return (
+							<FilterChip
+								accessibilityLabel={`Remove filter ${text}`}
+								key={`${filter.key}-${filter.op}-${JSON.stringify(filter.value)}`}
+								label={text}
+								onRemove={() => removeFilter(filter)}
+								selected
+							/>
+						)
+					})}
+				</View>
+			) : null}
+		</>
+	)
+}
+
+function DatabaseCollection(props: DatabaseCollectionProps) {
+	const { colors } = useMobileColors()
+	const { highlighted, model, onOpenRow } = props
+	if (model.loading) return <ActivityIndicator color={colors.tint} style={styles.loading} />
+	switch (model.activeView?.type) {
+		case "board":
+			return <DatabaseBoardView {...props} />
+		case "calendar":
+			return <DatabaseCalendarView model={model} onOpenRow={onOpenRow} />
+		case "gallery":
+			return <DatabaseGalleryView highlighted={highlighted} model={model} onOpenRow={onOpenRow} />
+		default:
+			return <DatabaseTableView {...props} />
+	}
+}
 
 export function DatabaseScreen() {
-	return <PlaceholderScreen title="Database" />
+	useHideTabBar()
+	const params = useLocalSearchParams<{ folderPath?: string | string[]; view?: string | string[] }>()
+	const folderPath = readParam(params.folderPath) ?? ""
+	const { colors } = useMobileColors()
+	const [search, setSearch] = useState("")
+	const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
+	const [highlighted, setHighlighted] = useState<ReadonlySet<string>>(() => new Set())
+	const model = useDatabaseView(folderPath, readParam(params.view), search)
+	const name = model.entry?.name ?? getBaseName(folderPath)
+	const viewId = model.activeView?.id
+	const viewType = model.activeView?.type ?? "table"
+	const templates = useMemo(() => listDatabaseRowTemplates(model.config), [model.config])
+
+	const openRow = (row: DatabaseRow) => openDatabaseRow(folderPath, row.path, viewId)
+
+	async function createRow(group: DatabaseGroup | null, template?: DatabaseRowTemplateChoice) {
+		triggerSelectionHaptic()
+		const created = await model.createRow(group, template)
+		if (!created) return
+		const title = getDatabaseRowTitle(created.path)
+		setHighlighted((current) => new Set(current).add(created.path))
+		showToast(`${title} added to ${name}`, {
+			action: { label: "Open", onPress: () => openDatabaseRow(folderPath, created.path, viewId) },
+		})
+	}
+
+	const newGroups = buildNewGroups(templates, (template) => void createRow(null, template))
+	const moreGroups = buildMoreGroups(folderPath, viewId)
+
+	function toggleGroup(key: string) {
+		setCollapsed((current) => {
+			const next = new Set(current)
+			if (next.has(key)) next.delete(key)
+			else next.add(key)
+			return next
+		})
+	}
+
+	return (
+		<>
+			<ScrollView
+				contentContainerStyle={styles.content}
+				contentInsetAdjustmentBehavior="automatic"
+				keyboardDismissMode="on-drag"
+				keyboardShouldPersistTaps="handled"
+				style={{ backgroundColor: colors.background }}
+			>
+				<View style={styles.countRow}>
+					<Table2 color={colors.tint} size={20} strokeWidth={2.2} />
+					<Text style={[styles.count, { color: colors.secondaryLabel }]}>
+						{noteCountLabel(model.result?.matchedCount ?? 0)}
+					</Text>
+				</View>
+				{model.entry ? (
+					<>
+						<SegmentedControl
+							accessibilityLabel="Views"
+							onChange={(type: DatabaseViewType) => {
+								triggerSelectionHaptic()
+								model.selectViewType(type)
+							}}
+							options={DATABASE_VIEW_OPTIONS}
+							style={styles.segmented}
+							value={viewType}
+						/>
+						<ViewTokens folderPath={folderPath} model={model} />
+						{IS_IOS ? null : (
+							<View style={styles.search}>
+								<SearchField
+									accessibilityLabel={`Search ${name}`}
+									onChangeText={setSearch}
+									onClear={() => setSearch("")}
+									placeholder={`Search ${name}`}
+									value={search}
+								/>
+							</View>
+						)}
+						<DatabaseCollection
+							collapsed={collapsed}
+							highlighted={highlighted}
+							model={model}
+							onCreate={(group) => void createRow(group)}
+							onOpenRow={openRow}
+							onToggleGroup={toggleGroup}
+						/>
+					</>
+				) : model.registryReady ? (
+					<EmptyState
+						Icon={Table2}
+						description="This folder has no database view note yet. Use New database to turn it into one."
+						title="Not a database"
+					/>
+				) : (
+					<ActivityIndicator color={colors.tint} style={styles.loading} />
+				)}
+			</ScrollView>
+			<Stack.Screen
+				options={{
+					headerRight: IS_IOS
+						? undefined
+						: () => (
+								<NativeMenu
+									accessibilityLabel="More"
+									groups={moreGroups}
+									icon={{ Lucide: EllipsisVertical, sf: "ellipsis" }}
+								/>
+							),
+					title: name,
+				}}
+			/>
+			{IS_IOS ? (
+				<DatabaseHeaderIos
+					moreGroups={moreGroups}
+					name={name}
+					newGroups={newGroups}
+					onSearch={setSearch}
+				/>
+			) : model.entry ? (
+				<DatabaseFabMenu groups={newGroups} />
+			) : null}
+		</>
+	)
 }
+
+const styles = StyleSheet.create({
+	activeFilters: {
+		flexDirection: "row",
+		flexWrap: "wrap",
+		gap: 8,
+		paddingBottom: 8,
+		paddingHorizontal: 16,
+	},
+	content: {
+		paddingBottom: 140,
+	},
+	count: {
+		fontSize: IS_IOS ? 15 : 14,
+		lineHeight: 20,
+	},
+	countRow: {
+		alignItems: "center",
+		flexDirection: "row",
+		gap: 8,
+		paddingBottom: 10,
+		paddingHorizontal: 20,
+		paddingTop: IS_IOS ? 0 : 4,
+	},
+	loading: {
+		marginTop: 40,
+	},
+	search: {
+		paddingBottom: 8,
+	},
+	segmented: {
+		marginHorizontal: 16,
+	},
+	tokens: {
+		gap: 8,
+		paddingHorizontal: 16,
+		paddingVertical: 10,
+	},
+})
