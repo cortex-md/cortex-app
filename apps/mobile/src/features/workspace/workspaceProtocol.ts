@@ -53,6 +53,14 @@ export type WorkspaceServiceCall =
 	| { kind: "bookmark"; action: "add" | "remove" | "toggle"; path: string; force?: boolean }
 	| { kind: "watch"; path: string; options?: WatchOptions }
 	| { kind: "unwatch"; watchId: number }
+	| { kind: "openProperties"; step?: string; key?: string }
+
+export type WorkspaceScrollDirection = "up" | "down"
+
+export interface WorkspaceFindResult {
+	current: number
+	total: number
+}
 
 /** Answers the request with the same `id`; `value` is any JSON value. */
 export type WorkspaceReply = { type: "reply"; id: number; value?: unknown; error?: string }
@@ -65,6 +73,8 @@ export type WorkspaceInboundMessage =
 	| { type: "closeDocument"; id: number; filePath: string }
 	| { type: "showEditor"; visible: boolean }
 	| { type: "watchEvent"; watchId: number; event: WatchEvent }
+	| { type: "command"; commandId: string; payload?: JsonValue }
+	| { type: "find"; id: number; query: string; direction?: "next" | "prev" }
 	| WorkspaceReply
 
 /** Workspace WebView → native, through the `send` async prop. Requests carry an `id`. */
@@ -77,6 +87,7 @@ export type WorkspaceOutboundMessage =
 	| { type: "serviceCall"; id: number; call: WorkspaceServiceCall }
 	| { type: "command"; commandId: string; payload: JsonValue }
 	| { type: "communityStyles"; css: string }
+	| { type: "scroll"; direction: WorkspaceScrollDirection; offset: number }
 	| WorkspaceReply
 
 /** The WebView's `useDOMImperativeHandle`: fire-and-forget, JSON arguments only. */

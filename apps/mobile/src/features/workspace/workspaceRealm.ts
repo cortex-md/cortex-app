@@ -24,8 +24,10 @@ import {
 	forwardedPlatformMethods,
 	type WorkspaceCursor,
 	type WorkspaceDocument,
+	type WorkspaceFindResult,
 	type WorkspaceInboundMessage,
 	type WorkspaceOutboundMessage,
+	type WorkspaceScrollDirection,
 	type WorkspaceServiceCall,
 	type WorkspaceState,
 } from "@/features/workspace/workspaceProtocol"
@@ -37,6 +39,8 @@ export interface WorkspaceEditorHandlers {
 	showEditor(visible: boolean): void
 	flushPendingCommit(): Promise<void>
 	getFilePath(): string | null
+	runCommand(commandId: string, payload: JsonValue | undefined): void
+	find(query: string, direction: "next" | "prev" | undefined): Promise<WorkspaceFindResult>
 }
 
 type ForwardedMethod<Domain extends ForwardedPlatformDomain> =
@@ -362,6 +366,16 @@ export function createWorkspaceRealm() {
 				case "watchEvent":
 					watchListeners.get(message.watchId)?.(message.event)
 					return
+				case "command":
+					editor?.runCommand(message.commandId, message.payload)
+					return
+				case "find":
+					answerWorkspaceRequest(
+						message.id,
+						() => editor?.find(message.query, message.direction) ?? { current: 0, total: 0 },
+						send,
+					)
+					return
 				case "reply":
 					requests.settle(message)
 			}
@@ -379,6 +393,9 @@ export function createWorkspaceRealm() {
 		reportCursor(cursor: WorkspaceCursor): void {
 			send({ type: "cursor", cursor })
 		},
+		reportScroll(direction: WorkspaceScrollDirection, offset: number): void {
+			if (sender) send({ type: "scroll", direction, offset })
+		},
 		resolveAssetUrl(path: string): Promise<string> {
 			return requestNative((id) => ({
 				type: "platformCall",
@@ -387,6 +404,9 @@ export function createWorkspaceRealm() {
 				method: "resolveFileAssetUrl",
 				args: [path],
 			}))
+		},
+		openProperties(step?: string, key?: string): void {
+			if (sender) fireService({ kind: "openProperties", step, key })
 		},
 		executeNativeCommand(commandId: string, payload: JsonValue = null): Promise<void> {
 			return afterPendingCommit(async () => send({ type: "command", commandId, payload }))

@@ -10,60 +10,68 @@
 	width: 100%;
 }
 
-.mobile-code-mirror-toolbar {
-	align-items: center;
-	background: var(--bg-primary);
-	border-bottom: 1px solid var(--border);
+.mobile-code-mirror-properties {
+	border: 1px solid var(--border);
+	border-radius: 14px;
 	box-sizing: border-box;
 	display: flex;
+	flex-direction: column;
 	flex-shrink: 0;
-	gap: 6px;
-	min-height: 42px;
-	overflow-x: auto;
-	padding: 5px 10px;
-	scrollbar-width: none;
-	-webkit-overflow-scrolling: touch;
+	margin: 8px 20px 4px;
+	padding: 2px 4px;
 }
 
-.mobile-code-mirror-toolbar::-webkit-scrollbar {
-	display: none;
+.mobile-code-mirror-properties-title,
+.mobile-code-mirror-property,
+.mobile-code-mirror-property-add {
+	align-items: center;
+	background: transparent;
+	border: 0;
+	color: inherit;
+	display: flex;
+	font: inherit;
+	gap: 12px;
+	min-height: 44px;
+	padding: 0 10px;
+	text-align: left;
+	-webkit-tap-highlight-color: transparent;
 }
 
-.mobile-code-mirror-title {
-	flex: 1 0 128px;
-	font-size: 12px;
-	line-height: 16px;
-	min-width: 0;
-	opacity: 0.72;
+.mobile-code-mirror-properties-title {
+	color: var(--text-secondary);
+	font-size: 13px;
+	font-weight: 600;
+	min-height: 36px;
+}
+
+.mobile-code-mirror-property-key {
+	color: var(--text-secondary);
+	flex: 0 0 112px;
+	font-size: 14px;
+	font-weight: 500;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.mobile-code-mirror-action {
-	align-items: center;
-	background: transparent;
-	border: 0;
-	border-radius: 7px;
-	color: inherit;
-	display: inline-flex;
-	flex: 0 0 auto;
-	font: inherit;
-	font-size: 13px;
-	font-weight: 600;
-	height: 32px;
-	justify-content: center;
-	min-width: 32px;
-	padding: 0 9px;
-	-webkit-tap-highlight-color: transparent;
+.mobile-code-mirror-property-value {
+	flex: 1;
+	font-size: 15px;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
-.mobile-code-mirror-action:active {
+.mobile-code-mirror-property-add {
+	color: var(--text-secondary);
+	font-size: 15px;
+}
+
+.mobile-code-mirror-property:active,
+.mobile-code-mirror-property-add:active,
+.mobile-code-mirror-properties-title:active {
 	background: var(--bg-active);
-}
-
-.mobile-code-mirror-action:disabled {
-	opacity: 0.4;
 }
 
 .mobile-code-mirror-frontmatter-error {

@@ -4,6 +4,11 @@ import { EditorView, evictEditorDocument } from "@cortex/editor/editor-view"
 import { readonlyExtension } from "@cortex/editor/extensions"
 import { reconfigureMarkdownKeymap } from "@cortex/editor/keymap"
 import { resolveNoteAssetPath } from "@cortex/editor/note-assets"
+import {
+	searchHighlightExtension,
+	setSearchHighlight,
+	stepSearchHighlight,
+} from "@cortex/editor/search-commands"
 import { type SlashCommandMenuState, slashCommandExtension } from "@cortex/editor/slash-commands"
 import type {
 	CursorInfo,
@@ -30,7 +35,6 @@ import {
 	executeMobileEditorMarkdownCommand,
 	getMobileEditorFormatBindings,
 	mobileEditorSlashCommandItems,
-	mobileEditorToolbarItems,
 	registerMobileEditorCommands,
 	runMobileEditorCommand,
 	setMobileEditorCommandView,
@@ -38,6 +42,7 @@ import {
 import type {
 	WorkspaceCursor,
 	WorkspaceDocument,
+	WorkspaceFindResult,
 	WorkspaceOutboundMessage,
 	WorkspaceViewHandle,
 } from "@/features/workspace/workspaceProtocol"
@@ -58,8 +63,53 @@ interface PendingCommit {
 }
 
 const COMMIT_DEBOUNCE_MS = 750
+const SCROLL_REPORT_MS = 80
+const SCROLL_REPORT_THRESHOLD_PX = 4
+const MOBILE_BLUR_COMMAND = "mobile.blur"
+const MOBILE_FOCUS_COMMAND = "mobile.focus"
+const MOBILE_REVEAL_LINE_COMMAND = "mobile.reveal-line"
+const MOBILE_SLASH_COMMAND = "mobile.slash"
+const HIDDEN_PROPERTY_KEYS = new Set(["database"])
+
+function formatPropertyValue(value: unknown): string {
+	if (value === null || value === undefined || value === "") return "Empty"
+	if (Array.isArray(value)) return value.map(formatPropertyValue).join(", ")
+	if (typeof value === "object") return "…"
+	return String(value)
+}
 
 const realm = createWorkspaceRealm()
+
+function watchScroll(view: EditorRuntimeView): () => void {
+	let lastOffset = view.scrollDOM.scrollTop
+	let timer: ReturnType<typeof setTimeout> | null = null
+	const report = () => {
+		timer = null
+		const offset = view.scrollDOM.scrollTop
+		const delta = offset - lastOffset
+		lastOffset = offset
+		if (Math.abs(delta) < SCROLL_REPORT_THRESHOLD_PX) return
+		realm.reportScroll(delta > 0 ? "down" : "up", offset)
+	}
+	const handleScroll = () => {
+		if (timer === null) timer = setTimeout(report, SCROLL_REPORT_MS)
+	}
+	view.scrollDOM.addEventListener("scroll", handleScroll, { passive: true })
+	return () => {
+		if (timer !== null) clearTimeout(timer)
+		view.scrollDOM.removeEventListener("scroll", handleScroll)
+	}
+}
+
+function revealLine(view: EditorRuntimeView, line: number): void {
+	const lineNumber = Math.min(Math.max(line + 1, 1), view.state.doc.lines)
+	const position = view.state.doc.line(lineNumber).from
+	view.dispatch({
+		selection: { anchor: position },
+		effects: [],
+		scrollIntoView: true,
+	})
+}
 
 function toWorkspaceCursor(cursor: CursorInfo): WorkspaceCursor {
 	return { column: cursor.col, line: cursor.line, offset: cursor.offset }
@@ -75,6 +125,7 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 	const [assetLoads] = useState(() => new Set<string>())
 	const sendRef = useRef(send)
 	const viewRef = useRef<EditorRuntimeView | null>(null)
+	const stopScrollWatchRef = useRef<(() => void) | null>(null)
 	const documentRef = useRef<WorkspaceDocument | null>(null)
 	const closedFilePathsRef = useRef(new Set<string>())
 	const pendingCommitRef = useRef<PendingCommit | null>(null)
@@ -97,6 +148,7 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 
 	const [extraExtensions] = useState<EditorExtensionFactory[]>(() => [
 		createFrontmatterExtension({ initialError: null, initialMeta: {} }),
+		(runtime) => searchHighlightExtension(runtime),
 		async () => (readOnlyRef.current ? await readonlyExtension() : []),
 		(runtime) =>
 			slashCommandExtension(runtime, {
@@ -121,12 +173,6 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 
 	function handleCursorChange(cursor: CursorInfo) {
 		pendingCursorRef.current = toWorkspaceCursor(cursor)
-	}
-
-	function executeEditorCommand(commandId: string) {
-		const view = viewRef.current
-		if (view && runMobileEditorCommand(commandId, view, "api")) return
-		void realm.executeNativeCommand(commandId)
 	}
 
 	function resolveImageUrl(src: string, currentFilePath: string): string {
@@ -155,6 +201,8 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 
 	function handleViewReady(view: EditorRuntimeView) {
 		viewRef.current = view
+		stopScrollWatchRef.current?.()
+		stopScrollWatchRef.current = watchScroll(view)
 		setMobileEditorCommandView(view)
 		setEditorViewRef(view as never)
 		const current = documentRef.current
@@ -245,6 +293,35 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 				},
 				flushPendingCommit: () => flushPendingCommitRef.current(),
 				getFilePath: () => documentRef.current?.filePath ?? null,
+				runCommand(commandId, payload) {
+					const view = viewRef.current
+					if (!view) return
+					switch (commandId) {
+						case MOBILE_BLUR_COMMAND:
+							view.contentDOM.blur()
+							return
+						case MOBILE_FOCUS_COMMAND:
+							view.focus()
+							return
+						case MOBILE_SLASH_COMMAND:
+							view.focus()
+							view.dispatch(view.state.replaceSelection("/"))
+							return
+						case MOBILE_REVEAL_LINE_COMMAND:
+							if (typeof payload === "number") revealLine(view, payload)
+							return
+						default:
+							runMobileEditorCommand(commandId, view, "api")
+					}
+				},
+				async find(query, direction): Promise<WorkspaceFindResult> {
+					const view = viewRef.current
+					if (!view) return { current: 0, total: 0 }
+					const state = direction
+						? await stepSearchHighlight(view, direction === "next" ? 1 : -1)
+						: await setSearchHighlight(view, query || null)
+					return { current: state.total === 0 ? 0 : state.index + 1, total: state.total }
+				},
 			},
 		)
 		const flush = () => void flushPendingCommitRef.current()
@@ -254,6 +331,8 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 			window.removeEventListener("blur", flush)
 			window.removeEventListener("pagehide", flush)
 			disconnect()
+			stopScrollWatchRef.current?.()
+			stopScrollWatchRef.current = null
 			setEditorViewRef(null)
 			setMobileEditorCommandView(null)
 		}
@@ -293,22 +372,39 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 			data-document-revision={activeDocument.revision}
 			style={workspace.themeTokens as CSSProperties}
 		>
-			<div className="mobile-code-mirror-toolbar">
-				<span className="mobile-code-mirror-title">{activeDocument.filePath}</span>
-				{mobileEditorToolbarItems.map((item) => (
+			{editorConfig.readOnly ? null : (
+				<div className="mobile-code-mirror-properties">
 					<button
-						aria-label={item.label}
-						className="mobile-code-mirror-action"
-						disabled={editorConfig.readOnly}
-						key={item.id}
-						onClick={() => executeEditorCommand(item.id)}
-						title={item.label}
+						className="mobile-code-mirror-properties-title"
+						onClick={() => realm.openProperties("values")}
 						type="button"
 					>
-						{item.shortLabel}
+						Properties
 					</button>
-				))}
-			</div>
+					{Object.entries(activeDocument.frontmatterMeta)
+						.filter(([key]) => !HIDDEN_PROPERTY_KEYS.has(key))
+						.map(([key, value]) => (
+							<button
+								className="mobile-code-mirror-property"
+								key={key}
+								onClick={() => realm.openProperties("values", key)}
+								type="button"
+							>
+								<span className="mobile-code-mirror-property-key">{key}</span>
+								<span className="mobile-code-mirror-property-value">
+									{formatPropertyValue(value)}
+								</span>
+							</button>
+						))}
+					<button
+						className="mobile-code-mirror-property-add"
+						onClick={() => realm.openProperties("add")}
+						type="button"
+					>
+						+ Add a property
+					</button>
+				</div>
+			)}
 			{activeDocument.frontmatterError ? (
 				<div className="mobile-code-mirror-frontmatter-error">
 					{activeDocument.frontmatterError}

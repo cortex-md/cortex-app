@@ -5,17 +5,10 @@ import {
 	openNoteDocumentSession,
 	useVaultStore,
 } from "@cortex/core"
-import {
-	type NativeStackNavigationProp,
-	Stack,
-	useFocusEffect,
-	useLocalSearchParams,
-	useNavigation,
-} from "expo-router"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { type NativeStackNavigationProp, useFocusEffect, useNavigation } from "expo-router"
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from "react-native"
 
-import { PluginStatusMenu } from "@/features/plugins/PluginStatusMenu"
 import { workspaceChannel } from "@/features/workspace/workspaceChannel"
 import type { WorkspaceDocument } from "@/features/workspace/workspaceProtocol"
 import { useMobileColors } from "@/hooks/useMobileColors"
@@ -36,11 +29,6 @@ const initialNoteScreenState: NoteScreenState = {
 	title: "Editor",
 }
 
-function getParamValue(value: string | string[] | undefined): string | null {
-	if (Array.isArray(value)) return value[0] ?? null
-	return value ?? null
-}
-
 function getNoteTitle(filePath: string, vaultPath: string | undefined): string {
 	return getNotePathPresentation(filePath, vaultPath).title || "Editor"
 }
@@ -55,10 +43,15 @@ function toWorkspaceDocument(snapshot: NoteDocumentSnapshot): WorkspaceDocument 
 	}
 }
 
-/** Placeholder for the persistent workspace WebView, which is laid over this screen's content. */
-export function NoteEditorScreen() {
-	const params = useLocalSearchParams<{ filePath?: string | string[] }>()
-	const filePath = getParamValue(params.filePath)
+export function NoteEditorScreen({
+	bottom,
+	filePath,
+	top,
+}: {
+	bottom?: ReactNode
+	filePath: string | null
+	top?: ReactNode
+}) {
 	const navigation = useNavigation<StackNavigation>()
 	const { colors } = useMobileColors()
 	const vaultPath = useVaultStore((state) => state.vault?.path)
@@ -170,20 +163,13 @@ export function NoteEditorScreen() {
 
 	const loading = Boolean(filePath && screenState.filePath !== filePath && !screenState.error)
 	const displayError = filePath ? screenState.error : "No note was selected."
-	const displayTitle = filePath
-		? screenState.filePath === filePath
-			? screenState.title
-			: getNoteTitle(filePath, vaultPath)
-		: "Editor"
-
 	return (
 		<KeyboardAvoidingView
 			behavior={Platform.OS === "ios" ? "padding" : undefined}
 			keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
 			style={[styles.root, { backgroundColor: colors.background }]}
 		>
-			<Stack.Screen options={{ title: displayTitle }} />
-			<PluginStatusMenu />
+			{top}
 			{loading || displayError || !filePath ? (
 				<View style={styles.messageFrame}>
 					<Text selectable style={[styles.messageTitle, { color: colors.label }]}>
@@ -201,6 +187,7 @@ export function NoteEditorScreen() {
 					style={styles.editorFrame}
 				/>
 			)}
+			{bottom}
 		</KeyboardAvoidingView>
 	)
 }
