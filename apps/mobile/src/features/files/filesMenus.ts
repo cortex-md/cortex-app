@@ -1,21 +1,6 @@
-import {
-	ArrowDownAZ,
-	Clock,
-	Download,
-	FolderInput,
-	FolderPlus,
-	LayoutTemplate,
-	SquareCheck,
-	SquarePen,
-	Table2,
-	Terminal,
-	Trash2,
-	SlidersHorizontal,
-} from "lucide-react-native"
 import { Platform } from "react-native"
 
 import type { MenuGroup, MenuItem } from "@/components/ui/menuTypes"
-import { toast } from "@/features/feedback/useToast"
 import { type FilesSortOrder, filesSortLabels, setFilesSortOrder } from "@/features/files/filesSort"
 import { openSettings, presentSheet } from "@/features/navigation/routes"
 
@@ -32,94 +17,89 @@ export function buildCreateMenuGroups({ onNewFolder, onNewNote }: CreateMenuHand
 			{
 				key: "note",
 				label: "Note",
-				icon: { sf: "square.and.pencil", Lucide: SquarePen },
+				icon: { sf: "square.and.pencil", md: "edit_square" },
 				onPress: onNewNote,
 			},
 			{
 				key: "note-from-template",
-				label: IS_IOS ? "Note from template…" : "Note from template",
-				icon: { sf: "doc.badge.plus", Lucide: LayoutTemplate },
+				label: IS_IOS ? "Note from Template…" : "Note from template",
+				icon: { sf: "doc.badge.plus", md: "note_add" },
 				onPress: () => presentSheet("from-template"),
 			},
 			{
 				key: "database",
 				label: "Database",
-				icon: { sf: "tablecells", Lucide: Table2 },
+				icon: { sf: "tablecells", md: "table" },
 				onPress: () => presentSheet("db-new"),
 			},
 			{
 				key: "folder",
 				label: "Folder",
-				icon: { sf: "folder.badge.plus", Lucide: FolderPlus },
+				icon: { sf: "folder.badge.plus", md: "create_new_folder" },
 				onPress: onNewFolder,
 			},
 		],
 		[
 			{
 				key: "folder-to-database",
-				label: IS_IOS ? "Turn a folder into a database" : "Folder to database",
-				icon: { sf: "arrow.down.doc", Lucide: FolderInput },
+				label: IS_IOS ? "Turn a Folder into a Database" : "Folder to database",
+				icon: { sf: "arrow.down.doc", md: "move_to_inbox" },
 				onPress: () => presentSheet("db-new", { source: "folder" }),
 			},
 			{
 				key: "import",
 				label: IS_IOS ? "Import…" : "Import",
-				subtitle: IS_IOS ? "CSV, HTML or PDF" : undefined,
-				icon: { sf: "square.and.arrow.down", Lucide: Download },
+				icon: { sf: "square.and.arrow.down", md: "download" },
 				onPress: () => presentSheet("import"),
 			},
 		],
 	]
 }
 
-export function buildFilesMoreMenuGroups(sortOrder: FilesSortOrder): MenuGroup[] {
+export function buildFilesMoreMenuGroups(sortOrder: FilesSortOrder, isRoot: boolean): MenuGroup[] {
 	const sortItems: MenuItem[] = (["name", "edited"] as const).map((order) => ({
 		key: `sort-${order}`,
 		label: filesSortLabels[order],
 		checked: sortOrder === order,
 		icon:
 			order === "name"
-				? { sf: "textformat.abc", Lucide: ArrowDownAZ }
-				: { sf: "clock", Lucide: Clock },
+				? { sf: "textformat.abc", md: "sort_by_alpha" }
+				: { sf: "clock", md: "schedule" },
 		onPress: () => setFilesSortOrder(order),
 	}))
-	return [
-		[
-			{
-				key: "select",
-				label: "Select",
-				icon: { sf: "checkmark.circle", Lucide: SquareCheck },
-				onPress: () => toast("Swipe a note to bookmark or delete it"),
-			},
-		],
+	const groups: MenuGroup[] = [
 		sortItems,
 		[
 			{
 				key: "command-palette",
-				label: "Command palette",
-				icon: { sf: "terminal", Lucide: Terminal },
+				label: IS_IOS ? "Command Palette" : "Command palette",
+				icon: { sf: "command", md: "terminal" },
 				onPress: () => presentSheet("command-palette"),
 			},
 			{
-				key: "import",
-				label: "Import…",
-				icon: { sf: "square.and.arrow.down", Lucide: Download },
-				onPress: () => presentSheet("import"),
+				key: "deleted-notes",
+				label: IS_IOS ? "Deleted Notes" : "Deleted notes",
+				icon: { sf: "trash", md: "delete" },
+				onPress: () => openSettings("deleted-notes"),
 			},
 		],
+	]
+	if (!isRoot) return groups
+	return [
 		[
 			{
-				key: "deleted-notes",
-				label: "Deleted notes",
-				icon: { sf: "trash", Lucide: Trash2 },
-				onPress: () => openSettings("deleted-notes"),
+				key: "switch-vault",
+				label: IS_IOS ? "Switch Vault…" : "Switch vault",
+				icon: { sf: "arrow.left.arrow.right", md: "swap_horiz" },
+				onPress: () => presentSheet("vault-switcher"),
 			},
 			{
 				key: "vault-settings",
-				label: "Vault settings",
-				icon: { sf: "slider.horizontal.3", Lucide: SlidersHorizontal },
+				label: IS_IOS ? "Vault Settings" : "Vault settings",
+				icon: { sf: "slider.horizontal.3", md: "tune" },
 				onPress: () => openSettings("vaults"),
 			},
 		],
+		...groups,
 	]
 }

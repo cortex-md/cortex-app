@@ -27,7 +27,6 @@ import {
 	type WorkspaceFindResult,
 	type WorkspaceInboundMessage,
 	type WorkspaceOutboundMessage,
-	type WorkspaceScrollDirection,
 	type WorkspaceServiceCall,
 	type WorkspaceState,
 } from "@/features/workspace/workspaceProtocol"
@@ -393,9 +392,6 @@ export function createWorkspaceRealm() {
 		reportCursor(cursor: WorkspaceCursor): void {
 			send({ type: "cursor", cursor })
 		},
-		reportScroll(direction: WorkspaceScrollDirection, offset: number): void {
-			if (sender) send({ type: "scroll", direction, offset })
-		},
 		resolveAssetUrl(path: string): Promise<string> {
 			return requestNative((id) => ({
 				type: "platformCall",
@@ -404,9 +400,6 @@ export function createWorkspaceRealm() {
 				method: "resolveFileAssetUrl",
 				args: [path],
 			}))
-		},
-		openProperties(step?: string, key?: string): void {
-			if (sender) fireService({ kind: "openProperties", step, key })
 		},
 		executeNativeCommand(commandId: string, payload: JsonValue = null): Promise<void> {
 			return afterPendingCommit(async () => send({ type: "command", commandId, payload }))

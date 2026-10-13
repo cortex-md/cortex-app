@@ -1,30 +1,11 @@
-import type { FileEntry } from "@cortex/platform"
 import type { Dispatch } from "react"
 
-export type TextSheetAction =
-	| { kind: "create-note"; parentPath: string }
-	| { kind: "create-folder"; parentPath: string }
-	| { kind: "rename"; entry: FileEntry }
-	| null
-
 export interface SidebarUiState {
-	entryActionsEntry: FileEntry | null
 	expandedFolders: ReadonlySet<string>
-	moveEntry: FileEntry | null
-	moveError: string | null
-	submitting: boolean
-	textAction: TextSheetAction
-	textError: string | null
 }
 
 export type SidebarUiAction =
-	| { type: "set-entry-actions-entry"; entry: FileEntry | null }
 	| { type: "set-expanded-folders"; folders: ReadonlySet<string> }
-	| { type: "set-move-entry"; entry: FileEntry | null }
-	| { type: "set-move-error"; error: string | null }
-	| { type: "set-submitting"; submitting: boolean }
-	| { type: "set-text-action"; action: TextSheetAction }
-	| { type: "set-text-error"; error: string | null }
 	| { type: "toggle-folder"; path: string }
 
 export interface SidebarUi {
@@ -34,51 +15,18 @@ export interface SidebarUi {
 }
 
 export const initialSidebarUiState: SidebarUiState = {
-	entryActionsEntry: null,
 	expandedFolders: new Set(),
-	moveEntry: null,
-	moveError: null,
-	submitting: false,
-	textAction: null,
-	textError: null,
 }
 
 export function sidebarUiReducer(state: SidebarUiState, action: SidebarUiAction): SidebarUiState {
 	switch (action.type) {
-		case "set-entry-actions-entry":
-			return { ...state, entryActionsEntry: action.entry }
 		case "set-expanded-folders":
 			return { ...state, expandedFolders: action.folders }
-		case "set-move-entry":
-			return { ...state, moveEntry: action.entry, moveError: null }
-		case "set-move-error":
-			return { ...state, moveError: action.error }
-		case "set-submitting":
-			return { ...state, submitting: action.submitting }
-		case "set-text-action":
-			return { ...state, textAction: action.action, textError: null }
-		case "set-text-error":
-			return { ...state, textError: action.error }
 		case "toggle-folder": {
 			const expandedFolders = new Set(state.expandedFolders)
 			if (expandedFolders.has(action.path)) expandedFolders.delete(action.path)
 			else expandedFolders.add(action.path)
 			return { ...state, expandedFolders }
 		}
-	}
-}
-
-export async function runSubmittingTask(
-	dispatchUi: Dispatch<SidebarUiAction>,
-	task: () => Promise<void>,
-	onError: (error: unknown) => Promise<void> | void,
-): Promise<void> {
-	dispatchUi({ submitting: true, type: "set-submitting" })
-	try {
-		await task()
-	} catch (error) {
-		await onError(error)
-	} finally {
-		dispatchUi({ submitting: false, type: "set-submitting" })
 	}
 }

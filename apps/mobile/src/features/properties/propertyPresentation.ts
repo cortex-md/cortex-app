@@ -7,14 +7,13 @@ import {
 	resolvePropertyOption,
 } from "@cortex/properties"
 
-import type { StatusTone } from "@/components/ui/StatusPill"
+import type { SymbolName } from "@/components/ui/Symbol"
 import { listVaultMembers } from "@/features/collab/collabAdapter"
-import type { MobileColors } from "@/theme/colors"
 
-export type PropertyStep =
-	| "values"
+export type PropertyRouteName =
 	| "add"
-	| "settings"
+	| "edit"
+	| "value"
 	| "select"
 	| "option"
 	| "person"
@@ -32,27 +31,40 @@ export const AUTOMATIC_TYPES = new Set([
 export interface CreatableType {
 	type: string
 	label: string
+	icon: SymbolName
 }
 
 export const CREATABLE_TYPES: CreatableType[] = [
-	{ type: "text", label: "Text" },
-	{ type: "number", label: "Number" },
-	{ type: "select", label: "Select" },
-	{ type: "person", label: "Person" },
-	{ type: "date", label: "Date" },
-	{ type: "checkbox", label: "Checkbox" },
-	{ type: "url", label: "URL" },
-	{ type: "email", label: "Email" },
-	{ type: "phone", label: "Phone" },
+	{ type: "text", label: "Text", icon: { sf: "textformat", md: "notes" } },
+	{ type: "number", label: "Number", icon: { sf: "number", md: "numbers" } },
+	{
+		type: "select",
+		label: "Select",
+		icon: { sf: "list.bullet.circle", md: "arrow_drop_down_circle" },
+	},
+	{ type: "person", label: "Person", icon: { sf: "person", md: "person" } },
+	{ type: "date", label: "Date", icon: { sf: "calendar", md: "calendar_today" } },
+	{ type: "checkbox", label: "Checkbox", icon: { sf: "checkmark.square", md: "check_box" } },
+	{ type: "url", label: "URL", icon: { sf: "link", md: "link" } },
+	{ type: "email", label: "Email", icon: { sf: "envelope", md: "mail" } },
+	{ type: "phone", label: "Phone", icon: { sf: "phone", md: "call" } },
 ]
 
 export const AUTOMATIC_CREATABLE: CreatableType[] = [
-	{ type: "created_time", label: "Created time" },
-	{ type: "created_by", label: "Created by" },
-	{ type: "last_edited_time", label: "Last edited time" },
+	{ type: "created_time", label: "Created time", icon: { sf: "clock", md: "schedule" } },
+	{
+		type: "created_by",
+		label: "Created by",
+		icon: { sf: "person.crop.circle", md: "account_circle" },
+	},
+	{
+		type: "last_edited_time",
+		label: "Last edited time",
+		icon: { sf: "clock.arrow.circlepath", md: "history" },
+	},
 ]
 
-export const COLOR_SWATCHES: { color: PropertyColor; label: string }[] = [
+export const COLOR_OPTIONS: { color: PropertyColor; label: string }[] = [
 	{ color: "gray", label: "Gray" },
 	{ color: "pink", label: "Rose" },
 	{ color: "blue", label: "Blue" },
@@ -63,42 +75,16 @@ export const COLOR_SWATCHES: { color: PropertyColor; label: string }[] = [
 	{ color: "teal", label: "Teal" },
 ]
 
-export function swatchColor(color: PropertyColor, colors: MobileColors): string {
-	switch (color) {
-		case "pink":
-			return colors.tintFill
-		case "blue":
-			return colors.headingBlue
-		case "purple":
-			return colors.headingViolet
-		case "green":
-			return colors.swatchGreen
-		case "amber":
-			return colors.swatchYellow
-		case "red":
-			return colors.swatchRed
-		case "teal":
-			return colors.success
-		default:
-			return colors.tertiaryLabel
-	}
-}
+const TAGS_ICON: SymbolName = { sf: "tag", md: "sell" }
+const LOCK_ICON: SymbolName = { sf: "lock", md: "lock" }
 
-export function optionTone(color: PropertyColor): StatusTone {
-	switch (color) {
-		case "green":
-		case "teal":
-			return "done"
-		case "amber":
-		case "red":
-			return "review"
-		case "blue":
-		case "pink":
-		case "purple":
-			return "progress"
-		default:
-			return "backlog"
-	}
+export function getTypeIcon(type: string): SymbolName {
+	const known = [...CREATABLE_TYPES, ...AUTOMATIC_CREATABLE].find((item) => item.type === type)
+	if (known) return known.icon
+	if (AUTOMATIC_TYPES.has(type)) return LOCK_ICON
+	const baseType = getPropertyType(type)?.baseType
+	if (baseType === "tags") return TAGS_ICON
+	return CREATABLE_TYPES.find((item) => item.type === baseType)?.icon ?? CREATABLE_TYPES[0].icon
 }
 
 export function getTypeLabel(type: string): string {
@@ -109,8 +95,7 @@ export function getBaseType(definition: PropertyDefinition): string {
 	return getPropertyType(definition.type)?.baseType ?? definition.type
 }
 
-export function stepForDefinition(definition: PropertyDefinition | null): PropertyStep {
-	if (!definition) return "values"
+export function routeForDefinition(definition: PropertyDefinition): PropertyRouteName | null {
 	if (AUTOMATIC_TYPES.has(definition.type)) return "auto"
 	switch (getBaseType(definition)) {
 		case "select":
@@ -119,14 +104,17 @@ export function stepForDefinition(definition: PropertyDefinition | null): Proper
 			return "person"
 		case "date":
 			return "date"
+		case "checkbox":
+			return null
 		default:
-			return "values"
+			return "value"
 	}
 }
 
 export function formatDate(value: unknown): string | null {
 	const date = parsePropertyDate(value)
-	if (date) return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+	if (date)
+		return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 	if (typeof value === "string" && !Number.isNaN(Date.parse(value))) {
 		const parsed = new Date(value)
 		return `${parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} at ${parsed.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`

@@ -10,16 +10,16 @@ import { Stack, useLocalSearchParams } from "expo-router"
 import { useEffect, useState } from "react"
 import { Keyboard, Platform } from "react-native"
 
-import { type CollabNoteSession, useCollabNoteSession } from "@/features/collab/collabAdapter"
+import { useCollabNoteSession } from "@/features/collab/collabAdapter"
 import { PresenceRow } from "@/features/collab/PresenceRow"
-import { useOpenCommentCount } from "@/features/comments/commentsAdapter"
 import { NoteEditorScreen } from "@/features/editor/NoteEditorScreen"
 import { toast } from "@/features/feedback/useToast"
 import { openNote, presentSheet } from "@/features/navigation/routes"
 import { useHideTabBar } from "@/features/navigation/tabBarVisibility"
 import { FindBar } from "@/features/note/FindBar"
-import { FloatingNoteToolbar } from "@/features/note/FloatingNoteToolbar"
-import { FormattingBar } from "@/features/note/FormattingBar"
+import { KeyboardToolbar } from "@/features/note/KeyboardToolbar"
+import { buildKeyboardToolbar } from "@/features/note/keyboardToolbarItems"
+import { NoteBottomMenu } from "@/features/note/NoteBottomMenu"
 import { type NoteDialog, NoteDialogs } from "@/features/note/NoteDialogs"
 import {
 	buildNoteScreenOptions,
@@ -27,8 +27,12 @@ import {
 	type NoteHeaderState,
 	NoteToolbarIos,
 } from "@/features/note/NoteHeader"
+import { buildNoteBottomMenuGroups } from "@/features/note/noteMenu"
+import { NotePropertiesRow } from "@/features/note/NotePropertiesRow"
 import { type FindInNote, useFindInNote } from "@/features/note/useFindInNote"
 import { useNoteMenu } from "@/features/note/useNoteMenu"
+import { useNotePropertyCount } from "@/features/properties/useNotePropertyCount"
+import { presentInsertTemplate } from "@/features/templates/insertTemplate"
 import { workspaceChannel } from "@/features/workspace/workspaceChannel"
 import { useMobileColors } from "@/hooks/useMobileColors"
 import { triggerSelectionHaptic } from "@/utils/haptics"
@@ -67,7 +71,12 @@ async function createUntitledNote(): Promise<void> {
 	}
 }
 
-function finishEditing(): void {
+function runEditorCommand(commandId: string): void {
+	triggerSelectionHaptic()
+	workspaceChannel.sendCommand(commandId)
+}
+
+function hideKeyboard(): void {
 	workspaceChannel.sendCommand("mobile.blur")
 	Keyboard.dismiss()
 }
@@ -76,28 +85,27 @@ function NoteBottomBar({
 	editing,
 	filePath,
 	find,
-	session,
-	title,
 }: {
 	editing: boolean
 	filePath: string | null
 	find: FindInNote
-	session: CollabNoteSession
-	title: string
 }) {
 	const tabCount = useWorkspaceStore((state) => state.panes[state.activePaneId]?.tabs.length ?? 0)
-	const openCommentCount = useOpenCommentCount(filePath)
 	if (find.open) return IS_IOS ? <FindBar find={find} /> : null
-	if (editing) return <FormattingBar />
+	if (editing) {
+		const toolbar = buildKeyboardToolbar(runEditorCommand, () => {
+			if (filePath) presentInsertTemplate(filePath)
+		})
+		return <KeyboardToolbar {...toolbar} onHideKeyboard={hideKeyboard} />
+	}
 	return (
-		<FloatingNoteToolbar
-			commentCount={session.live ? openCommentCount : null}
-			onComments={() => presentSheet("comments", filePath ? { filePath } : undefined)}
-			onFind={() => presentSheet("quick-finder")}
-			onNewNote={() => void createUntitledNote()}
-			onTabs={() => presentSheet("tabs")}
-			tabCount={tabCount}
-			title={title}
+		<NoteBottomMenu
+			groups={buildNoteBottomMenuGroups({
+				onFind: () => presentSheet("quick-finder"),
+				onNewNote: () => void createUntitledNote(),
+				onTabs: () => presentSheet("tabs"),
+				tabCount,
+			})}
 		/>
 	)
 }
@@ -113,25 +121,28 @@ export function NoteScreen() {
 	const keyboardVisible = useKeyboardVisible()
 	const find = useFindInNote()
 	const session = useCollabNoteSession(filePath)
+	const propertyCount = useNotePropertyCount(filePath)
 	const [dialog, setDialog] = useState<NoteDialog>("none")
 	const title = (filePath && getNotePathPresentation(filePath, vaultPath).title) || "Note"
 	const relativePath = filePath && vaultPath ? (toVaultRelativePath(filePath, vaultPath) ?? "") : ""
 	const editing = keyboardVisible && !find.open && mode !== "reading"
 	const modePresentation = getModePresentation(mode)
-	const menuGroups = useNoteMenu({ filePath, onDialog: setDialog, onFind: find.show, relativePath, title })
+	const menuGroups = useNoteMenu({
+		filePath,
+		onDialog: setDialog,
+		onFind: find.show,
+		relativePath,
+		title,
+	})
 	const headerState: NoteHeaderState = {
 		colors,
-		editing,
 		find,
-		live: session.live,
-		liveCount: session.presence.length,
 		menuGroups,
 		mode: modePresentation,
 		onCycleMode: () => {
 			triggerSelectionHaptic()
 			setMode(modePresentation.next)
 		},
-		onDone: finishEditing,
 		title,
 	}
 
@@ -140,23 +151,24 @@ export function NoteScreen() {
 			<Stack.Screen options={buildNoteScreenOptions(headerState, IS_IOS)} />
 			{IS_IOS ? <NoteToolbarIos state={headerState} /> : null}
 			<NoteEditorScreen
-				bottom={
-					<NoteBottomBar
-						editing={editing}
-						filePath={filePath}
-						find={find}
-						session={session}
-						title={title}
-					/>
-				}
+				bottom={<NoteBottomBar editing={editing} filePath={filePath} find={find} />}
 				filePath={filePath}
-				top={session.live && !editing ? <PresenceRow session={session} /> : null}
+				top={
+					editing ? null : (
+						<>
+							{session.live ? <PresenceRow session={session} /> : null}
+							<NotePropertiesRow
+								count={propertyCount}
+								onPress={() => presentSheet("properties", filePath ? { filePath } : undefined)}
+							/>
+						</>
+					)
+				}
 			/>
 			<NoteDialogs
 				dialog={dialog}
 				filePath={filePath}
 				onClose={() => setDialog("none")}
-				relativePath={relativePath}
 				title={title}
 			/>
 		</>

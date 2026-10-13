@@ -1,9 +1,9 @@
 import { retainDatabase } from "@cortex/core"
-import { ChevronRight, Table2 } from "lucide-react-native"
 import { useEffect } from "react"
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 
 import { StatusPill, statusToneFromLabel } from "@/components/ui/StatusPill"
+import { Symbol } from "@/components/ui/Symbol"
 import { DATABASE_PREVIEW_ROWS, type FilesDatabaseItem } from "@/features/files/useFilesScreenModel"
 import { openDatabase, openNote } from "@/features/navigation/routes"
 import { useMobileColors } from "@/hooks/useMobileColors"
@@ -45,7 +45,11 @@ export function DatabaseItemRows({
 					style={({ pressed }) => [styles.main, { opacity: pressed ? 0.6 : 1 }]}
 				>
 					<View style={[styles.tile, { backgroundColor: colors.accentSubtle }]}>
-						<Table2 color={colors.tint} size={IS_IOS ? 20 : 22} strokeWidth={2} />
+						<Symbol
+							color={colors.tint}
+							name={{ sf: "tablecells", md: "table" }}
+							size={IS_IOS ? 20 : 22}
+						/>
 					</View>
 					<View style={styles.body}>
 						<Text numberOfLines={1} style={[styles.title, { color: colors.label }]}>
@@ -67,11 +71,14 @@ export function DatabaseItemRows({
 					}}
 					style={styles.chevronButton}
 				>
-					<ChevronRight
+					<Symbol
 						color={colors.tertiaryLabel}
-						size={IS_IOS ? 18 : 24}
-						strokeWidth={2.4}
-						style={expanded ? styles.chevronOpen : undefined}
+						name={
+							expanded
+								? { sf: "chevron.down", md: "keyboard_arrow_down" }
+								: { sf: "chevron.right", md: "keyboard_arrow_right" }
+						}
+						size={IS_IOS ? 14 : 24}
 					/>
 				</Pressable>
 			</View>
@@ -103,7 +110,7 @@ export function DatabaseItemRows({
 					style={({ pressed }) => [styles.child, { opacity: pressed ? 0.6 : 1 }]}
 				>
 					<Text numberOfLines={1} style={[styles.childTitle, { color: colors.tint }]}>
-						{`+ ${remaining} more · open database`}
+						{`${remaining} more`}
 					</Text>
 				</Pressable>
 			) : null}
@@ -122,9 +129,6 @@ const styles = StyleSheet.create({
 		height: 44,
 		justifyContent: "center",
 		width: 44,
-	},
-	chevronOpen: {
-		transform: [{ rotate: "90deg" }],
 	},
 	child: {
 		alignItems: "center",

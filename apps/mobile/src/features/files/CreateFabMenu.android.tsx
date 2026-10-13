@@ -1,10 +1,10 @@
 import { Host } from "@expo/ui"
 import { ExtendedFloatingActionButton, RNHostView, Text } from "@expo/ui/jetpack-compose"
-import { Plus, X } from "lucide-react-native"
 import { useState } from "react"
 import { Pressable, StyleSheet, Text as RNText, View } from "react-native"
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from "react-native-reanimated"
 
+import { Symbol } from "@/components/ui/Symbol"
 import type { CreateFabMenuProps } from "@/features/files/CreateFabMenu"
 import { useMobileColors } from "@/hooks/useMobileColors"
 import { triggerSelectionHaptic } from "@/utils/haptics"
@@ -37,24 +37,21 @@ export function CreateFabMenu({ groups }: CreateFabMenuProps) {
 						exiting={SlideOutDown.duration(180)}
 						style={styles.speedDial}
 					>
-						{items.map((item) => {
-							const Icon = item.icon?.Lucide
-							return (
-								<Pressable
-									accessibilityRole="button"
-									android_ripple={{ color: colors.hover }}
-									key={item.key}
-									onPress={() => {
-										setOpen(false)
-										item.onPress()
-									}}
-									style={[styles.pill, { backgroundColor: colors.accentSubtle }]}
-								>
-									{Icon ? <Icon color={colors.tint} size={22} strokeWidth={2} /> : null}
-									<RNText style={[styles.pillLabel, { color: colors.tint }]}>{item.label}</RNText>
-								</Pressable>
-							)
-						})}
+						{items.map((item) => (
+							<Pressable
+								accessibilityRole="button"
+								android_ripple={{ color: colors.hover }}
+								key={item.key}
+								onPress={() => {
+									setOpen(false)
+									item.onPress()
+								}}
+								style={[styles.pill, { backgroundColor: colors.accentSubtle }]}
+							>
+								{item.icon ? <Symbol color={colors.tint} name={item.icon} size={22} /> : null}
+								<RNText style={[styles.pillLabel, { color: colors.tint }]}>{item.label}</RNText>
+							</Pressable>
+						))}
 					</Animated.View>
 				) : null}
 				<Host matchContents>
@@ -66,11 +63,11 @@ export function CreateFabMenu({ groups }: CreateFabMenuProps) {
 						<ExtendedFloatingActionButton.Icon>
 							<RNHostView matchContents>
 								<View style={styles.fabIcon}>
-									{open ? (
-										<X color={colors.tint} size={24} strokeWidth={2.2} />
-									) : (
-										<Plus color={colors.tint} size={24} strokeWidth={2.2} />
-									)}
+									<Symbol
+										color={colors.tint}
+										name={open ? { sf: "xmark", md: "close" } : { sf: "plus", md: "add" }}
+										size={24}
+									/>
 								</View>
 							</RNHostView>
 						</ExtendedFloatingActionButton.Icon>

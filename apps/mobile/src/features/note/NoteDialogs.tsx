@@ -25,13 +25,11 @@ export function NoteDialogs({
 	dialog,
 	filePath,
 	onClose,
-	relativePath,
 	title,
 }: {
 	dialog: NoteDialog
 	filePath: string | null
 	onClose: () => void
-	relativePath: string
 	title: string
 }) {
 	const renameFile = useVaultStore((state) => state.renameFile)
@@ -66,7 +64,6 @@ export function NoteDialogs({
 					confirmLabel="Rename"
 					error={renameError}
 					initialValue={title}
-					message={relativePath}
 					onCancel={close}
 					onChangeText={() => setRenameError(null)}
 					onConfirm={(value) => void handleRename(value)}

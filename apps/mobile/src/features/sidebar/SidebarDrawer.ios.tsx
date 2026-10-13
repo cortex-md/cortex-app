@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactNode, RefObject } from "react"
-import { Animated, StyleSheet, useWindowDimensions, View } from "react-native"
+import { Animated, StyleSheet, useWindowDimensions } from "react-native"
 import DrawerLayout from "react-native-gesture-handler/DrawerLayout"
 
 import { useMobileColors } from "@/hooks/useMobileColors"
@@ -21,7 +21,7 @@ export function SidebarDrawer({ children, drawerRef, renderContent }: SidebarDra
 	return (
 		<DrawerLayout
 			ref={drawerRef}
-			drawerBackgroundColor={colors.groupedBackground}
+			drawerBackgroundColor={colors.sidebarBackground}
 			drawerLockMode="unlocked"
 			drawerPosition="left"
 			drawerType="back"
@@ -34,7 +34,7 @@ export function SidebarDrawer({ children, drawerRef, renderContent }: SidebarDra
 					style={[
 						styles.drawer,
 						{
-							backgroundColor: colors.groupedBackground,
+							backgroundColor: colors.sidebarBackground,
 							opacity: progress.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }),
 							transform: [
 								{ translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [-32, 0] }) },
@@ -47,49 +47,59 @@ export function SidebarDrawer({ children, drawerRef, renderContent }: SidebarDra
 			)}
 			useNativeAnimations
 		>
-			{(openValue) => (
-				<Animated.View
-					style={[
-						styles.content,
-						{
-							backgroundColor: colors.groupedBackground,
-							borderRadius: openValue
-								? openValue.interpolate({
-										extrapolate: "clamp",
-										inputRange: [0, 0.25, 1],
-										outputRange: [0, CONTENT_RADIUS, CONTENT_RADIUS],
-									})
-								: 0,
-							boxShadow: `-12px 0 40px ${colors.shadow}`,
-						},
-					]}
-				>
-					<View style={styles.content}>{children}</View>
+			{(openValue) => {
+				const radius = openValue
+					? openValue.interpolate({
+							extrapolate: "clamp",
+							inputRange: [0, 0.25, 1],
+							outputRange: [0, CONTENT_RADIUS, CONTENT_RADIUS],
+						})
+					: 0
+				return (
 					<Animated.View
-						pointerEvents="none"
 						style={[
-							StyleSheet.absoluteFill,
-							{
-								backgroundColor: colors.scrim,
-								opacity: openValue
-									? openValue.interpolate({ inputRange: [0, 1], outputRange: [0, 0.55] })
-									: 0,
-							},
+							styles.frame,
+							{ borderRadius: radius, boxShadow: `-12px 0 40px ${colors.shadow}` },
 						]}
-					/>
-				</Animated.View>
-			)}
+					>
+						<Animated.View
+							style={[
+								styles.clip,
+								{ backgroundColor: colors.groupedBackground, borderRadius: radius },
+							]}
+						>
+							{children}
+							<Animated.View
+								pointerEvents="none"
+								style={[
+									StyleSheet.absoluteFill,
+									{
+										backgroundColor: colors.scrim,
+										opacity: openValue
+											? openValue.interpolate({ inputRange: [0, 1], outputRange: [0, 0.6] })
+											: 0,
+									},
+								]}
+							/>
+						</Animated.View>
+					</Animated.View>
+				)
+			}}
 		</DrawerLayout>
 	)
 }
 
 const styles = StyleSheet.create({
-	content: {
+	clip: {
 		borderCurve: "continuous",
 		flex: 1,
 		overflow: "hidden",
 	},
 	drawer: {
+		flex: 1,
+	},
+	frame: {
+		borderCurve: "continuous",
 		flex: 1,
 	},
 })

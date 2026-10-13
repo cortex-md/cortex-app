@@ -1,19 +1,9 @@
 import { resolveSyncIndicatorStatus, useSyncStore } from "@cortex/core"
-import {
-	CloudCheck,
-	CloudOff,
-	History,
-	type LucideIcon,
-	ReceiptText,
-	RefreshCw,
-	Settings,
-	Trash2,
-	TriangleAlert,
-} from "lucide-react-native"
 import { Platform, StyleSheet, View } from "react-native"
 
 import type { MenuGroup } from "@/components/ui/menuTypes"
 import { NativeMenu } from "@/components/ui/NativeMenu"
+import { Symbol, type SymbolName } from "@/components/ui/Symbol"
 import { toast } from "@/features/feedback/useToast"
 import { openSettings, openVersionHistory } from "@/features/navigation/routes"
 import { getSyncMenuHeader, syncNow } from "@/features/sync/syncAdapter"
@@ -21,9 +11,10 @@ import { useMobileColors } from "@/hooks/useMobileColors"
 import type { MobileColors } from "@/theme/colors"
 
 const IS_IOS = Platform.OS === "ios"
+const SYNCED_ICON: SymbolName = { sf: "checkmark.icloud", md: "cloud_done" }
 
 interface ChipPresentation {
-	Icon: LucideIcon
+	icon: SymbolName
 	label: string
 	color: (colors: MobileColors) => string
 }
@@ -45,23 +36,27 @@ export function useSyncChipPresentation(): ChipPresentation {
 		lastSyncedAt,
 	})
 	if (!indicator) {
-		return { Icon: CloudCheck, label: "Synced", color: (colors) => colors.successText }
+		return { icon: SYNCED_ICON, label: "Synced", color: (colors) => colors.successText }
 	}
 	switch (indicator.kind) {
 		case "offline":
-			return { Icon: CloudOff, label: "Offline", color: (colors) => colors.warningText }
+			return {
+				icon: { sf: "icloud.slash", md: "cloud_off" },
+				label: "Offline",
+				color: (colors) => colors.warningText,
+			}
 		case "error":
 		case "denied":
 			return {
-				Icon: TriangleAlert,
+				icon: { sf: "exclamationmark.icloud", md: "sync_problem" },
 				label: indicator.label,
 				color: (colors) => colors.destructiveText,
 			}
 		case "synced":
-			return { Icon: CloudCheck, label: "Synced", color: (colors) => colors.successText }
+			return { icon: SYNCED_ICON, label: "Synced", color: (colors) => colors.successText }
 		default:
 			return {
-				Icon: RefreshCw,
+				icon: { sf: "arrow.triangle.2.circlepath.icloud", md: "sync" },
 				label: indicator.busy ? "Syncing…" : indicator.label,
 				color: (colors) => colors.secondaryLabel,
 			}
@@ -74,7 +69,7 @@ export function buildSyncMenuGroups(): MenuGroup[] {
 			{
 				key: "sync-now",
 				label: "Sync now",
-				icon: { sf: "arrow.triangle.2.circlepath", Lucide: RefreshCw },
+				icon: { sf: "arrow.triangle.2.circlepath", md: "sync" },
 				onPress: () => {
 					void syncNow().then(
 						() => toast("Syncing with Cortex Cloud"),
@@ -87,27 +82,21 @@ export function buildSyncMenuGroups(): MenuGroup[] {
 			{
 				key: "sync-logs",
 				label: "Sync logs",
-				icon: { sf: "list.bullet.rectangle", Lucide: ReceiptText },
+				icon: { sf: "list.bullet.rectangle", md: "receipt_long" },
 				onPress: () => openSettings("sync-logs"),
 			},
 			{
 				key: "version-history",
 				label: "Version history",
-				icon: { sf: "clock.arrow.circlepath", Lucide: History },
+				icon: { sf: "clock.arrow.circlepath", md: "history" },
 				onPress: () => openVersionHistory(),
-			},
-			{
-				key: "deleted-notes",
-				label: "Deleted notes",
-				icon: { sf: "arrow.uturn.backward.circle", Lucide: Trash2 },
-				onPress: () => openSettings("deleted-notes"),
 			},
 		],
 		[
 			{
 				key: "sync-settings",
 				label: "Sync settings",
-				icon: { sf: "gearshape", Lucide: Settings },
+				icon: { sf: "gearshape", md: "settings" },
 				onPress: () => openSettings("sync"),
 			},
 		],
@@ -121,13 +110,13 @@ export function SyncChip() {
 	const color = presentation.color(colors)
 
 	return (
-		<View style={[styles.chip, IS_IOS ? null : { backgroundColor: colors.successBackground }]}>
-			<presentation.Icon color={color} size={IS_IOS ? 16 : 18} strokeWidth={2.2} />
+		<View style={[styles.chip, IS_IOS ? null : { backgroundColor: colors.fill }]}>
+			<Symbol color={color} name={presentation.icon} size={IS_IOS ? 16 : 18} />
 			<NativeMenu
 				accessibilityLabel="Sync status"
 				anchorStyle="plain"
 				groups={buildSyncMenuGroups()}
-				header={`Synced ${header.lastSynced.toLowerCase()} · ${header.server}`}
+				header={`Last synced ${header.lastSynced.toLowerCase()} · ${header.server}`}
 				title={presentation.label}
 			/>
 		</View>

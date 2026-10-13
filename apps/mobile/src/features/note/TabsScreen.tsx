@@ -1,149 +1,129 @@
-import { type Tab, useEditorStore, useWorkspaceStore } from "@cortex/core"
-import { router } from "expo-router"
-import { ArrowLeft, Check, FileText, MoreVertical, Plus, Store, X } from "lucide-react-native"
+import { type Tab, useEditorStore, useVaultStore, useWorkspaceStore } from "@cortex/core"
+import { getParentPath, toVaultRelativePath } from "@cortex/platform/utils"
+import { Stack } from "expo-router"
 import { useState } from "react"
 import { FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { EmptyState } from "@/components/ui/EmptyState"
+import { HeaderIconButton } from "@/components/ui/HeaderIconButton"
+import type { MenuGroup } from "@/components/ui/menuTypes"
 import { NativeMenu } from "@/components/ui/NativeMenu"
-import { SearchField } from "@/components/ui/SearchField"
-import { dismissSheet, openNote, openPluginViewRoute, presentSheet } from "@/features/navigation/routes"
+import { Symbol } from "@/components/ui/Symbol"
+import {
+	dismissSheet,
+	openNote,
+	openPluginViewRoute,
+	presentSheet,
+} from "@/features/navigation/routes"
+import { NOTE_MENU_ICON, NOTE_MENU_LABEL } from "@/features/note/noteMenu"
 import { useMobileColors } from "@/hooks/useMobileColors"
-import type { MobileColors } from "@/theme/colors"
 
 const IS_IOS = Platform.OS === "ios"
 const EMPTY_TABS: Tab[] = []
-const SKELETON_WIDTHS = ["86%", "64%", "92%", "48%", "78%", "70%"] as const
 
-function TabPreview({ colors, tab }: { colors: MobileColors; tab: Tab }) {
-	return (
-		<View style={styles.preview}>
-			{tab.tabType === "view" ? (
-				<View style={[styles.viewTile, { backgroundColor: colors.accentSubtle }]}>
-					<Store color={colors.tint} size={28} strokeWidth={1.8} />
-				</View>
-			) : (
-				SKELETON_WIDTHS.map((width, index) => (
-					<View
-						key={index}
-						style={[
-							styles.skeleton,
-							{
-								backgroundColor: index === 0 ? colors.fill2 : colors.fill,
-								height: index === 0 ? 12 : 8,
-								width,
-							},
-						]}
-					/>
-				))
-			)}
-		</View>
-	)
+function tabFolder(tab: Tab, vaultPath: string | null): string | undefined {
+	if (tab.tabType === "view" || !vaultPath) return undefined
+	const folder = toVaultRelativePath(getParentPath(tab.filePath), vaultPath)
+	return folder || undefined
 }
 
-function TabCard({
+function TabRow({
 	active,
+	folder,
 	onClose,
 	onOpen,
 	tab,
 }: {
 	active: boolean
+	folder: string | undefined
 	onClose: () => void
 	onOpen: () => void
 	tab: Tab
 }) {
 	const { colors } = useMobileColors()
-	const Icon = tab.tabType === "view" ? Store : FileText
-
-	if (!IS_IOS) {
-		return (
-			<View style={[styles.androidCard, { backgroundColor: colors.fill }]}>
-				<Pressable
-					android_ripple={{ color: colors.hover }}
-					onPress={onOpen}
-					style={[
-						styles.androidHeader,
-						{ backgroundColor: active ? colors.tintFill : "transparent" },
-					]}
-				>
-					<Icon color={active ? colors.onTint : colors.secondaryLabel} size={18} strokeWidth={2} />
+	const subtitle = tab.isDirty ? (folder ? `${folder} · Unsaved` : "Unsaved") : folder
+	return (
+		<View style={[styles.row, { backgroundColor: colors.cell }]}>
+			<Pressable
+				accessibilityRole="button"
+				accessibilityState={{ selected: active }}
+				android_ripple={{ color: colors.hover }}
+				onPress={onOpen}
+				style={({ pressed }) => [
+					styles.rowMain,
+					{ backgroundColor: pressed && IS_IOS ? colors.hover : "transparent" },
+				]}
+			>
+				<Symbol
+					color={active ? colors.tint : colors.secondaryLabel}
+					name={
+						tab.tabType === "view"
+							? { sf: "square.grid.2x2", md: "grid_view" }
+							: { sf: "doc.text", md: "description" }
+					}
+					size={20}
+				/>
+				<View style={styles.rowText}>
 					<Text
 						numberOfLines={1}
-						style={[styles.androidTitle, { color: active ? colors.onTint : colors.label }]}
+						style={[styles.rowTitle, { color: active ? colors.tint : colors.label }]}
 					>
 						{tab.title}
 					</Text>
-					<Pressable accessibilityLabel={`Close ${tab.title}`} hitSlop={8} onPress={onClose}>
-						<X color={active ? colors.onTint : colors.secondaryLabel} size={18} strokeWidth={2.2} />
-					</Pressable>
-				</Pressable>
-				<Pressable onPress={onOpen} style={[styles.androidBody, { backgroundColor: colors.background }]}>
-					<TabPreview colors={colors} tab={tab} />
-				</Pressable>
-			</View>
-		)
-	}
-
-	return (
-		<View style={styles.iosCardWrap}>
-			<Pressable
-				accessibilityLabel={tab.title}
-				accessibilityRole="button"
-				onPress={onOpen}
-				style={[
-					styles.iosCard,
-					{
-						backgroundColor: colors.background,
-						borderColor: active ? colors.tint : colors.separator,
-						borderWidth: active ? 3 : StyleSheet.hairlineWidth,
-					},
-				]}
-			>
-				<TabPreview colors={colors} tab={tab} />
-				<Pressable
-					accessibilityLabel={`Close ${tab.title}`}
-					hitSlop={6}
-					onPress={onClose}
-					style={[
-						styles.iosClose,
-						{ backgroundColor: colors.glass, borderColor: colors.glassEdge },
-					]}
-				>
-					<X color={colors.label} size={14} strokeWidth={2.6} />
-				</Pressable>
-			</Pressable>
-			<View style={styles.caption}>
-				<Icon color={colors.secondaryLabel} size={14} strokeWidth={2.2} />
-				<Text numberOfLines={1} style={[styles.captionLabel, { color: colors.label }]}>
-					{tab.title}
-				</Text>
-			</View>
-			{tab.isDirty ? (
-				<View style={styles.dirty}>
-					<View style={[styles.dirtyDot, { backgroundColor: colors.warningText }]} />
-					<Text style={[styles.dirtyLabel, { color: colors.secondaryLabel }]}>Unsaved</Text>
+					{subtitle ? (
+						<Text numberOfLines={1} style={[styles.rowSubtitle, { color: colors.secondaryLabel }]}>
+							{subtitle}
+						</Text>
+					) : null}
 				</View>
-			) : null}
+			</Pressable>
+			<Pressable
+				accessibilityLabel={`Close ${tab.title}`}
+				accessibilityRole="button"
+				android_ripple={{ borderless: true, color: colors.hover }}
+				hitSlop={6}
+				onPress={onClose}
+				style={styles.close}
+			>
+				<Symbol
+					color={colors.tertiaryLabel}
+					name={{ sf: "xmark.circle.fill", md: "close" }}
+					size={IS_IOS ? 20 : 22}
+				/>
+			</Pressable>
 		</View>
 	)
 }
 
 export function TabsScreen() {
 	const { colors } = useMobileColors()
-	const insets = useSafeAreaInsets()
 	const activePaneId = useWorkspaceStore((state) => state.activePaneId)
 	const pane = useWorkspaceStore((state) => state.panes[state.activePaneId])
 	const closeTab = useWorkspaceStore((state) => state.closeTab)
 	const closeOtherTabs = useWorkspaceStore((state) => state.closeOtherTabs)
 	const activateTab = useWorkspaceStore((state) => state.activateTab)
 	const activeFilePath = useEditorStore((state) => state.activeFilePath)
+	const vaultPath = useVaultStore((state) => state.vault?.path ?? null)
 	const [query, setQuery] = useState("")
 	const tabs = pane?.tabs ?? EMPTY_TABS
 	const normalizedQuery = query.trim().toLocaleLowerCase()
 	const visibleTabs = normalizedQuery
 		? tabs.filter((tab) => tab.title.toLocaleLowerCase().includes(normalizedQuery))
 		: tabs
-	const countLabel = `${tabs.length} ${tabs.length === 1 ? "tab" : "tabs"}`
+	const title = tabs.length === 1 ? "1 open tab" : `${tabs.length} open tabs`
+	const menuGroups: MenuGroup[] = [
+		[
+			{
+				key: "close-others",
+				label: "Close other tabs",
+				icon: { sf: "xmark.square", md: "tab_close" },
+				disabled: !pane?.activeTabId || tabs.length < 2,
+				onPress: () => {
+					if (pane?.activeTabId) closeOtherTabs(pane.activeTabId, activePaneId)
+				},
+			},
+		],
+	]
 
 	function openTab(tab: Tab) {
 		activateTab(tab.id, activePaneId)
@@ -161,254 +141,167 @@ export function TabsScreen() {
 	}
 
 	return (
-		<View style={[styles.root, { backgroundColor: colors.groupedBackground, paddingTop: insets.top }]}>
+		<>
+			<Stack.Screen
+				options={{
+					title,
+					headerLeft: IS_IOS
+						? undefined
+						: () => (
+								<HeaderIconButton
+									accessibilityLabel="Close"
+									icon={{ sf: "xmark", md: "close" }}
+									onPress={dismissSheet}
+								/>
+							),
+					headerRight: IS_IOS
+						? undefined
+						: () => (
+								<View style={styles.androidActions}>
+									<HeaderIconButton
+										accessibilityLabel="New tab"
+										icon={{ sf: "plus", md: "add" }}
+										onPress={newTab}
+									/>
+									<NativeMenu
+										accessibilityLabel={NOTE_MENU_LABEL}
+										groups={menuGroups}
+										icon={NOTE_MENU_ICON}
+									/>
+								</View>
+							),
+				}}
+			/>
 			{IS_IOS ? (
-				<View style={styles.iosSearch}>
-					<SearchField
-						onChangeText={setQuery}
-						onClear={() => setQuery("")}
-						placeholder="Search tabs"
-						value={query}
-					/>
-				</View>
-			) : (
-				<View style={styles.androidBar}>
-					<Pressable
-						accessibilityLabel="Back"
-						android_ripple={{ borderless: true, color: colors.hover }}
-						onPress={() => router.back()}
-						style={styles.iconButton}
-					>
-						<ArrowLeft color={colors.label} size={24} strokeWidth={2} />
-					</Pressable>
-					<Text style={[styles.androidBarTitle, { color: colors.label }]}>{countLabel}</Text>
-					<NativeMenu
-						accessibilityLabel="More options"
-						groups={[
-							[
-								{
-									key: "close-others",
-									label: "Close other tabs",
-									disabled: !pane?.activeTabId,
-									onPress: () => {
-										if (pane?.activeTabId) closeOtherTabs(pane.activeTabId, activePaneId)
-									},
-								},
-							],
-						]}
-						icon={{ sf: "ellipsis", Lucide: MoreVertical }}
-					/>
-				</View>
-			)}
+				<>
+					<Stack.Toolbar placement="left">
+						<Stack.Toolbar.Button accessibilityLabel="New tab" icon="plus" onPress={newTab} />
+					</Stack.Toolbar>
+					<Stack.Toolbar placement="right">
+						<Stack.Toolbar.Menu icon="ellipsis" title="Tabs">
+							{menuGroups[0]?.map((item) => (
+								<Stack.Toolbar.MenuAction
+									disabled={item.disabled}
+									icon={item.icon?.sf}
+									key={item.key}
+									onPress={item.onPress}
+								>
+									{item.label}
+								</Stack.Toolbar.MenuAction>
+							))}
+						</Stack.Toolbar.Menu>
+						<Stack.Toolbar.Button onPress={dismissSheet} variant="done">
+							Done
+						</Stack.Toolbar.Button>
+					</Stack.Toolbar>
+				</>
+			) : null}
+			{tabs.length > 5 ? (
+				<Stack.SearchBar
+					autoCapitalize="none"
+					hideWhenScrolling={false}
+					onCancelButtonPress={() => setQuery("")}
+					onChangeText={(event) => setQuery(event.nativeEvent.text)}
+					placeholder="Search tabs"
+				/>
+			) : null}
 			<FlatList
-				columnWrapperStyle={styles.column}
-				contentContainerStyle={[styles.grid, { paddingBottom: insets.bottom + 120 }]}
+				ListEmptyComponent={
+					<EmptyState
+						icon={{ sf: "square.on.square", md: "tab" }}
+						title={normalizedQuery ? "No matching tabs" : "No open tabs"}
+					/>
+				}
+				contentContainerStyle={styles.list}
+				contentInsetAdjustmentBehavior="automatic"
 				data={visibleTabs}
 				keyExtractor={(tab) => tab.id}
-				numColumns={2}
-				renderItem={({ item }) => (
-					<View style={styles.cell}>
-						<TabCard
+				renderItem={({ index, item }) => (
+					<View
+						style={[
+							index === 0 ? styles.first : null,
+							index === visibleTabs.length - 1 ? styles.last : null,
+							styles.clip,
+							{ backgroundColor: colors.cell },
+						]}
+					>
+						{index > 0 ? (
+							<View style={[styles.separator, { backgroundColor: colors.separator }]} />
+						) : null}
+						<TabRow
 							active={item.id === pane?.activeTabId}
+							folder={tabFolder(item, vaultPath)}
 							onClose={() => closeTab(item.id, activePaneId)}
 							onOpen={() => openTab(item)}
 							tab={item}
 						/>
 					</View>
 				)}
+				style={{ backgroundColor: colors.groupedBackground }}
 			/>
-			{IS_IOS ? (
-				<View style={[styles.iosToolbar, { bottom: insets.bottom + 8 }]}>
-					<Pressable
-						accessibilityLabel="New tab"
-						onPress={newTab}
-						style={[styles.iosRound, { backgroundColor: colors.glass, borderColor: colors.glassEdge }]}
-					>
-						<Plus color={colors.label} size={22} strokeWidth={2.2} />
-					</Pressable>
-					<Text style={[styles.iosCount, { color: colors.label }]}>{countLabel}</Text>
-					<Pressable
-						accessibilityLabel="Done"
-						onPress={dismissSheet}
-						style={[styles.iosRound, { backgroundColor: colors.tintFill, borderColor: colors.tintFill }]}
-					>
-						<Check color={colors.onTint} size={22} strokeWidth={2.6} />
-					</Pressable>
-				</View>
-			) : (
-				<Pressable
-					accessibilityRole="button"
-					android_ripple={{ color: colors.hover }}
-					onPress={newTab}
-					style={[styles.fab, { backgroundColor: colors.accentSubtle, bottom: insets.bottom + 40 }]}
-				>
-					<Plus color={colors.tint} size={24} strokeWidth={2.2} />
-					<Text style={[styles.fabLabel, { color: colors.tint }]}>New tab</Text>
-				</Pressable>
-			)}
-		</View>
+		</>
 	)
 }
 
+const RADIUS = IS_IOS ? 26 : 20
+
 const styles = StyleSheet.create({
-	androidBar: {
+	androidActions: {
 		alignItems: "center",
 		flexDirection: "row",
-		height: 64,
-		paddingHorizontal: 4,
 	},
-	androidBarTitle: {
-		flex: 1,
-		fontSize: 22,
-		lineHeight: 28,
-		marginLeft: 4,
-	},
-	androidBody: {
-		height: 200,
-		margin: 4,
-		marginTop: 0,
-		borderRadius: 16,
+	clip: {
+		marginHorizontal: 16,
 		overflow: "hidden",
 	},
-	androidCard: {
-		borderCurve: "continuous",
-		borderRadius: 20,
-		overflow: "hidden",
-	},
-	androidHeader: {
+	close: {
 		alignItems: "center",
-		flexDirection: "row",
-		gap: 8,
 		height: 44,
-		paddingHorizontal: 12,
+		justifyContent: "center",
+		width: 44,
 	},
-	androidTitle: {
-		flex: 1,
-		fontSize: 14,
-		fontWeight: "500",
-		lineHeight: 20,
+	first: {
+		borderTopLeftRadius: RADIUS,
+		borderTopRightRadius: RADIUS,
 	},
-	caption: {
+	last: {
+		borderBottomLeftRadius: RADIUS,
+		borderBottomRightRadius: RADIUS,
+	},
+	list: {
+		paddingBottom: 32,
+		paddingTop: 16,
+	},
+	row: {
 		alignItems: "center",
 		flexDirection: "row",
-		gap: 6,
-		justifyContent: "center",
-		paddingHorizontal: 8,
+		minHeight: IS_IOS ? 52 : 64,
+		paddingRight: 4,
 	},
-	captionLabel: {
-		flexShrink: 1,
-		fontSize: 13,
-		fontWeight: "600",
-		lineHeight: 18,
-	},
-	cell: {
+	rowMain: {
+		alignItems: "center",
+		alignSelf: "stretch",
 		flex: 1,
-	},
-	column: {
-		gap: 16,
-	},
-	dirty: {
-		alignItems: "center",
-		flexDirection: "row",
-		gap: 4,
-		justifyContent: "center",
-	},
-	dirtyDot: {
-		borderRadius: 999,
-		height: 6,
-		width: 6,
-	},
-	dirtyLabel: {
-		fontSize: 12,
-		lineHeight: 16,
-	},
-	fab: {
-		alignItems: "center",
-		borderRadius: 16,
 		flexDirection: "row",
 		gap: 12,
-		height: 56,
-		overflow: "hidden",
-		paddingHorizontal: 20,
-		position: "absolute",
-		right: 16,
+		paddingLeft: 16,
+		paddingVertical: 8,
 	},
-	fabLabel: {
-		fontSize: 16,
-		fontWeight: "500",
-		lineHeight: 24,
+	rowSubtitle: {
+		fontSize: IS_IOS ? 13 : 14,
+		lineHeight: 18,
 	},
-	grid: {
-		gap: 20,
-		paddingHorizontal: 16,
-		paddingTop: 12,
-	},
-	iconButton: {
-		alignItems: "center",
-		height: 48,
-		justifyContent: "center",
-		width: 48,
-	},
-	iosCard: {
-		borderCurve: "continuous",
-		borderRadius: 24,
-		height: 236,
-		overflow: "hidden",
-	},
-	iosCardWrap: {
-		gap: 8,
-	},
-	iosClose: {
-		alignItems: "center",
-		borderRadius: 999,
-		borderWidth: StyleSheet.hairlineWidth,
-		height: 30,
-		justifyContent: "center",
-		position: "absolute",
-		right: 8,
-		top: 8,
-		width: 30,
-	},
-	iosCount: {
-		fontSize: 15,
-		fontWeight: "600",
-		lineHeight: 20,
-	},
-	iosRound: {
-		alignItems: "center",
-		borderRadius: 999,
-		borderWidth: StyleSheet.hairlineWidth,
-		height: 52,
-		justifyContent: "center",
-		width: 52,
-	},
-	iosSearch: {
-		paddingBottom: 4,
-		paddingTop: 8,
-	},
-	iosToolbar: {
-		alignItems: "center",
-		flexDirection: "row",
-		justifyContent: "space-between",
-		left: 16,
-		position: "absolute",
-		right: 16,
-	},
-	preview: {
+	rowText: {
 		flex: 1,
-		gap: 10,
-		padding: 16,
+		gap: 1,
+		minWidth: 0,
 	},
-	root: {
-		flex: 1,
+	rowTitle: {
+		fontSize: IS_IOS ? 17 : 16,
+		lineHeight: 22,
 	},
-	skeleton: {
-		borderRadius: 4,
-	},
-	viewTile: {
-		alignItems: "center",
-		borderRadius: 16,
-		flex: 1,
-		justifyContent: "center",
+	separator: {
+		height: StyleSheet.hairlineWidth,
+		marginLeft: 48,
 	},
 })

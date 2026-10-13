@@ -1,29 +1,41 @@
 import { usePluginStore } from "@cortex/plugin-host-core"
-import { Pressable, StyleSheet, Text, View } from "react-native"
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 
 import { openPluginView } from "@/features/plugins/openPluginView"
 import { PluginIcon } from "@/features/plugins/PluginIcon"
+import { SidebarSectionHeader } from "@/features/sidebar/SidebarRows"
 import { useMobileColors } from "@/hooks/useMobileColors"
+
+const IS_IOS = Platform.OS === "ios"
 
 export function PluginSidebarSection({ closeSidebar }: { closeSidebar: () => void }) {
 	const sidebarItems = usePluginStore((state) => state.sidebarItems)
-	const { colors, iconColors } = useMobileColors()
+	const { colors } = useMobileColors()
 	if (sidebarItems.length === 0) return null
 
 	return (
-		<View style={styles.section}>
-			<Text style={[styles.sectionTitle, { color: colors.secondaryLabel }]}>Plugins</Text>
+		<View>
+			<SidebarSectionHeader label="Plugins" />
 			{sidebarItems.map((item) => (
 				<Pressable
 					accessibilityRole="button"
+					android_ripple={{ color: colors.hover }}
 					key={item.key}
 					onPress={() => {
 						closeSidebar()
 						openPluginView(item.viewKey)
 					}}
-					style={({ pressed }) => [styles.row, { opacity: pressed ? 0.58 : 1 }]}
+					style={({ pressed }) => [
+						styles.row,
+						{ backgroundColor: pressed && IS_IOS ? colors.hover : "transparent" },
+					]}
 				>
-					<PluginIcon color={iconColors.secondary} name={item.icon} size={18} strokeWidth={2.15} />
+					<PluginIcon
+						color={IS_IOS ? colors.tint : colors.secondaryLabel}
+						name={item.icon}
+						size={IS_IOS ? 20 : 24}
+						strokeWidth={2}
+					/>
 					<Text numberOfLines={1} style={[styles.rowText, { color: colors.label }]}>
 						{item.label}
 					</Text>
@@ -36,31 +48,20 @@ export function PluginSidebarSection({ closeSidebar }: { closeSidebar: () => voi
 const styles = StyleSheet.create({
 	row: {
 		alignItems: "center",
-		borderRadius: 8,
+		borderCurve: "continuous",
+		borderRadius: IS_IOS ? 10 : 999,
 		flexDirection: "row",
-		gap: 8,
-		minHeight: 36,
-		paddingHorizontal: 10,
+		gap: 12,
+		minHeight: IS_IOS ? 44 : 56,
+		overflow: "hidden",
+		paddingHorizontal: IS_IOS ? 12 : 16,
 	},
 	rowText: {
 		flex: 1,
-		fontSize: 15,
-		fontWeight: "500",
-		letterSpacing: 0,
-		lineHeight: 20,
+		fontSize: IS_IOS ? 17 : 14,
+		fontWeight: IS_IOS ? "400" : "500",
+		letterSpacing: IS_IOS ? 0 : 0.1,
+		lineHeight: IS_IOS ? 22 : 20,
 		minWidth: 0,
-	},
-	section: {
-		gap: 2,
-		paddingTop: 16,
-	},
-	sectionTitle: {
-		fontSize: 12,
-		fontWeight: "700",
-		letterSpacing: 0,
-		lineHeight: 16,
-		paddingHorizontal: 10,
-		paddingBottom: 4,
-		textTransform: "uppercase",
 	},
 })

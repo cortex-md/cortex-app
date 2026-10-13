@@ -11,6 +11,7 @@ import type { DatabaseRow } from "@cortex/properties/database"
 import { useMemo } from "react"
 
 import { getNoteDetail } from "@/features/collab/collabAdapter"
+import { useVaultDisplayName } from "@/features/file-explorer/vaultDisplayName"
 import { type FilesSortOrder, useFilesSortOrder } from "@/features/files/filesSort"
 
 export interface FilesDatabaseItem {
@@ -70,10 +71,11 @@ export function useFilesScreenModel(folderPath: string | null) {
 	const databases = useDatabaseStore((state) => state.databases)
 	const rowsByFolder = useDatabaseStore((state) => state.rowsByFolder)
 	const sortOrder = useFilesSortOrder()
+	const vaultName = useVaultDisplayName()
 	const currentPath = normalizePath(folderPath ?? vault?.path ?? "")
 	const isRoot = !folderPath || normalizePath(folderPath) === normalizePath(vault?.path ?? "")
 	const title = isRoot
-		? (vault?.name ?? "Files")
+		? vaultName
 		: getFileTreeNodeTitle({ name: currentPath.split("/").at(-1) ?? "", isDir: true })
 
 	const sections = useMemo<FilesSection[]>(() => {

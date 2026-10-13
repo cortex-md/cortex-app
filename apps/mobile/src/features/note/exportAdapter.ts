@@ -12,8 +12,11 @@ export const exportFormatLabels: Record<ExportFormat, string> = {
 	pdf: "PDF",
 }
 
-export const EXPORT_FOOTER =
-	"HTML keeps headings, links and images as a web page. PDF is a print-ready copy of the note. CSV exports the note's properties as one row."
+export const exportFormatDescriptions: Record<ExportFormat, string> = {
+	csv: "The note's properties as one row.",
+	html: "A web page with headings, links and images.",
+	pdf: "A print-ready copy of the note.",
+}
 
 function stringifyValue(value: unknown): string {
 	if (Array.isArray(value)) return value.map(stringifyValue).join(", ")

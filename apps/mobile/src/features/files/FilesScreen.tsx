@@ -1,8 +1,7 @@
 import { consumePendingOnboardingNote, getErrorMessage, useVaultStore } from "@cortex/core"
 import { Stack, useLocalSearchParams } from "expo-router"
-import { ChevronsUpDown, FileSearch, MoreVertical } from "lucide-react-native"
 import { useEffect, useState } from "react"
-import { Platform, Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from "react-native"
+import { Platform, RefreshControl, SectionList, StyleSheet, View } from "react-native"
 
 import { EmptyState } from "@/components/ui/EmptyState"
 import { GroupedSectionHeader } from "@/components/ui/GroupedList"
@@ -10,8 +9,8 @@ import { HeaderIconButton } from "@/components/ui/HeaderIconButton"
 import type { MenuGroup } from "@/components/ui/menuTypes"
 import { NativeMenu } from "@/components/ui/NativeMenu"
 import { toast } from "@/features/feedback/useToast"
+import { promptNewFolder } from "@/features/file-explorer/entryActions"
 import { CreateFabMenu } from "@/features/files/CreateFabMenu"
-import { FilesDialogs, type FilesDialogState, NO_FILES_DIALOG } from "@/features/files/FilesDialogs"
 import { FilesItemRow } from "@/features/files/FilesItemRow"
 import { buildCreateMenuGroups, buildFilesMoreMenuGroups } from "@/features/files/filesMenus"
 import { SyncChip } from "@/features/files/SyncChip"
@@ -106,40 +105,15 @@ function AndroidHeaderRight({ moreGroups }: { moreGroups: MenuGroup[] }) {
 	return (
 		<View style={styles.androidActions}>
 			<HeaderIconButton
-				Icon={FileSearch}
 				accessibilityLabel="Quick finder"
+				icon={{ sf: "doc.text.magnifyingglass", md: "search" }}
 				onPress={() => presentSheet("quick-finder")}
 			/>
 			<NativeMenu
 				accessibilityLabel="More"
 				groups={moreGroups}
-				icon={{ sf: "ellipsis", Lucide: MoreVertical }}
+				icon={{ sf: "ellipsis", md: "more_vert" }}
 			/>
-		</View>
-	)
-}
-
-function FilesListHeader({ isRoot, vaultName }: { isRoot: boolean; vaultName: string }) {
-	const { colors } = useMobileColors()
-	if (!isRoot) return <View style={styles.headerSpacer} />
-	return (
-		<View style={styles.listHeader}>
-			<SyncChip />
-			{IS_IOS ? (
-				<Pressable
-					accessibilityLabel={`${vaultName}, switch vault`}
-					accessibilityRole="button"
-					hitSlop={8}
-					onPress={() => {
-						triggerSelectionHaptic()
-						presentSheet("vault-switcher")
-					}}
-					style={({ pressed }) => [styles.switchVault, { opacity: pressed ? 0.5 : 1 }]}
-				>
-					<Text style={[styles.switchVaultLabel, { color: colors.secondaryLabel }]}>Switch vault</Text>
-					<ChevronsUpDown color={colors.secondaryLabel} size={16} strokeWidth={2.4} />
-				</Pressable>
-			) : null}
 		</View>
 	)
 }
@@ -158,17 +132,17 @@ export function FilesScreen() {
 	const model = useFilesScreenModel(folderPath)
 	const pendingOnboardingNotePath = useVaultStore((state) => state.pendingOnboardingNotePath)
 	const [expandedDatabases, setExpandedDatabases] = useState<ReadonlySet<string>>(() => new Set())
-	const [dialog, setDialog] = useState<FilesDialogState>(NO_FILES_DIALOG)
+	const [refreshing, setRefreshing] = useState(false)
 
 	useEffect(() => {
 		if (pendingOnboardingNotePath && !folderPath) consumePendingOnboardingNote(openNote)
 	}, [folderPath, pendingOnboardingNotePath])
-	const [refreshing, setRefreshing] = useState(false)
+
 	const createGroups = buildCreateMenuGroups({
-		onNewFolder: () => setDialog({ kind: "new-folder" }),
+		onNewFolder: () => promptNewFolder(model.currentPath),
 		onNewNote: () => void createNoteIn(model.currentPath, model.siblingNames),
 	})
-	const moreGroups = buildFilesMoreMenuGroups(model.sortOrder)
+	const moreGroups = buildFilesMoreMenuGroups(model.sortOrder, model.isRoot)
 
 	return (
 		<View style={[styles.root, { backgroundColor: colors.groupedBackground }]}>
@@ -176,7 +150,9 @@ export function FilesScreen() {
 				options={{
 					title: model.title,
 					headerLeft:
-						!IS_IOS && model.isRoot ? () => <SidebarToggleButton color={colors.label} /> : undefined,
+						!IS_IOS && model.isRoot
+							? () => <SidebarToggleButton color={colors.label} />
+							: undefined,
 					headerRight: IS_IOS ? undefined : () => <AndroidHeaderRight moreGroups={moreGroups} />,
 				}}
 			/>
@@ -186,18 +162,21 @@ export function FilesScreen() {
 			<SectionList
 				contentContainerStyle={styles.content}
 				contentInsetAdjustmentBehavior="automatic"
-				keyExtractor={(item) => (item.kind === "database" ? item.entry.folderPath : item.entry.path)}
+				keyExtractor={(item) =>
+					item.kind === "database" ? item.entry.folderPath : item.entry.path
+				}
 				ListEmptyComponent={
 					<EmptyState
-						description={
-							model.isRoot ? "Create a note or a folder to get started." : "This folder has no notes yet."
+						icon={
+							model.isRoot
+								? { sf: "doc.text", md: "description" }
+								: { sf: "folder", md: "folder_open" }
 						}
-						title={model.isRoot ? "No notes yet" : "Empty folder"}
+						title={model.isRoot ? "No notes yet" : "This folder is empty"}
 					/>
 				}
-				ListHeaderComponent={
-					<FilesListHeader isRoot={model.isRoot} vaultName={model.vault?.name ?? "Vault"} />
-				}
+				ListHeaderComponent={model.isRoot ? <SyncChip /> : null}
+				ListHeaderComponentStyle={model.isRoot ? styles.listHeader : undefined}
 				refreshControl={
 					<RefreshControl
 						onRefresh={() => void refreshVaultFiles(setRefreshing)}
@@ -211,23 +190,18 @@ export function FilesScreen() {
 						first={index === 0}
 						item={item}
 						last={index === section.data.length - 1}
-						onDialog={setDialog}
-						onToggleDatabase={(path) => setExpandedDatabases((current) => toggleInSet(current, path))}
+						onToggleDatabase={(path) =>
+							setExpandedDatabases((current) => toggleInSet(current, path))
+						}
 					/>
 				)}
-				renderSectionHeader={({ section }) => <GroupedSectionHeader>{section.title}</GroupedSectionHeader>}
+				renderSectionHeader={({ section }) => (
+					<GroupedSectionHeader>{section.title}</GroupedSectionHeader>
+				)}
 				sections={model.sections}
 				stickySectionHeadersEnabled={false}
 			/>
 			{IS_IOS ? null : <CreateFabMenu groups={createGroups} />}
-			<FilesDialogs
-				currentPath={model.currentPath}
-				dialog={dialog}
-				locationLabel={model.title}
-				onChange={setDialog}
-				siblingNames={model.siblingNames}
-				vault={model.vault}
-			/>
 		</View>
 	)
 }
@@ -238,30 +212,12 @@ const styles = StyleSheet.create({
 		flexDirection: "row",
 	},
 	content: {
-		paddingBottom: 130,
-	},
-	headerSpacer: {
-		height: 4,
+		paddingBottom: IS_IOS ? 32 : 160,
 	},
 	listHeader: {
-		alignItems: "center",
-		flexDirection: "row",
-		gap: 8,
-		justifyContent: "space-between",
-		marginTop: IS_IOS ? -4 : 4,
-		paddingRight: 16,
+		paddingTop: 4,
 	},
 	root: {
 		flex: 1,
-	},
-	switchVault: {
-		alignItems: "center",
-		flexDirection: "row",
-		gap: 4,
-		height: 32,
-	},
-	switchVaultLabel: {
-		fontSize: 15,
-		lineHeight: 20,
 	},
 })

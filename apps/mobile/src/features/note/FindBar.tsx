@@ -1,6 +1,6 @@
-import { ArrowLeft, ChevronDown, ChevronUp, Search } from "lucide-react-native"
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native"
 
+import { Symbol } from "@/components/ui/Symbol"
 import type { FindInNote } from "@/features/note/useFindInNote"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
@@ -25,7 +25,11 @@ function StepButtons({ find }: { find: FindInNote }) {
 				onPress={() => find.step("prev")}
 				style={[styles.stepButton, disabled ? styles.disabled : null]}
 			>
-				<ChevronUp color={colors.label} size={22} strokeWidth={2.2} />
+				<Symbol
+					color={colors.label}
+					name={{ sf: "chevron.up", md: "keyboard_arrow_up" }}
+					size={20}
+				/>
 			</Pressable>
 			<Pressable
 				accessibilityLabel="Next match"
@@ -34,7 +38,11 @@ function StepButtons({ find }: { find: FindInNote }) {
 				onPress={() => find.step("next")}
 				style={[styles.stepButton, disabled ? styles.disabled : null]}
 			>
-				<ChevronDown color={colors.label} size={22} strokeWidth={2.2} />
+				<Symbol
+					color={colors.label}
+					name={{ sf: "chevron.down", md: "keyboard_arrow_down" }}
+					size={20}
+				/>
 			</Pressable>
 		</>
 	)
@@ -44,14 +52,13 @@ export function FindBar({ find }: { find: FindInNote }) {
 	const { colors } = useMobileColors()
 	return (
 		<View style={styles.wrap}>
-			<View
-				style={[
-					styles.bar,
-					{ backgroundColor: colors.glass, borderColor: colors.glassEdge },
-				]}
-			>
+			<View style={[styles.bar, { backgroundColor: colors.glass, borderColor: colors.glassEdge }]}>
 				<View style={[styles.field, { backgroundColor: colors.fill }]}>
-					<Search color={colors.secondaryLabel} size={18} strokeWidth={2.2} />
+					<Symbol
+						color={colors.secondaryLabel}
+						name={{ sf: "magnifyingglass", md: "search" }}
+						size={17}
+					/>
 					<TextInput
 						accessibilityLabel="Find in note"
 						autoCapitalize="none"
@@ -83,7 +90,7 @@ export function AndroidFindHeaderLeft({ find }: { find: FindInNote }) {
 			onPress={find.close}
 			style={styles.stepButton}
 		>
-			<ArrowLeft color={colors.label} size={24} strokeWidth={2} />
+			<Symbol color={colors.label} name={{ sf: "chevron.left", md: "arrow_back" }} size={24} />
 		</Pressable>
 	)
 }

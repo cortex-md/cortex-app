@@ -53,9 +53,6 @@ export type WorkspaceServiceCall =
 	| { kind: "bookmark"; action: "add" | "remove" | "toggle"; path: string; force?: boolean }
 	| { kind: "watch"; path: string; options?: WatchOptions }
 	| { kind: "unwatch"; watchId: number }
-	| { kind: "openProperties"; step?: string; key?: string }
-
-export type WorkspaceScrollDirection = "up" | "down"
 
 export interface WorkspaceFindResult {
 	current: number
@@ -87,7 +84,6 @@ export type WorkspaceOutboundMessage =
 	| { type: "serviceCall"; id: number; call: WorkspaceServiceCall }
 	| { type: "command"; commandId: string; payload: JsonValue }
 	| { type: "communityStyles"; css: string }
-	| { type: "scroll"; direction: WorkspaceScrollDirection; offset: number }
 	| WorkspaceReply
 
 /** The WebView's `useDOMImperativeHandle`: fire-and-forget, JSON arguments only. */

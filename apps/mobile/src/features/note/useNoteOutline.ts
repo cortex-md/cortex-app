@@ -37,7 +37,8 @@ export function useNoteHeadings(filePath: string | null): NoteHeading[] {
 		if (!filePath) return
 		let cancelled = false
 		const apply = (content: string) => {
-			if (!cancelled) setState({ filePath, headings: extractHeadings(extractFrontmatterBody(content)) })
+			if (!cancelled)
+				setState({ filePath, headings: extractHeadings(extractFrontmatterBody(content)) })
 		}
 		void noteCache.read(filePath).then(apply, () => apply(""))
 		const unsubscribe = noteCache.onContentChange(filePath, (_path, content) => apply(content))

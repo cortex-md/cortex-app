@@ -1,24 +1,7 @@
-import {
-	Bookmark,
-	BookmarkMinus,
-	CloudOff,
-	Copy,
-	History,
-	LayoutTemplate,
-	Link,
-	ListTree,
-	MessageSquare,
-	Pencil,
-	Puzzle,
-	Search,
-	Share,
-	SlidersHorizontal,
-	Trash2,
-	UserPlus,
-} from "lucide-react-native"
 import { Platform } from "react-native"
 
 import type { MenuGroup } from "@/components/ui/menuTypes"
+import type { SymbolName } from "@/components/ui/Symbol"
 
 export interface NoteMenuHandlers {
 	bookmarked: boolean
@@ -29,8 +12,6 @@ export interface NoteMenuHandlers {
 	onShare: () => void
 	onComments: () => void
 	onOutline: () => void
-	onInsertTemplate: () => void
-	onProperties: () => void
 	onMakeCopy: () => void
 	onRename: () => void
 	onExport: () => void
@@ -46,75 +27,61 @@ export function buildNoteMenuGroups(handlers: NoteMenuHandlers): MenuGroup[] {
 			{
 				key: "find",
 				label: "Find in note",
-				icon: { sf: "magnifyingglass", Lucide: Search },
+				icon: { sf: "magnifyingglass", md: "search" },
 				onPress: handlers.onFind,
 			},
 			{
 				key: "bookmark",
 				label: handlers.bookmarked ? "Remove bookmark" : "Add bookmark",
 				icon: handlers.bookmarked
-					? { sf: "bookmark.slash", Lucide: BookmarkMinus }
-					: { sf: "bookmark", Lucide: Bookmark },
+					? { sf: "bookmark.slash", md: "bookmark_remove" }
+					: { sf: "bookmark", md: "bookmark_add" },
 				onPress: handlers.onToggleBookmark,
-			},
-		],
-		[
-			{
-				key: "share",
-				label: "Share…",
-				icon: { sf: "person.badge.plus", Lucide: UserPlus },
-				onPress: handlers.onShare,
-			},
-			{
-				key: "comments",
-				label: "Comments",
-				icon: { sf: "text.bubble", Lucide: MessageSquare },
-				onPress: handlers.onComments,
 			},
 			{
 				key: "outline",
 				label: "Outline and backlinks",
-				icon: { sf: "list.bullet.indent", Lucide: ListTree },
+				icon: { sf: "list.bullet.indent", md: "toc" },
 				onPress: handlers.onOutline,
 			},
 		],
 		[
 			{
-				key: "insert-template",
-				label: "Insert template",
-				icon: { sf: "doc.badge.plus", Lucide: LayoutTemplate },
-				onPress: handlers.onInsertTemplate,
+				key: "share",
+				label: "Share",
+				icon: { sf: "person.badge.plus", md: "person_add" },
+				onPress: handlers.onShare,
 			},
 			{
-				key: "properties",
-				label: "Properties",
-				icon: { sf: "slider.horizontal.3", Lucide: SlidersHorizontal },
-				onPress: handlers.onProperties,
-			},
-		],
-		[
-			{
-				key: "copy",
-				label: "Make a copy",
-				icon: { sf: "doc.on.doc", Lucide: Copy },
-				onPress: handlers.onMakeCopy,
-			},
-			{
-				key: "rename",
-				label: "Rename",
-				icon: { sf: "pencil", Lucide: Pencil },
-				onPress: handlers.onRename,
+				key: "comments",
+				label: "Comments",
+				icon: { sf: "text.bubble", md: "comment" },
+				onPress: handlers.onComments,
 			},
 			{
 				key: "export",
 				label: "Export",
-				icon: { sf: "square.and.arrow.up", Lucide: Share },
+				icon: { sf: "square.and.arrow.up", md: "ios_share" },
 				onPress: handlers.onExport,
+			},
+		],
+		[
+			{
+				key: "rename",
+				label: "Rename",
+				icon: { sf: "pencil", md: "edit" },
+				onPress: handlers.onRename,
+			},
+			{
+				key: "copy",
+				label: "Make a copy",
+				icon: { sf: "doc.on.doc", md: "content_copy" },
+				onPress: handlers.onMakeCopy,
 			},
 			{
 				key: "copy-path",
 				label: "Copy path",
-				icon: { sf: "link", Lucide: Link },
+				icon: { sf: "link", md: "link" },
 				onPress: handlers.onCopyPath,
 			},
 		],
@@ -122,13 +89,15 @@ export function buildNoteMenuGroups(handlers: NoteMenuHandlers): MenuGroup[] {
 			{
 				key: "version-history",
 				label: "Version history",
-				icon: { sf: "clock.arrow.circlepath", Lucide: History },
+				icon: { sf: "clock.arrow.circlepath", md: "history" },
 				onPress: handlers.onVersionHistory,
 			},
 			{
 				key: "exclude",
 				label: handlers.excluded ? "Include in sync" : "Exclude from sync",
-				icon: { sf: "icloud.slash", Lucide: CloudOff },
+				icon: handlers.excluded
+					? { sf: "icloud", md: "cloud" }
+					: { sf: "icloud.slash", md: "cloud_off" },
 				onPress: handlers.onToggleExcluded,
 			},
 		],
@@ -139,7 +108,7 @@ export function buildNoteMenuGroups(handlers: NoteMenuHandlers): MenuGroup[] {
 				key: `plugin-${item.key}`,
 				label: item.label,
 				disabled: !item.onPress,
-				icon: { sf: "puzzlepiece.extension", Lucide: Puzzle },
+				icon: { sf: "puzzlepiece.extension", md: "extension" },
 				onPress: () => item.onPress?.(),
 			})),
 		)
@@ -149,7 +118,7 @@ export function buildNoteMenuGroups(handlers: NoteMenuHandlers): MenuGroup[] {
 			key: "delete",
 			label: "Delete",
 			destructive: true,
-			icon: { sf: "trash", Lucide: Trash2 },
+			icon: { sf: "trash", md: "delete" },
 			onPress: handlers.onDelete,
 		},
 	])
@@ -157,3 +126,46 @@ export function buildNoteMenuGroups(handlers: NoteMenuHandlers): MenuGroup[] {
 }
 
 export const NOTE_MENU_LABEL = Platform.OS === "ios" ? "Note actions" : "More options"
+
+export const NOTE_MENU_ICON: SymbolName = { sf: "ellipsis", md: "more_vert" }
+
+export const NOTE_BOTTOM_MENU_LABEL = "Notes"
+
+export const NOTE_BOTTOM_MENU_ICON: SymbolName = { sf: "square.and.pencil", md: "edit_square" }
+
+export function buildNoteBottomMenuGroups({
+	onFind,
+	onNewNote,
+	onTabs,
+	tabCount,
+}: {
+	onFind: () => void
+	onNewNote: () => void
+	onTabs: () => void
+	tabCount: number
+}): MenuGroup[] {
+	return [
+		[
+			{
+				key: "find",
+				label: "Find or create a note",
+				icon: { sf: "magnifyingglass", md: "search" },
+				onPress: onFind,
+			},
+			{
+				key: "new",
+				label: "New note",
+				icon: { sf: "square.and.pencil", md: "note_add" },
+				onPress: onNewNote,
+			},
+		],
+		[
+			{
+				key: "tabs",
+				label: `Open tabs (${tabCount})`,
+				icon: { sf: "square.on.square", md: "tab" },
+				onPress: onTabs,
+			},
+		],
+	]
+}

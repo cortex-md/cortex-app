@@ -8,7 +8,6 @@ import { toast } from "@/features/feedback/useToast"
 import { openVersionHistory, presentSheet } from "@/features/navigation/routes"
 import type { NoteDialog } from "@/features/note/NoteDialogs"
 import { buildNoteMenuGroups } from "@/features/note/noteMenu"
-import { presentInsertTemplate } from "@/features/templates/insertTemplate"
 
 export function useNoteMenu({
 	filePath,
@@ -54,10 +53,6 @@ export function useNoteMenu({
 		onShare: () => presentSheet("people", sheetParams),
 		onComments: () => presentSheet("comments", sheetParams),
 		onOutline: () => presentSheet("outline", sheetParams),
-		onInsertTemplate: () => {
-			if (filePath) presentInsertTemplate(filePath)
-		},
-		onProperties: () => presentSheet("properties", sheetParams),
 		onMakeCopy: () => {
 			if (!filePath) return
 			executeCommand("file.duplicate", { payload: { filePath }, source: "menu" })

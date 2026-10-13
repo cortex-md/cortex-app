@@ -63,42 +63,37 @@ interface PendingCommit {
 }
 
 const COMMIT_DEBOUNCE_MS = 750
-const SCROLL_REPORT_MS = 80
-const SCROLL_REPORT_THRESHOLD_PX = 4
 const MOBILE_BLUR_COMMAND = "mobile.blur"
 const MOBILE_FOCUS_COMMAND = "mobile.focus"
 const MOBILE_REVEAL_LINE_COMMAND = "mobile.reveal-line"
 const MOBILE_SLASH_COMMAND = "mobile.slash"
-const HIDDEN_PROPERTY_KEYS = new Set(["database"])
-
-function formatPropertyValue(value: unknown): string {
-	if (value === null || value === undefined || value === "") return "Empty"
-	if (Array.isArray(value)) return value.map(formatPropertyValue).join(", ")
-	if (typeof value === "object") return "…"
-	return String(value)
-}
+const MOBILE_INSERT_DIVIDER_COMMAND = "mobile.insert-divider"
+const MOBILE_INSERT_TAG_COMMAND = "mobile.insert-tag"
+const MOBILE_INSERT_WIKILINK_COMMAND = "mobile.insert-wikilink"
 
 const realm = createWorkspaceRealm()
 
-function watchScroll(view: EditorRuntimeView): () => void {
-	let lastOffset = view.scrollDOM.scrollTop
-	let timer: ReturnType<typeof setTimeout> | null = null
-	const report = () => {
-		timer = null
-		const offset = view.scrollDOM.scrollTop
-		const delta = offset - lastOffset
-		lastOffset = offset
-		if (Math.abs(delta) < SCROLL_REPORT_THRESHOLD_PX) return
-		realm.reportScroll(delta > 0 ? "down" : "up", offset)
-	}
-	const handleScroll = () => {
-		if (timer === null) timer = setTimeout(report, SCROLL_REPORT_MS)
-	}
-	view.scrollDOM.addEventListener("scroll", handleScroll, { passive: true })
-	return () => {
-		if (timer !== null) clearTimeout(timer)
-		view.scrollDOM.removeEventListener("scroll", handleScroll)
-	}
+function insertAtSelection(view: EditorRuntimeView, before: string, after = ""): void {
+	const range = view.state.selection.main
+	const selected = view.state.sliceDoc(range.from, range.to)
+	view.focus()
+	view.dispatch({
+		changes: { from: range.from, to: range.to, insert: `${before}${selected}${after}` },
+		selection: { anchor: range.from + before.length + selected.length },
+		scrollIntoView: true,
+	})
+}
+
+function insertDivider(view: EditorRuntimeView): void {
+	const range = view.state.selection.main
+	const line = view.state.doc.lineAt(range.from)
+	const prefix = line.text.trim().length > 0 ? "\n\n" : ""
+	view.focus()
+	view.dispatch({
+		changes: { from: line.to, insert: `${prefix}---\n` },
+		selection: { anchor: line.to + prefix.length + 4 },
+		scrollIntoView: true,
+	})
 }
 
 function revealLine(view: EditorRuntimeView, line: number): void {
@@ -125,7 +120,6 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 	const [assetLoads] = useState(() => new Set<string>())
 	const sendRef = useRef(send)
 	const viewRef = useRef<EditorRuntimeView | null>(null)
-	const stopScrollWatchRef = useRef<(() => void) | null>(null)
 	const documentRef = useRef<WorkspaceDocument | null>(null)
 	const closedFilePathsRef = useRef(new Set<string>())
 	const pendingCommitRef = useRef<PendingCommit | null>(null)
@@ -201,8 +195,6 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 
 	function handleViewReady(view: EditorRuntimeView) {
 		viewRef.current = view
-		stopScrollWatchRef.current?.()
-		stopScrollWatchRef.current = watchScroll(view)
 		setMobileEditorCommandView(view)
 		setEditorViewRef(view as never)
 		const current = documentRef.current
@@ -310,6 +302,15 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 						case MOBILE_REVEAL_LINE_COMMAND:
 							if (typeof payload === "number") revealLine(view, payload)
 							return
+						case MOBILE_INSERT_DIVIDER_COMMAND:
+							insertDivider(view)
+							return
+						case MOBILE_INSERT_TAG_COMMAND:
+							insertAtSelection(view, "#")
+							return
+						case MOBILE_INSERT_WIKILINK_COMMAND:
+							insertAtSelection(view, "[[", "]]")
+							return
 						default:
 							runMobileEditorCommand(commandId, view, "api")
 					}
@@ -331,8 +332,6 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 			window.removeEventListener("blur", flush)
 			window.removeEventListener("pagehide", flush)
 			disconnect()
-			stopScrollWatchRef.current?.()
-			stopScrollWatchRef.current = null
 			setEditorViewRef(null)
 			setMobileEditorCommandView(null)
 		}
@@ -372,39 +371,6 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 			data-document-revision={activeDocument.revision}
 			style={workspace.themeTokens as CSSProperties}
 		>
-			{editorConfig.readOnly ? null : (
-				<div className="mobile-code-mirror-properties">
-					<button
-						className="mobile-code-mirror-properties-title"
-						onClick={() => realm.openProperties("values")}
-						type="button"
-					>
-						Properties
-					</button>
-					{Object.entries(activeDocument.frontmatterMeta)
-						.filter(([key]) => !HIDDEN_PROPERTY_KEYS.has(key))
-						.map(([key, value]) => (
-							<button
-								className="mobile-code-mirror-property"
-								key={key}
-								onClick={() => realm.openProperties("values", key)}
-								type="button"
-							>
-								<span className="mobile-code-mirror-property-key">{key}</span>
-								<span className="mobile-code-mirror-property-value">
-									{formatPropertyValue(value)}
-								</span>
-							</button>
-						))}
-					<button
-						className="mobile-code-mirror-property-add"
-						onClick={() => realm.openProperties("add")}
-						type="button"
-					>
-						+ Add a property
-					</button>
-				</div>
-			)}
 			{activeDocument.frontmatterError ? (
 				<div className="mobile-code-mirror-frontmatter-error">
 					{activeDocument.frontmatterError}

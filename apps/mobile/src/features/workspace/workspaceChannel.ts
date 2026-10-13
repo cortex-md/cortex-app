@@ -10,7 +10,6 @@ import { createPluginUiMirror, type JsonValue } from "@cortex/plugin-host-core"
 import type { RefObject } from "react"
 
 import { openMobileNote } from "@/bootstrap/appCommands"
-import { presentSheet } from "@/features/navigation/routes"
 import { openPluginView } from "@/features/plugins/openPluginView"
 import {
 	answerWorkspaceRequest,
@@ -20,7 +19,6 @@ import {
 	type WorkspaceFindResult,
 	type WorkspaceInboundMessage,
 	type WorkspaceOutboundMessage,
-	type WorkspaceScrollDirection,
 	type WorkspaceServiceCall,
 	type WorkspaceViewHandle,
 } from "@/features/workspace/workspaceProtocol"
@@ -41,13 +39,6 @@ export interface WorkspaceLayout {
 	visible: boolean
 }
 
-export interface WorkspaceScrollEvent {
-	direction: WorkspaceScrollDirection
-	offset: number
-}
-
-export type WorkspaceScrollListener = (event: WorkspaceScrollEvent) => void
-
 const STALE_COMMIT_ERROR = "The note changed before this mobile editor commit could be applied."
 
 const coreServices = createCoreServices()
@@ -56,7 +47,6 @@ const sessions = new Map<string, NoteDocumentSession[]>()
 const watchers = new Map<number, () => void>()
 const layoutListeners = new Set<() => void>()
 const styleListeners = new Set<() => void>()
-const scrollListeners = new Set<WorkspaceScrollListener>()
 
 let viewRef: RefObject<WorkspaceViewHandle | null> | null = null
 let publisher: WorkspaceStatePublisher | null = null
@@ -154,9 +144,6 @@ async function runServiceCall(id: number, call: WorkspaceServiceCall): Promise<u
 			watchers.get(call.watchId)?.()
 			watchers.delete(call.watchId)
 			return null
-		case "openProperties":
-			presentSheet("properties", { key: call.key, step: call.step })
-			return null
 	}
 }
 
@@ -198,11 +185,6 @@ async function receive(message: WorkspaceOutboundMessage): Promise<void> {
 		case "communityStyles":
 			setCommunityStyles(message.css)
 			return
-		case "scroll":
-			for (const listener of scrollListeners) {
-				listener({ direction: message.direction, offset: message.offset })
-			}
-			return
 		case "reply":
 			requests.settle(message)
 	}
@@ -214,9 +196,7 @@ function sendCommand(commandId: string, payload?: JsonValue): void {
 
 function find(query: string, direction?: "next" | "prev"): Promise<WorkspaceFindResult> {
 	if (!connected) return Promise.resolve({ current: 0, total: 0 })
-	return requests.request<WorkspaceFindResult>((id) =>
-		post({ type: "find", id, query, direction }),
-	)
+	return requests.request<WorkspaceFindResult>((id) => post({ type: "find", id, query, direction }))
 }
 
 function attach(ref: RefObject<WorkspaceViewHandle | null>): () => void {
@@ -289,12 +269,6 @@ export const workspaceChannel = {
 	hideEditor,
 	sendCommand,
 	find,
-	subscribeScroll(listener: WorkspaceScrollListener) {
-		scrollListeners.add(listener)
-		return () => {
-			scrollListeners.delete(listener)
-		}
-	},
 	getLayout: () => layout,
 	subscribeLayout(listener: () => void) {
 		layoutListeners.add(listener)

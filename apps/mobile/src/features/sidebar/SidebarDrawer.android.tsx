@@ -29,7 +29,7 @@ export function SidebarDrawer({ children, drawerRef, renderContent }: SidebarDra
 			keyboardDismissMode="on-drag"
 			overlayColor={colors.scrim}
 			renderNavigationView={() => (
-				<View style={[styles.drawer, { backgroundColor: colors.groupedBackground }]}>
+				<View style={[styles.drawer, { backgroundColor: colors.sidebarBackground }]}>
 					{renderContent()}
 				</View>
 			)}

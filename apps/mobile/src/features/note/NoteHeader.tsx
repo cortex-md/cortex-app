@@ -1,38 +1,35 @@
 import type { EditorMode } from "@cortex/core"
 import type { NativeStackNavigationOptions } from "expo-router"
 import { Stack } from "expo-router"
-import { BookOpen, Check, Code, Eye, type LucideIcon, MoreVertical } from "lucide-react-native"
 import { StyleSheet, View } from "react-native"
 
 import { HeaderIconButton } from "@/components/ui/HeaderIconButton"
-import type { MenuGroup, SFSymbol } from "@/components/ui/menuTypes"
+import type { MenuGroup } from "@/components/ui/menuTypes"
 import { NativeMenu } from "@/components/ui/NativeMenu"
+import type { SymbolName } from "@/components/ui/Symbol"
 import {
 	AndroidFindHeaderLeft,
 	AndroidFindHeaderRight,
 	AndroidFindHeaderTitle,
 } from "@/features/note/FindBar"
-import { NOTE_MENU_LABEL } from "@/features/note/noteMenu"
-import { NoteTitleView } from "@/features/note/NoteTitleView"
+import { NOTE_MENU_ICON, NOTE_MENU_LABEL } from "@/features/note/noteMenu"
 import type { FindInNote } from "@/features/note/useFindInNote"
 import type { MobileColors } from "@/theme/colors"
 
 export interface ModePresentation {
 	label: string
-	sf: SFSymbol
-	Icon: LucideIcon
+	icon: SymbolName
 	next: EditorMode
 }
 
 const modePresentations: Record<"live-preview" | "source" | "reading", ModePresentation> = {
-	"live-preview": { label: "Preview", sf: "eye", Icon: Eye, next: "source" },
+	"live-preview": { label: "Preview", icon: { sf: "eye", md: "visibility" }, next: "source" },
 	source: {
 		label: "Source",
-		sf: "chevron.left.forwardslash.chevron.right",
-		Icon: Code,
+		icon: { sf: "chevron.left.forwardslash.chevron.right", md: "code" },
 		next: "reading",
 	},
-	reading: { label: "Reading", sf: "book", Icon: BookOpen, next: "live-preview" },
+	reading: { label: "Reading", icon: { sf: "book", md: "menu_book" }, next: "live-preview" },
 }
 
 export function getModePresentation(mode: EditorMode): ModePresentation {
@@ -43,14 +40,10 @@ export function getModePresentation(mode: EditorMode): ModePresentation {
 
 export interface NoteHeaderState {
 	colors: MobileColors
-	editing: boolean
 	find: FindInNote
-	live: boolean
-	liveCount: number
 	menuGroups: MenuGroup[]
 	mode: ModePresentation
 	onCycleMode: () => void
-	onDone: () => void
 	title: string
 }
 
@@ -59,22 +52,17 @@ function modeLabel(mode: ModePresentation): string {
 }
 
 function AndroidActions({ state }: { state: NoteHeaderState }) {
-	if (state.editing) {
-		return (
-			<HeaderIconButton Icon={Check} accessibilityLabel="Done" onPress={state.onDone} prominent />
-		)
-	}
 	return (
 		<View style={styles.androidActions}>
 			<HeaderIconButton
-				Icon={state.mode.Icon}
 				accessibilityLabel={modeLabel(state.mode)}
+				icon={state.mode.icon}
 				onPress={state.onCycleMode}
 			/>
 			<NativeMenu
 				accessibilityLabel={NOTE_MENU_LABEL}
 				groups={state.menuGroups}
-				icon={{ sf: "ellipsis", Lucide: MoreVertical }}
+				icon={NOTE_MENU_ICON}
 			/>
 		</View>
 	)
@@ -85,14 +73,6 @@ export function buildNoteScreenOptions(
 	isIos: boolean,
 ): NativeStackNavigationOptions {
 	const androidFind = !isIos && state.find.open
-	const title = () => (
-		<NoteTitleView
-			editing={state.editing}
-			live={state.live}
-			liveCount={state.liveCount}
-			title={state.title}
-		/>
-	)
 	return {
 		headerBackButtonDisplayMode: "minimal",
 		headerLargeTitleEnabled: false,
@@ -100,7 +80,7 @@ export function buildNoteScreenOptions(
 		headerStyle: { backgroundColor: state.colors.background },
 		headerTransparent: false,
 		title: state.title,
-		headerTitle: androidFind ? () => <AndroidFindHeaderTitle find={state.find} /> : title,
+		headerTitle: androidFind ? () => <AndroidFindHeaderTitle find={state.find} /> : undefined,
 		headerLeft: androidFind ? () => <AndroidFindHeaderLeft find={state.find} /> : undefined,
 		headerRight: isIos
 			? undefined
@@ -138,21 +118,14 @@ export function NoteToolbarIos({ state }: { state: NoteHeaderState }) {
 			</Stack.Toolbar>
 		)
 	}
-	if (state.editing) {
-		return (
-			<Stack.Toolbar placement="right">
-				<Stack.Toolbar.Button icon="checkmark" onPress={state.onDone} variant="prominent" />
-			</Stack.Toolbar>
-		)
-	}
 	return (
 		<Stack.Toolbar placement="right">
 			<Stack.Toolbar.Button
 				accessibilityLabel={modeLabel(state.mode)}
-				icon={state.mode.sf}
+				icon={state.mode.icon.sf}
 				onPress={state.onCycleMode}
 			/>
-			<Stack.Toolbar.Menu icon="ellipsis" title={NOTE_MENU_LABEL}>
+			<Stack.Toolbar.Menu icon={NOTE_MENU_ICON.sf} title={NOTE_MENU_LABEL}>
 				{iosMenuGroups(state.menuGroups)}
 			</Stack.Toolbar.Menu>
 		</Stack.Toolbar>

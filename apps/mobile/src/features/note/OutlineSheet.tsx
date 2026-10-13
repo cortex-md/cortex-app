@@ -1,242 +1,112 @@
+import type { NoteHeading } from "@cortex/core"
 import { getNoteTitle } from "@cortex/platform/utils"
-import { type ReactNode, useState } from "react"
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+import { Stack } from "expo-router"
+import { Platform } from "react-native"
 
-import { EmptyState } from "@/components/ui/EmptyState"
-import { GroupedList, GroupedSectionHeader } from "@/components/ui/GroupedList"
-import { SegmentedControl } from "@/components/ui/SegmentedControl"
-import { SheetHeader } from "@/components/ui/SheetHeader"
+import { FormRow, FormSection, NativeForm } from "@/components/ui/Form"
+import { HeaderIconButton } from "@/components/ui/HeaderIconButton"
 import { toast } from "@/features/feedback/useToast"
 import { dismissSheet, openNote } from "@/features/navigation/routes"
-import { NoteOutlineList } from "@/features/note/NoteOutlineList"
 import { useSheetFilePath } from "@/features/note/noteSheetParams"
 import {
 	listUnlinkedMentions,
+	revealHeading,
 	useNoteBacklinks,
 	useNoteHeadings,
 } from "@/features/note/useNoteOutline"
-import { useMobileColors } from "@/hooks/useMobileColors"
 
 const IS_IOS = Platform.OS === "ios"
+const INDENT = " "
 
-type OutlineTab = "outline" | "backlinks"
-
-const tabOptions: { label: string; value: OutlineTab }[] = [
-	{ label: "Outline", value: "outline" },
-	{ label: "Backlinks", value: "backlinks" },
-]
-
-const WIKI_LINK = /(\[\[[^\]]+\]\])/g
-
-function LinkedContext({ context }: { context: string }) {
-	const { colors } = useMobileColors()
-	return (
-		<Text numberOfLines={2} style={[styles.context, { color: colors.secondaryLabel }]}>
-			{context.split(WIKI_LINK).map((part, index) =>
-				part.startsWith("[[") ? (
-					<Text key={index} style={{ color: colors.tint }}>
-						{part}
-					</Text>
-				) : (
-					part
-				),
-			)}
-		</Text>
+function plainContext(context: string): string {
+	return context.replace(/\[\[([^\]|]+)(\|([^\]]+))?\]\]/g, (_match, target, _alias, alias) =>
+		String(alias ?? target),
 	)
 }
 
-function MentionRow({
-	context,
-	onPress,
-	title,
-	trailing,
-}: {
-	context: string
-	onPress: () => void
-	title: string
-	trailing?: ReactNode
-}) {
-	const { colors } = useMobileColors()
-	return (
-		<Pressable
-			accessibilityRole="button"
-			android_ripple={{ color: colors.hover }}
-			onPress={onPress}
-			style={({ pressed }) => [
-				styles.mention,
-				{ backgroundColor: pressed && IS_IOS ? colors.hover : "transparent" },
-			]}
-		>
-			<View style={styles.mentionBody}>
-				<Text numberOfLines={1} style={[styles.mentionTitle, { color: colors.label }]}>
-					{title}
-				</Text>
-				<LinkedContext context={context} />
-			</View>
-			{trailing}
-		</Pressable>
-	)
+function headingRows(headings: NoteHeading[]) {
+	const minLevel = Math.min(...headings.map((heading) => heading.level))
+	return headings.map((heading) => (
+		<FormRow
+			key={`${heading.line}-${heading.text}`}
+			onPress={() => {
+				revealHeading(heading)
+				dismissSheet()
+			}}
+			title={`${INDENT.repeat(heading.level - minLevel)}${heading.text}`}
+		/>
+	))
 }
 
-function Backlinks({ filePath }: { filePath: string | null }) {
-	const { colors } = useMobileColors()
+export function OutlineSheet() {
+	const filePath = useSheetFilePath()
+	const headings = useNoteHeadings(filePath)
 	const backlinks = useNoteBacklinks(filePath)
 	const unlinked = listUnlinkedMentions(filePath)
-	const [showUnlinked, setShowUnlinked] = useState(false)
+	const noteTitle = filePath ? getNoteTitle(filePath) : "this note"
 
 	return (
 		<>
-			<GroupedSectionHeader>
-				{`${backlinks.length} linked ${backlinks.length === 1 ? "mention" : "mentions"}`}
-			</GroupedSectionHeader>
-			{backlinks.length === 0 ? (
-				<EmptyState description="Notes that link here with [[…]] show up here." title="No backlinks" />
-			) : (
-				<GroupedList>
+			<Stack.Screen
+				options={{
+					title: "Outline",
+					headerRight: IS_IOS
+						? undefined
+						: () => (
+								<HeaderIconButton
+									accessibilityLabel="Close"
+									icon={{ sf: "xmark", md: "close" }}
+									onPress={dismissSheet}
+								/>
+							),
+				}}
+			/>
+			{IS_IOS ? (
+				<Stack.Toolbar placement="right">
+					<Stack.Toolbar.Button onPress={dismissSheet} variant="done">
+						Done
+					</Stack.Toolbar.Button>
+				</Stack.Toolbar>
+			) : null}
+			<NativeForm>
+				<FormSection
+					footer={headings.length === 0 ? "Headings in this note show up here." : undefined}
+					title="Headings"
+				>
+					{headings.length > 0 ? headingRows(headings) : null}
+				</FormSection>
+				<FormSection
+					footer={backlinks.length === 0 ? "Notes that link here show up here." : undefined}
+					title={`Backlinks · ${backlinks.length}`}
+				>
 					{backlinks.map((backlink) => (
-						<MentionRow
-							context={backlink.context}
+						<FormRow
+							chevron
+							icon={{ sf: "doc.text", md: "description" }}
 							key={backlink.sourcePath}
 							onPress={() => {
 								dismissSheet()
 								openNote(backlink.sourcePath)
 							}}
+							subtitle={plainContext(backlink.context) || undefined}
 							title={backlink.title}
 						/>
 					))}
-				</GroupedList>
-			)}
-			<GroupedSectionHeader>Unlinked mentions</GroupedSectionHeader>
-			<GroupedList>
-				{showUnlinked
-					? unlinked.map((mention) => (
-							<MentionRow
-								context={mention.context}
+				</FormSection>
+				{unlinked.length > 0 ? (
+					<FormSection title="Unlinked mentions">
+						{unlinked.map((mention) => (
+							<FormRow
+								icon={{ sf: "link.badge.plus", md: "add_link" }}
 								key={mention.sourcePath}
-								onPress={() => toast(`Open ${mention.title} from Files`)}
+								onPress={() => toast(`Linked ${mention.title} to ${noteTitle}`)}
+								subtitle={mention.context}
 								title={mention.title}
-								trailing={
-									<Pressable
-										accessibilityLabel={`Link ${mention.title}`}
-										accessibilityRole="button"
-										onPress={() =>
-											toast(`Linked ${mention.title} to ${filePath ? getNoteTitle(filePath) : "this note"}`)
-										}
-										style={[styles.linkButton, { backgroundColor: colors.accentSubtle }]}
-									>
-										<Text style={[styles.linkLabel, { color: colors.tint }]}>Link</Text>
-									</Pressable>
-								}
 							/>
-						))
-					: [
-							<Pressable
-								accessibilityRole="button"
-								disabled={unlinked.length === 0}
-								key="show"
-								onPress={() => setShowUnlinked(true)}
-								style={styles.showMore}
-							>
-								<Text
-									style={[
-										styles.showMoreLabel,
-										{ color: unlinked.length === 0 ? colors.secondaryLabel : colors.tint },
-									]}
-								>
-									{unlinked.length === 0 ? "No unlinked mentions" : `Show ${unlinked.length} more`}
-								</Text>
-							</Pressable>,
-						]}
-			</GroupedList>
+						))}
+					</FormSection>
+				) : null}
+			</NativeForm>
 		</>
 	)
 }
-
-export function OutlineSheet() {
-	const { colors } = useMobileColors()
-	const filePath = useSheetFilePath()
-	const headings = useNoteHeadings(filePath)
-	const [tab, setTab] = useState<OutlineTab>("backlinks")
-	const title = filePath ? getNoteTitle(filePath) : "Note"
-
-	return (
-		<View style={[styles.root, { backgroundColor: colors.groupedBackground }]}>
-			<SheetHeader onClose={dismissSheet} title={title} />
-			<SegmentedControl
-				accessibilityLabel="Outline or backlinks"
-				onChange={setTab}
-				options={tabOptions}
-				style={styles.segmented}
-				value={tab}
-			/>
-			<ScrollView contentContainerStyle={styles.content}>
-				{tab === "outline" ? (
-					<View style={styles.outline}>
-						<NoteOutlineList headings={headings} />
-					</View>
-				) : (
-					<Backlinks filePath={filePath} />
-				)}
-			</ScrollView>
-		</View>
-	)
-}
-
-const styles = StyleSheet.create({
-	content: {
-		paddingBottom: 40,
-	},
-	context: {
-		fontSize: IS_IOS ? 15 : 14,
-		lineHeight: 20,
-	},
-	linkButton: {
-		alignItems: "center",
-		borderRadius: 999,
-		height: 32,
-		justifyContent: "center",
-		paddingHorizontal: 14,
-	},
-	linkLabel: {
-		fontSize: 15,
-		fontWeight: "600",
-		lineHeight: 20,
-	},
-	mention: {
-		alignItems: "center",
-		flexDirection: "row",
-		gap: 12,
-		minHeight: 64,
-		paddingHorizontal: 16,
-		paddingVertical: 10,
-	},
-	mentionBody: {
-		flex: 1,
-		gap: 2,
-		minWidth: 0,
-	},
-	mentionTitle: {
-		fontSize: IS_IOS ? 17 : 16,
-		fontWeight: "600",
-		lineHeight: 22,
-	},
-	outline: {
-		paddingTop: 16,
-	},
-	root: {
-		flex: 1,
-	},
-	segmented: {
-		marginHorizontal: 16,
-		marginBottom: 4,
-	},
-	showMore: {
-		justifyContent: "center",
-		minHeight: 48,
-		paddingHorizontal: 16,
-	},
-	showMoreLabel: {
-		fontSize: IS_IOS ? 17 : 16,
-		lineHeight: 22,
-	},
-})

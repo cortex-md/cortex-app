@@ -1,10 +1,13 @@
-import { Bookmark, ChevronRight, FileText, Folder, Trash2 } from "lucide-react-native"
+import type { Href } from "expo-router"
 import { useRef } from "react"
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 import ReanimatedSwipeable, {
 	type SwipeableMethods,
 } from "react-native-gesture-handler/ReanimatedSwipeable"
 
+import type { MenuGroup } from "@/components/ui/menuTypes"
+import { Symbol, type SymbolName } from "@/components/ui/Symbol"
+import { EntryContextMenu } from "@/features/file-explorer/EntryContextMenu"
 import { useMobileColors } from "@/hooks/useMobileColors"
 import { triggerSelectionHaptic } from "@/utils/haptics"
 
@@ -12,48 +15,64 @@ const IS_IOS = Platform.OS === "ios"
 const ACTION_WIDTH = IS_IOS ? 80 : 76
 
 export function FolderRow({
-	onLongPress,
+	href,
+	menuGroups,
 	onPress,
 	title,
 	value,
 }: {
-	onLongPress?: () => void
+	href: Href
+	menuGroups: MenuGroup[]
 	onPress: () => void
 	title: string
 	value?: string
 }) {
 	const { colors } = useMobileColors()
 	return (
-		<Pressable
-			accessibilityRole="button"
-			android_ripple={{ color: colors.hover }}
-			onLongPress={onLongPress}
-			onPress={onPress}
-			style={({ pressed }) => [
-				styles.row,
-				{ backgroundColor: pressed && IS_IOS ? colors.hover : colors.cell },
-			]}
-		>
-			<Folder color={colors.secondaryLabel} size={IS_IOS ? 22 : 24} strokeWidth={2} />
-			<Text numberOfLines={1} style={[styles.title, { color: colors.label }]}>
-				{title}
-			</Text>
-			{value ? <Text style={[styles.value, { color: colors.secondaryLabel }]}>{value}</Text> : null}
-			<ChevronRight color={colors.tertiaryLabel} size={IS_IOS ? 14 : 24} strokeWidth={2.4} />
-		</Pressable>
+		<EntryContextMenu groups={menuGroups} header={title} href={href} onPress={onPress}>
+			{(trigger) => (
+				<Pressable
+					accessibilityRole="button"
+					android_ripple={{ color: colors.hover }}
+					onLongPress={trigger.onLongPress}
+					onPress={trigger.onPress}
+					style={({ pressed }) => [
+						styles.row,
+						{ backgroundColor: pressed && IS_IOS ? colors.hover : colors.cell },
+					]}
+				>
+					<Symbol
+						color={colors.tint}
+						name={{ sf: "folder", md: "folder" }}
+						size={IS_IOS ? 22 : 24}
+					/>
+					<Text numberOfLines={1} style={[styles.title, { color: colors.label }]}>
+						{title}
+					</Text>
+					{value ? (
+						<Text style={[styles.value, { color: colors.secondaryLabel }]}>{value}</Text>
+					) : null}
+					<Symbol
+						color={colors.tertiaryLabel}
+						name={{ sf: "chevron.right", md: "chevron_right" }}
+						size={IS_IOS ? 13 : 24}
+					/>
+				</Pressable>
+			)}
+		</EntryContextMenu>
 	)
 }
 
 function SwipeAction({
-	Icon,
 	background,
 	foreground,
+	icon,
 	label,
 	onPress,
 }: {
-	Icon: typeof Bookmark
 	background: string
 	foreground: string
+	icon: SymbolName
 	label: string
 	onPress: () => void
 }) {
@@ -64,7 +83,7 @@ function SwipeAction({
 			onPress={onPress}
 			style={[styles.action, { backgroundColor: background }]}
 		>
-			<Icon color={foreground} size={22} strokeWidth={2.2} />
+			<Symbol color={foreground} name={icon} size={22} />
 			<Text style={[styles.actionLabel, { color: foreground }]}>{label}</Text>
 		</Pressable>
 	)
@@ -73,17 +92,19 @@ function SwipeAction({
 export function NoteRow({
 	bookmarked,
 	detail,
+	href,
+	menuGroups,
 	onBookmark,
 	onDelete,
-	onLongPress,
 	onPress,
 	title,
 }: {
 	bookmarked: boolean
 	detail?: string
+	href: Href
+	menuGroups: MenuGroup[]
 	onBookmark: () => void
 	onDelete: () => void
-	onLongPress?: () => void
 	onPress: () => void
 	title: string
 }) {
@@ -104,16 +125,20 @@ export function NoteRow({
 			renderRightActions={() => (
 				<View style={styles.actions}>
 					<SwipeAction
-						Icon={Bookmark}
 						background={colors.tintFill}
 						foreground={colors.onTint}
+						icon={
+							bookmarked
+								? { sf: "bookmark.slash", md: "bookmark_remove" }
+								: { sf: "bookmark", md: "bookmark" }
+						}
 						label={bookmarked ? "Unbookmark" : "Bookmark"}
 						onPress={() => runAction(onBookmark)}
 					/>
 					<SwipeAction
-						Icon={Trash2}
 						background={colors.destructive}
 						foreground={colors.onDestructive}
+						icon={{ sf: "trash", md: "delete" }}
 						label="Delete"
 						onPress={() => runAction(onDelete)}
 					/>
@@ -121,34 +146,47 @@ export function NoteRow({
 			)}
 			rightThreshold={40}
 		>
-			<Pressable
-				accessibilityRole="button"
-				android_ripple={{ color: colors.hover }}
-				onLongPress={onLongPress}
-				onPress={onPress}
-				style={({ pressed }) => [
-					styles.row,
-					styles.noteRow,
-					{ backgroundColor: pressed && IS_IOS ? colors.hover : colors.cell },
-				]}
-			>
-				{IS_IOS ? null : (
-					<FileText color={colors.secondaryLabel} size={24} strokeWidth={2} />
+			<EntryContextMenu groups={menuGroups} header={title} href={href} onPress={onPress}>
+				{(trigger) => (
+					<Pressable
+						accessibilityRole="button"
+						android_ripple={{ color: colors.hover }}
+						onLongPress={trigger.onLongPress}
+						onPress={trigger.onPress}
+						style={({ pressed }) => [
+							styles.row,
+							styles.noteRow,
+							{ backgroundColor: pressed && IS_IOS ? colors.hover : colors.cell },
+						]}
+					>
+						<Symbol
+							color={colors.secondaryLabel}
+							name={{ sf: "doc.text", md: "description" }}
+							size={IS_IOS ? 22 : 24}
+						/>
+						<View style={styles.body}>
+							<Text
+								numberOfLines={1}
+								style={[styles.title, styles.noteTitle, { color: colors.label }]}
+							>
+								{title}
+							</Text>
+							{detail ? (
+								<Text numberOfLines={1} style={[styles.detail, { color: colors.secondaryLabel }]}>
+									{detail}
+								</Text>
+							) : null}
+						</View>
+						{bookmarked ? (
+							<Symbol
+								color={colors.tint}
+								name={{ sf: "bookmark.fill", md: "bookmark" }}
+								size={16}
+							/>
+						) : null}
+					</Pressable>
 				)}
-				<View style={styles.body}>
-					<Text numberOfLines={1} style={[styles.title, styles.noteTitle, { color: colors.label }]}>
-						{title}
-					</Text>
-					{detail ? (
-						<Text numberOfLines={1} style={[styles.detail, { color: colors.secondaryLabel }]}>
-							{detail}
-						</Text>
-					) : null}
-				</View>
-				{bookmarked ? (
-					<Bookmark color={colors.tint} fill={colors.tint} size={18} strokeWidth={2} />
-				) : null}
-			</Pressable>
+			</EntryContextMenu>
 		</ReanimatedSwipeable>
 	)
 }
@@ -179,7 +217,7 @@ const styles = StyleSheet.create({
 		lineHeight: IS_IOS ? 18 : 20,
 	},
 	noteRow: {
-		minHeight: IS_IOS ? 70 : 72,
+		minHeight: IS_IOS ? 60 : 72,
 	},
 	noteTitle: {
 		fontWeight: IS_IOS ? "600" : "500",
@@ -188,7 +226,7 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		flexDirection: "row",
 		gap: IS_IOS ? 12 : 16,
-		minHeight: IS_IOS ? 52 : 56,
+		minHeight: IS_IOS ? 48 : 56,
 		paddingHorizontal: 16,
 		paddingVertical: 10,
 	},
