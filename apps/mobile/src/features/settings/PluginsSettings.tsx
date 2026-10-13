@@ -5,11 +5,12 @@ import {
 	usePluginStore,
 } from "@cortex/plugin-host-core"
 import { FieldGroup, Host, ListItem, Switch } from "@expo/ui"
-import { router, Stack, useLocalSearchParams } from "expo-router"
+import { Stack, useLocalSearchParams } from "expo-router"
 import { ScrollView, StyleSheet } from "react-native"
 
 import { mobilePluginHost } from "@/bootstrap/pluginHost"
 import { openMarketplace } from "@/features/marketplace/marketplaceNavigation"
+import { openSettings } from "@/features/navigation/routes"
 import {
 	enablePluginWithConsent,
 	setCommunityPluginsAllowed,
@@ -33,7 +34,7 @@ async function setPluginEnabled(record: PluginRecord, enabled: boolean): Promise
 }
 
 function openPluginSettings(pageKey: string): void {
-	router.push({ params: { pageKey }, pathname: "/(settings)/plugin-settings" as never })
+	openSettings("plugin-settings", { pageKey })
 }
 
 function getPluginSupportingText(record: PluginRecord): string {

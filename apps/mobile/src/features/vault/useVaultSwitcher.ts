@@ -6,84 +6,66 @@ import {
 } from "@cortex/core"
 import type { VaultRegistryEntry } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
-import { useRouter } from "expo-router"
+import { useState } from "react"
 
-import { runSubmittingTask, type SidebarUi } from "@/features/sidebar/sidebarUiState"
+import { goToFilesRoot, openOnboarding } from "@/features/navigation/routes"
 import { triggerSelectionHaptic } from "@/utils/haptics"
 
-function reportSidebarError(operation: string, userMessage: string, error: unknown): Promise<void> {
-	return reportAppError({ operation, source: "mobile-sidebar", cause: error, userMessage })
+interface SwitcherState {
+	openingUuid: string | null
+	submitting: boolean
 }
 
-export function useVaultSwitcher({ closeSidebar, dispatchUi, uiState }: SidebarUi) {
-	const router = useRouter()
+const idleState: SwitcherState = { openingUuid: null, submitting: false }
 
-	function finishVaultSwitch() {
-		dispatchUi({ presented: false, type: "set-switcher-presented" })
-		closeSidebar()
-		router.replace("/(notes)" as never)
+function reportVaultError(operation: string, userMessage: string, error: unknown): Promise<void> {
+	return reportAppError({ operation, source: "mobile-vault", cause: error, userMessage })
+}
+
+async function openVaultEntry(
+	entry: VaultRegistryEntry,
+	setState: (state: SwitcherState) => void,
+): Promise<boolean> {
+	triggerSelectionHaptic()
+	setState({ openingUuid: entry.uuid, submitting: true })
+	try {
+		await openVaultSession(entry.path, getRegistryOpenOptions(entry))
+		goToFilesRoot()
+		return true
+	} catch (error) {
+		await reportVaultError("open-recent-vault", `"${entry.name}" could not be opened.`, error)
+		return false
+	} finally {
+		setState(idleState)
 	}
+}
 
-	async function handleOpenRecentVault(entry: VaultRegistryEntry) {
-		await runSubmittingTask(
-			dispatchUi,
-			async () => {
-				await openVaultSession(entry.path, getRegistryOpenOptions(entry))
-				finishVaultSwitch()
-			},
-			(error) =>
-				reportSidebarError("open-recent-vault", `"${entry.name}" could not be opened.`, error),
-		)
-	}
-
-	async function handleBrowseVault() {
-		await runSubmittingTask(
-			dispatchUi,
-			async () => {
-				const folderPath = await getPlatform().dialog.pickFolder()
-				if (!folderPath) return
-				const picked = await resolvePickedFolder(folderPath)
-				if (picked.kind === "new") {
-					dispatchUi({
-						folder: { defaultName: picked.defaultName, path: picked.path },
-						type: "set-pending-vault-folder",
-					})
-					return
-				}
-				await openVaultSession(picked.entry.path, getRegistryOpenOptions(picked.entry))
-				finishVaultSwitch()
-			},
-			(error) => reportSidebarError("open-vault-folder", "The vault could not be opened.", error),
-		)
-	}
-
-	function openSwitcher() {
-		triggerSelectionHaptic()
-		dispatchUi({ presented: true, type: "set-switcher-presented" })
-	}
-
-	function dismissSwitcher() {
-		if (!uiState.submitting) {
-			dispatchUi({ presented: false, type: "set-switcher-presented" })
+async function browseVaultFolder(setState: (state: SwitcherState) => void): Promise<boolean> {
+	setState({ openingUuid: null, submitting: true })
+	try {
+		const folderPath = await getPlatform().dialog.pickFolder()
+		if (!folderPath) return false
+		const picked = await resolvePickedFolder(folderPath)
+		if (picked.kind === "new") {
+			openOnboarding({ name: picked.defaultName, path: picked.path })
+			return true
 		}
+		return await openVaultEntry(picked.entry, setState)
+	} catch (error) {
+		await reportVaultError("open-vault-folder", "The vault could not be opened.", error)
+		return false
+	} finally {
+		setState(idleState)
 	}
+}
 
-	function dismissPendingVaultFolder() {
-		dispatchUi({ folder: null, type: "set-pending-vault-folder" })
-	}
-
-	function handleVaultCreated() {
-		dismissPendingVaultFolder()
-		dispatchUi({ presented: false, type: "set-switcher-presented" })
-		closeSidebar()
-	}
+export function useVaultSwitcher() {
+	const [state, setState] = useState<SwitcherState>(idleState)
 
 	return {
-		dismissPendingVaultFolder,
-		dismissSwitcher,
-		handleBrowseVault,
-		handleOpenRecentVault,
-		handleVaultCreated,
-		openSwitcher,
+		browseFolder: () => browseVaultFolder(setState),
+		openVault: (entry: VaultRegistryEntry) => openVaultEntry(entry, setState),
+		openingUuid: state.openingUuid,
+		submitting: state.submitting,
 	}
 }

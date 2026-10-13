@@ -2,6 +2,12 @@ import { useVaultStore } from "@cortex/core"
 import { Stack } from "expo-router"
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native"
 
+import { ToastHost } from "@/features/feedback/ToastHost"
+import {
+	formSheetOptions,
+	fullScreenFormOptions,
+	fullScreenOrSheetOptions,
+} from "@/features/navigation/sheetPresentation"
 import { OnboardingScreen } from "@/features/onboarding/OnboardingScreen"
 import { PluginModalHost } from "@/features/plugins/PluginModalHost"
 import { SidebarProvider } from "@/features/sidebar/SidebarProvider"
@@ -29,13 +35,30 @@ export function AppGate() {
 
 	return (
 		<SidebarProvider>
-			<Stack screenOptions={{ headerShown: false }}>
-				<Stack.Screen name="(notes)" />
-				<Stack.Screen name="(settings)" />
-				<Stack.Screen name="(search)" />
+			<Stack screenOptions={{ contentStyle: { backgroundColor: colors.background } }}>
+				<Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+				<Stack.Screen name="settings" options={{ headerShown: false }} />
+				<Stack.Screen name="onboarding" options={fullScreenFormOptions()} />
+				<Stack.Screen name="vault-switcher" options={formSheetOptions("large")} />
+				<Stack.Screen name="add-vault" options={fullScreenOrSheetOptions("large")} />
+				<Stack.Screen name="quick-finder" options={fullScreenOrSheetOptions("large")} />
+				<Stack.Screen name="command-palette" options={formSheetOptions("large")} />
+				<Stack.Screen name="properties" options={formSheetOptions([0.55, 0.92])} />
+				<Stack.Screen name="outline" options={formSheetOptions("medium")} />
+				<Stack.Screen name="comments" options={formSheetOptions([0.65, 1])} />
+				<Stack.Screen name="people" options={formSheetOptions("large")} />
+				<Stack.Screen name="export" options={formSheetOptions("fitToContents")} />
+				<Stack.Screen name="task" options={fullScreenOrSheetOptions("large")} />
+				<Stack.Screen name="from-template" options={fullScreenOrSheetOptions("large")} />
+				<Stack.Screen name="import" options={fullScreenOrSheetOptions("large")} />
+				<Stack.Screen name="share-template" options={fullScreenOrSheetOptions("large")} />
+				<Stack.Screen name="db-view-options" options={formSheetOptions("medium")} />
+				<Stack.Screen name="db-new" options={fullScreenFormOptions()} />
+				<Stack.Screen name="tabs" options={fullScreenFormOptions()} />
 			</Stack>
 			<WorkspaceHost />
 			<PluginModalHost />
+			<ToastHost />
 		</SidebarProvider>
 	)
 }

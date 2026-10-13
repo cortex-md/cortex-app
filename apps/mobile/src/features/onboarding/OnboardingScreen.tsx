@@ -12,7 +12,7 @@ import {
 } from "@cortex/core"
 import type { SyncPreferences, VaultRegistryEntry } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
-import { useRouter } from "expo-router"
+import { goToFilesRoot } from "@/features/navigation/routes"
 import { BookOpen, Folder, FolderOpen, type LucideIcon, Sparkles } from "lucide-react-native"
 import { type ReactNode, useMemo, useState } from "react"
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native"
@@ -53,7 +53,6 @@ export function OnboardingScreen({
 	onCancel,
 	onCreated,
 }: OnboardingScreenProps) {
-	const router = useRouter()
 	const { colors, iconColors } = useMobileColors()
 	const version = useAppStore((state) => state.version)
 	const firstRunOnboardingSeen = useAppStore((state) => state.firstRunOnboardingSeen)
@@ -79,7 +78,7 @@ export function OnboardingScreen({
 		setError(null)
 		try {
 			await openVaultSession(entry.path, getRegistryOpenOptions(entry))
-			router.replace("/(notes)" as never)
+			goToFilesRoot()
 		} catch (openError) {
 			setError(getErrorMessage(openError))
 		} finally {
@@ -124,7 +123,7 @@ export function OnboardingScreen({
 				syncPreferences: preferences,
 			})
 			onCreated?.()
-			router.replace("/(notes)" as never)
+			goToFilesRoot()
 		} catch (createError) {
 			setError(getErrorMessage(createError))
 		} finally {

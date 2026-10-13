@@ -55,7 +55,6 @@ export function useFileExplorerActions({ closeSidebar, dispatchUi, uiState }: Si
 			folders: treeView.allExpanded ? new Set() : new Set(treeView.folderPaths),
 			type: "set-expanded-folders",
 		})
-		dispatchUi({ presented: false, type: "set-more-presented" })
 	}
 
 	function handleOpenEntryActions(entry: FileEntry) {

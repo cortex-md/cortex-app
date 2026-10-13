@@ -1,10 +1,10 @@
 import { registerCommands } from "@cortex/commands"
-import { createFileCommandEntries, useWorkspaceStore } from "@cortex/core"
-import { router } from "expo-router"
+import { createFileCommandEntries } from "@cortex/core"
+
+import { openNote } from "@/features/navigation/routes"
 
 export function openMobileNote(filePath: string): void {
-	useWorkspaceStore.getState().openTab(filePath, { reuseActive: true })
-	router.push({ params: { filePath }, pathname: "/(notes)/note" as never })
+	openNote(filePath)
 }
 
 export function registerMobileAppCommands(): () => void {
