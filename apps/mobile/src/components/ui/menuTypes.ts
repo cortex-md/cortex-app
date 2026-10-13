@@ -1,12 +1,10 @@
-import type { ImageProps } from "@expo/ui/swift-ui"
-import type { LucideIcon } from "lucide-react-native"
+import type { SFSymbol as ExpoSFSymbol } from "expo-symbols"
 
-export type SFSymbol = NonNullable<ImageProps["systemName"]>
+import type { SymbolName } from "@/components/ui/Symbol"
 
-export interface MenuIcon {
-	sf: SFSymbol
-	Lucide: LucideIcon
-}
+export type SFSymbol = ExpoSFSymbol
+
+export type MenuIcon = SymbolName
 
 export interface MenuItem {
 	key: string

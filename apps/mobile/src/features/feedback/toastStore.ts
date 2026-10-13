@@ -40,7 +40,10 @@ export function dismissToast(id?: number): void {
 	notify()
 }
 
-export function showToast(message: string, options: { action?: ToastAction; duration?: number } = {}) {
+export function showToast(
+	message: string,
+	options: { action?: ToastAction; duration?: number } = {},
+) {
 	const toast: Toast = {
 		action: options.action,
 		duration: options.duration ?? (options.action ? 5000 : 3000),

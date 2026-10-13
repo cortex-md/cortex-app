@@ -1,11 +1,10 @@
 import { Host } from "@expo/ui"
 import { ExtendedFloatingActionButton, RNHostView, Text } from "@expo/ui/jetpack-compose"
-import { View } from "react-native"
-
 import type { FloatingActionButtonProps } from "@/components/ui/fabTypes"
+import { Symbol } from "@/components/ui/Symbol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
-export function FloatingActionButton({ Icon, label, onPress }: FloatingActionButtonProps) {
+export function FloatingActionButton({ icon, label, onPress }: FloatingActionButtonProps) {
 	const { colors } = useMobileColors()
 
 	return (
@@ -13,9 +12,7 @@ export function FloatingActionButton({ Icon, label, onPress }: FloatingActionBut
 			<ExtendedFloatingActionButton containerColor={colors.tintFill} onClick={onPress}>
 				<ExtendedFloatingActionButton.Icon>
 					<RNHostView matchContents>
-						<View>
-							<Icon color={colors.onTint} size={24} strokeWidth={2} />
-						</View>
+						<Symbol color={colors.onTint} name={icon} size={24} />
 					</RNHostView>
 				</ExtendedFloatingActionButton.Icon>
 				<ExtendedFloatingActionButton.Text>

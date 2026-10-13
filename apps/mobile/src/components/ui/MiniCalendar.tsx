@@ -1,8 +1,8 @@
 import { addMonths, parseIsoDate, toIsoDate } from "@cortex/tasks"
-import { ChevronLeft, ChevronRight } from "lucide-react-native"
 import { useMemo } from "react"
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 
+import { Symbol } from "@/components/ui/Symbol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 const IS_IOS = Platform.OS === "ios"
@@ -111,7 +111,11 @@ export function MiniCalendar({
 								onPress={() => onChangeMonth(addMonths(month, -1, 1))}
 								style={({ pressed }) => [styles.navButton, { opacity: pressed ? 0.5 : 1 }]}
 							>
-								<ChevronLeft color={colors.tint} size={20} strokeWidth={2.4} />
+								<Symbol
+									color={colors.tint}
+									name={{ sf: "chevron.left", md: "chevron_left" }}
+									size={20}
+								/>
 							</Pressable>
 							<Pressable
 								accessibilityLabel="Next month"
@@ -119,7 +123,11 @@ export function MiniCalendar({
 								onPress={() => onChangeMonth(addMonths(month, 1, 1))}
 								style={({ pressed }) => [styles.navButton, { opacity: pressed ? 0.5 : 1 }]}
 							>
-								<ChevronRight color={colors.tint} size={20} strokeWidth={2.4} />
+								<Symbol
+									color={colors.tint}
+									name={{ sf: "chevron.right", md: "chevron_right" }}
+									size={20}
+								/>
 							</Pressable>
 						</View>
 					) : null}
@@ -127,7 +135,10 @@ export function MiniCalendar({
 			) : null}
 			<View style={styles.weekRow}>
 				{WEEK_LABELS[weekStart].map((label, index) => (
-					<Text key={`${label}-${index}`} style={[styles.weekLabel, { color: colors.tertiaryLabel }]}>
+					<Text
+						key={`${label}-${index}`}
+						style={[styles.weekLabel, { color: colors.tertiaryLabel }]}
+					>
 						{label}
 					</Text>
 				))}
@@ -166,7 +177,10 @@ export function MiniCalendar({
 								<Text
 									style={[
 										styles.dayLabel,
-										{ color: labelColor, fontWeight: cell.isToday || cell.selected ? "600" : "400" },
+										{
+											color: labelColor,
+											fontWeight: cell.isToday || cell.selected ? "600" : "400",
+										},
 									]}
 								>
 									{cell.day}

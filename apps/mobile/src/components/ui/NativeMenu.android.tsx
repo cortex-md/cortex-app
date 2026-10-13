@@ -6,17 +6,16 @@ import {
 	RNHostView,
 	Text,
 } from "@expo/ui/jetpack-compose"
-import { Check } from "lucide-react-native"
 import { Fragment, useState } from "react"
 import { Pressable, StyleSheet, Text as RNText, View } from "react-native"
 
 import type { NativeMenuProps } from "@/components/ui/menuTypes"
+import { Symbol } from "@/components/ui/Symbol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 export function NativeMenu({ accessibilityLabel, groups, header, icon, title }: NativeMenuProps) {
 	const { colors } = useMobileColors()
 	const [expanded, setExpanded] = useState(false)
-	const AnchorIcon = icon?.Lucide
 
 	return (
 		<Host matchContents>
@@ -33,8 +32,8 @@ export function NativeMenu({ accessibilityLabel, groups, header, icon, title }: 
 							onPress={() => setExpanded(true)}
 							style={styles.anchor}
 						>
-							{AnchorIcon ? (
-								<AnchorIcon color={colors.secondaryLabel} size={24} strokeWidth={2} />
+							{icon ? (
+								<Symbol color={colors.secondaryLabel} name={icon} size={24} />
 							) : (
 								<RNText style={[styles.anchorText, { color: colors.tint }]}>{title}</RNText>
 							)}
@@ -55,7 +54,6 @@ export function NativeMenu({ accessibilityLabel, groups, header, icon, title }: 
 						<Fragment key={groupIndex}>
 							{groupIndex > 0 ? <HorizontalDivider color={colors.separator} /> : null}
 							{group.map((item) => {
-								const ItemIcon = item.icon?.Lucide
 								const itemColor = item.destructive ? colors.destructiveText : colors.label
 								return (
 									<DropdownMenuItem
@@ -72,14 +70,18 @@ export function NativeMenu({ accessibilityLabel, groups, header, icon, title }: 
 												{item.label}
 											</Text>
 										</DropdownMenuItem.Text>
-										{ItemIcon || item.checked ? (
+										{item.icon || item.checked ? (
 											<DropdownMenuItem.LeadingIcon>
 												<RNHostView matchContents>
 													<View>
 														{item.checked ? (
-															<Check color={colors.tint} size={20} strokeWidth={2.4} />
-														) : ItemIcon ? (
-															<ItemIcon color={colors.secondaryLabel} size={20} strokeWidth={2} />
+															<Symbol
+																color={colors.tint}
+																name={{ sf: "checkmark", md: "check" }}
+																size={20}
+															/>
+														) : item.icon ? (
+															<Symbol color={colors.secondaryLabel} name={item.icon} size={20} />
 														) : null}
 													</View>
 												</RNHostView>

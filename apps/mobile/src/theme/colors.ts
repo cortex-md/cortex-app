@@ -76,10 +76,13 @@ export function createMobileColors(theme: Theme) {
 		swatchGreen: primitive.green[400] ?? status.success,
 		swatchYellow: primitive.yellow[400] ?? status.warning,
 		swatchRed: primitive.red[400] ?? status.error,
-		scrim: withAlpha(semantic.text.onAccent, isDark ? 0.52 : 0.26),
+		scrim: withAlpha("#000000", isDark ? 0.52 : 0.32),
 		glass: withAlpha(isDark ? semantic.bg.tertiary : semantic.bg.elevated, isDark ? 0.72 : 0.74),
 		glassHighlight: withAlpha(isDark ? semantic.bg.hover : semantic.bg.active, isDark ? 0.8 : 0.7),
-		glassEdge: withAlpha(isDark ? semantic.text.primary : semantic.border.default, isDark ? 0.12 : 0.7),
+		glassEdge: withAlpha(
+			isDark ? semantic.text.primary : semantic.border.default,
+			isDark ? 0.12 : 0.7,
+		),
 		shadow: withAlpha("#000000", isDark ? 0.35 : 0.12),
 	}
 }

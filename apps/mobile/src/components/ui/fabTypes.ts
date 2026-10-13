@@ -1,10 +1,8 @@
-import type { SFSymbol } from "@/components/ui/menuTypes"
-import type { LucideIcon } from "lucide-react-native"
+import type { SymbolName } from "@/components/ui/Symbol"
 
 export interface FloatingActionButtonProps {
-	Icon: LucideIcon
 	accessibilityLabel?: string
+	icon: SymbolName
 	label: string
 	onPress: () => void
-	sf: SFSymbol
 }

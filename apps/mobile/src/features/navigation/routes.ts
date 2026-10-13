@@ -1,5 +1,6 @@
 import { useWorkspaceStore } from "@cortex/core"
 import { type Href, router } from "expo-router"
+import { store } from "expo-router/build/global-state/router-store"
 
 export type SettingsPage =
 	| "general"
@@ -51,9 +52,46 @@ function href(pathname: string, params?: Params): Href {
 	return { params, pathname } as Href
 }
 
+interface RouteStateNode {
+	index?: number
+	routes: { name: string; state?: RouteStateNode }[]
+}
+
+function findTabsState(state: RouteStateNode | undefined): RouteStateNode | undefined {
+	if (!state) return undefined
+	for (const route of state.routes) {
+		if (route.name === "(tabs)") return route.state
+		const nested = findTabsState(route.state)
+		if (nested) return nested
+	}
+	return undefined
+}
+
+function focusedLeafName(state: RouteStateNode | undefined): string | undefined {
+	let current = state
+	let name: string | undefined
+	while (current && current.routes.length > 0) {
+		const route = current.routes[current.index ?? current.routes.length - 1]
+		if (!route) return name
+		name = route.name
+		current = route.state
+	}
+	return name
+}
+
+function isNoteOnTop(): boolean {
+	const navigation = store.navigationRef.current
+	if (!navigation?.isReady()) return false
+	const root = navigation.getRootState() as unknown as RouteStateNode
+	const name = focusedLeafName(findTabsState(root))
+	return name === "note" || name?.endsWith("/note") === true
+}
+
 export function openNote(filePath: string): void {
 	useWorkspaceStore.getState().openTab(filePath, { reuseActive: true })
-	router.push(href("/note", { filePath }))
+	const target = href("/note", { filePath })
+	if (isNoteOnTop()) router.replace(target)
+	else router.push(target)
 }
 
 export function openFolder(path: string): void {

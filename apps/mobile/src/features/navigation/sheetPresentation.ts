@@ -3,6 +3,14 @@ import { Platform } from "react-native"
 
 type Detent = "medium" | "large" | "fitToContents"
 
+const IS_IOS = Platform.OS === "ios"
+
+const nativeHeaderOptions: NativeStackNavigationOptions = {
+	headerShadowVisible: false,
+	headerShown: true,
+	headerTransparent: IS_IOS,
+}
+
 const detentValues: Record<Detent, number[] | "fitToContents"> = {
 	fitToContents: "fitToContents",
 	large: [1],
@@ -15,10 +23,10 @@ export function formSheetOptions(
 ): NativeStackNavigationOptions {
 	const allowedDetents = Array.isArray(detent) ? detent : detentValues[detent]
 	return {
-		headerShown: false,
+		...nativeHeaderOptions,
 		presentation: "formSheet",
 		sheetAllowedDetents: allowedDetents,
-		sheetCornerRadius: Platform.OS === "android" ? 28 : undefined,
+		sheetCornerRadius: IS_IOS ? undefined : 28,
 		sheetGrabberVisible: true,
 		sheetInitialDetentIndex: 0,
 		...extra,
@@ -30,7 +38,7 @@ export function fullScreenOrSheetOptions(
 	extra?: NativeStackNavigationOptions,
 ): NativeStackNavigationOptions {
 	if (Platform.OS === "android") {
-		return { headerShown: false, presentation: "fullScreenModal", ...extra }
+		return { ...nativeHeaderOptions, presentation: "fullScreenModal", ...extra }
 	}
 	return formSheetOptions(detent, extra)
 }
@@ -38,5 +46,5 @@ export function fullScreenOrSheetOptions(
 export function fullScreenFormOptions(
 	extra?: NativeStackNavigationOptions,
 ): NativeStackNavigationOptions {
-	return { headerShown: false, presentation: "fullScreenModal", ...extra }
+	return { ...nativeHeaderOptions, presentation: "fullScreenModal", ...extra }
 }

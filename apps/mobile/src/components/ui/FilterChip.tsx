@@ -1,6 +1,6 @@
-import { Check, ChevronDown, X } from "lucide-react-native"
 import { Platform, Pressable, StyleSheet, Text } from "react-native"
 
+import { Symbol } from "@/components/ui/Symbol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 const IS_IOS = Platform.OS === "ios"
@@ -39,14 +39,20 @@ export function FilterChip({
 				},
 			]}
 		>
-			{!IS_IOS && selected ? <Check color={foreground} size={18} strokeWidth={2.4} /> : null}
+			{!IS_IOS && selected ? (
+				<Symbol color={foreground} name={{ sf: "checkmark", md: "check" }} size={18} />
+			) : null}
 			<Text numberOfLines={1} style={[styles.label, { color: foreground }]}>
 				{label}
 			</Text>
 			{onRemove ? (
-				<X color={foreground} size={16} strokeWidth={2.4} />
+				<Symbol color={foreground} name={{ sf: "xmark", md: "close" }} size={16} />
 			) : menu ? (
-				<ChevronDown color={foreground} size={16} strokeWidth={2.4} />
+				<Symbol
+					color={foreground}
+					name={{ sf: "chevron.down", md: "keyboard_arrow_down" }}
+					size={16}
+				/>
 			) : null}
 		</Pressable>
 	)

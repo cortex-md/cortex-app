@@ -17,7 +17,11 @@ export function NativeMenu({
 	const { colors } = useMobileColors()
 	const anchorModifiers =
 		anchorStyle === "glass"
-			? [frame({ height: 44, minWidth: 44 }), glassEffect({ shape: "capsule" }), foregroundStyle(colors.label)]
+			? [
+					frame({ height: 44, minWidth: 44 }),
+					glassEffect({ shape: "capsule" }),
+					foregroundStyle(colors.label),
+				]
 			: [foregroundStyle(colors.tint)]
 
 	return (

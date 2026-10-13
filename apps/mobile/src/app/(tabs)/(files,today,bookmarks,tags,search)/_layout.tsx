@@ -27,6 +27,7 @@ export default function TabStackLayout({ segment }: { segment: string }) {
 			<Stack.Screen name="version-history" options={{ headerLargeTitleEnabled: false, title: "Version history" }} />
 			<Stack.Screen name="version" options={{ headerLargeTitleEnabled: false }} />
 			<Stack.Screen name="template-editor" options={{ headerLargeTitleEnabled: false }} />
+			<Stack.Screen name="template-settings" options={{ headerLargeTitleEnabled: false }} />
 			<Stack.Screen name="conflict" options={{ headerLargeTitleEnabled: false }} />
 			<Stack.Screen name="database-row" options={{ headerLargeTitleEnabled: false }} />
 		</Stack>

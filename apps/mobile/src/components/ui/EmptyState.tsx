@@ -1,21 +1,21 @@
-import type { LucideIcon } from "lucide-react-native"
 import { StyleSheet, Text, View } from "react-native"
 
+import { Symbol, type SymbolName } from "@/components/ui/Symbol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 export function EmptyState({
-	Icon,
 	description,
+	icon,
 	title,
 }: {
-	Icon?: LucideIcon
 	description?: string
+	icon?: SymbolName
 	title: string
 }) {
 	const { colors } = useMobileColors()
 	return (
 		<View style={styles.root}>
-			{Icon ? <Icon color={colors.tertiaryLabel} size={34} strokeWidth={1.8} /> : null}
+			{icon ? <Symbol color={colors.tertiaryLabel} name={icon} size={34} /> : null}
 			<Text style={[styles.title, { color: colors.label }]}>{title}</Text>
 			{description ? (
 				<Text style={[styles.description, { color: colors.secondaryLabel }]}>{description}</Text>

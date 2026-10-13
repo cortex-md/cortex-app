@@ -5,7 +5,7 @@ import { buttonStyle, controlSize, tint } from "@expo/ui/swift-ui/modifiers"
 import type { FloatingActionButtonProps } from "@/components/ui/fabTypes"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
-export function FloatingActionButton({ label, onPress, sf }: FloatingActionButtonProps) {
+export function FloatingActionButton({ icon, label, onPress }: FloatingActionButtonProps) {
 	const { colors } = useMobileColors()
 
 	return (
@@ -14,7 +14,7 @@ export function FloatingActionButton({ label, onPress, sf }: FloatingActionButto
 				label={label}
 				modifiers={[buttonStyle("glassProminent"), controlSize("large"), tint(colors.tintFill)]}
 				onPress={onPress}
-				systemImage={sf}
+				systemImage={icon.sf}
 			/>
 		</Host>
 	)

@@ -1,18 +1,18 @@
-import type { LucideIcon } from "lucide-react-native"
 import { Platform, Pressable, StyleSheet } from "react-native"
 
+import { Symbol, type SymbolName } from "@/components/ui/Symbol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 const IS_IOS = Platform.OS === "ios"
 
 export function HeaderIconButton({
-	Icon,
 	accessibilityLabel,
+	icon,
 	onPress,
 	prominent = false,
 }: {
-	Icon: LucideIcon
 	accessibilityLabel: string
+	icon: SymbolName
 	onPress: () => void
 	prominent?: boolean
 }) {
@@ -36,10 +36,10 @@ export function HeaderIconButton({
 				{ opacity: pressed ? 0.6 : 1 },
 			]}
 		>
-			<Icon
+			<Symbol
 				color={prominent && IS_IOS ? colors.onTint : IS_IOS ? colors.label : colors.secondaryLabel}
+				name={icon}
 				size={IS_IOS ? 20 : 24}
-				strokeWidth={2.1}
 			/>
 		</Pressable>
 	)

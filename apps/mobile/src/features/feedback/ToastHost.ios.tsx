@@ -2,17 +2,17 @@ import { Pressable, StyleSheet, Text, View } from "react-native"
 import Animated, { FadeInDown, FadeOutDown } from "react-native-reanimated"
 
 import { dismissToast, useToastState } from "@/features/feedback/toastStore"
+import { useToastBottomOffset } from "@/features/feedback/useToastBottomOffset"
 import { useMobileColors } from "@/hooks/useMobileColors"
-
-const TOAST_BOTTOM_OFFSET = 108
 
 export function ToastHost() {
 	const toast = useToastState()
 	const { colors } = useMobileColors()
+	const bottom = useToastBottomOffset()
 	if (!toast) return null
 
 	return (
-		<View pointerEvents="box-none" style={styles.host}>
+		<View pointerEvents="box-none" style={[styles.host, { bottom }]}>
 			<Animated.View
 				entering={FadeInDown.duration(220)}
 				exiting={FadeOutDown.duration(180)}
@@ -53,10 +53,10 @@ const styles = StyleSheet.create({
 	},
 	host: {
 		alignItems: "center",
-		bottom: TOAST_BOTTOM_OFFSET,
 		left: 20,
 		position: "absolute",
 		right: 20,
+		zIndex: 100,
 	},
 	message: {
 		flexShrink: 1,

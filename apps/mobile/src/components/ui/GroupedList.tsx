@@ -1,7 +1,7 @@
-import { ChevronRight } from "lucide-react-native"
 import { Children, type ReactNode } from "react"
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 
+import { Symbol } from "@/components/ui/Symbol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 const IS_IOS = Platform.OS === "ios"
@@ -16,7 +16,9 @@ export function GroupedSectionHeader({
 	const { colors } = useMobileColors()
 	return (
 		<View style={styles.sectionHeader}>
-			<Text style={[styles.sectionHeaderText, { color: IS_IOS ? colors.secondaryLabel : colors.tint }]}>
+			<Text
+				style={[styles.sectionHeaderText, { color: IS_IOS ? colors.secondaryLabel : colors.tint }]}
+			>
 				{children}
 			</Text>
 			{trailing}
@@ -106,7 +108,10 @@ export function GroupedRow({
 		>
 			{leading ? <View style={styles.leading}>{leading}</View> : null}
 			<View style={styles.rowBody}>
-				<Text numberOfLines={multiline ? undefined : 1} style={[styles.title, { color: titleColor }]}>
+				<Text
+					numberOfLines={multiline ? undefined : 1}
+					style={[styles.title, { color: titleColor }]}
+				>
 					{title}
 				</Text>
 				{subtitle || (!IS_IOS && value) ? (
@@ -121,7 +126,13 @@ export function GroupedRow({
 				</Text>
 			) : null}
 			{trailing}
-			{chevron ? <ChevronRight color={colors.tertiaryLabel} size={IS_IOS ? 14 : 24} strokeWidth={2.4} /> : null}
+			{chevron ? (
+				<Symbol
+					color={colors.tertiaryLabel}
+					name={{ sf: "chevron.right", md: "chevron_right" }}
+					size={IS_IOS ? 13 : 24}
+				/>
+			) : null}
 		</Pressable>
 	)
 }

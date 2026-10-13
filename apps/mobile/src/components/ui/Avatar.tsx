@@ -39,17 +39,21 @@ export function Avatar({
 				accessibilityLabel={name}
 				style={[
 					styles.circle,
-					{ backgroundColor: palette.background, borderRadius: size / 2, height: size, width: size },
+					{
+						backgroundColor: palette.background,
+						borderRadius: size / 2,
+						height: size,
+						width: size,
+					},
 				]}
 			>
-				<Text style={[styles.initials, { color: palette.text, fontSize }]}>{getInitials(name)}</Text>
+				<Text style={[styles.initials, { color: palette.text, fontSize }]}>
+					{getInitials(name)}
+				</Text>
 			</View>
 			{live ? (
 				<View
-					style={[
-						styles.live,
-						{ backgroundColor: colors.success, borderColor: colors.background },
-					]}
+					style={[styles.live, { backgroundColor: colors.success, borderColor: colors.background }]}
 				/>
 			) : null}
 		</View>
