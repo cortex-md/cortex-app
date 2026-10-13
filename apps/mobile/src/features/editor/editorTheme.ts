@@ -7,6 +7,7 @@ import {
 import { generateCSSVariables, type Theme } from "@cortex/theme"
 import { useMemo } from "react"
 
+import { getCommunityThemeEditorVariables } from "@/features/themes/communityThemes"
 import { useActiveTheme } from "@/hooks/useActiveTheme"
 
 function resolveFontFamily(fontFamily: string, themeFontFamily: string): string {
@@ -21,6 +22,7 @@ export function createEditorThemeTokens(
 ): Record<string, string> {
 	return {
 		...generateCSSVariables(theme),
+		...getCommunityThemeEditorVariables(theme.name),
 		"--font-ui": resolveFontFamily(appearance.uiFontFamily, theme.tokens.fonts.ui),
 		"--font-editor": resolveFontFamily(appearance.editorFontFamily, theme.tokens.fonts.editor),
 		"--ui-font-size": `${appearance.uiFontSize}px`,

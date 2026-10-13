@@ -8,7 +8,7 @@ import { Platform } from "react-native"
 import { FormRow, FormSection, NativeForm } from "@/components/ui/Form"
 import { useAccountSummary, useHostedSyncEntitlement } from "@/features/billing/billingAdapter"
 import { openSettings } from "@/features/navigation/routes"
-import { SCHEME_LABELS, settingToScheme } from "@/features/settings/appearanceOptions"
+import { COLOR_SCHEME_LABELS } from "@/features/settings/appearanceOptions"
 import {
 	CORTEX_SETTINGS_LINKS,
 	EXTENSION_SETTINGS_LINKS,
@@ -29,7 +29,7 @@ function useSettingsValues(): Record<string, string | undefined> {
 		const linked = remoteVaults.find((remote) => remote.id === linkedVaultId)
 		const updates = Object.keys(availableUpdates).length
 		return {
-			appearance: SCHEME_LABELS[settingToScheme[colorscheme]],
+			appearance: COLOR_SCHEME_LABELS[colorscheme],
 			marketplace: updates > 0 ? `${updates} update${updates === 1 ? "" : "s"}` : undefined,
 			members: linked?.memberCount ? String(linked.memberCount) : undefined,
 			overview: !linkedVaultId ? "Off" : syncConfig.enabled ? "On" : "Paused",

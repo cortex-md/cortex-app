@@ -338,28 +338,43 @@ stores, note sessions, and draws plugin UI from a mirror.
 - `@cortex/marketplace` owns registry, install/update/uninstall, and catalog selectors. Mobile
   renders `selectMarketplaceEntries`, `groupMarketplaceEntries`, and `getMarketplaceEntryState`; do not
   re-implement filtering, grouping, or action state in screens.
-- `bootstrap/marketplace.ts` wires `setMarketplaceCallbacks` with `mobilePluginHost`, no themes
-  directory, and `notify`. `initializeMobileHost()` calls `registerMobileMarketplace()`.
+- `bootstrap/marketplace.ts` wires `setMarketplaceCallbacks` with `mobilePluginHost`, the vault themes
+  directory (`<vault>/.cortex/themes`), `reloadCommunityThemes`, `isThemeInstalled` (`findThemeFamily`
+  over the ThemeManager families), and `notify` (theme uninstall reloads the themes).
+  `initializeMobileHost()` calls `registerMobileMarketplace()`.
 - `MarketplaceScreen` (`app/settings/marketplace`): React Native `SectionList` rows (fixed-size artwork
   with a symbol fallback, status text on the right, no `Host` and no actions per row),
   `Stack.SearchBar`, a segmented kind control and a filter/sort toolbar menu, pull to refresh, `tab`
   param. `MarketplaceDetailScreen` is one `NativeForm` per kind with the install/update/uninstall
   actions; the README pushes `marketplace-readme` (`MarkdownBlock`).
-- Install never enables a plugin; uninstall confirms through `dialog.showConfirm`. Installed state reads
-  `usePluginStore`. Themes and templates come from `marketplaceAdapter.ts` fixtures.
+- Install never enables a plugin; uninstall confirms through `dialog.showConfirm`. Plugin installed state
+  reads `usePluginStore`; themes are the real registry entries, installed when `findThemeFamily` matches
+  a loaded family (`useThemeFamilies()`), and "Use theme" writes `appearance.theme = family.name`.
+  Templates come from `marketplaceAdapter.ts` fixtures.
 
 ## Settings and Theme
 
 - Settings screens read and write `@cortex/settings` `useSettingsStore` with the desktop schema keys;
   no local-only setting state or mobile-only keys.
 - Every settings page is one `NativeForm`. `features/settings/SettingsControls.{ios,android}.tsx`
-  provides `SettingsPicker`, `SettingsSlider` and `SettingsTextField`; `appearanceOptions.ts` maps
-  Paper | Ink | System. Settings Home search is `Stack.SearchBar`; only the index has a large title.
+  provides `SettingsPicker`, `SettingsSlider` and `SettingsTextField`. Appearance has a Theme menu
+  picker (Default plus installed community families, `appearance.theme`) and a Light | Dark | System
+  segmented control (`appearance.colorscheme`), like desktop. Settings Home search is
+  `Stack.SearchBar`; only the index has a large title.
 - Plugins: `PluginsSettingsScreen` (core/community toggles, "Allow community plugins", marketplace) and
   `PluginSettingsScreen` (`PluginSettingsForm` over `resolvePluginSettingFields`).
 - `useSettingsColorScheme` (root layout) applies `appearance.colorscheme` through
   `Appearance.setColorScheme`. `src/theme/colors.ts` owns the native color roles derived from
   `@cortex/theme` tokens; do not add hard-coded palette hex values.
+- Community themes (`features/themes/communityThemes.ts`) are vault files
+  (`<vault>/.cortex/themes/<id>/manifest.json` + one CSS file per colorscheme). Mobile never injects
+  CSS: it parses the `--name: value` declarations, resolves `var()` against the file and the base
+  theme variables, keeps colors only (`cssColor.ts` normalizes hex/rgb()/rgba() to 6/8-digit hex),
+  and maps variables back to token leaves through an inverse map probed once from
+  `generateCSSVariables` (no copied variable table). Each family registers ink/paper-based `Theme`s
+  with the derived tokens; the editor also receives the theme's raw color variables.
+  `themeSync` loads them when a vault opens, unloads them when it closes or switches, and re-applies
+  the active theme after every (re)load.
 
 ## Today, Tasks and Notifications
 

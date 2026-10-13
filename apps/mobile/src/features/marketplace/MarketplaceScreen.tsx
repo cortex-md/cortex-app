@@ -1,11 +1,14 @@
 import {
+	findThemeFamily,
 	groupMarketplaceEntries,
 	type MarketplaceEntryGroupKey,
 	type MarketplaceSortOrder,
+	type MarketplaceTab,
 	selectMarketplaceEntries,
 	useMarketplaceStore,
 } from "@cortex/marketplace"
 import { usePluginStore } from "@cortex/plugin-host-core"
+import { useSettingsStore } from "@cortex/settings"
 import { Stack, useLocalSearchParams } from "expo-router"
 import { useEffect, useState } from "react"
 import {
@@ -28,19 +31,15 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl"
 import { SymbolIcon, type SymbolName } from "@/components/ui/Symbol"
 import {
 	isTemplateInVault,
-	isThemeInstalled,
 	listTemplates,
-	listThemes,
 	matchesTemplateKind,
 	type TemplateKindFilter,
 	templateMeta,
 	useMarketplaceExtras,
 } from "@/features/marketplace/marketplaceAdapter"
-import type {
-	MarketplaceTemplate,
-	MarketplaceTheme,
-} from "@/features/marketplace/marketplaceFixtures"
+import type { MarketplaceTemplate } from "@/features/marketplace/marketplaceFixtures"
 import { openMarketplaceEntry } from "@/features/marketplace/marketplaceNavigation"
+import { useThemeFamilies } from "@/features/themes/communityThemes"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 const IS_IOS = Platform.OS === "ios"
@@ -66,7 +65,7 @@ const SORT_OPTIONS: { label: string; value: MarketplaceSortOrder }[] = [
 	{ label: "Oldest first", value: "oldest" },
 ]
 
-const PLUGIN_GROUP_LABELS: Record<MarketplaceEntryGroupKey, string> = {
+const ENTRY_GROUP_LABELS: Record<MarketplaceEntryGroupKey, string> = {
 	updates: "Updates",
 	installed: "Installed",
 	available: "Discover",
@@ -218,13 +217,15 @@ function MarketplaceMenu({ groups }: { groups: MenuGroup[] }) {
 
 export function MarketplaceScreen() {
 	const params = useLocalSearchParams<{ tab?: string }>()
-	const { colors, themeName } = useMobileColors()
+	const { colors } = useMobileColors()
 	const [tab, setTab] = useState<MarketTab>(isMarketTab(params.tab) ? params.tab : "plugins")
 	const [query, setQuery] = useState("")
 	const [kind, setKind] = useState<TemplateKindFilter>("all")
 	const [registryLoaded, setRegistryLoaded] = useState(false)
 	const [refreshing, setRefreshing] = useState(false)
 	const plugins = usePluginStore((state) => state.plugins)
+	const families = useThemeFamilies()
+	const selectedTheme = useSettingsStore((state) => state.settings.appearance.theme)
 	const pluginEntries = useMarketplaceStore((state) => state.pluginEntries)
 	const themeEntries = useMarketplaceStore((state) => state.themeEntries)
 	const filterInstalled = useMarketplaceStore((state) => state.filterInstalled)
@@ -255,11 +256,15 @@ export function MarketplaceScreen() {
 		void refreshRegistry().finally(() => setRefreshing(false))
 	}
 
-	const pluginSections = (): MarketSection[] => {
-		const isInstalled = (entryId: string) => entryId in plugins
+	const entrySections = (activeTab: MarketplaceTab): MarketSection[] => {
+		const themeFamilyByEntry = new Map(
+			themeEntries.map((entry) => [entry.id, findThemeFamily(entry, families)?.name]),
+		)
+		const isInstalled = (entryId: string) =>
+			activeTab === "plugins" ? entryId in plugins : Boolean(themeFamilyByEntry.get(entryId))
 		const entries = selectMarketplaceEntries(
 			{
-				activeTab: "plugins",
+				activeTab,
 				pluginEntries,
 				themeEntries,
 				searchQuery: query,
@@ -271,56 +276,30 @@ export function MarketplaceScreen() {
 		)
 		return groupMarketplaceEntries(entries, { isInstalled, availableUpdates }).map((group) => ({
 			key: group.key,
-			label: PLUGIN_GROUP_LABELS[group.key],
+			label: ENTRY_GROUP_LABELS[group.key],
 			data: group.entries.map((entry): MarketRow => {
-				const version = plugins[entry.id]?.manifest.version
+				const version = activeTab === "plugins" ? plugins[entry.id]?.manifest.version : undefined
+				const inUse = activeTab === "themes" && themeFamilyByEntry.get(entry.id) === selectedTheme
 				return {
 					key: entry.id,
 					title: entry.name,
 					meta: version ? `${entry.author} · ${version}` : entry.author,
-					icon: PLUGIN_ICON,
+					icon: activeTab === "plugins" ? PLUGIN_ICON : THEME_ICON,
 					imageUrl: entry.coverImageUrl,
 					status:
 						group.key === "updates"
 							? "Update"
-							: group.key === "installed"
-								? "Installed"
-								: undefined,
-					statusTint: group.key === "updates",
-					onPress: () => openMarketplaceEntry(entry.id, "plugin"),
+							: inUse
+								? "In use"
+								: group.key === "installed"
+									? "Installed"
+									: undefined,
+					statusTint: group.key === "updates" || inUse,
+					onPress: () =>
+						openMarketplaceEntry(entry.id, activeTab === "plugins" ? "plugin" : "theme"),
 				}
 			}),
 		}))
-	}
-
-	const themeRow = (theme: MarketplaceTheme): MarketRow => {
-		const installed = isThemeInstalled(extras, theme)
-		const inUse = theme.builtIn && theme.id === themeName
-		return {
-			key: theme.id,
-			title: theme.name,
-			meta: theme.meta,
-			icon: THEME_ICON,
-			status: inUse ? "In use" : installed ? "Installed" : undefined,
-			statusTint: inUse,
-			onPress: () => openMarketplaceEntry(theme.id, "theme"),
-		}
-	}
-
-	const themeSections = (): MarketSection[] => {
-		const themes = listThemes().filter((theme) => matchesQuery(query, theme.name, theme.author))
-		return [
-			{
-				key: "installed",
-				label: "Installed",
-				data: themes.filter((theme) => isThemeInstalled(extras, theme)).map(themeRow),
-			},
-			{
-				key: "discover",
-				label: "Discover",
-				data: themes.filter((theme) => !isThemeInstalled(extras, theme)).map(themeRow),
-			},
-		].filter((section) => section.data.length > 0)
 	}
 
 	const templateRow = (template: MarketplaceTemplate): MarketRow => ({
@@ -360,11 +339,10 @@ export function MarketplaceScreen() {
 		].filter((section) => section.data.length > 0)
 	}
 
-	const sections =
-		tab === "plugins" ? pluginSections() : tab === "themes" ? themeSections() : templateSections()
+	const sections = tab === "templates" ? templateSections() : entrySections(tab)
 
 	const menuGroups: MenuGroup[] =
-		tab === "plugins"
+		tab !== "templates"
 			? [
 					[
 						{
@@ -381,18 +359,17 @@ export function MarketplaceScreen() {
 						onPress: () => setSortOrder(option.value),
 					})),
 				]
-			: tab === "templates"
-				? [
-						KIND_OPTIONS.map((option) => ({
-							key: `kind-${option.value}`,
-							label: option.label,
-							checked: kind === option.value,
-							onPress: () => setKind(option.value),
-						})),
-					]
-				: []
+			: [
+					KIND_OPTIONS.map((option) => ({
+						key: `kind-${option.value}`,
+						label: option.label,
+						checked: kind === option.value,
+						onPress: () => setKind(option.value),
+					})),
+				]
 
-	const loading = tab === "plugins" && !registryLoaded
+	const usesRegistry = tab !== "templates"
+	const loading = usesRegistry && !registryLoaded
 
 	return (
 		<>
@@ -403,7 +380,7 @@ export function MarketplaceScreen() {
 				onChangeText={(event) => setQuery(event.nativeEvent.text)}
 				placeholder={`Search ${tab}`}
 			/>
-			{menuGroups.length > 0 ? <MarketplaceMenu groups={menuGroups} /> : null}
+			<MarketplaceMenu groups={menuGroups} />
 			<SectionList
 				contentContainerStyle={styles.content}
 				contentInsetAdjustmentBehavior="automatic"
@@ -414,11 +391,9 @@ export function MarketplaceScreen() {
 						<ActivityIndicator color={colors.tint} style={styles.loading} />
 					) : (
 						<EmptyState
-							description={
-								tab === "plugins" && registryError ? "Pull down to try again." : undefined
-							}
+							description={usesRegistry && registryError ? "Pull down to try again." : undefined}
 							icon={{ sf: "magnifyingglass", md: "search" }}
-							title={tab === "plugins" && registryError ? "Unable to load plugins" : "No results"}
+							title={usesRegistry && registryError ? `Unable to load ${tab}` : "No results"}
 						/>
 					)
 				}
@@ -432,7 +407,7 @@ export function MarketplaceScreen() {
 					/>
 				}
 				refreshControl={
-					tab === "plugins" ? (
+					usesRegistry ? (
 						<RefreshControl onRefresh={handleRefresh} refreshing={refreshing} />
 					) : undefined
 				}

@@ -1,14 +1,17 @@
 import { getErrorMessage, useVaultStore } from "@cortex/core"
 import {
+	findThemeFamily,
 	formatManifestValue,
 	getCapabilityLabel,
 	getMarketplaceEntryState,
 	getRepositoryUrl,
+	type MarketplaceTab,
 	type RegistryEntry,
 	useMarketplaceStore,
 } from "@cortex/marketplace"
 import { getPlatform } from "@cortex/platform"
 import { usePluginStore } from "@cortex/plugin-host-core"
+import { useSettingsStore } from "@cortex/settings"
 import { Stack, useLocalSearchParams } from "expo-router"
 import { useEffect } from "react"
 
@@ -18,19 +21,13 @@ import { mobilePluginHost } from "@/bootstrap/pluginHost"
 import { toast } from "@/features/feedback/useToast"
 import {
 	addTemplate,
-	applyTheme,
+	applyCommunityTheme,
 	findTemplate,
-	findTheme,
-	installTheme,
 	isTemplateInVault,
-	isThemeInstalled,
 	openTemplate,
 	useMarketplaceExtras,
 } from "@/features/marketplace/marketplaceAdapter"
-import type {
-	MarketplaceTemplate,
-	MarketplaceTheme,
-} from "@/features/marketplace/marketplaceFixtures"
+import type { MarketplaceTemplate } from "@/features/marketplace/marketplaceFixtures"
 import {
 	type MarketplaceEntryKind,
 	openExternalUrl,
@@ -40,7 +37,7 @@ import {
 	setCommunityPluginsAllowed,
 	useCommunityPluginsAllowed,
 } from "@/features/plugins/communityPluginsAccess"
-import { useMobileColors } from "@/hooks/useMobileColors"
+import { useThemeFamilies } from "@/features/themes/communityThemes"
 
 function readParam(value: string | string[] | undefined): string | null {
 	const resolved = Array.isArray(value) ? value[0] : value
@@ -54,14 +51,14 @@ function formatReleaseDate(value: string | undefined): string | null {
 	return date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
 }
 
-async function confirmUninstall(entry: RegistryEntry): Promise<void> {
+async function confirmUninstall(entry: RegistryEntry, kind: MarketplaceTab): Promise<void> {
 	const confirmed = await getPlatform().dialog.showConfirm({
 		title: `Uninstall ${entry.name}?`,
-		message: "The plugin files are removed from this vault.",
+		message: `The ${kind === "plugins" ? "plugin" : "theme"} files are removed from this vault.`,
 		destructive: true,
 		confirmLabel: "Uninstall",
 	})
-	if (confirmed) await useMarketplaceStore.getState().uninstallEntry(entry)
+	if (confirmed) await useMarketplaceStore.getState().uninstallEntry(entry, kind)
 }
 
 async function disablePlugin(pluginId: string): Promise<void> {
@@ -90,7 +87,7 @@ function PluginPrimaryRow({
 	const allowCommunity = useCommunityPluginsAllowed()
 	const busy = useMarketplaceStore((state) => state.loadingEntryId === entry.id)
 	const installEntry = useMarketplaceStore((state) => state.installEntry)
-	const install = () => void installEntry(entry)
+	const install = () => void installEntry(entry, "plugins")
 
 	if (!hasVault) return <FormRow disabled title="Open a vault to install" />
 	if (!allowCommunity && !installed) {
@@ -209,7 +206,11 @@ function PluginDetail({ id }: { id: string }) {
 						{record?.status === "enabled" ? (
 							<FormRow onPress={() => void disablePlugin(entry.id)} title="Disable in this vault" />
 						) : null}
-						<FormRow destructive onPress={() => void confirmUninstall(entry)} title="Uninstall" />
+						<FormRow
+							destructive
+							onPress={() => void confirmUninstall(entry, "plugins")}
+							title="Uninstall"
+						/>
 					</FormSection>
 				) : null}
 			</NativeForm>
@@ -217,32 +218,125 @@ function PluginDetail({ id }: { id: string }) {
 	)
 }
 
-function ThemeDetail({ theme }: { theme: MarketplaceTheme }) {
-	const { themeName } = useMobileColors()
-	const extras = useMarketplaceExtras()
-	const installed = isThemeInstalled(extras, theme)
-	const inUse = theme.builtIn && theme.id === themeName
+function ThemePrimaryRow({
+	entry,
+	familyName,
+	hasVault,
+	incompatible,
+	updateVersion,
+}: {
+	entry: RegistryEntry
+	familyName: string | null
+	hasVault: boolean
+	incompatible: boolean
+	updateVersion: string | null
+}) {
+	const selectedTheme = useSettingsStore((state) => state.settings.appearance.theme)
+	const busy = useMarketplaceStore((state) => state.loadingEntryId === entry.id)
+	const installEntry = useMarketplaceStore((state) => state.installEntry)
+	const install = () => void installEntry(entry, "themes")
+
+	if (!hasVault) return <FormRow disabled title="Open a vault to install" />
+	if (updateVersion) {
+		return (
+			<FormRow
+				disabled={busy}
+				onPress={install}
+				tint
+				title={busy ? "Updating…" : `Update to ${updateVersion}`}
+			/>
+		)
+	}
+	if (familyName) {
+		return familyName === selectedTheme ? (
+			<FormRow disabled title="In use" />
+		) : (
+			<FormRow onPress={() => applyCommunityTheme(familyName)} tint title="Use theme" />
+		)
+	}
+	return (
+		<FormRow
+			disabled={busy || incompatible}
+			onPress={install}
+			tint
+			title={busy ? "Installing…" : "Install"}
+		/>
+	)
+}
+
+function ThemeDetail({ id }: { id: string }) {
+	const entry = useMarketplaceStore((state) => state.themeEntries.find((item) => item.id === id))
+	const families = useThemeFamilies()
+	const hasVault = useVaultStore((state) => Boolean(state.vault))
+	const appVersion = useMarketplaceStore((state) => state.appVersion)
+	const availableUpdates = useMarketplaceStore((state) => state.availableUpdates)
+	const releaseDates = useMarketplaceStore((state) => state.releaseDates)
+	const manifestMetadataCache = useMarketplaceStore((state) => state.manifestMetadataCache)
+	const manifestLoading = useMarketplaceStore((state) => Boolean(state.manifestMetadataLoading[id]))
+	const loadManifestMetadata = useMarketplaceStore((state) => state.loadManifestMetadata)
+
+	useEffect(() => {
+		if (entry) void loadManifestMetadata(entry)
+	}, [entry, loadManifestMetadata])
+
+	if (!entry) return <EmptyState title="Theme not found" />
+
+	const familyName = findThemeFamily(entry, families)?.name ?? null
+	const entryState = getMarketplaceEntryState(
+		{ appVersion, availableUpdates, manifestMetadataCache },
+		entry.id,
+		familyName !== null,
+	)
+	const metadata = manifestMetadataCache[entry.id]
+	const released = formatReleaseDate(releaseDates[entry.id])
+	const requires = entryState.minAppVersion
+		? `Cortex ${entryState.minAppVersion}+`
+		: formatManifestValue(null, manifestLoading)
 
 	return (
 		<>
-			<Stack.Screen options={{ title: theme.name }} />
+			<Stack.Screen options={{ title: entry.name }} />
 			<NativeForm>
-				<FormSection>
-					<FormRow subtitle={theme.meta} title={theme.description} />
-					{inUse ? (
-						<FormRow disabled title="In use" />
-					) : installed ? (
-						<FormRow onPress={() => applyTheme(theme)} tint title="Use theme" />
-					) : (
-						<FormRow onPress={() => installTheme(theme)} tint title="Install" />
-					)}
+				<FormSection
+					footer={
+						entryState.incompatible
+							? `Requires Cortex ${entryState.minAppVersion}+. This device runs ${appVersion}.`
+							: undefined
+					}
+				>
+					<FormRow subtitle={entry.author} title={entry.description} />
+					<ThemePrimaryRow
+						entry={entry}
+						familyName={familyName}
+						hasVault={hasVault}
+						incompatible={entryState.incompatible}
+						updateVersion={entryState.updateVersion}
+					/>
 				</FormSection>
 				<FormSection title="Information">
-					<FormRow title="Version" value={theme.version} />
-					<FormRow title="Modes" value={theme.modes} />
-					<FormRow title="Requires" value="Cortex 0.1.0+" />
-					<FormRow title="Source" value={theme.source} />
+					<FormRow
+						title="Version"
+						value={formatManifestValue(metadata?.version, manifestLoading)}
+					/>
+					{released ? <FormRow title="Released" value={released} /> : null}
+					<FormRow title="Requires" value={requires} />
+					<FormRow
+						chevron
+						onPress={() => void openExternalUrl(getRepositoryUrl(entry.repo))}
+						title="Source"
+						value="GitHub"
+					/>
+					<FormRow chevron onPress={() => openMarketplaceReadme(entry.id)} title="README" />
 				</FormSection>
+				{familyName ? (
+					<FormSection>
+						<FormRow
+							destructive
+							onPress={() => void confirmUninstall(entry, "themes")}
+							title="Uninstall"
+						/>
+					</FormSection>
+				) : null}
 			</NativeForm>
 		</>
 	)
@@ -298,10 +392,7 @@ export function MarketplaceDetailScreen() {
 	const id = readParam(params.id) ?? ""
 	const kind = (readParam(params.kind) ?? "plugin") as MarketplaceEntryKind
 
-	if (kind === "theme") {
-		const theme = findTheme(id)
-		return theme ? <ThemeDetail theme={theme} /> : <EmptyState title="Theme not found" />
-	}
+	if (kind === "theme") return <ThemeDetail id={id} />
 	if (kind === "template") {
 		const template = findTemplate(id)
 		return template ? (

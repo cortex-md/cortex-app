@@ -1,19 +1,3 @@
-export type ThemeGroup = "installed" | "discover"
-
-export interface MarketplaceTheme {
-	id: string
-	name: string
-	author: string
-	meta: string
-	group: ThemeGroup
-	builtIn: boolean
-	scheme?: "light" | "dark"
-	version: string
-	modes: string
-	description: string
-	source: string
-}
-
 export type TemplateGroup = "team" | "vault" | "market"
 
 export interface MarketplaceTemplate {
@@ -31,83 +15,6 @@ export interface MarketplaceTemplate {
 	files: string[]
 	preview: [string, string][]
 }
-
-export const FIXTURE_THEMES: MarketplaceTheme[] = [
-	{
-		id: "paper",
-		name: "Paper",
-		author: "Built-in",
-		meta: "Built-in · Light",
-		group: "installed",
-		builtIn: true,
-		scheme: "light",
-		version: "Built-in",
-		modes: "Light",
-		description: "The default light theme: warm paper tones and a calm accent.",
-		source: "Cortex",
-	},
-	{
-		id: "ink",
-		name: "Ink",
-		author: "Built-in",
-		meta: "Built-in · Dark",
-		group: "installed",
-		builtIn: true,
-		scheme: "dark",
-		version: "Built-in",
-		modes: "Dark",
-		description: "The default dark theme: deep ink tones for low light.",
-		source: "Cortex",
-	},
-	{
-		id: "sepia",
-		name: "Sepia",
-		author: "ouro",
-		meta: "ouro · 1.1.0",
-		group: "installed",
-		builtIn: false,
-		version: "1.1.0",
-		modes: "Light, Dark",
-		description: "Warm paper tones with a book serif for headings. Light and dark.",
-		source: "GitHub",
-	},
-	{
-		id: "fjord",
-		name: "Fjord",
-		author: "tomasz",
-		meta: "tomasz · 0.4.0",
-		group: "installed",
-		builtIn: false,
-		version: "0.4.0",
-		modes: "Light, Dark",
-		description: "Cool blues and greys inspired by northern light.",
-		source: "GitHub",
-	},
-	{
-		id: "graphite",
-		name: "Graphite",
-		author: "lena-dev",
-		meta: "lena-dev",
-		group: "discover",
-		builtIn: false,
-		version: "1.0.0",
-		modes: "Dark",
-		description: "A neutral graphite dark theme with high-contrast headings.",
-		source: "GitHub",
-	},
-	{
-		id: "meadow",
-		name: "Meadow",
-		author: "mira",
-		meta: "mira",
-		group: "discover",
-		builtIn: false,
-		version: "0.9.1",
-		modes: "Light",
-		description: "Soft greens and a rounded sans for a lighter page.",
-		source: "GitHub",
-	},
-]
 
 export const FIXTURE_TEMPLATES: MarketplaceTemplate[] = [
 	{

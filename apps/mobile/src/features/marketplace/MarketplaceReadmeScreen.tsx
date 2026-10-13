@@ -12,7 +12,11 @@ export function MarketplaceReadmeScreen() {
 	const { id = "" } = useLocalSearchParams<{ id?: string }>()
 	const { colors } = useMobileColors()
 	const themeTokens = useMobileEditorThemeTokens()
-	const entry = useMarketplaceStore((state) => state.pluginEntries.find((item) => item.id === id))
+	const entry = useMarketplaceStore(
+		(state) =>
+			state.pluginEntries.find((item) => item.id === id) ??
+			state.themeEntries.find((item) => item.id === id),
+	)
 	const readme = useMarketplaceStore((state) => state.readmeCache[id])
 	const loadReadme = useMarketplaceStore((state) => state.loadReadme)
 

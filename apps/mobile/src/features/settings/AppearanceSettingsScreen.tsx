@@ -5,13 +5,14 @@ import { Platform } from "react-native"
 import { FormRow, FormSection, NativeForm } from "@/components/ui/Form"
 import { openSettings } from "@/features/navigation/routes"
 import {
-	SCHEME_OPTIONS,
-	schemeToSetting,
-	settingToScheme,
+	COLOR_SCHEME_OPTIONS,
+	selectedThemeFamily,
+	themeFamilyOptions,
 } from "@/features/settings/appearanceOptions"
 import { SettingsPicker, SettingsSlider } from "@/features/settings/SettingsControls"
 import type { SettingsOption } from "@/features/settings/settingsControlTypes"
 import { updateSetting } from "@/features/settings/settingsPages"
+import { useThemeFamilies } from "@/features/themes/communityThemes"
 import { useActiveTheme } from "@/hooks/useActiveTheme"
 import { useMobileColors } from "@/hooks/useMobileColors"
 import type { MobileColors } from "@/theme/colors"
@@ -43,6 +44,7 @@ export function AppearanceSettingsScreen() {
 	const { colors } = useMobileColors()
 	const theme = useActiveTheme()
 	const appearance = useSettingsStore((state) => state.settings.appearance)
+	const families = useThemeFamilies()
 	const swatches = useMemo(
 		() => buildSwatches(colors, theme.tokens.primitive.mist?.["700"] ?? colors.tertiaryLabel),
 		[colors, theme],
@@ -59,11 +61,17 @@ export function AppearanceSettingsScreen() {
 		<NativeForm>
 			<FormSection title="Theme">
 				<SettingsPicker
-					onChange={(value) => updateSetting("appearance", "colorscheme", schemeToSetting[value])}
-					options={SCHEME_OPTIONS}
-					segmented
+					onChange={(value) => updateSetting("appearance", "theme", value)}
+					options={themeFamilyOptions(families)}
 					title="Theme"
-					value={settingToScheme[appearance.colorscheme]}
+					value={selectedThemeFamily(families, appearance.theme)}
+				/>
+				<SettingsPicker
+					onChange={(value) => updateSetting("appearance", "colorscheme", value)}
+					options={COLOR_SCHEME_OPTIONS}
+					segmented
+					title="Color scheme"
+					value={appearance.colorscheme}
 				/>
 				<FormRow
 					onPress={() => openSettings("marketplace", { tab: "themes" })}

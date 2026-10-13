@@ -5,24 +5,18 @@ import { useSyncExternalStore } from "react"
 import { toast } from "@/features/feedback/useToast"
 import {
 	FIXTURE_TEMPLATES,
-	FIXTURE_THEMES,
 	type MarketplaceTemplate,
-	type MarketplaceTheme,
 } from "@/features/marketplace/marketplaceFixtures"
 import { presentSheet } from "@/features/navigation/routes"
 
 export type TemplateKindFilter = "all" | "note" | "database"
 
 interface MarketplaceExtrasState {
-	installedThemeIds: ReadonlySet<string>
 	addedTemplateIds: ReadonlySet<string>
 }
 
 const listeners = new Set<() => void>()
 let state: MarketplaceExtrasState = {
-	installedThemeIds: new Set(
-		FIXTURE_THEMES.filter((theme) => theme.group === "installed").map((theme) => theme.id),
-	),
 	addedTemplateIds: new Set(),
 }
 
@@ -45,42 +39,18 @@ export function useMarketplaceExtras(): MarketplaceExtrasState {
 	return useSyncExternalStore(subscribe, getState, getState)
 }
 
-export function listThemes(): MarketplaceTheme[] {
-	// stub: community themes come from the theme registry once mobile can render them
-	return FIXTURE_THEMES
-}
-
-export function findTheme(id: string | null): MarketplaceTheme | null {
-	return FIXTURE_THEMES.find((theme) => theme.id === id) ?? null
-}
-
-export function isThemeInstalled(extras: MarketplaceExtrasState, theme: MarketplaceTheme): boolean {
-	return theme.builtIn || extras.installedThemeIds.has(theme.id)
-}
-
-export function installTheme(theme: MarketplaceTheme): void {
-	// stub: community theme downloads are not available on mobile; the theme is marked installed in memory
-	state = { ...state, installedThemeIds: new Set([...state.installedThemeIds, theme.id]) }
-	notify()
-}
-
-export function applyTheme(theme: MarketplaceTheme): void {
-	if (!theme.builtIn || !theme.scheme) {
-		toast("Community themes are not available on mobile yet")
-		return
-	}
-	const settings = useSettingsStore.getState()
-	void Promise.all([
-		settings.updateSetting("appearance", "theme", "default"),
-		settings.updateSetting("appearance", "colorscheme", theme.scheme),
-	]).catch((cause: unknown) =>
-		reportAppError({
-			operation: "update-setting",
-			source: "mobile-marketplace",
-			cause,
-			userMessage: "Unable to change the theme.",
-		}),
-	)
+export function applyCommunityTheme(familyName: string): void {
+	void useSettingsStore
+		.getState()
+		.updateSetting("appearance", "theme", familyName)
+		.catch((cause: unknown) =>
+			reportAppError({
+				operation: "update-setting",
+				source: "mobile-marketplace",
+				cause,
+				userMessage: "Unable to change the theme.",
+			}),
+		)
 }
 
 export function listTemplates(): MarketplaceTemplate[] {
