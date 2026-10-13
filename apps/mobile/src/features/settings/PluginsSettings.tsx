@@ -1,14 +1,20 @@
 import { COMMUNITY_PLUGINS_WARNING } from "@cortex/marketplace"
+import { getErrorMessage, useVaultStore } from "@cortex/core"
+import { getPlatform } from "@cortex/platform"
+import { joinPath } from "@cortex/platform/utils"
 import {
 	type PluginRecord,
 	reportPluginOperationError,
 	usePluginStore,
 } from "@cortex/plugin-host-core"
-import { FieldGroup, Host, ListItem, Switch } from "@expo/ui"
+import { Button, FieldGroup, Host, ListItem, Row, Switch } from "@expo/ui"
 import { Stack, useLocalSearchParams } from "expo-router"
-import { ScrollView, StyleSheet } from "react-native"
+import { useMemo } from "react"
+import { Platform, ScrollView, StyleSheet, Text, View } from "react-native"
 
 import { mobilePluginHost } from "@/bootstrap/pluginHost"
+import { SettingsRow } from "@/components/ui/SettingsRow"
+import { toast } from "@/features/feedback/useToast"
 import { openMarketplace } from "@/features/marketplace/marketplaceNavigation"
 import { openSettings } from "@/features/navigation/routes"
 import {
@@ -17,7 +23,13 @@ import {
 	useCommunityPluginsAllowed,
 } from "@/features/plugins/communityPluginsAccess"
 import { PluginSettingsForm } from "@/features/plugins/PluginSettingsForm"
+import { SettingsBlock, SettingsFooter, SettingsSection } from "@/features/settings/SettingsLayout"
 import { useMobileColors } from "@/hooks/useMobileColors"
+
+const IS_IOS = Platform.OS === "ios"
+const PLUGINS_DIR = ".cortex/plugins"
+const COMMUNITY_EMPTY =
+	"No community plugins installed. Place plugins in vault/.cortex/plugins/ to get started."
 
 async function setPluginEnabled(record: PluginRecord, enabled: boolean): Promise<void> {
 	const pluginId = record.manifest.id
@@ -33,61 +45,117 @@ async function setPluginEnabled(record: PluginRecord, enabled: boolean): Promise
 	}
 }
 
+async function showPluginsFolder(): Promise<void> {
+	const vaultPath = useVaultStore.getState().vault?.path
+	if (!vaultPath) return
+	try {
+		await getPlatform().dialog.revealFolder(joinPath(vaultPath, PLUGINS_DIR))
+		toast("Shown in Files")
+	} catch (error) {
+		toast(getErrorMessage(error))
+	}
+}
+
 function openPluginSettings(pageKey: string): void {
 	openSettings("plugin-settings", { pageKey })
 }
 
-function getPluginSupportingText(record: PluginRecord): string {
+function getPluginSubtitle(record: PluginRecord): string {
 	if (record.status === "error" && record.error) return record.error
 	return record.manifest.description
 }
 
+function PluginRow({ record }: { record: PluginRecord }) {
+	const page = usePluginStore((state) =>
+		state.settingsPages.find((candidate) => candidate.owner === record.manifest.id),
+	)
+	const { colors } = useMobileColors()
+	const meta = `v${record.manifest.version} · by ${record.manifest.author || "Cortex"}`
+	return (
+		<ListItem
+			colors={{
+				containerColor: colors.cell,
+				contentColor: colors.label,
+				supportingContentColor: colors.secondaryLabel,
+			}}
+			onPress={page?.schema ? () => openPluginSettings(page.key) : undefined}
+			supportingText={`${meta}\n${getPluginSubtitle(record)}`}
+			trailing={
+				<Switch
+					label={record.manifest.name}
+					onValueChange={(enabled) => void setPluginEnabled(record, enabled)}
+					value={record.status === "enabled"}
+				/>
+			}
+		>
+			{record.manifest.name}
+		</ListItem>
+	)
+}
+
+function CommunityEmptyState() {
+	const { colors } = useMobileColors()
+	return (
+		<View style={[styles.empty, { backgroundColor: colors.cell }]}>
+			<Text style={[styles.emptyText, { color: colors.secondaryLabel }]}>{COMMUNITY_EMPTY}</Text>
+			{IS_IOS ? null : (
+				<Host matchContents style={styles.buttons}>
+					<Row spacing={8}>
+						<Button label="Browse" onPress={openMarketplace} variant="filled" />
+						<Button label="Open folder" onPress={() => void showPluginsFolder()} variant="outlined" />
+					</Row>
+				</Host>
+			)}
+		</View>
+	)
+}
+
 export function PluginsSettingsSection() {
 	const plugins = usePluginStore((state) => state.plugins)
-	const settingsPages = usePluginStore((state) => state.settingsPages)
 	const allowCommunity = useCommunityPluginsAllowed()
-	const records = Object.values(plugins)
+	const { core, community } = useMemo(() => {
+		const records = Object.values(plugins)
+		return {
+			community: records.filter((record) => record.community),
+			core: records.filter((record) => !record.community),
+		}
+	}, [plugins])
 
 	return (
-		<FieldGroup.Section title="Plugins">
-			<ListItem
-				supportingText={COMMUNITY_PLUGINS_WARNING}
-				trailing={
-					<Switch
-						label="Allow community plugins"
-						onValueChange={(allowed) => void setCommunityPluginsAllowed(allowed)}
-						value={allowCommunity}
+		<>
+			<SettingsBlock>
+				<SettingsSection title="Core plugins">
+					{core.length === 0 ? (
+						<SettingsRow disabled title="No core plugins loaded" />
+					) : (
+						core.map((record) => <PluginRow key={record.manifest.id} record={record} />)
+					)}
+				</SettingsSection>
+				<SettingsFooter>Built-in plugin modules shipped with Cortex.</SettingsFooter>
+			</SettingsBlock>
+
+			<SettingsBlock>
+				<SettingsSection title="Community plugins">
+					<SettingsRow
+						onToggle={(allowed) => void setCommunityPluginsAllowed(allowed)}
+						subtitle={COMMUNITY_PLUGINS_WARNING}
+						title="Allow community plugins"
+						toggled={allowCommunity}
 					/>
-				}
-			>
-				Allow community plugins
-			</ListItem>
-			{records.length === 0 ? (
-				<ListItem>No plugins installed</ListItem>
-			) : (
-				records.map((record) => {
-					const pluginId = record.manifest.id
-					const page = settingsPages.find((candidate) => candidate.owner === pluginId)
-					return (
-						<ListItem
-							key={pluginId}
-							onPress={page?.schema ? () => openPluginSettings(page.key) : undefined}
-							supportingText={getPluginSupportingText(record)}
-							trailing={
-								<Switch
-									label={record.manifest.name}
-									onValueChange={(enabled) => void setPluginEnabled(record, enabled)}
-									value={record.status === "enabled"}
-								/>
-							}
-						>
-							{record.manifest.name}
-						</ListItem>
-					)
-				})
-			)}
-			<ListItem onPress={openMarketplace}>Browse community plugins</ListItem>
-		</FieldGroup.Section>
+					{community.map((record) => (
+						<PluginRow key={record.manifest.id} record={record} />
+					))}
+					{community.length === 0 && IS_IOS ? (
+						<>
+							<SettingsRow onPress={openMarketplace} tint title="Browse" />
+							<SettingsRow onPress={() => void showPluginsFolder()} tint title="Show in Files" />
+						</>
+					) : null}
+				</SettingsSection>
+				{community.length === 0 ? <CommunityEmptyState /> : null}
+				<SettingsFooter>Vault-scoped plugins installed in this workspace.</SettingsFooter>
+			</SettingsBlock>
+		</>
 	)
 }
 
@@ -100,10 +168,10 @@ export function PluginSettingsScreen() {
 		<ScrollView
 			contentInsetAdjustmentBehavior="automatic"
 			contentContainerStyle={styles.content}
-			style={{ backgroundColor: colors.background }}
+			style={{ backgroundColor: colors.groupedBackground }}
 		>
 			<Stack.Screen options={{ title: page?.title ?? "Plugin" }} />
-			<Host>
+			<Host matchContents>
 				<FieldGroup>
 					{page?.schema ? (
 						<PluginSettingsForm owner={page.owner} schema={page.schema} title="Settings" />
@@ -121,8 +189,23 @@ export function PluginSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
+	buttons: {
+		marginTop: 12,
+	},
 	content: {
 		paddingHorizontal: 12,
 		paddingVertical: 16,
+	},
+	empty: {
+		borderCurve: "continuous",
+		borderRadius: IS_IOS ? 26 : 20,
+		marginHorizontal: 16,
+		marginTop: 8,
+		padding: 16,
+	},
+	emptyText: {
+		fontSize: IS_IOS ? 15 : 14,
+		lineHeight: 20,
+		textAlign: IS_IOS ? "center" : "left",
 	},
 })
