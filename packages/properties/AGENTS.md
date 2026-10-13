@@ -102,3 +102,7 @@
   (`created_time`, `last_edited_time`) to the local calendar day. Read-only property types are never
   written by presets, board moves, or calendar moves (`isDatabasePropertyReadOnly`).
 - Note writes go through `notes.updateNote(path, transform)`; the host serializes them per path.
+
+- `createDatabasePresetFromConfig` and `parseDatabasePreset` are the shareable database template
+  format; presets may carry `rowTemplates`, which `buildDatabaseFromPreset` writes to
+  `config.templates` with remapped property keys.

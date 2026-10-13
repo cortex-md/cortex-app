@@ -18,6 +18,7 @@ import {
 	Heading3Icon,
 	ImageIcon,
 	ItalicIcon,
+	LayoutTemplateIcon,
 	LinkIcon,
 	ListIcon,
 	ListOrderedIcon,
@@ -164,7 +165,8 @@ export function SlashCommandMenu({
 }
 
 function SlashCommandIcon({ item }: { item: SlashCommandItem }) {
-	const Icon = slashCommandIcons[item.id] ?? CodeIcon
+	const Icon =
+		slashCommandIcons[item.id] ?? (item.id.startsWith("template:") ? LayoutTemplateIcon : CodeIcon)
 
 	return (
 		<span className="slash-command-icon" aria-hidden="true">

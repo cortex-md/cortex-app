@@ -1,4 +1,10 @@
-import type { FileEntry, VaultMetadata, VaultRegistryEntry, WatchEvent } from "@cortex/platform"
+import type {
+	FileEntry,
+	VaultMetadata,
+	VaultRegistryEntry,
+	VaultRegistryPatch,
+	WatchEvent,
+} from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
 import {
 	ensureMarkdownExtension,
@@ -60,6 +66,7 @@ let watcherGeneration = 0
 export interface OpenVaultOptions {
 	icon?: string
 	name?: string
+	color?: string
 	createOnboardingNote?: boolean
 }
 
@@ -251,6 +258,7 @@ export interface VaultState {
 	loadRecentVaults: () => Promise<void>
 	clearPendingOnboardingNotePath: () => void
 	removeRecentVault: (uuid: string) => Promise<void>
+	patchRecentVault: (uuid: string, patch: VaultRegistryPatch) => Promise<void>
 	createFile: (parentPath: string, name: string) => Promise<string>
 	createFileWithContent: (parentPath: string, name: string, content: string) => Promise<string>
 	createFolder: (parentPath: string, name: string) => Promise<string>
@@ -322,12 +330,18 @@ export const useVaultStore = create<VaultState>((set, get) => {
 					: null
 				const [files] = await Promise.all([
 					platform.vault.scanVault(metadata.path),
-					platform.vault.updateVaultRegistry(
-						metadata.uuid,
-						metadata.path,
-						options?.name ?? metadata.name,
-						options?.icon,
-					),
+					platform.vault
+						.updateVaultRegistry(
+							metadata.uuid,
+							metadata.path,
+							options?.name ?? metadata.name,
+							options?.icon,
+						)
+						.then(() =>
+							options?.color
+								? platform.vault.patchVaultRegistry?.(metadata.uuid, { color: options.color })
+								: undefined,
+						),
 					loadVaultConfiguration(metadata),
 				])
 				const stopWatcher = await platform.fs.startWatching(metadata.path, (event) =>
@@ -438,6 +452,13 @@ export const useVaultStore = create<VaultState>((set, get) => {
 				console.error("[Recent vault removal failed]", { uuid, error })
 				set({ error: String(error) })
 			}
+		},
+
+		patchRecentVault: async (uuid, patch) => {
+			const vault = getPlatform().vault
+			if (!vault.patchVaultRegistry) return
+			await vault.patchVaultRegistry(uuid, patch)
+			await get().loadRecentVaults()
 		},
 
 		createFile: async (parentPath, name) => {

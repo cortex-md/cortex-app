@@ -66,7 +66,7 @@ describe("ExcludedPathsSettings", () => {
 		expect(toggleExcludedPath).toHaveBeenCalledWith("*.log", true)
 	})
 
-	it("reserves space for options inside the clipped settings group", async () => {
+	it("shows options in a popover without growing the settings group", async () => {
 		render(<ExcludedPathsSettings />)
 		const input = screen.getByRole("combobox", {
 			name: "Add a folder, file or pattern",
@@ -74,7 +74,7 @@ describe("ExcludedPathsSettings", () => {
 
 		await userEvent.click(input)
 
-		expect(input.parentElement).toHaveClass("pb-64")
+		expect(input.parentElement).not.toHaveClass("pb-64")
 		expect(screen.getByRole("button", { name: "Notes/" })).toBeInTheDocument()
 	})
 })

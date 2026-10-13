@@ -59,6 +59,21 @@ export {
 	PLUGIN_MARKDOWN_NOTE_VIEW_ID,
 } from "./pluginHostServices"
 export {
+	createVaultFolder,
+	getDefaultVaultLocation,
+	leaveRemoteVault,
+	linkVaultFolder,
+	loadVaultListItems,
+	type RegisterVaultFolderOptions,
+	registerVaultFolder,
+	resolveVaultColor,
+	resolveVaultListStatus,
+	unlinkVaultFolder,
+	VAULT_COLORS,
+	type VaultListItem,
+	type VaultListStatus,
+} from "./runtime/addVault"
+export {
 	type AppRuntimeOptions,
 	canStartSync,
 	type SyncStartInput,
@@ -86,6 +101,7 @@ export {
 	createDatabase,
 	createDatabaseRow,
 	deleteDatabaseRows,
+	exportDatabasePreset,
 	flushDatabaseConfigWrites,
 	getDatabaseQueryContext,
 	removeDatabase,
@@ -122,6 +138,24 @@ export {
 	type PropertiesRuntimeOptions,
 } from "./runtime/propertiesRuntime"
 export { planVaultReminders } from "./runtime/tasksRuntime"
+export {
+	addPublicNoteTemplate,
+	databaseTemplateShareKey,
+	getLinkedRemoteVaultId,
+	listMarketTemplates,
+	noteTemplateShareKey,
+	type OpenedPublicTemplate,
+	openPublicTemplate,
+	refreshTeamTemplates,
+	republishNoteTemplate,
+	type SharedDatabasePreset,
+	type ShareTemplateOptions,
+	shareDatabaseTemplate,
+	shareNoteTemplate,
+	stopSharingTemplate,
+	type TemplateSharingState,
+	useTemplateSharingStore,
+} from "./runtime/templateSharing"
 export {
 	type CreateVaultFromFolderOptions,
 	consumePendingOnboardingNote,
@@ -256,11 +290,14 @@ export {
 } from "./stores/tasksStore"
 export {
 	type CreateNoteFromTemplateInput,
+	type RemoteTemplateEntry,
 	type TemplateDefinition,
 	type TemplateInput,
+	type TemplateInsertResult,
 	type TemplateManifest,
 	type TemplatePreview,
 	type TemplateRenderContext,
+	type TemplateShareLink,
 	type TemplateState,
 	type TemplateUpdateInput,
 	type TemplateVault,

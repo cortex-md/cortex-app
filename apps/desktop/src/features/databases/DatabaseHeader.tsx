@@ -11,7 +11,14 @@ import {
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@cortex/ui"
-import { ChevronDownIcon, FileTextIcon, PlusIcon, Table2Icon, TrashIcon } from "lucide-react"
+import {
+	ChevronDownIcon,
+	FileTextIcon,
+	PlusIcon,
+	Share2Icon,
+	Table2Icon,
+	TrashIcon,
+} from "lucide-react"
 import { formatCount } from "@/utils/format"
 import { DatabaseTitleInput } from "./DatabaseTitleInput"
 
@@ -23,6 +30,7 @@ interface DatabaseHeaderProps {
 	onCreate: (template: DatabaseRowTemplate | null) => void
 	onRemoveTemplate: (templateId: string) => void
 	onRename: (name: string) => Promise<unknown>
+	onShare?: () => void
 }
 
 export function DatabaseHeader({
@@ -33,6 +41,7 @@ export function DatabaseHeader({
 	onCreate,
 	onRemoveTemplate,
 	onRename,
+	onShare,
 }: DatabaseHeaderProps) {
 	return (
 		<header className="db-head">
@@ -50,6 +59,12 @@ export function DatabaseHeader({
 			</h1>
 			<span className="db-head-count">{formatCount(count, "note")}</span>
 			<span className="flex-1" />
+			{onShare && (
+				<Button variant="ghost" size="xs" onClick={onShare}>
+					<Share2Icon />
+					Share…
+				</Button>
+			)}
 			{!readOnly && (
 				<span className="db-new-split">
 					<Button className="db-new-main" onClick={() => onCreate(null)}>

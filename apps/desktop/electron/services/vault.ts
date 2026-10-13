@@ -7,10 +7,12 @@ import {
 	isHiddenVaultPath,
 	readOrCreateVaultId,
 	resolveVaultName,
+	sanitizeVaultFolderName,
 	type VaultTextIo,
 } from "@cortex/platform/vault"
+import { app } from "electron"
 import type { MainApi } from "../contract"
-import { assertAllowedPath } from "../security"
+import { assertAllowedPath, grantPath } from "../security"
 import { statsToFileEntry } from "./fs"
 import { vaultRegistryApi } from "./registry"
 
@@ -34,6 +36,22 @@ async function assertDirectory(path: string): Promise<void> {
 	const stats = await fs.stat(path).catch(() => null)
 	if (!stats?.isDirectory()) {
 		throw new Error(`Path does not exist or is not a directory: ${path}`)
+	}
+}
+
+function defaultVaultLocation(): string {
+	return join(app.getPath("documents"), "Cortex")
+}
+
+async function nextFreeFolder(parent: string, name: string): Promise<string> {
+	const base = sanitizeVaultFolderName(name)
+	for (let attempt = 1; ; attempt += 1) {
+		const candidate = join(parent, attempt === 1 ? base : `${base} ${attempt}`)
+		const exists = await fs.stat(candidate).then(
+			() => true,
+			() => false,
+		)
+		if (!exists) return candidate
 	}
 }
 
@@ -76,6 +94,18 @@ export const vaultApi = {
 		await assertDirectory(vaultPath)
 		const files = await scanDirectory(vaultPath, true).catch(() => [])
 		return await describeVault(vaultPath, files.filter((entry) => !entry.isDir).length)
+	},
+	getDefaultVaultLocation: async () => normalizePath(defaultVaultLocation()),
+	createVaultFolder: async (parentPath, name) => {
+		const parent = parentPath ? assertAllowedPath(parentPath) : defaultVaultLocation()
+		const folder = await nextFreeFolder(parent, name)
+		await fs.mkdir(folder, { recursive: true })
+		grantPath(folder)
+		return normalizePath(folder)
+	},
+	pathExists: async (path) => {
+		const stats = await fs.stat(assertAllowedPath(path)).catch(() => null)
+		return Boolean(stats?.isDirectory())
 	},
 	...vaultRegistryApi,
 } satisfies MainApi["vault"]

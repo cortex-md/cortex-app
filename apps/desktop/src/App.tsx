@@ -7,7 +7,7 @@ import {
 import { getPlatform } from "@cortex/platform"
 import { CORE_OWNER, usePluginStore } from "@cortex/plugin-host-core"
 import { useSettingsStore } from "@cortex/settings"
-import { Button } from "@cortex/ui"
+import { Button, Toaster } from "@cortex/ui"
 import { PanelLeftIcon } from "lucide-react"
 import {
 	type ComponentType,
@@ -22,7 +22,6 @@ import {
 import { AppLifecycle } from "./bootstrap/AppLifecycle"
 import { initializeDesktopHost } from "./bootstrap/desktopHost"
 import { resetPasswordModal } from "./features/auth/resetPasswordModal"
-import { newDatabaseModal } from "./features/databases/newDatabaseModal"
 import { EmbedHost } from "./features/embeds/EmbedHost"
 import { SidebarViewStage } from "./features/file-explorer/SidebarViewStage"
 import {
@@ -45,8 +44,10 @@ import { manageAccessModal } from "./features/sync/manageAccessModal"
 import { noteHistoryModal } from "./features/sync/noteHistoryModal"
 import { noteShareModal } from "./features/sync/noteShareModal"
 import { deletedNotesModal, syncLogsModal } from "./features/sync/syncDialogStores"
-import { createVaultModal } from "./features/vault/createVaultModalStore"
+import { shareTemplateModal } from "./features/templates/shareActions"
+import { newTemplateModal } from "./features/templates/templateActions"
 import { VaultSwitcher } from "./features/vault/VaultSwitcher"
+import { addVaultModal } from "./features/vault/vaultActions"
 import { useHasOpened } from "./hooks/useHasOpened"
 import { useSidebarResize } from "./hooks/useSidebarResize"
 import { scheduleIdleWork } from "./utils/scheduleIdleWork"
@@ -69,6 +70,8 @@ function lazyNamed<M extends Record<string, unknown>>(load: () => Promise<M>, na
 const overlayLoaders = {
 	auth: () => import("./features/auth/AuthModal"),
 	createFromTemplate: () => import("./features/templates/CreateFromTemplateDialog"),
+	newTemplate: () => import("./features/templates/NewTemplateDialog"),
+	shareTemplate: () => import("./features/templates/ShareTemplateDialog"),
 	noteHistory: () => import("./features/sync/NoteHistoryPanel"),
 	noteShare: () => import("./features/sync/NoteShareDialog"),
 	manageAccess: () => import("./features/sync/ManageAccessDialog"),
@@ -77,8 +80,7 @@ const overlayLoaders = {
 	commandPalette: () => import("./features/command-palette/CommandPalette"),
 	tagPicker: () => import("./features/tags/TagPicker"),
 	syncDialogs: () => import("./features/sync/syncDialogs"),
-	createVault: () => import("./features/vault/CreateVaultModal"),
-	newDatabase: () => import("./features/databases/NewDatabaseDialog"),
+	addVault: () => import("./features/vault/add-vault/AddVaultDialog"),
 	obsidianImport: () => import("./features/import-export/ObsidianImportDialog"),
 }
 
@@ -87,6 +89,8 @@ const LazyCreateFromTemplateDialog = lazyNamed(
 	overlayLoaders.createFromTemplate,
 	"CreateFromTemplateDialog",
 )
+const LazyNewTemplateHost = lazyNamed(overlayLoaders.newTemplate, "NewTemplateHost")
+const LazyShareTemplateHost = lazyNamed(overlayLoaders.shareTemplate, "ShareTemplateHost")
 const LazyNoteHistoryHost = lazyNamed(overlayLoaders.noteHistory, "NoteHistoryHost")
 const LazyNoteShareHost = lazyNamed(overlayLoaders.noteShare, "NoteShareHost")
 const LazyManageAccessHost = lazyNamed(overlayLoaders.manageAccess, "ManageAccessHost")
@@ -95,8 +99,7 @@ const LazyQuickFinder = lazyNamed(overlayLoaders.quickFinder, "QuickFinder")
 const LazyCommandPalette = lazyNamed(overlayLoaders.commandPalette, "CommandPalette")
 const LazyTagPicker = lazyNamed(overlayLoaders.tagPicker, "TagPicker")
 const LazySyncDialogsHost = lazyNamed(overlayLoaders.syncDialogs, "SyncDialogsHost")
-const LazyCreateVaultModalHost = lazyNamed(overlayLoaders.createVault, "CreateVaultModalHost")
-const LazyNewDatabaseHost = lazyNamed(overlayLoaders.newDatabase, "NewDatabaseHost")
+const LazyAddVaultDialogHost = lazyNamed(overlayLoaders.addVault, "AddVaultDialogHost")
 const LazyObsidianImportHost = lazyNamed(overlayLoaders.obsidianImport, "ObsidianImportHost")
 
 function preloadOverlays(): () => void {
@@ -302,8 +305,9 @@ const AppOverlays = memo(function AppOverlays() {
 	const resetPasswordOpen = resetPasswordModal.useTarget() !== null
 	const syncLogsOpen = syncLogsModal.useTarget() !== null
 	const deletedNotesOpen = deletedNotesModal.useTarget() !== null
-	const createVaultOpen = createVaultModal.useTarget() !== null
-	const newDatabaseOpen = newDatabaseModal.useTarget() !== null
+	const addVaultOpen = addVaultModal.useTarget() !== null
+	const newTemplateOpen = newTemplateModal.useTarget() !== null
+	const shareTemplateOpen = shareTemplateModal.useTarget() !== null
 	const obsidianImportOpen = obsidianImportModal.useTarget() !== null
 
 	useEffect(preloadOverlays, [])
@@ -325,7 +329,14 @@ const AppOverlays = memo(function AppOverlays() {
 			<DeferredOverlay open={createFromTemplateOpen}>
 				<LazyCreateFromTemplateDialog />
 			</DeferredOverlay>
+			<DeferredOverlay open={newTemplateOpen}>
+				<LazyNewTemplateHost />
+			</DeferredOverlay>
+			<DeferredOverlay open={shareTemplateOpen}>
+				<LazyShareTemplateHost />
+			</DeferredOverlay>
 			<EmbedHost />
+			<Toaster />
 			<DeferredOverlay open={noteHistoryOpen}>
 				<LazyNoteHistoryHost />
 			</DeferredOverlay>
@@ -341,11 +352,8 @@ const AppOverlays = memo(function AppOverlays() {
 			<DeferredOverlay open={syncLogsOpen || deletedNotesOpen}>
 				<LazySyncDialogsHost />
 			</DeferredOverlay>
-			<DeferredOverlay open={createVaultOpen}>
-				<LazyCreateVaultModalHost />
-			</DeferredOverlay>
-			<DeferredOverlay open={newDatabaseOpen}>
-				<LazyNewDatabaseHost />
+			<DeferredOverlay open={addVaultOpen}>
+				<LazyAddVaultDialogHost />
 			</DeferredOverlay>
 			<DeferredOverlay open={obsidianImportOpen}>
 				<LazyObsidianImportHost />

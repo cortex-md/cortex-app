@@ -20,7 +20,8 @@ describe("Sync settings overview", () => {
 		render(<SyncSection />)
 
 		expect(screen.getByText("Remote vault")).toBeInTheDocument()
-		expect(screen.getByText("Link or create a remote vault to start syncing.")).toBeInTheDocument()
+		expect(screen.getByText("Only on this Mac")).toBeInTheDocument()
+		expect(screen.getByRole("button", { name: "Link vault…" })).toBeInTheDocument()
 		await waitFor(() => expect(fetchRemoteVaults).toHaveBeenCalled())
 	})
 

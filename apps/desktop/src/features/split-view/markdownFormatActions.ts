@@ -1,6 +1,7 @@
 import { type CommandEntry, commandRegistry, getCommands } from "@cortex/commands"
 import { markdownToolbarCommandIds } from "@cortex/editor/markdown-format-commands"
 import type { SlashCommandItem } from "@cortex/editor/slash-commands"
+import { getTemplateSlashItems } from "../templates/insertTemplate"
 
 function toSlashCommandItem(command: CommandEntry): SlashCommandItem {
 	return {
@@ -33,8 +34,9 @@ export function subscribeMarkdownFormatCommands(listener: () => void): () => voi
 
 export function getSlashCommandItems(): SlashCommandItem[] {
 	const commands = getMarkdownFormatCommands()
-	return markdownToolbarCommandIds.flatMap((commandId) => {
+	const formatItems = markdownToolbarCommandIds.flatMap((commandId) => {
 		const command = commands.get(commandId)
 		return command ? [toSlashCommandItem(command)] : []
 	})
+	return [...formatItems, ...getTemplateSlashItems()]
 }

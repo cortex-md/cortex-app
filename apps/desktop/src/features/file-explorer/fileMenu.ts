@@ -23,6 +23,7 @@ import {
 	FilePlusIcon,
 	FileTextIcon,
 	FolderPlusIcon,
+	LayoutTemplateIcon,
 	PencilIcon,
 	Table2Icon,
 	TableIcon,
@@ -149,6 +150,13 @@ export function buildFileMenuItems(
 			}),
 		MENU_SEPARATOR,
 		entryItems.duplicate,
+		isNote &&
+			commandMenuItem("templates.save-note-as-template", {
+				id: "save-as-template",
+				text: "Save as Template…",
+				icon: LayoutTemplateIcon,
+				payload,
+			}),
 		isNote && {
 			type: "submenu",
 			id: "export-note",

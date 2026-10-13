@@ -16,17 +16,13 @@ afterEach(() => {
 })
 
 describe("Sync settings routing", () => {
-	it("requires sign-in before users can enable sync", async () => {
+	it("hides the sync switch until a remote vault is linked", () => {
 		setupSyncSettingsMocks({ authenticated: false, syncEnabled: false })
 		render(<SyncSection />)
 
-		expect(screen.getByText("Sync this vault")).toBeInTheDocument()
-		expect(screen.getByText("Sign in before enabling sync")).toBeInTheDocument()
+		expect(screen.queryByRole("switch", { name: "Sync this vault" })).not.toBeInTheDocument()
+		expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument()
 		expect(screen.queryByText("Connection")).not.toBeInTheDocument()
-		expect(screen.getByRole("switch", { name: "Sync this vault" })).toBeDisabled()
-
-		await userEvent.click(screen.getByRole("switch", { name: "Sync this vault" }))
-
 		expect(setSyncEnabled).not.toHaveBeenCalled()
 	})
 
@@ -49,7 +45,7 @@ describe("Sync settings routing", () => {
 		const { rerender } = render(<SyncSection view="preferences" />)
 
 		expect(screen.getByText("Content")).toBeInTheDocument()
-		expect(screen.getByRole("switch", { name: "Ignore images" })).toBeInTheDocument()
+		expect(screen.getByRole("switch", { name: "Images" })).toBeInTheDocument()
 		expect(screen.getByRole("switch", { name: "Bookmarks" })).toBeInTheDocument()
 		expect(screen.getByText("Excluded paths panel")).toBeInTheDocument()
 
@@ -61,7 +57,7 @@ describe("Sync settings routing", () => {
 		setupSyncSettingsMocks({ authenticated: false, syncEnabled: false, selfHosted: false })
 		render(<SyncSection view="self-host" />)
 
-		const selfHostedSwitch = screen.getByRole("switch", { name: "Self-hosted sync" })
+		const selfHostedSwitch = screen.getByRole("switch", { name: "Use a self-hosted server" })
 		expect(selfHostedSwitch).toBeEnabled()
 		await userEvent.click(selfHostedSwitch)
 

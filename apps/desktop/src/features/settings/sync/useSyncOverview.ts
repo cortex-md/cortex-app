@@ -10,16 +10,9 @@ import {
 	useVaultStore,
 } from "@cortex/core"
 import { useEffect, useMemo } from "react"
+import { getSyncServerLabel } from "../../sync/serverLabel"
 import { useSettingsVaultFiles } from "../useSettingsVaultFiles"
 import type { SyncSettingsView } from "./types"
-
-function describeServer(serverUrl: string): string {
-	try {
-		return new URL(serverUrl).host || "Self-hosted"
-	} catch {
-		return "Self-hosted"
-	}
-}
 
 export function useSyncOverview(view: SyncSettingsView) {
 	const authenticated = useAuthStore((state) => state.authenticated)
@@ -44,8 +37,8 @@ export function useSyncOverview(view: SyncSettingsView) {
 
 	// oxlint-disable react-doctor/no-event-handler -- sync overview data follows auth state and the linked vault
 	useEffect(() => {
-		if (authenticated && syncConfig.enabled) void fetchRemoteVaults()
-	}, [authenticated, fetchRemoteVaults, syncConfig.enabled])
+		if (authenticated) void fetchRemoteVaults()
+	}, [authenticated, fetchRemoteVaults])
 
 	useEffect(() => {
 		if (!authenticated || !needsEntitlement) return
@@ -78,7 +71,7 @@ export function useSyncOverview(view: SyncSettingsView) {
 		linkedVaultId,
 		noteCount,
 		syncConfig,
-		serverLabel: syncConfig.selfHosted ? describeServer(serverUrl) : "Cortex Cloud",
+		serverLabel: getSyncServerLabel(syncConfig),
 		vault,
 	}
 }

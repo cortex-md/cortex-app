@@ -10,7 +10,7 @@ import {
 import { getPlatform } from "@cortex/platform"
 import { Table2Icon } from "lucide-react"
 import { openDatabaseView } from "./databaseWorkspace"
-import { newDatabaseModal } from "./newDatabaseModal"
+import { openNewDatabaseView } from "./newDatabaseWorkspace"
 
 export const DATABASE_COMMAND_IDS = {
 	create: "database.new",
@@ -75,7 +75,7 @@ export function createDatabaseCommandEntries(): CommandEntry[] {
 			hotkey: { defaultKeys: "mod+shift+d", scope: "global" },
 			execute: (context) => {
 				if (!useVaultStore.getState().vault) return
-				newDatabaseModal.open({ parentPath: getFolderPayload(context), mode: "create" })
+				openNewDatabaseView({ parentPath: getFolderPayload(context), mode: "create" })
 			},
 		},
 		{
@@ -98,7 +98,7 @@ export function createDatabaseCommandEntries(): CommandEntry[] {
 				const folderPath = getFolderPayload(context)
 				if (folderPath) void convertFolder(folderPath)
 				else if (useVaultStore.getState().vault) {
-					newDatabaseModal.open({ parentPath: null, mode: "convert" })
+					openNewDatabaseView({ parentPath: null, mode: "convert" })
 				}
 			},
 		},

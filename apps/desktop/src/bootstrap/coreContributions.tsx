@@ -3,6 +3,7 @@ import { BookmarkIcon, CircleCheckIcon, FolderClosed, SearchIcon, TagIcon } from
 import { type ComponentType, lazy } from "react"
 import { BookmarksSidebar } from "../features/bookmarks/BookmarksSidebar"
 import { DATABASE_VIEW_ID } from "../features/databases/databaseWorkspace"
+import { NEW_DATABASE_VIEW_ID } from "../features/databases/newDatabaseWorkspace"
 import { DRAWING_BOARD_VIEW_ID } from "../features/drawings/drawingDocument"
 import { FileSidebar } from "../features/file-explorer/FileSidebar"
 import { MARKETPLACE_VIEW_ID } from "../features/marketplace/marketplaceWorkspaceView"
@@ -22,6 +23,7 @@ import { TagsSidebar } from "../features/tags/TagsSidebar"
 import { TAG_VIEW_ID } from "../features/tags/tagWorkspaceView"
 import { TasksSidebar } from "../features/tasks/TasksSidebar"
 import { TASKS_SIDEBAR_VIEW_ID, TODAY_VIEW_ID } from "../features/tasks/taskModel"
+import { TEMPLATE_EDITOR_VIEW_ID, TEMPLATES_VIEW_ID } from "../features/templates/templateViewIds"
 
 function lazyView<M extends Record<string, unknown>>(load: () => Promise<M>, name: keyof M) {
 	return lazy(() => load().then((module) => ({ default: module[name] as ComponentType })))
@@ -55,6 +57,18 @@ const LazyDatabaseView = lazyView(
 	() => import("../features/databases/DatabaseView"),
 	"DatabaseView",
 )
+const LazyNewDatabaseView = lazyView(
+	() => import("../features/databases/NewDatabaseView"),
+	"NewDatabaseView",
+)
+const LazyTemplatesView = lazyView(
+	() => import("../features/templates/TemplatesView"),
+	"TemplatesView",
+)
+const LazyTemplateEditorView = lazyView(
+	() => import("../features/templates/TemplateEditorView"),
+	"TemplateEditorView",
+)
 const LazyTagPageView = lazyView(() => import("../features/tags/TagPageView"), "TagPageView")
 const LazyTodayView = lazyView(() => import("../features/tasks/TodayView"), "TodayView")
 
@@ -77,6 +91,9 @@ const coreTabViews: Record<string, unknown> = {
 	[TAG_VIEW_ID]: LazyTagPageView,
 	[TODAY_VIEW_ID]: LazyTodayView,
 	[DATABASE_VIEW_ID]: LazyDatabaseView,
+	[NEW_DATABASE_VIEW_ID]: LazyNewDatabaseView,
+	[TEMPLATES_VIEW_ID]: LazyTemplatesView,
+	[TEMPLATE_EDITOR_VIEW_ID]: LazyTemplateEditorView,
 }
 
 const coreContributions: ContributionSet = {

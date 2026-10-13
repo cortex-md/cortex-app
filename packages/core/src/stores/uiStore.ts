@@ -56,7 +56,8 @@ export interface UIState {
 	toggleTagPicker: () => void
 
 	createFromTemplateOpen: boolean
-	openCreateFromTemplate: () => void
+	createFromTemplateId: string | null
+	openCreateFromTemplate: (templateId?: string) => void
 	closeCreateFromTemplate: () => void
 
 	openSettings: (section?: string, fieldId?: string) => void
@@ -176,15 +177,18 @@ export const useUIStore = create<UIState>()(
 				}),
 
 			createFromTemplateOpen: false,
+			createFromTemplateId: null,
 
-			openCreateFromTemplate: () =>
+			openCreateFromTemplate: (templateId) =>
 				set((s) => {
 					s.createFromTemplateOpen = true
+					s.createFromTemplateId = templateId ?? null
 				}),
 
 			closeCreateFromTemplate: () =>
 				set((s) => {
 					s.createFromTemplateOpen = false
+					s.createFromTemplateId = null
 				}),
 
 			openSettings: (section, fieldId) => {

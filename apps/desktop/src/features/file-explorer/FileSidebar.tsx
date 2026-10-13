@@ -16,7 +16,14 @@ import {
 	DropdownMenuShortcut,
 	DropdownMenuTrigger,
 } from "@cortex/ui"
-import { FilePlusIcon, FolderPlusIcon, PlusIcon, RepeatIcon, Table2Icon } from "lucide-react"
+import {
+	FilePlusIcon,
+	FolderPlusIcon,
+	LayoutTemplateIcon,
+	PlusIcon,
+	RepeatIcon,
+	Table2Icon,
+} from "lucide-react"
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import { useCommandHotkey } from "../../hooks/useCommandHotkey"
 import { useContextMenu } from "../context-menu/useContextMenu"
@@ -35,6 +42,7 @@ function FileSidebarHeader({ vaultPath, onCreate }: FileSidebarHeaderProps) {
 	const canCreateAtRoot = useCanWriteVaultPath(vaultPath, true)
 	const newNoteKeys = useCommandHotkey("file.new")
 	const newDatabaseKeys = useCommandHotkey("database.new")
+	const fromTemplateKeys = useCommandHotkey("templates.create-note")
 	const pendingCreateRef = useRef<(() => void) | null>(null)
 	return (
 		<div className="file-sidebar-header flex items-center justify-between flex-shrink-0">
@@ -74,6 +82,15 @@ function FileSidebarHeader({ vaultPath, onCreate }: FileSidebarHeaderProps) {
 						</DropdownMenuItem>
 						<DropdownMenuItem
 							onSelect={() => {
+								pendingCreateRef.current = () => executeCommand("templates.create-note")
+							}}
+						>
+							<LayoutTemplateIcon />
+							Note from a template…
+							{fromTemplateKeys && <DropdownMenuShortcut>{fromTemplateKeys}</DropdownMenuShortcut>}
+						</DropdownMenuItem>
+						<DropdownMenuItem
+							onSelect={() => {
 								pendingCreateRef.current = () => executeCommand("database.new")
 							}}
 						>
@@ -97,6 +114,15 @@ function FileSidebarHeader({ vaultPath, onCreate }: FileSidebarHeaderProps) {
 						>
 							<RepeatIcon />
 							Turn a folder into a database
+						</DropdownMenuItem>
+						<DropdownMenuSeparator />
+						<DropdownMenuItem
+							onSelect={() => {
+								pendingCreateRef.current = () => executeCommand("templates.new")
+							}}
+						>
+							<PlusIcon />
+							New template…
 						</DropdownMenuItem>
 					</DropdownMenuContent>
 				</DropdownMenu>

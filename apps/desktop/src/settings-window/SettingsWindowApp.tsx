@@ -1,6 +1,7 @@
 import { reportAppError, useUIStore, useVaultStore } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
 import { useSettingsStore } from "@cortex/settings"
+import { Toaster } from "@cortex/ui"
 import { lazy, Suspense, useCallback, useEffect, useState } from "react"
 import type { OpenMarketplaceHandler } from "../features/marketplace/openMarketplaceView"
 import { type SettingsNavigateHandler, SettingsView } from "../features/settings/SettingsView"
@@ -113,6 +114,7 @@ export function SettingsWindowApp() {
 			<div className="settings-window-titlebar">Settings</div>
 			<SettingsView target={target} onNavigate={navigate} onOpenMarketplace={openMarketplace} />
 			<SettingsWindowOverlays />
+			<Toaster />
 		</div>
 	)
 }

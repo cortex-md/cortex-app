@@ -246,6 +246,7 @@ export const electronPlatform: Platform = {
 	remoteVault: main.remoteVault,
 	members: main.members,
 	shares: main.shares,
+	templateShares: main.templateShares,
 	devices: main.devices,
 	sync: extend(main.sync, {
 		onStateChanged: (callback: (event: SyncStateEvent) => void) =>

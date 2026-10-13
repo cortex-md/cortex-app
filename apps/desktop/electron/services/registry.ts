@@ -4,6 +4,7 @@ import type { VaultRegistryEntry } from "@cortex/platform"
 import { getVaultFilePath, VAULT_FILES } from "@cortex/platform/utils"
 import {
 	parseVaultRegistry,
+	patchRegistryEntry,
 	removeRegistryEntry,
 	serializeVaultMetadata,
 	upsertRegistryEntry,
@@ -70,7 +71,12 @@ export const vaultRegistryApi = {
 	removeFromVaultRegistry: async (uuid) => {
 		writeEntries(removeRegistryEntry(readEntries(), uuid))
 	},
+	patchVaultRegistry: async (uuid, patch) => {
+		const nextPatch =
+			patch.path === undefined ? patch : { ...patch, path: assertAllowedPath(patch.path) }
+		writeEntries(patchRegistryEntry(readEntries(), uuid, nextPatch))
+	},
 } satisfies Pick<
-	MainApi["vault"],
-	"readVaultRegistry" | "updateVaultRegistry" | "removeFromVaultRegistry"
+	Required<MainApi["vault"]>,
+	"readVaultRegistry" | "updateVaultRegistry" | "removeFromVaultRegistry" | "patchVaultRegistry"
 >

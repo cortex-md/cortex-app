@@ -1,9 +1,11 @@
 import {
+	extractAllTags,
 	getBaseName,
 	getNoteTitle,
 	getParentPath,
 	joinPath,
 	parseFrontmatter,
+	useAuthStore,
 	useVaultStore,
 } from "@cortex/core"
 import type { SharedNoteAttachment, SharedNoteBundle } from "@cortex/platform"
@@ -100,5 +102,13 @@ export async function buildSharedNoteBundle(notePath: string): Promise<SharedNot
 	const { createRenderer } = await import("@cortex/renderer/pipeline")
 	const rendered = await createRenderer({ surface: "export" }).render(markdown)
 	const { html, attachments } = await embedImages(rendered, notePath, vaultPath)
-	return { v: 1, title: getNoteTitle(notePath), markdown, html, attachments }
+	return {
+		v: 1,
+		title: getNoteTitle(notePath),
+		markdown,
+		html,
+		attachments,
+		author: useAuthStore.getState().user?.displayName || null,
+		tags: extractAllTags(content),
+	}
 }

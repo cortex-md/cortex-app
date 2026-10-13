@@ -47,6 +47,7 @@ describe("note menu actions", () => {
 			"open-right-split",
 			"separator",
 			"make-copy",
+			"save-as-template",
 			"export-note",
 			"copy-path",
 			"reveal",

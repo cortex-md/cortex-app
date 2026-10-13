@@ -56,3 +56,4 @@ export {
 } from "./services"
 export { AuthSession, type AuthSessionOptions, type StoredUser, scopedKey } from "./session"
 export * from "./shares"
+export * from "./templates"

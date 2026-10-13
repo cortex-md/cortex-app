@@ -2,12 +2,15 @@ import type { MarketplaceTab } from "@cortex/marketplace"
 
 export const MARKETPLACE_VIEW_ID = "marketplace"
 
+export type MarketplaceViewTab = MarketplaceTab | "templates"
+
 export interface MarketplaceViewState {
-	tab?: MarketplaceTab
+	tab?: MarketplaceViewTab
 	selectedEntryId?: string
 }
 
-export function getMarketplaceViewStateTab(viewState: Record<string, unknown>): MarketplaceTab {
+export function getMarketplaceViewStateTab(viewState: Record<string, unknown>): MarketplaceViewTab {
+	if (viewState.tab === "templates") return "templates"
 	return viewState.tab === "themes" ? "themes" : "plugins"
 }
 

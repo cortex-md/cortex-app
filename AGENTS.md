@@ -43,7 +43,6 @@ cortex/
 │   ├── theme/                      # Engine de temas e variáveis CSS para superfícies web
 │   ├── sync-api/                   # Fetch-only Cortex server client shared by desktop main, mobile, web
 │   ├── sync-engine/                # Sync engine Node (UtilityProcess): sync.db, SSE, queue, merge
-│   ├── sync-client/                # Estado reativo do sync no frontend: status, conflitos, UI bridge
 ├── plugins/                        # @cortex/plugins: bundled definePlugin modules
 │   ├── index.ts                    # bundledPlugins list (one line per plugin)
 │   └── github-emoji/               # index.ts + data
@@ -107,7 +106,8 @@ render it as JSX so React can preserve state and show it in DevTools.
 Keep the desktop root render-cheap: `App` subscribes only to `hasVault` and the window-effects flag;
 lifecycle hooks live in the null-rendering `AppLifecycle`, and each shell piece (`AppTitlebar`,
 `SidebarShell`, `WorkspaceShell`, `AppOverlays`) subscribes to its own slice. Rarely used surfaces
-(Settings, Auth, Create from template, template editor, note history, Marketplace view, diff views,
+(Settings, Auth, New note from template, New template, Share template, note history, Marketplace
+view, Templates and template editor tabs, New database page, diff views,
 vault link, date property editor) are `React.lazy` and mount only after first open (`useHasOpened`).
 Drag interactions (sidebar width, split sizes) update the DOM imperatively and commit to the store
 once on pointer release.

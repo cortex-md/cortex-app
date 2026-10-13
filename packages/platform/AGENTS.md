@@ -42,7 +42,9 @@
   settings (icon, allowed email domains, guests, public links, quota).
 - `Shares` publishes E2E public note links. Adapters that hold the vault key (desktop main) wrap a
   random link key with the VEK, encrypt the `SharedNoteBundle`, and return `link` with the key in
-  the `#k=` fragment; `open(shareId, key)` fetches and decrypts a link. Mobile rejects until its
+  the `#k=` fragment; `open(shareId, key)` fetches and decrypts a link. `SharedNoteBundle` carries
+  optional `author` (display name) and `tags` that the server viewer shows; they stay inside the
+  encrypted bundle so the server never learns them. Mobile rejects until its
   sync engine exists. `.cortex/sync-config.json`
   belongs to `@cortex/core` (`sync/syncConfig.ts`), and vault config paths come from
   `getVaultFilePath`/`VAULT_CONFIG_DIR` in `@cortex/platform/utils` (no `Storage.getVaultConfigDir`).
@@ -101,3 +103,8 @@
 - `Notifications.send` accepts `activationScope` (the vault path) and `reply: { placeholder }`.
   Adapters that support it report `getCapabilities().reply`; activations carry the typed text in
   `NotificationActivation.reply` with `actionId: "reply"`, and a click arrives with `actionId: null`.
+
+## Template Shares
+
+- `templateShares` is optional on `Platform` (desktop implements it; mobile does not yet). Core code
+  must check for it and degrade with a "not available on this device" message.

@@ -24,6 +24,7 @@ import type { Shares } from "./interfaces/Shares"
 import type { Storage } from "./interfaces/Storage"
 import type { Subscription } from "./interfaces/Subscription"
 import type { Sync } from "./interfaces/Sync"
+import type { TemplateShares } from "./interfaces/TemplateShares"
 import type { Vault } from "./interfaces/Vault"
 
 export type {
@@ -195,7 +196,24 @@ export type {
 	VaultKeyRequestResult,
 	VersionInfo,
 } from "./interfaces/Sync"
-export type { Vault, VaultMetadata, VaultRegistryEntry } from "./interfaces/Vault"
+export type {
+	PublicTemplateInfo,
+	TemplateBundle,
+	TemplateBundleFile,
+	TemplateShareAudience,
+	TemplateShareInfo,
+	TemplateShareInput,
+	TemplateShareKind,
+	TemplateSharePatch,
+	TemplateShareStatus,
+	TemplateShares,
+} from "./interfaces/TemplateShares"
+export type {
+	Vault,
+	VaultMetadata,
+	VaultRegistryEntry,
+	VaultRegistryPatch,
+} from "./interfaces/Vault"
 
 export interface Platform {
 	appearance: Appearance
@@ -221,6 +239,7 @@ export interface Platform {
 	remoteVault: RemoteVault
 	members: Members
 	shares: Shares
+	templateShares?: TemplateShares
 	collab: Collab
 	devices: Devices
 	notifications: Notifications

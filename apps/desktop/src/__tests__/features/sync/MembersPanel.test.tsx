@@ -95,6 +95,7 @@ describe("MembersPanel", () => {
 
 		await userEvent.click(screen.getByRole("button", { name: "More actions for Ada Lovelace" }))
 		await userEvent.click(await screen.findByRole("menuitem", { name: "Remove from vault" }))
+		await userEvent.click(await screen.findByRole("button", { name: "Remove" }))
 		await waitFor(() => expect(removeMember).toHaveBeenCalledWith("vault-id", "user-1"))
 	})
 
@@ -102,27 +103,23 @@ describe("MembersPanel", () => {
 		createInvite.mockResolvedValue(undefined)
 		render(<MembersPanel vaultId="vault-id" currentUserRole="owner" />)
 
-		await userEvent.click(screen.getByRole("button", { name: "Invite people" }))
-		await userEvent.type(await screen.findByRole("textbox", { name: "Email" }), "new@example.com")
-		await userEvent.click(screen.getByRole("button", { name: "Invite role" }))
+		await userEvent.type(
+			screen.getByRole("textbox", { name: "Email to invite" }),
+			"new@example.com",
+		)
+		await userEvent.click(screen.getByRole("button", { name: "Role for the invite" }))
 		await userEvent.click(await screen.findByRole("menuitemradio", { name: "Viewer" }))
-		await userEvent.click(screen.getByRole("button", { name: "Send invite" }))
+		await userEvent.click(screen.getByRole("button", { name: "Invite" }))
 
 		await waitFor(() => {
-			expect(createInvite).toHaveBeenCalledWith(
-				"vault-id",
-				"new@example.com",
-				"viewer",
-				"",
-				undefined,
-			)
+			expect(createInvite).toHaveBeenCalledWith("vault-id", "new@example.com", "viewer", "")
 		})
-		await userEvent.keyboard("{Escape}")
 		expect(screen.getByText("grace@example.com")).toBeInTheDocument()
 
 		await userEvent.click(
 			screen.getByRole("button", { name: "Cancel invite for grace@example.com" }),
 		)
+		await userEvent.click(await screen.findByRole("button", { name: "Cancel invite" }))
 		await waitFor(() => expect(deleteInvite).toHaveBeenCalledWith("vault-id", "invite-1"))
 	})
 })

@@ -1,212 +1,78 @@
-import type { TemplateDefinition } from "@cortex/core"
 import { useTemplateStore, useVaultStore } from "@cortex/core"
-import { getPlatform } from "@cortex/platform"
-import { Button } from "@cortex/ui"
+import { useSettingsStore } from "@cortex/settings"
+import { Button, Switch } from "@cortex/ui"
+import { LayoutTemplateIcon } from "lucide-react"
+import { useEffect } from "react"
+import { runInMainWindow } from "../../windows/runInMainWindow"
 import {
-	CopyIcon,
-	FileTextIcon,
-	LayoutTemplateIcon,
-	PencilIcon,
-	PlusIcon,
-	Trash2Icon,
-} from "lucide-react"
-import { lazy, Suspense, useCallback, useEffect, useState } from "react"
-import { useHasOpened } from "../../hooks/useHasOpened"
-import {
-	SettingsEmptyState,
+	SettingsField,
 	SettingsGroup,
-	SettingsList,
-	SettingsListItem,
 	SettingsPage,
 	SettingsSection,
 } from "../settings/SettingsPrimitives"
 import { DailyNotesSettings } from "./DailyNotesSettings"
-import { createTemplateDraft, type TemplateEditorDraft as EditorDraft } from "./templateEditorDraft"
+import { getTeamLabel, isTeamTemplate } from "./templateGroups"
 
-const LazyTemplateEditorDialog = lazy(() =>
-	import("./TemplateEditorDialog").then((module) => ({ default: module.TemplateEditorDialog })),
-)
+function pluralize(count: number, word: string): string {
+	return `${count} ${word}${count === 1 ? "" : "s"}`
+}
 
 export function TemplatesSection() {
 	const vault = useVaultStore((state) => state.vault)
 	const templates = useTemplateStore((state) => state.templates)
 	const ensureTemplatesLoaded = useTemplateStore((state) => state.ensureTemplatesLoaded)
-	const createTemplate = useTemplateStore((state) => state.createTemplate)
-	const updateTemplate = useTemplateStore((state) => state.updateTemplate)
-	const duplicateTemplate = useTemplateStore((state) => state.duplicateTemplate)
-	const deleteTemplate = useTemplateStore((state) => state.deleteTemplate)
-	const readTemplateBody = useTemplateStore((state) => state.readTemplateBody)
-	const [editorOpen, setEditorOpen] = useState(false)
-	const editorMounted = useHasOpened(editorOpen)
-	const [editingTemplate, setEditingTemplate] = useState<TemplateDefinition | null>(null)
-	const [draft, setDraft] = useState<EditorDraft | null>(null)
-	const [error, setError] = useState<string | null>(null)
+	const showTeam = useSettingsStore((state) => state.settings.templates.showTeam)
+	const updateSetting = useSettingsStore((state) => state.updateSetting)
 
 	useEffect(() => {
-		if (!vault) return
-		ensureTemplatesLoaded(vault)
+		if (vault) void ensureTemplatesLoaded(vault)
 	}, [ensureTemplatesLoaded, vault])
 
-	const handleCreate = useCallback(() => {
-		setEditingTemplate(null)
-		setDraft(createTemplateDraft(null, ""))
-		setEditorOpen(true)
-	}, [])
-
-	const handleEdit = useCallback(
-		async (template: TemplateDefinition) => {
-			if (!vault) return
-			setError(null)
-			try {
-				const body = await readTemplateBody(vault, template.id)
-				setEditingTemplate(template)
-				setDraft(createTemplateDraft(template, body))
-				setEditorOpen(true)
-			} catch (editError) {
-				setError(editError instanceof Error ? editError.message : String(editError))
-			}
-		},
-		[readTemplateBody, vault],
-	)
-
-	const handleDuplicate = useCallback(
-		async (template: TemplateDefinition) => {
-			if (!vault) return
-			setError(null)
-			try {
-				await duplicateTemplate(vault, template.id)
-				await getPlatform().dialog.showAlert({
-					title: "Template duplicated",
-					message: `"${template.name}" was duplicated.`,
-					kind: "info",
-				})
-			} catch (duplicateError) {
-				setError(duplicateError instanceof Error ? duplicateError.message : String(duplicateError))
-			}
-		},
-		[duplicateTemplate, vault],
-	)
-
-	const handleDelete = useCallback(
-		async (template: TemplateDefinition) => {
-			if (!vault) return
-			const confirmed = await getPlatform().dialog.showConfirm({
-				title: "Delete template",
-				message: `Are you sure you want to delete "${template.name}"? This cannot be undone.`,
-				destructive: true,
-				confirmLabel: "Delete",
-			})
-			if (!confirmed) return
-			setError(null)
-			try {
-				await deleteTemplate(vault, template.id)
-			} catch (deleteError) {
-				setError(deleteError instanceof Error ? deleteError.message : String(deleteError))
-			}
-		},
-		[deleteTemplate, vault],
-	)
-
-	const handleSave = useCallback(
-		async (nextDraft: EditorDraft) => {
-			if (!vault) return
-			if (editingTemplate) {
-				await updateTemplate(vault, editingTemplate.id, nextDraft)
-			} else {
-				await createTemplate(vault, nextDraft)
-			}
-		},
-		[createTemplate, editingTemplate, updateTemplate, vault],
-	)
+	const teamCount = templates.filter(isTeamTemplate).length
+	const vaultCount = templates.length - teamCount
+	const breakdown =
+		teamCount > 0
+			? `${vaultCount} in this vault · ${teamCount} ${getTeamLabel(templates).toLowerCase()}`
+			: "Saved in this vault"
 
 	return (
 		<SettingsPage>
-			<SettingsSection
-				fieldId="templates.list"
-				title="Templates"
-				description="Vault templates stored in .cortex/templates."
-				action={
-					<Button type="button" size="sm" onClick={handleCreate}>
-						<PlusIcon />
-						New template
-					</Button>
-				}
-			>
+			<section className="settings-section" data-settings-field="templates.list">
+				<div className="settings-sync-hero" data-tone="muted" data-compact="">
+					<span className="settings-sync-hero-icon">
+						<LayoutTemplateIcon />
+					</span>
+					<div className="settings-sync-hero-copy">
+						<b>{pluralize(templates.length, "template")}</b>
+						<span>{breakdown}</span>
+					</div>
+					<div className="settings-sync-hero-actions">
+						<Button
+							variant="secondary"
+							size="sm"
+							onClick={() => runInMainWindow("openNewTemplate")}
+						>
+							New template
+						</Button>
+						<Button size="sm" onClick={() => runInMainWindow("openTemplates")}>
+							Open Templates
+						</Button>
+					</div>
+				</div>
+			</section>
+			<SettingsSection title="Defaults">
 				<SettingsGroup>
-					{templates.length === 0 ? (
-						<SettingsEmptyState>No templates yet.</SettingsEmptyState>
-					) : (
-						<SettingsList>
-							{templates.map((template) => (
-								<SettingsListItem
-									key={template.id}
-									data-settings-field={`templates.${template.id}`}
-								>
-									<div className="flex size-8 shrink-0 items-center justify-center rounded-[8px] border border-border bg-bg-secondary text-muted-foreground">
-										<LayoutTemplateIcon className="size-4" />
-									</div>
-									<div className="min-w-0 flex-1">
-										<div
-											className="truncate text-[13px] font-medium text-foreground"
-											title={template.name}
-										>
-											{template.name}
-										</div>
-										<div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-											<FileTextIcon className="size-3" />
-											<span className="truncate" title={template.fileNamePattern}>
-												{template.fileNamePattern}
-											</span>
-										</div>
-									</div>
-									<div className="flex shrink-0 items-center gap-1">
-										<Button
-											type="button"
-											variant="ghost"
-											size="icon-xs"
-											aria-label={`Edit ${template.name}`}
-											onClick={() => handleEdit(template)}
-										>
-											<PencilIcon />
-										</Button>
-										<Button
-											type="button"
-											variant="ghost"
-											size="icon-xs"
-											aria-label={`Duplicate ${template.name}`}
-											onClick={() => handleDuplicate(template)}
-										>
-											<CopyIcon />
-										</Button>
-										<Button
-											type="button"
-											variant="ghost"
-											size="icon-xs"
-											aria-label={`Delete ${template.name}`}
-											onClick={() => handleDelete(template)}
-										>
-											<Trash2Icon />
-										</Button>
-									</div>
-								</SettingsListItem>
-							))}
-						</SettingsList>
-					)}
+					<SettingsField fieldId="templates.show-team" htmlFor="templates-show-team">
+						<Switch
+							id="templates-show-team"
+							size="sm"
+							checked={showTeam}
+							onCheckedChange={(checked) => void updateSetting("templates", "showTeam", checked)}
+						/>
+					</SettingsField>
 				</SettingsGroup>
-				{error && <p className="m-0 px-1 text-sm text-destructive">{error}</p>}
 			</SettingsSection>
 			<DailyNotesSettings templates={templates} />
-			{editorMounted && (
-				<Suspense fallback={null}>
-					<LazyTemplateEditorDialog
-						open={editorOpen}
-						template={editingTemplate}
-						initialDraft={draft}
-						onOpenChange={setEditorOpen}
-						onSave={handleSave}
-					/>
-				</Suspense>
-			)}
 		</SettingsPage>
 	)
 }

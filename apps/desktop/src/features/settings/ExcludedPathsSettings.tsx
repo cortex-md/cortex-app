@@ -8,7 +8,7 @@ import {
 	VAULT_CONFIG_DIR,
 } from "@cortex/core"
 import type { FileEntry } from "@cortex/platform"
-import { Button, FolderPicker } from "@cortex/ui"
+import { Button, cn, FolderPicker, StatusBadge } from "@cortex/ui"
 import { AsteriskIcon, FileIcon, FolderIcon, XIcon } from "lucide-react"
 import { useMemo } from "react"
 import {
@@ -73,7 +73,6 @@ export function ExcludedPathsSettings() {
 						placeholder="Add a folder, file or pattern"
 						allowCustomValue
 						getCustomValueLabel={(value) => `Add pattern "${value}"`}
-						reserveDropdownSpace
 					/>
 				</SettingsGroupContent>
 				{excludedPaths.length === 0 ? (
@@ -92,11 +91,19 @@ export function ExcludedPathsSettings() {
 										<FileIcon />
 									)}
 								</SettingsIconTile>
-								<span className="settings-member-copy settings-field-label" data-kind={kind}>
+								<span
+									className={cn(
+										"settings-member-copy settings-field-label",
+										kind === "Pattern" && "font-mono",
+									)}
+									data-kind={kind}
+								>
 									{path}
 								</span>
 								<div className="settings-row-trail">
-									<span className="settings-row-kind">{kind}</span>
+									<StatusBadge color="gray" dot={false}>
+										{kind}
+									</StatusBadge>
 									<Button
 										variant="ghost"
 										size="icon-xs"

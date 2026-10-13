@@ -77,8 +77,8 @@ Full Apple-kit → primitive mapping lives in `CLAUDE.md`.
   runtime.
 - Button primitives default native `<button>` rendering to `type="button"` while preserving explicit
   types and `asChild` behavior.
-- `FolderPicker` uses `reserveDropdownSpace` when it is rendered inside an overflow-clipped
-  Settings group so its inline option list remains visible.
+- `FolderPicker` renders its option list in a `Popover` portal anchored to the input, so it is never
+  clipped by dialogs or overflow-hidden Settings groups and never pushes surrounding layout.
 - `FolderPicker` keeps its custom popup options as real buttons until it implements the full
   keyboard contract for ARIA listbox/combobox semantics.
 - `SidebarNav`, `SidebarNavGroup`, and `SidebarNavItem` are a static grouped navigation list for
@@ -111,6 +111,13 @@ Full Apple-kit → primitive mapping lives in `CLAUDE.md`.
   without an overlay into a `container` element, so the panel sits in the layout (for example the
   database peek). Pair `docked` with `<Sheet modal={false}>` and prevent `onInteractOutside` when
   clicks elsewhere in the view should keep it open.
+
+## Tag
+
+- `Tag` is the inline value chip (`default | active`, optional `interactive`). Templates use the
+  `active` variant for placeholder values such as "Today" or "Note name"; pass `onRemove` with a
+  `removeLabel` to render the trailing remove button. CodeMirror widgets that need the same look
+  reuse `tagVariants` instead of copying classes.
 
 ## StatusBadge
 

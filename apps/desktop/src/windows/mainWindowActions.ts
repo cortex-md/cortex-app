@@ -1,10 +1,10 @@
 import { useEditorStore, useSyncStore } from "@cortex/core"
-import type { MarketplaceTab } from "@cortex/marketplace"
-import { getPlatform } from "@cortex/platform"
+import { getPlatform, type VaultRegistryEntry } from "@cortex/platform"
 import { usePluginStore } from "@cortex/plugin-host-core"
 import { pluginHost } from "../bootstrap/pluginHost"
 import { importFilesFromDialog } from "../features/import-export/importExportActions"
 import { importObsidianVaultFromDialog } from "../features/import-export/obsidianImport"
+import type { MarketplaceViewTab } from "../features/marketplace/marketplaceWorkspaceView"
 import {
 	type OpenMarketplaceViewOptions,
 	openMarketplaceView,
@@ -13,6 +13,8 @@ import { enablePluginWithConsent } from "../features/plugins/communityPluginsAcc
 import { openCommunityPluginsFolder } from "../features/plugins/communityPluginsFolder"
 import { noteHistoryModal } from "../features/sync/noteHistoryModal"
 import { deletedNotesModal, syncLogsModal } from "../features/sync/syncDialogStores"
+import { openNewTemplate, openTemplatesView } from "../features/templates/templateActions"
+import { type AddVaultTarget, openAddVault, openRecentVault } from "../features/vault/vaultActions"
 
 function inMainWindow(open: () => void): void {
 	open()
@@ -24,7 +26,7 @@ export const mainWindowActions = {
 		tab,
 		options,
 	}: {
-		tab: MarketplaceTab
+		tab: MarketplaceViewTab
 		options?: OpenMarketplaceViewOptions
 	}) => inMainWindow(() => openMarketplaceView(tab, options)),
 	importFiles: () => importFilesFromDialog("settings"),
@@ -43,6 +45,11 @@ export const mainWindowActions = {
 		pluginHost.setPluginSetting(pluginId, key, value),
 	openCommunityPluginsFolder,
 	restartSync: () => useSyncStore.getState().restartSync(),
+	openAddVault: (target: AddVaultTarget) => inMainWindow(() => openAddVault(target)),
+	openVaultHere: (entry: VaultRegistryEntry) =>
+		inMainWindow(() => void openRecentVault(entry, "current-window")),
+	openTemplates: () => inMainWindow(() => void openTemplatesView()),
+	openNewTemplate: () => inMainWindow(() => openNewTemplate({ start: "blank" })),
 	openSyncLogs: () => inMainWindow(() => syncLogsModal.open(true)),
 	openDeletedNotes: () => inMainWindow(() => deletedNotesModal.open(true)),
 	openNoteHistory: () => {

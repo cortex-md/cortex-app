@@ -1,7 +1,13 @@
 import { getPlatform } from "@cortex/platform"
 import { ensureMarkdownExtension, VAULT_FILES } from "@cortex/platform/utils"
-import { createNoteWithPropertyDefaults, invalidatePropertySuggestions } from "@cortex/properties"
 import {
+	createNoteWithPropertyDefaults,
+	invalidatePropertySuggestions,
+	parseFrontmatter,
+	serializeFrontmatter,
+} from "@cortex/properties"
+import {
+	createTemplateBodyFromNote,
 	renderTemplate,
 	type TemplateDefinition,
 	type TemplateManifest,
@@ -21,6 +27,7 @@ export interface TemplateVault {
 }
 
 export interface TemplateInput {
+	askName?: boolean
 	name: string
 	description?: string
 	body?: string
@@ -30,6 +37,7 @@ export interface TemplateInput {
 }
 
 export interface TemplateUpdateInput {
+	askName?: boolean
 	name?: string
 	description?: string
 	body?: string
@@ -46,14 +54,36 @@ export interface CreateNoteFromTemplateInput {
 	now?: Date
 }
 
+export interface TemplateInsertResult {
+	properties: Record<string, unknown>
+	body: string
+}
+
 export interface TemplatePreview {
 	targetFolder: string
 	fileName: string
 	content: string
 }
 
+export interface TemplateShareLink {
+	shareId: string
+	audience: "team" | "link" | "market"
+	groupId: string | null
+	link: string | null
+}
+
+export interface RemoteTemplateEntry {
+	definition: TemplateDefinition
+	body: string
+}
+
 export interface TemplateState {
 	templates: TemplateDefinition[]
+	remoteTemplates: TemplateDefinition[]
+	remoteBodies: Record<string, string>
+	shares: Record<string, TemplateShareLink>
+	setRemoteTemplates: (entries: RemoteTemplateEntry[]) => void
+	setShareLink: (vault: TemplateVault, key: string, link: TemplateShareLink | null) => Promise<void>
 	loadedVaultPath: string | null
 	loading: boolean
 	error: string | null
@@ -68,6 +98,21 @@ export interface TemplateState {
 	duplicateTemplate: (vault: TemplateVault, templateId: string) => Promise<TemplateDefinition>
 	deleteTemplate: (vault: TemplateVault, templateId: string) => Promise<void>
 	readTemplateBody: (vault: TemplateVault, templateId: string) => Promise<string>
+	createTemplateFromNote: (
+		vault: TemplateVault,
+		input: { name: string; noteContent: string; targetFolderPattern?: string },
+	) => Promise<TemplateDefinition>
+	restoreTemplate: (
+		vault: TemplateVault,
+		template: TemplateDefinition,
+		body: string,
+	) => Promise<void>
+	markTemplateUsed: (vault: TemplateVault, templateId: string) => Promise<void>
+	renderTemplateForInsert: (
+		vault: TemplateVault,
+		templateId: string,
+		noteTitle: string,
+	) => Promise<TemplateInsertResult>
 	previewNoteFromTemplate: (
 		vault: TemplateVault,
 		input: CreateNoteFromTemplateInput,
@@ -81,6 +126,7 @@ export interface TemplateState {
 
 const templatesDirectoryName = VAULT_FILES.templates
 const manifestFileName = "manifest.json"
+const sharesFileName = "shares.json"
 const emptyManifest: TemplateManifest = { version: 1, templates: [] }
 
 function createId(): string {
@@ -156,8 +202,53 @@ async function readManifest(vaultPath: string): Promise<TemplateManifest> {
 }
 
 async function writeManifest(vaultPath: string, manifest: TemplateManifest): Promise<void> {
+	const templates = manifest.templates.filter((template) => template.source !== "team")
 	await getPlatform().fs.createDir(getTemplatesDirectory(vaultPath))
-	await getPlatform().fs.writeFile(getManifestPath(vaultPath), JSON.stringify(manifest, null, 2))
+	await getPlatform().fs.writeFile(
+		getManifestPath(vaultPath),
+		JSON.stringify({ version: 1, templates }, null, 2),
+	)
+}
+
+function getSharesPath(vaultPath: string): string {
+	return `${getTemplatesDirectory(vaultPath)}/${sharesFileName}`
+}
+
+async function readShares(vaultPath: string): Promise<Record<string, TemplateShareLink>> {
+	try {
+		const parsed = JSON.parse(await getPlatform().fs.readFile(getSharesPath(vaultPath)))
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {}
+		return Object.fromEntries(
+			Object.entries(parsed as Record<string, unknown>).flatMap(([key, value]) => {
+				if (!value || typeof value !== "object") return []
+				const link = value as Partial<TemplateShareLink>
+				if (typeof link.shareId !== "string" || typeof link.audience !== "string") return []
+				return [
+					[
+						key,
+						{
+							shareId: link.shareId,
+							audience: link.audience,
+							groupId: typeof link.groupId === "string" ? link.groupId : null,
+							link: typeof link.link === "string" ? link.link : null,
+						} as TemplateShareLink,
+					],
+				]
+			}),
+		)
+	} catch {
+		return {}
+	}
+}
+
+async function writeShares(vaultPath: string, shares: Record<string, TemplateShareLink>) {
+	await getPlatform().fs.createDir(getTemplatesDirectory(vaultPath))
+	await getPlatform().fs.writeFile(getSharesPath(vaultPath), JSON.stringify(shares, null, 2))
+}
+
+function withRemote(local: TemplateDefinition[], remote: TemplateDefinition[]) {
+	const localIds = new Set(local.map((template) => template.id))
+	return [...local, ...remote.filter((template) => !localIds.has(template.id))]
 }
 
 async function writeTemplateBody(vaultPath: string, definition: TemplateDefinition, body: string) {
@@ -232,6 +323,26 @@ async function renderTemplatePreview(
 
 export const useTemplateStore = create<TemplateState>((set, get) => ({
 	templates: [],
+	remoteTemplates: [],
+	remoteBodies: {},
+	shares: {},
+
+	setRemoteTemplates: (entries) => {
+		const remoteTemplates = entries.map((entry) => entry.definition)
+		const remoteBodies = Object.fromEntries(
+			entries.map((entry) => [entry.definition.id, entry.body]),
+		)
+		const local = get().templates.filter((template) => template.source !== "team")
+		set({ remoteTemplates, remoteBodies, templates: withRemote(local, remoteTemplates) })
+	},
+
+	setShareLink: async (vault, key, link) => {
+		const shares = { ...get().shares }
+		if (link) shares[key] = link
+		else delete shares[key]
+		set({ shares })
+		await writeShares(vault.path, shares)
+	},
 	loadedVaultPath: null,
 	loading: false,
 	error: null,
@@ -239,9 +350,13 @@ export const useTemplateStore = create<TemplateState>((set, get) => ({
 	loadTemplates: async (vault) => {
 		set({ loading: true, error: null })
 		try {
-			const manifest = await readManifest(vault.path)
+			const [manifest, shares] = await Promise.all([
+				readManifest(vault.path),
+				readShares(vault.path),
+			])
 			set({
-				templates: manifest.templates,
+				shares,
+				templates: withRemote(manifest.templates, get().remoteTemplates),
 				loadedVaultPath: vault.path,
 				loading: false,
 			})
@@ -266,6 +381,8 @@ export const useTemplateStore = create<TemplateState>((set, get) => ({
 			targetFolderPattern: input.targetFolderPattern ?? "",
 			fileNamePattern: input.fileNamePattern ?? "{{ note.title | slug }}",
 			customPlaceholders: input.customPlaceholders,
+			askName: input.askName,
+			source: "vault",
 			createdAt: timestamp,
 			updatedAt: timestamp,
 		}
@@ -297,6 +414,7 @@ export const useTemplateStore = create<TemplateState>((set, get) => ({
 				input.customPlaceholders === undefined
 					? current.customPlaceholders
 					: input.customPlaceholders,
+			askName: input.askName === undefined ? current.askName : input.askName,
 			updatedAt: nowIso(),
 		}
 		const templates = get().templates.map((template) =>
@@ -319,7 +437,47 @@ export const useTemplateStore = create<TemplateState>((set, get) => ({
 			targetFolderPattern: current.targetFolderPattern,
 			fileNamePattern: current.fileNamePattern,
 			customPlaceholders: current.customPlaceholders,
+			askName: current.askName,
 		})
+	},
+
+	createTemplateFromNote: async (vault, input) => {
+		const { meta, body } = parseFrontmatter(input.noteContent)
+		const properties = Object.fromEntries(Object.keys(meta).map((key) => [key, null]))
+		return get().createTemplate(vault, {
+			name: input.name,
+			body: serializeFrontmatter(properties, createTemplateBodyFromNote(body)),
+			targetFolderPattern: input.targetFolderPattern,
+			fileNamePattern: "{{ note.title }}",
+			askName: true,
+		})
+	},
+
+	restoreTemplate: async (vault, template, body) => {
+		await get().ensureTemplatesLoaded(vault)
+		const templates = [...get().templates.filter((item) => item.id !== template.id), template]
+		await writeTemplateBody(vault.path, template, body)
+		await writeManifest(vault.path, { version: 1, templates })
+		set({ templates, loadedVaultPath: vault.path })
+	},
+
+	markTemplateUsed: async (vault, templateId) => {
+		await get().ensureTemplatesLoaded(vault)
+		const templates = get().templates.map((template) =>
+			template.id === templateId ? { ...template, lastUsedAt: nowIso() } : template,
+		)
+		set({ templates })
+		await writeManifest(vault.path, { version: 1, templates }).catch(() => undefined)
+	},
+
+	renderTemplateForInsert: async (vault, templateId, noteTitle) => {
+		await get().ensureTemplatesLoaded(vault)
+		const template = findTemplate(get().templates, templateId)
+		const source = await get().readTemplateBody(vault, templateId)
+		const context = createTemplateContext(vault, template, noteTitle, "", "", new Date())
+		const rendered = parseFrontmatter(renderTemplate(source, context).value)
+		void get().markTemplateUsed(vault, templateId)
+		return { properties: rendered.meta, body: rendered.body }
 	},
 
 	deleteTemplate: async (vault, templateId) => {
@@ -335,6 +493,8 @@ export const useTemplateStore = create<TemplateState>((set, get) => ({
 
 	readTemplateBody: async (vault, templateId) => {
 		await get().ensureTemplatesLoaded(vault)
+		const remoteBody = get().remoteBodies[templateId]
+		if (remoteBody !== undefined) return remoteBody
 		const template = findTemplate(get().templates, templateId)
 		try {
 			return await getPlatform().fs.readFile(getTemplateBodyPath(vault.path, template.bodyPath))
@@ -352,6 +512,7 @@ export const useTemplateStore = create<TemplateState>((set, get) => ({
 
 	createNoteFromTemplate: async (vault, input) => {
 		const preview = await get().previewNoteFromTemplate(vault, input)
+		void get().markTemplateUsed(vault, input.templateId)
 		const folderPath = preview.targetFolder ? `${vault.path}/${preview.targetFolder}` : vault.path
 		assertVaultPathWritable(folderPath, true)
 		const [filePath, content] = await Promise.all([
@@ -366,6 +527,9 @@ export const useTemplateStore = create<TemplateState>((set, get) => ({
 	reset: () => {
 		set({
 			templates: [],
+			remoteTemplates: [],
+			remoteBodies: {},
+			shares: {},
 			loadedVaultPath: null,
 			loading: false,
 			error: null,

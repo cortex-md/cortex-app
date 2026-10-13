@@ -3,10 +3,10 @@ import {
 	useRemoteVaultStore,
 	useVaultStore,
 } from "@cortex/core"
-import { getPlatform } from "@cortex/platform"
-import { Button, Input, Switch } from "@cortex/ui"
-import { Loader2, ServerIcon } from "lucide-react"
+import { Button, Input, Spinner, Switch } from "@cortex/ui"
+import { ServerIcon } from "lucide-react"
 import { type ChangeEvent, type KeyboardEvent, useState } from "react"
+import { useConfirmAction } from "../ConfirmActionDialog"
 import { SettingsField, SettingsGroup, SettingsSection } from "../SettingsPrimitives"
 
 interface ServerUrlFieldProps {
@@ -21,34 +21,36 @@ function ServerUrlField({ vaultPath, savedServerUrl }: ServerUrlFieldProps) {
 	const initialValue = savedServerUrl ?? DEFAULT_SELF_HOSTED_SYNC_SERVER_URL
 	const [inputValue, setInputValue] = useState(initialValue)
 	const [saving, setSaving] = useState(false)
+	const { confirm, dialog } = useConfirmAction()
 
-	const handleSave = async () => {
-		const trimmed = inputValue.trim().replace(/\/+$/, "")
-		if (!vaultPath || !trimmed || trimmed === savedServerUrl) return
-		if (linkedVaultId) {
-			const confirmed = await getPlatform().dialog.showConfirm({
-				title: "Change sync server?",
-				message: "Changing the sync server will unlink this vault from its current remote vault.",
-				confirmLabel: "Change server",
-				cancelLabel: "Keep current server",
-				destructive: true,
-			})
-			if (!confirmed) {
-				setInputValue(initialValue)
-				return
-			}
-			await unlinkVault(vaultPath)
-		}
+	const save = async (path: string, url: string, unlink: boolean) => {
+		if (unlink) await unlinkVault(path)
 		setSaving(true)
 		try {
-			await saveServerUrl(vaultPath, trimmed)
+			await saveServerUrl(path, url)
 		} finally {
 			setSaving(false)
 		}
 	}
 
+	const handleSave = () => {
+		const trimmed = inputValue.trim().replace(/\/+$/, "")
+		if (!vaultPath || !trimmed || trimmed === savedServerUrl) return
+		if (!linkedVaultId) {
+			void save(vaultPath, trimmed, false)
+			return
+		}
+		confirm({
+			title: "Change sync server?",
+			description: "Changing the sync server unlinks this vault from its current remote vault.",
+			confirmLabel: "Change server",
+			destructive: true,
+			onConfirm: () => save(vaultPath, trimmed, true),
+		})
+	}
+
 	const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-		if (event.key === "Enter") void handleSave()
+		if (event.key === "Enter") handleSave()
 	}
 
 	return (
@@ -66,12 +68,13 @@ function ServerUrlField({ vaultPath, savedServerUrl }: ServerUrlFieldProps) {
 			<Button
 				variant="secondary"
 				size="xs"
-				onClick={() => void handleSave()}
+				onClick={handleSave}
 				disabled={saving || inputValue.trim() === savedServerUrl}
 				className="shrink-0"
 			>
-				{saving ? <Loader2 size={14} className="animate-spin" /> : "Save"}
+				{saving ? <Spinner className="size-3" /> : "Save"}
 			</Button>
+			{dialog}
 		</div>
 	)
 }

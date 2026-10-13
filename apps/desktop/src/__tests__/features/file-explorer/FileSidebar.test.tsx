@@ -37,7 +37,7 @@ function resetWorkspace() {
 async function chooseCreateMenuItem(name: string) {
 	const user = userEvent.setup()
 	await user.click(screen.getByRole("button", { name: "Create" }))
-	await user.click(await screen.findByRole("menuitem", { name: new RegExp(`^${name}`) }))
+	await user.click(await screen.findByRole("menuitem", { name: new RegExp(`^${name}(?! from)`) }))
 }
 
 function renderFileSidebar() {

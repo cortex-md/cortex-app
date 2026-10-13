@@ -61,11 +61,12 @@ import {
 } from "../plugins/communityPluginsAccess"
 import { MarketplaceDetail } from "./MarketplaceDetail"
 import { applyMarketplaceTheme, getMarketplaceThemeName } from "./marketplaceThemes"
+import type { MarketplaceViewTab } from "./marketplaceWorkspaceView"
 
 interface MarketplaceSectionProps {
 	initialTab: MarketplaceTab
 	initialSelectedEntryId?: string | null
-	onTabChange?: (tab: MarketplaceTab) => void
+	onTabChange?: (tab: MarketplaceViewTab) => void
 }
 
 interface MarketplaceCatalogRowProps {
@@ -309,8 +310,8 @@ export function MarketplaceSection({
 		selectedRowRef.current?.scrollIntoView({ block: "nearest" })
 	}, [selectedEntry])
 
-	const handleTabChange = (tab: MarketplaceTab) => {
-		setActiveTab(tab)
+	const handleTabChange = (tab: MarketplaceViewTab) => {
+		if (tab !== "templates") setActiveTab(tab)
 		onTabChange?.(tab)
 	}
 
@@ -395,10 +396,14 @@ export function MarketplaceSection({
 						onChange={(event) => setSearchQuery(event.target.value)}
 					/>
 				</InputGroup>
-				<Tabs value={activeTab} onValueChange={(value) => handleTabChange(value as MarketplaceTab)}>
+				<Tabs
+					value={activeTab}
+					onValueChange={(value) => handleTabChange(value as MarketplaceViewTab)}
+				>
 					<TabsList className="marketplace-catalog-tabs">
 						<TabsTrigger value="plugins">Plugins</TabsTrigger>
 						<TabsTrigger value="themes">Themes</TabsTrigger>
+						<TabsTrigger value="templates">Templates</TabsTrigger>
 					</TabsList>
 				</Tabs>
 

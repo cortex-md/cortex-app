@@ -17,6 +17,8 @@ import { useHotkeyListener, useHotkeysStore } from "@cortex/hotkeys"
 import { getPlatform } from "@cortex/platform"
 import { useSettingsStore } from "@cortex/settings"
 import { useEffect } from "react"
+import { useTeamTemplates } from "../features/templates/useTeamTemplates"
+import { useTemplateDeepLink } from "../features/templates/useTemplateDeepLink"
 import { useAppUpdateLifecycle } from "../hooks/useAppUpdates"
 import { useCommunityPluginLifecycle } from "../hooks/useCommunityPluginLifecycle"
 import { useCommunityThemeLifecycle } from "../hooks/useCommunityThemeLifecycle"
@@ -145,6 +147,8 @@ export function AppLifecycle() {
 	useResetPasswordDeepLink()
 	useVaultOverviewRefresh()
 	useLiveNoteShares()
+	useTeamTemplates()
+	useTemplateDeepLink()
 	useNativeNotifications()
 	useCommunityPluginLifecycle(vault)
 	useCommunityThemeLifecycle(vault, appearanceSettings)

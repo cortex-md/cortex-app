@@ -1,3 +1,5 @@
+import { linkVaultFolder, unlinkVaultFolder } from "@cortex/core"
+import { toast } from "@cortex/ui"
 import { type ReactNode, Suspense, useState } from "react"
 import { useHasOpened } from "../../hooks/useHasOpened"
 import { LazyVaultLinkModal } from "../sync/LazyVaultLinkModal"
@@ -7,6 +9,8 @@ import { SyncOverviewPage } from "./sync/SyncOverview"
 import { SyncPreferencesPage } from "./sync/SyncPreferences"
 import type { SyncSettingsView } from "./sync/types"
 import { useSyncOverview } from "./sync/useSyncOverview"
+import { type VaultImpact, VaultImpactDialog } from "./vaults/VaultImpactDialog"
+import { unlinkImpact } from "./vaults/vaultImpacts"
 
 export type { SyncSettingsView } from "./sync/types"
 
@@ -19,6 +23,25 @@ export function SyncSection({ view = "overview" }: SyncSectionProps) {
 	const [linkModalOpen, setLinkModalOpen] = useState(false)
 	const linkModalMounted = useHasOpened(linkModalOpen)
 	const openLink = () => setLinkModalOpen(true)
+	const [stopImpact, setStopImpact] = useState<VaultImpact | null>(null)
+	const vaultPath = overview.vault?.path
+	const localName = overview.vault?.name ?? "this vault"
+	const remoteName = overview.linkedVault?.name ?? localName
+
+	const stopSyncing = async () => {
+		const remoteVaultId = overview.linkedVaultId
+		if (!vaultPath) return
+		try {
+			await unlinkVaultFolder(vaultPath)
+			toast(`${localName} is now only on this Mac`, {
+				action: remoteVaultId
+					? { label: "Undo", onClick: () => void linkVaultFolder(vaultPath, remoteVaultId) }
+					: undefined,
+			})
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : String(error))
+		}
+	}
 
 	let content: ReactNode
 	switch (view) {
@@ -38,7 +61,11 @@ export function SyncSection({ view = "overview" }: SyncSectionProps) {
 					vaultName={overview.linkedVault?.name ?? overview.vault?.name ?? "Remote vault"}
 					vaultPath={overview.vault?.path}
 					syncEnabled={overview.syncConfig.enabled}
+					localVaultName={overview.vault?.name}
 					onOpenLink={openLink}
+					onStopSyncing={() =>
+						setStopImpact(unlinkImpact(localName, remoteName, overview.serverLabel))
+					}
 				/>
 			)
 			break
@@ -69,6 +96,13 @@ export function SyncSection({ view = "overview" }: SyncSectionProps) {
 	return (
 		<>
 			{content}
+			<VaultImpactDialog
+				impact={stopImpact}
+				onOpenChange={(open) => {
+					if (!open) setStopImpact(null)
+				}}
+				onConfirm={stopSyncing}
+			/>
 			{linkModalMounted && (
 				<Suspense fallback={null}>
 					<LazyVaultLinkModal open={linkModalOpen} onOpenChange={setLinkModalOpen} />

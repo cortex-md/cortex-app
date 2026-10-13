@@ -15,6 +15,7 @@ import { noteSharesApi } from "../services/noteShares"
 import { notificationsApi } from "../services/notifications"
 import { serverApi } from "../services/serverApi"
 import { syncService } from "../services/syncBridge"
+import { templateSharesApi } from "../services/templateShares"
 import { vaultApi } from "../services/vault"
 import { getAppearanceSnapshot } from "../window"
 import { windowApi } from "../windows"
@@ -44,6 +45,7 @@ const mainApi: MainApi = {
 	remoteVault: serverApi.remoteVault,
 	members: serverApi.members,
 	shares: noteSharesApi,
+	templateShares: templateSharesApi,
 	devices: serverApi.devices,
 	sync: syncService,
 	collab: collabApi,

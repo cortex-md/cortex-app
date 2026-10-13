@@ -3894,6 +3894,17 @@ body[data-platform="macos"] .settings-window-titlebar {
 	background: var(--settings-group-bg);
 }
 
+.settings-sync-hero[data-compact] {
+	padding-bottom: 18px;
+}
+
+.settings-sync-hero-actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
 .settings-sync-hero-icon {
 	display: inline-flex;
 	width: 44px;
@@ -4104,22 +4115,6 @@ body[data-platform="macos"] .settings-window-titlebar {
 	flex: 1;
 	background: var(--bg-primary);
 	font-family: var(--font-code);
-}
-
-.settings-env-secret {
-	display: inline-flex;
-	flex: none;
-	align-items: center;
-	gap: 4px;
-	color: var(--text-muted);
-	font-size: 11px;
-	font-weight: 500;
-	line-height: 14px;
-}
-
-.settings-env-secret .lucide {
-	width: 12px;
-	height: 12px;
 }
 
 .settings-plugin-marketplace-link {
@@ -6070,36 +6065,6 @@ button.mermaid-diagram-surface:focus-visible {
 	font-family: var(--font-ui);
 }
 
-.template-editor-dialog-content {
-	width: min(1360px, calc(100vw - 1rem));
-	max-width: min(1360px, calc(100vw - 1rem));
-	height: min(720px, calc(100vh - 3rem));
-	max-height: calc(100vh - 3rem);
-}
-
-.template-note-title-input[data-slot="input"] {
-	height: auto;
-	border-color: transparent;
-	background: transparent;
-	box-shadow: none;
-	padding: 0;
-	color: var(--text-primary);
-	font-size: 24px;
-	font-weight: 650;
-	line-height: 1.25;
-}
-
-.template-note-title-input[data-slot="input"]:focus-visible {
-	border-color: transparent;
-	background: transparent;
-	box-shadow: none;
-}
-
-.create-from-template-dialog-content {
-	width: min(860px, calc(100vw - 1rem));
-	max-width: min(860px, calc(100vw - 1rem));
-}
-
 .note-properties {
 	--property-row-hover: var(--macos-row-bg-hover, var(--bg-hover));
 }
@@ -7584,6 +7549,14 @@ body[data-platform="macos"] .sidebar-action-button:hover {
 	gap: 16px;
 }
 
+.members-invite-row {
+	padding: 10px 12px;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto auto;
+	align-items: center;
+	gap: 8px;
+}
+
 .members-tab-header {
 	display: flex;
 	align-items: center;
@@ -8067,4 +8040,31 @@ body[data-platform="macos"] .sidebar-action-button:hover {
 	margin-left: auto;
 	color: var(--text-muted);
 	font-size: 12px;
+}
+
+.add-vault-choice[data-slot="item"] {
+	width: 100%;
+	text-align: left;
+}
+
+.add-vault-choice[data-slot="item"]:hover {
+	background: var(--bg-hover);
+}
+
+.add-vault-name-input[data-slot="input"] {
+	flex: 1;
+	min-width: 0;
+	height: auto;
+	padding: 0;
+	border-color: transparent;
+	background: transparent;
+	box-shadow: none;
+	font-size: 20px;
+	font-weight: 600;
+	line-height: 28px;
+}
+
+.add-vault-name-input[data-slot="input"]:focus-visible {
+	border-color: transparent;
+	box-shadow: none;
 }

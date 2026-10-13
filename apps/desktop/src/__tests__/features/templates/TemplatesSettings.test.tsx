@@ -55,7 +55,9 @@ beforeEach(() => {
 					vimMode: false,
 				},
 				dailyNotes: { folder: "Daily", format: "yyyy-MM-dd", templateId: "" },
+				templates: { showTeam: true, editorHintDismissed: false },
 			},
+			updateSetting: vi.fn(),
 		}
 		return selector ? selector(state) : state
 	}) as never)
@@ -74,12 +76,12 @@ afterEach(() => {
 })
 
 describe("TemplatesSection", () => {
-	it("renders templates in Settings", () => {
+	it("summarizes templates and links to the Templates tab", () => {
 		render(<TemplatesSection />)
 
-		expect(screen.getByText("Templates")).toBeInTheDocument()
-		expect(screen.getByTitle("Weekly Review")).toBeInTheDocument()
-		expect(screen.getByText("{{ note.title | slug }}")).toBeInTheDocument()
+		expect(screen.getByText("1 template")).toBeInTheDocument()
 		expect(screen.getByRole("button", { name: "New template" })).toBeInTheDocument()
+		expect(screen.getByRole("button", { name: "Open Templates" })).toBeInTheDocument()
+		expect(screen.getByRole("option", { name: "Weekly Review" })).toBeInTheDocument()
 	})
 })

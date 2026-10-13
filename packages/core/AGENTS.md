@@ -790,7 +790,8 @@ uiStore (UI chrome)
 
 templateStore (vault-scoped templates)
   ├─ uses @cortex/templates → safe placeholder rendering
-  ├─ uses getPlatform() → .cortex/templates manifest and body files
+  ├─ uses getPlatform() → .cortex/templates manifest, body files and shares.json
+  ├─ keeps team templates in memory (source "team", remoteBodies); writeManifest never persists them
   └─ creates notes through @cortex/properties defaults
 
 syncStore (sync engine state)
@@ -1058,6 +1059,22 @@ recombine edits with the current cached frontmatter prefix before calling `noteC
   first direct child that still has a `database` key back to `Folder/Folder.md` before creating one.
 - Row templates are saved with `saveDatabaseRowTemplate` into `config.templates` and removed with
   `removeDatabaseRowTemplate`.
+- `createDatabase` accepts a `preset` object (team or Marketplace templates) in place of `presetId`;
+  `exportDatabasePreset` turns a loaded database into a shareable `DatabasePreset` (properties used by
+  views, row templates and up to three sample rows when asked).
+
+## Template Sharing
+
+- `runtime/templateSharing.ts` shares note templates (`createNoteTemplateBundle`) and databases
+  (`database.json` preset bundle) through `getPlatform().templateShares`. The local link per template
+  lives in `templateStore.shares`, keyed by `noteTemplateShareKey` / `databaseTemplateShareKey` and
+  persisted in `.cortex/templates/shares.json`.
+- Team payloads are encrypted with the vault key in the main process; link and Marketplace payloads
+  are plain structure only. Changing the audience sends the new payload with the PATCH.
+- `refreshTeamTemplates` lists the linked vault's team templates (skipping the user's own), caches
+  bundles by id and version, and feeds `templateStore.setRemoteTemplates` and
+  `useTemplateSharingStore.teamDatabasePresets`. Using a team template makes a local copy; notes
+  already created never change.
 
 ## Comments and Mentions
 

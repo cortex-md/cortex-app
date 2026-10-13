@@ -146,7 +146,7 @@ one sync worker per window. Window bounds are remembered per vault (`services/wi
   `execute(context)`. Errors go through `@cortex/core` `reportAppError`.
 - Startup is `bootstrapApp()` then `openLastVault()` (or the `?vault=` window param) from
   `@cortex/core`; `beforeunload` calls `flushPendingWrites()`. Folder picking for open/create goes
-  through `pickVaultFolder`/`openRecentVault` in `features/vault/createVaultModalStore.ts`, which use
+  through `openAddVault`/`openRecentVault` in `features/vault/vaultActions.ts`, which use
   core `resolvePickedFolder`, `openVaultSession`, and `createVaultFromFolder`.
 - Every keyboard-reachable action (palette, hotkeys, Vim, native menu, context menus, slash commands,
   toolbar) executes a command id. Targets travel in `context.payload` (`{ filePath }`,
@@ -176,6 +176,38 @@ one sync worker per window. Window bounds are remembered per vault (`services/wi
 - Daily note folder, date format, and template live in the Templates settings page
   (`features/templates/DailyNotesSettings.tsx`); folder options come from
   `useSettingsVaultFolders`.
+
+## Templates
+
+- Templates are managed in workspace tabs, not in Settings. `features/templates/templateActions.ts`
+  owns `openTemplatesView` (`TEMPLATES_VIEW_ID`), `openTemplateEditor` (`TEMPLATE_EDITOR_VIEW_ID`)
+  and the `newTemplateModal`; view ids live in `templateViewIds.ts` so the tab bar and contributions
+  do not import feature code. Settings → Templates is a summary page that reaches the main window
+  through `runInMainWindow("openTemplates" | "openNewTemplate")`.
+- Entry points: note ⋯ / file menu "Save as Template…" (`templates.save-note-as-template`), the
+  sidebar + menu ("Note from a template…", "New template…"), and the commands `templates.create-note`,
+  `templates.new`, `templates.manage`. `templates.create-note` has no default hotkey because
+  ⌘⇧N belongs to `window.new`.
+- `CreateFromTemplateDialog` is the picker: a `Command` list grouped by Recent / Your templates /
+  From {group} / Blank, a live `TemplateNotePreview`, a per-template title and `FolderPicker`.
+  `useUIStore.openCreateFromTemplate(templateId?)` preselects a template ("Try it", "Use").
+- `TemplateEditorView` edits a template in a tab: the body is a CodeMirror document without
+  frontmatter, properties are edited in rows, `{{ }}` values render as `Tag` chips through
+  `templateValueChipsExtension` (code mode shows raw text) and `{{` opens the value menu through the
+  shared `slashCommandExtension` trigger. Saves are debounced through `templateStore.updateTemplate`;
+  shared templates republish after edits settle.
+- `/template` in a note comes from `getTemplateSlashItems` (ids prefixed `template:`), which
+  `ActiveTabEditor.executeSlashCommand` routes to `insertTemplateIntoNote`: it inserts the body at
+  the cursor, merges only missing properties through the properties runtime and offers Undo.
+- Sharing goes through `ShareTemplateDialog` (`shareActions.ts`), the core `templateSharing`
+  runtime and `getPlatform().templateShares`. Team templates are refreshed by `useTeamTemplates`
+  (vault, auth, sync link or `templates.showTeam` changes and window focus). `cortex://t/{slug}`
+  links open Marketplace → Templates (`useTemplateDeepLink`).
+- Marketplace → Templates is a desktop-only tab value (`MarketplaceViewTab = MarketplaceTab |
+  "templates"`); `@cortex/marketplace` stays plugins/themes only.
+- New database is the `NEW_DATABASE_VIEW_ID` page (`features/databases/NewDatabaseView.tsx`), opened
+  with `openNewDatabaseView({ parentPath, mode, preset })`; team and Marketplace database templates
+  pass a `DatabasePreset`.
 
 ## Modals and Lazy Surfaces
 

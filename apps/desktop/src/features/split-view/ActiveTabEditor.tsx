@@ -49,6 +49,7 @@ import {
 import { useCommentEditorAnchors } from "../comments/useCommentEditorAnchors"
 import { NotePropertiesPanel } from "../properties/NotePropertiesPanel"
 import { toggleTaskInNote } from "../tasks/taskModel"
+import { insertTemplateIntoNote, TEMPLATE_SLASH_PREFIX } from "../templates/insertTemplate"
 import { EditorContextMenu } from "./EditorContextMenu"
 import { getSlashCommandItems } from "./markdownFormatActions"
 import { NoteFindBar } from "./NoteFindBar"
@@ -326,6 +327,13 @@ export function ActiveTabEditor({
 }
 
 function executeSlashCommand(commandId: string, view: EditorRuntimeView): void {
+	if (commandId.startsWith(TEMPLATE_SLASH_PREFIX)) {
+		const filePath = useEditorStore.getState().activeFilePath
+		if (filePath) {
+			void insertTemplateIntoNote(commandId.slice(TEMPLATE_SLASH_PREFIX.length), view, filePath)
+		}
+		return
+	}
 	setEditorViewRef(view as never)
 	requestAnimationFrame(() => executeCommand(commandId, { source: "slash" }))
 }

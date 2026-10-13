@@ -18,3 +18,9 @@ React Native clients. Keep it free of React, DOM, Electron, Node-only APIs, and 
 - Add focused parser/render tests for every language feature.
 - `formatTemplateDate(date, pattern)` is the single date formatter for template filters and daily
   note file names; it supports `yyyy yy MM M dd d HH H mm m ss s ww w` only.
+- `getTemplateValueGroups` is the single catalog for "Insert value" menus and the `{{` autocomplete
+  (Dates / The new note / Vault with live examples); `getTemplateValueLabel` names chips.
+- `getFileNameParts`/`createFileNamePattern` convert between chip lists and `fileNamePattern`;
+  `getFileNameParts` returns `null` for patterns with literal text so the UI falls back to raw input.
+- `createTemplateBodyFromNote` keeps only headings; `createNoteTemplateBundle` /
+  `readNoteTemplateBundle` define the shared note template payload (`template.json` + `template.md`).

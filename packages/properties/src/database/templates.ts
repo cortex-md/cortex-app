@@ -260,10 +260,151 @@ export function buildDatabaseFromPreset(
 		}
 		return { title: sample.title, meta, body: sample.body ?? "" }
 	})
+	const rowTemplates = (preset.rowTemplates ?? []).map((template, index) => ({
+		id: `template-${index + 1}`,
+		name: template.name,
+		...(template.properties
+			? {
+					properties: Object.fromEntries(
+						Object.entries(template.properties).map(([key, value]) => [
+							keys.get(key) ?? key,
+							value,
+						]),
+					),
+				}
+			: {}),
+		...(template.body ? { body: template.body } : {}),
+	}))
 	return {
 		schema: schemaChanged ? { version: 1, properties } : schema,
 		schemaChanged,
-		config: { version: DATABASE_CONFIG_VERSION, views },
+		config: {
+			version: DATABASE_CONFIG_VERSION,
+			views,
+			...(rowTemplates.length > 0 ? { templates: rowTemplates } : {}),
+		},
 		samples,
+	}
+}
+
+export interface DatabasePresetExportInput {
+	id: string
+	name: string
+	hint: string
+	config: DatabaseConfig
+	schema: VaultSchema
+	rows: ReadonlyArray<{ title: string; meta: PropertyMap; body: string }>
+	includeSamples: boolean
+	sampleLimit?: number
+}
+
+function collectViewKeys(view: DatabaseView): string[] {
+	return [
+		view.group,
+		view.date,
+		view.cover,
+		...(view.columns ?? []),
+		...(view.sort ?? []).map((sort) => sort.key),
+		...(view.filters ?? []).map((filter) => filter.key),
+	].filter((key): key is string => Boolean(key) && !key?.startsWith("$"))
+}
+
+function toSampleValue(
+	value: unknown,
+	definition: PropertyDefinition | undefined,
+): string | number | boolean | null {
+	if (definition?.type === "select") {
+		const ids = Array.isArray(value) ? value : [value]
+		const label = definition.options?.find((option) => option.id === ids[0])?.label
+		return label ?? null
+	}
+	if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+		return value
+	}
+	return null
+}
+
+export function createDatabasePresetFromConfig(input: DatabasePresetExportInput): DatabasePreset {
+	const byKey = new Map(input.schema.properties.map((definition) => [definition.key, definition]))
+	const samples = input.includeSamples ? input.rows.slice(0, input.sampleLimit ?? 3) : []
+	const keys = new Set<string>()
+	for (const view of input.config.views) for (const key of collectViewKeys(view)) keys.add(key)
+	for (const template of input.config.templates ?? []) {
+		for (const key of Object.keys(template.properties ?? {})) keys.add(key)
+	}
+	for (const row of samples) for (const key of Object.keys(row.meta)) keys.add(key)
+	const properties = [...keys].flatMap((key) => {
+		const definition = byKey.get(key)
+		if (!definition) return []
+		return [
+			{
+				key: definition.key,
+				name: definition.name,
+				type: definition.type,
+				...(definition.multiple ? { multiple: true } : {}),
+				...(definition.options?.length
+					? {
+							options: definition.options.map((option) => ({
+								label: option.label,
+								color: option.color,
+							})),
+						}
+					: {}),
+			},
+		]
+	})
+	return {
+		id: input.id,
+		name: input.name,
+		hint: input.hint,
+		properties,
+		views: input.config.views.map(({ id: _id, order: _order, ...view }) => view),
+		samples: samples.map((row) => ({
+			title: row.title,
+			values: Object.fromEntries(
+				Object.entries(row.meta).flatMap(([key, value]) => {
+					const sample = toSampleValue(value, byKey.get(key))
+					return sample === null ? [] : [[key, sample]]
+				}),
+			),
+			...(row.body.trim() ? { body: row.body } : {}),
+		})),
+		...(input.config.templates?.length
+			? {
+					rowTemplates: input.config.templates.map(({ id: _id, ...template }) => template),
+				}
+			: {}),
+	}
+}
+
+export function parseDatabasePreset(value: unknown): DatabasePreset | null {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return null
+	const raw = value as Partial<DatabasePreset>
+	if (typeof raw.name !== "string" || !Array.isArray(raw.properties) || !Array.isArray(raw.views)) {
+		return null
+	}
+	const viewTypes: readonly string[] = ["table", "board", "calendar", "gallery"]
+	return {
+		id: typeof raw.id === "string" ? raw.id : raw.name,
+		name: raw.name,
+		hint: typeof raw.hint === "string" ? raw.hint : "",
+		properties: raw.properties.filter(
+			(spec) =>
+				spec &&
+				typeof spec.key === "string" &&
+				typeof spec.name === "string" &&
+				typeof spec.type === "string",
+		),
+		views: raw.views.filter((view) => view && viewTypes.includes(view.type)),
+		samples: Array.isArray(raw.samples)
+			? raw.samples.filter((sample) => sample && typeof sample.title === "string")
+			: [],
+		...(Array.isArray(raw.rowTemplates)
+			? {
+					rowTemplates: raw.rowTemplates.filter(
+						(template) => template && typeof template.name === "string",
+					),
+				}
+			: {}),
 	}
 }

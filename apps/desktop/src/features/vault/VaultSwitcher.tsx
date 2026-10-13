@@ -1,27 +1,68 @@
-import { useVaultStore, type VaultRegistryEntry } from "@cortex/core"
+import {
+	loadVaultListItems,
+	resolveVaultColor,
+	useAuthStore,
+	useRemoteVaultStore,
+	useUIStore,
+	useVaultStore,
+	type VaultListItem,
+	type VaultRegistryEntry,
+} from "@cortex/core"
 import {
 	Button,
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-	isValidLucideIconName,
-	LucideIcon,
+	Command,
+	CommandEmpty,
+	CommandFooterHints,
+	CommandGroup,
+	CommandInput,
+	CommandItem,
+	CommandList,
+	CommandSeparator,
+	CommandShortcut,
+	cn,
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+	toast,
 } from "@cortex/ui"
-import { Check, ChevronsUpDown, FolderOpen, Vault } from "lucide-react"
+import {
+	Check,
+	ChevronsUpDown,
+	Cloud,
+	Download,
+	Pause,
+	Plus,
+	Settings,
+	TriangleAlert,
+} from "lucide-react"
+import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react"
 import type { MenuItem } from "@/utils/context-menu"
 import { useContextMenu } from "../context-menu/useContextMenu"
-import { openRecentVault, pickVaultFolder } from "./createVaultModalStore"
+import { VaultTile } from "./VaultTile"
+import { openAddVault, openRecentVault } from "./vaultActions"
+import { VAULT_STATUS_TITLE } from "./vaultDisplay"
 
-function openVaultFolder() {
-	void pickVaultFolder("open")
+const SWITCHER_HINTS = [
+	{ keys: ["↵"], label: "open" },
+	{ keys: ["⌘", "↵"], label: "new window" },
+] as const
+
+const STATUS_ICON: Record<VaultListItem["status"], ReactNode> = {
+	synced: <Cloud className="size-3.5 text-status-success-foreground" aria-hidden="true" />,
+	paused: <Pause className="size-3.5 text-text-secondary" aria-hidden="true" />,
+	local: null,
+	missing: <TriangleAlert className="size-3.5 text-status-warning-foreground" aria-hidden="true" />,
 }
+
+const ROW_CLASS = "h-9 gap-2.5 rounded-[var(--popup-item-radius,6px)] px-2 text-[13px]"
 
 function vaultMenuItems(entry: VaultRegistryEntry): MenuItem[] {
 	return [
-		{ id: "open-new-window", text: "Open in New Window", action: () => openRecentVault(entry) },
+		{
+			id: "open-new-window",
+			text: "Open in New Window",
+			action: () => openRecentVault(entry, "new-window"),
+		},
 		{
 			id: "open-this-window",
 			text: "Open in This Window",
@@ -30,70 +71,214 @@ function vaultMenuItems(entry: VaultRegistryEntry): MenuItem[] {
 	]
 }
 
+function useSwitcherItems(open: boolean) {
+	const recentVaults = useVaultStore((state) => state.recentVaults)
+	const remoteVaults = useRemoteVaultStore((state) => state.remoteVaults)
+	const fetchRemoteVaults = useRemoteVaultStore((state) => state.fetchRemoteVaults)
+	const authenticated = useAuthStore((state) => state.authenticated)
+	const [items, setItems] = useState<VaultListItem[]>([])
+
+	useEffect(() => {
+		if (open && authenticated) void fetchRemoteVaults()
+	}, [open, authenticated, fetchRemoteVaults])
+
+	useEffect(() => {
+		if (!open) return
+		let active = true
+		void loadVaultListItems(recentVaults).then((next) => {
+			if (active) setItems(next)
+		})
+		return () => {
+			active = false
+		}
+	}, [open, recentVaults])
+
+	const localItems = items.length
+		? items
+		: recentVaults.map(
+				(entry): VaultListItem => ({
+					entry,
+					color: resolveVaultColor(entry),
+					status: "local",
+					remoteVaultId: null,
+					syncConfig: null,
+				}),
+			)
+	const linked = new Set(localItems.map((item) => item.remoteVaultId).filter(Boolean))
+	const remoteOnly = remoteVaults.filter((remote) => !linked.has(remote.id))
+	return { localItems, remoteOnly, remoteVaults }
+}
+
+const modKey = typeof navigator !== "undefined" && /Mac/i.test(navigator.platform) ? "⌘" : "Ctrl+"
+
 export function VaultSwitcher() {
 	const vault = useVaultStore((state) => state.vault)
-	const recentVaults = useVaultStore((state) => state.recentVaults)
+	const openSettings = useUIStore((state) => state.openSettings)
+	const [open, setOpen] = useState(false)
+	const [selected, setSelected] = useState("")
+	const altKeyRef = useRef(false)
 	const { showMenu, menu } = useContextMenu()
+	const { localItems, remoteOnly, remoteVaults } = useSwitcherItems(open)
 
 	if (!vault) return null
 
-	const currentEntry = recentVaults.find((v) => v.uuid === vault.uuid)
+	const current = localItems.find((item) => item.entry.uuid === vault.uuid)
+	const currentName = current?.entry.name ?? vault.name
+	const currentColor = current?.color ?? resolveVaultColor({ uuid: vault.uuid, color: null })
+
+	const close = () => setOpen(false)
+
+	const openItem = (item: VaultListItem, target: "auto" | "current-window" | "new-window") => {
+		close()
+		if (item.entry.uuid === vault.uuid) return
+		if (item.status === "missing") {
+			toast(`${item.entry.name}: folder not found`, {
+				description: "Locate it in Settings → Vaults",
+				action: { label: "Locate…", onClick: () => openSettings("vaults") },
+			})
+			return
+		}
+		if (target !== "new-window") toast.loading(`Opening ${item.entry.name}…`, { duration: 1400 })
+		void openRecentVault(item.entry, target)
+	}
+
+	const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+		if ((event.metaKey || event.ctrlKey) && /^[1-9]$/.test(event.key)) {
+			const item = localItems[Number(event.key) - 1]
+			if (!item || item.entry.uuid === vault.uuid) return
+			event.preventDefault()
+			openItem(item, "auto")
+			return
+		}
+		if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey)) return
+		const item = localItems.find((candidate) => candidate.entry.uuid === selected)
+		if (!item) return
+		event.preventDefault()
+		openItem(item, "new-window")
+	}
 
 	return (
 		<div className="vault-switcher">
-			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
+			<Popover open={open} onOpenChange={setOpen}>
+				<PopoverTrigger asChild>
 					<Button variant="ghost" className="vault-switcher-button w-full justify-between gap-2">
-						<span className="flex items-center gap-2 min-w-0">
-							{currentEntry?.icon && isValidLucideIconName(currentEntry.icon) ? (
-								<LucideIcon name={currentEntry.icon} size={16} />
-							) : (
-								<Vault size={16} className="shrink-0" />
-							)}
-							<span className="truncate">{currentEntry?.name ?? vault.name}</span>
+						<span className="flex min-w-0 items-center gap-2">
+							<VaultTile name={currentName} color={currentColor} size="sm" />
+							<span className="truncate">{currentName}</span>
 						</span>
 						<ChevronsUpDown size={14} className="shrink-0 text-text-muted" />
 					</Button>
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="start" className="w-64">
-					<DropdownMenuLabel>Vaults</DropdownMenuLabel>
-					{recentVaults.map((entry) => (
-						<DropdownMenuItem
-							key={entry.uuid}
-							onClick={(event) =>
-								void openRecentVault(entry, event.altKey ? "current-window" : "auto")
-							}
-							onContextMenu={(event) => {
-								if (entry.uuid === vault.uuid) return
-								event.preventDefault()
-								showMenu(vaultMenuItems(entry), { x: event.clientX, y: event.clientY })
-							}}
-							title="Opens in a new window. Option-click to open here."
-							className="gap-2"
-						>
-							<span className="flex items-center gap-2 min-w-0 flex-1">
-								{entry.icon && isValidLucideIconName(entry.icon) ? (
-									<LucideIcon name={entry.icon} size={14} />
-								) : (
-									<Vault size={14} className="shrink-0 text-text-muted" />
-								)}
-								<span className="flex flex-col min-w-0">
-									<span className="truncate text-xs">{entry.name}</span>
-									<span className="truncate text-[10px] text-muted-foreground">
-										{entry.displayPath ?? entry.path}
-									</span>
-								</span>
-							</span>
-							{entry.uuid === vault.uuid && <Check size={14} className="shrink-0 text-accent" />}
-						</DropdownMenuItem>
-					))}
-					<DropdownMenuSeparator />
-					<DropdownMenuItem onClick={openVaultFolder} className="gap-2">
-						<FolderOpen size={14} />
-						<span className="text-xs">Open Vault...</span>
-					</DropdownMenuItem>
-				</DropdownMenuContent>
-			</DropdownMenu>
+				</PopoverTrigger>
+				<PopoverContent align="start" className="w-[320px] p-1.5">
+					<Command loop value={selected} onValueChange={setSelected} onKeyDown={handleKeyDown}>
+						<CommandInput placeholder="Switch vault…" aria-label="Find a vault" />
+						<CommandList>
+							<CommandEmpty>No vaults match.</CommandEmpty>
+							<CommandGroup heading="On this Mac">
+								{localItems.map((item, index) => {
+									const isCurrent = item.entry.uuid === vault.uuid
+									const shortcut = !isCurrent && index < 9 ? `${modKey}${index + 1}` : null
+									const remote = remoteVaults.find(
+										(candidate) => candidate.id === item.remoteVaultId,
+									)
+									const remoteName = remote && remote.name !== item.entry.name ? remote.name : null
+									return (
+										<CommandItem
+											key={item.entry.uuid}
+											value={item.entry.uuid}
+											keywords={[item.entry.name, remoteName ?? ""]}
+											title={`${VAULT_STATUS_TITLE[item.status]}${remoteName ? ` with “${remoteName}”` : ""}`}
+											onPointerDown={(event) => {
+												altKeyRef.current = event.altKey
+											}}
+											onSelect={() => {
+												openItem(item, altKeyRef.current ? "current-window" : "auto")
+												altKeyRef.current = false
+											}}
+											onContextMenu={(event) => {
+												if (isCurrent) return
+												event.preventDefault()
+												showMenu(vaultMenuItems(item.entry), { x: event.clientX, y: event.clientY })
+											}}
+											className={ROW_CLASS}
+										>
+											<VaultTile name={item.entry.name} color={item.color} size="sm" />
+											<span className="min-w-0 flex-1 truncate">
+												{item.entry.name}
+												{remoteName ? (
+													<span className="ml-1.5 text-text-secondary">→ {remoteName}</span>
+												) : null}
+											</span>
+											{STATUS_ICON[item.status]}
+											{isCurrent ? (
+												<Check
+													className="size-3.5 text-brand"
+													strokeWidth={2.5}
+													aria-hidden="true"
+												/>
+											) : null}
+											{shortcut ? <CommandShortcut>{shortcut}</CommandShortcut> : null}
+										</CommandItem>
+									)
+								})}
+							</CommandGroup>
+							{remoteOnly.length > 0 ? (
+								<CommandGroup heading="In your account">
+									{remoteOnly.map((remote) => (
+										<CommandItem
+											key={remote.id}
+											value={`remote:${remote.id}`}
+											keywords={[remote.name]}
+											title="Download to this Mac"
+											onSelect={() => {
+												close()
+												openAddVault({ start: "download", remoteVaultId: remote.id })
+											}}
+											className={ROW_CLASS}
+										>
+											<VaultTile
+												name={remote.name}
+												color={resolveVaultColor({ uuid: remote.id, color: null })}
+												size="sm"
+												className="opacity-60"
+											/>
+											<span className="min-w-0 flex-1 truncate">{remote.name}</span>
+											<Download className="size-3.5 text-text-secondary" aria-hidden="true" />
+										</CommandItem>
+									))}
+								</CommandGroup>
+							) : null}
+						</CommandList>
+						<CommandFooterHints hints={SWITCHER_HINTS} className="min-h-0 px-2 pt-1.5 pb-0.5" />
+						<CommandSeparator className="mx-0 my-1" />
+						<CommandGroup className="p-0">
+							<CommandItem
+								value="action:add"
+								onSelect={() => {
+									close()
+									openAddVault()
+								}}
+								className={ROW_CLASS}
+							>
+								<Plus className="size-[15px]" />
+								<span className="flex-1">Add a vault…</span>
+								<span className="text-xs text-muted-foreground">new · open · download</span>
+							</CommandItem>
+							<CommandItem
+								value="action:manage"
+								onSelect={() => {
+									close()
+									openSettings("vaults")
+								}}
+								className={cn(ROW_CLASS)}
+							>
+								<Settings className="size-[15px]" />
+								<span className="flex-1">Manage vaults…</span>
+							</CommandItem>
+						</CommandGroup>
+					</Command>
+				</PopoverContent>
+			</Popover>
 			{menu}
 		</div>
 	)

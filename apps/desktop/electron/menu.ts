@@ -152,6 +152,7 @@ function fileMenu(context: MenuContext): MenuItemConstructorOptions {
 				click: () => openNewWindow(),
 			},
 			separator(),
+			commandItem(context, "vault.add", { label: "Add Vault…" }),
 			commandItem(context, "vault.open", { label: "Open Vault…" }),
 			recentsSubmenu(),
 			commandItem(context, "navigate.quick-finder", { label: "Quick Open…", requires: "vault" }),

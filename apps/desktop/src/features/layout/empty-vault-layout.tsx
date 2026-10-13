@@ -1,7 +1,7 @@
 import { useAppStore, useAuthStore, useUIStore, useVaultStore } from "@cortex/core"
 import { Badge, Button, Item, isValidLucideIconName, LucideIcon } from "@cortex/ui"
 import { FileText, FolderOpen, FolderPlus, User, Vault } from "lucide-react"
-import { openRecentVault, pickVaultFolder } from "../vault/createVaultModalStore"
+import { openAddVault, openRecentVault } from "../vault/vaultActions"
 
 function AccountBadge() {
 	const authenticated = useAuthStore((s) => s.authenticated)
@@ -38,11 +38,11 @@ function AccountBadge() {
 }
 
 function createVaultFromPicker() {
-	void pickVaultFolder("create")
+	openAddVault({ start: "create" })
 }
 
 function openVaultFromPicker() {
-	void pickVaultFolder("open")
+	openAddVault({ start: "open" })
 }
 
 export function EmptyVaultLayout() {

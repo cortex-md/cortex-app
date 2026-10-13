@@ -79,3 +79,9 @@ the desktop sync worker (through `@cortex/sync-engine`), mobile, and web.
 npx tsc -b packages/sync-api
 bun run check:boundaries
 ```
+
+## Templates
+
+- `templates.ts` wraps `/sync/v1/vaults/{id}/templates` and the public `/template/v1/*` routes. JSON is
+  snake_case, lists are bare arrays and payloads travel as base64. Encryption is decided by the
+  caller (team payloads are sealed with the vault key before they reach this client).

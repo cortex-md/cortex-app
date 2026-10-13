@@ -16,24 +16,28 @@ afterEach(() => {
 })
 
 describe("Self-hosted sync settings", () => {
-	it("shows four closed environment groups and keeps one open at a time", async () => {
+	it("opens server and authentication by default and toggles groups independently", async () => {
 		setupSyncSettingsMocks({ authenticated: false, syncEnabled: true, selfHosted: true })
 		render(<SyncSection view="self-host" />)
 
-		for (const groupName of ["Server", "Database", "Authentication", "Storage"]) {
-			expect(screen.getByRole("button", { name: groupName })).toHaveAttribute(
-				"aria-expanded",
-				"false",
-			)
-		}
 		const serverTrigger = screen.getByRole("button", { name: "Server" })
 		const databaseTrigger = screen.getByRole("button", { name: "Database" })
-		await userEvent.click(serverTrigger)
+		expect(serverTrigger).toHaveAttribute("aria-expanded", "true")
+		expect(screen.getByRole("button", { name: "Authentication" })).toHaveAttribute(
+			"aria-expanded",
+			"true",
+		)
+		expect(databaseTrigger).toHaveAttribute("aria-expanded", "false")
+		expect(screen.getByRole("button", { name: "Storage" })).toHaveAttribute(
+			"aria-expanded",
+			"false",
+		)
 		expect(screen.getByRole("textbox", { name: "Environment" })).toBeInTheDocument()
-		expect(screen.getByRole("textbox", { name: "Trust proxy headers" })).toBeInTheDocument()
 		await userEvent.click(databaseTrigger)
-		expect(serverTrigger).toHaveAttribute("aria-expanded", "false")
+		expect(serverTrigger).toHaveAttribute("aria-expanded", "true")
 		expect(databaseTrigger).toHaveAttribute("aria-expanded", "true")
+		await userEvent.click(serverTrigger)
+		expect(serverTrigger).toHaveAttribute("aria-expanded", "false")
 		expect(screen.queryByRole("textbox", { name: "Environment" })).not.toBeInTheDocument()
 	})
 

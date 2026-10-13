@@ -39,6 +39,7 @@ import type {
 	SyncConflictEvent,
 	SyncFileEvent,
 	SyncStateEvent,
+	TemplateShares,
 	Vault,
 	WatchEvent,
 	WatchOptions,
@@ -101,6 +102,7 @@ export interface MainApi {
 	remoteVault: RemoteVault
 	members: Members
 	shares: Shares
+	templateShares: TemplateShares
 	devices: Devices
 	sync: SyncCommands
 	collab: {

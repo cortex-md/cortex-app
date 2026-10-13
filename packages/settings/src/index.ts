@@ -8,6 +8,7 @@ export {
 	DEFAULT_GENERAL_SETTINGS,
 	DEFAULT_PLUGINS_SETTINGS,
 	DEFAULT_TASKS_SETTINGS,
+	DEFAULT_TEMPLATES_SETTINGS,
 	SYSTEM_FONT_FAMILY,
 	SYSTEM_FONT_STACK,
 } from "./defaults"
@@ -35,6 +36,7 @@ export type {
 	PluginsSettings,
 	SettingsChangeEvent,
 	TasksSettings,
+	TemplatesSettings,
 } from "./types"
 export {
 	AppearanceSettingsSchema,
@@ -46,4 +48,5 @@ export {
 	GlobalAppSettingsSchema,
 	PluginsSettingsSchema,
 	TasksSettingsSchema,
+	TemplatesSettingsSchema,
 } from "./types"

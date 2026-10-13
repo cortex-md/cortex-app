@@ -256,8 +256,7 @@ describe("settings sections", () => {
 		expect(screen.getByRole("switch", { name: "Open last vault on startup" })).toBeInTheDocument()
 		expect(screen.getByText("Updates")).toBeInTheDocument()
 		expect(screen.getByText("Not checked yet")).toBeInTheDocument()
-		expect(screen.getByText("Vaults")).toBeInTheDocument()
-		expect(screen.getByText("No recent vaults")).toBeInTheDocument()
+		expect(screen.queryByText("Vaults")).not.toBeInTheDocument()
 	})
 
 	it("checks for updates from General settings", async () => {

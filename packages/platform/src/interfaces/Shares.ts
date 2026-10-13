@@ -22,6 +22,8 @@ export interface SharedNoteBundle {
 	markdown: string
 	html: string
 	attachments: SharedNoteAttachment[]
+	author?: string | null
+	tags?: string[]
 }
 
 export interface Shares {

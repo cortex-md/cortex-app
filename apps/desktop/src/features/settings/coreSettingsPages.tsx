@@ -10,6 +10,7 @@ import { NotificationsSection } from "./NotificationsSettings"
 import { PluginsSection } from "./PluginsSettings"
 import { SyncSection } from "./SyncSettings"
 import { useSettingsVaultFolders } from "./useSettingsVaultFiles"
+import { VaultsPage } from "./vaults/VaultsPage"
 
 export interface CoreSettingsPageProps {
 	onOpenMarketplace: OpenMarketplaceHandler
@@ -19,6 +20,10 @@ export function GeneralSettingsPage() {
 	const settings = useSettingsStore((state) => state.settings.general)
 	const updateSetting = useSettingsStore((state) => state.updateSetting)
 	return <GeneralSection settings={settings} onUpdate={updateSetting} />
+}
+
+export function VaultsSettingsPage() {
+	return <VaultsPage />
 }
 
 export function AppearanceSettingsPage({ onOpenMarketplace }: CoreSettingsPageProps) {

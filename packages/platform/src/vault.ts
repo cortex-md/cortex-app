@@ -1,6 +1,6 @@
 import { hashBytes } from "./hash"
 import type { FileEntry, FileMetadata, FileSnapshot } from "./interfaces/FileSystem"
-import type { VaultRegistryEntry } from "./interfaces/Vault"
+import type { VaultRegistryEntry, VaultRegistryPatch } from "./interfaces/Vault"
 import {
 	getBaseName,
 	getParentPath,
@@ -35,6 +35,7 @@ export interface VaultRegistryInput {
 	path: string
 	name: string
 	icon?: string | null
+	color?: string | null
 	displayPath?: string | null
 }
 
@@ -208,11 +209,40 @@ export function upsertRegistryEntry(
 		name: input.name,
 		lastOpened: nowMs,
 		icon: input.icon === undefined ? (existing?.icon ?? null) : input.icon,
+		color: input.color === undefined ? (existing?.color ?? null) : input.color,
 		displayPath: input.displayPath ?? existing?.displayPath ?? null,
 	}
 	return existing
 		? entries.map((candidate) => (candidate === existing ? entry : candidate))
 		: [...entries, entry]
+}
+
+export function patchRegistryEntry(
+	entries: readonly VaultRegistryEntry[],
+	uuid: string,
+	patch: VaultRegistryPatch,
+): VaultRegistryEntry[] {
+	return entries.map((entry) =>
+		entry.uuid === uuid
+			? {
+					...entry,
+					path: patch.path === undefined ? entry.path : normalizePath(patch.path),
+					color: patch.color === undefined ? (entry.color ?? null) : patch.color,
+				}
+			: entry,
+	)
+}
+
+export function sanitizeVaultFolderName(name: string): string {
+	return (
+		name
+			.trim()
+			.replace(/[\\/:*?"<>|]/gu, "-")
+			.replace(/\p{Cc}/gu, "")
+			.replace(/^\.+/u, "")
+			.slice(0, 120)
+			.trim() || "Vault"
+	)
 }
 
 export function removeRegistryEntry(

@@ -45,6 +45,11 @@ export const DEFAULT_DAILY_NOTES_SETTINGS = {
 	templateId: "",
 } as const
 
+export const DEFAULT_TEMPLATES_SETTINGS = {
+	showTeam: true,
+	editorHintDismissed: false,
+} as const
+
 export const DEFAULT_PLUGINS_SETTINGS = {
 	allowCommunity: false,
 } as const
@@ -68,6 +73,7 @@ export const DEFAULT_APP_SETTINGS = {
 	editor: DEFAULT_EDITOR_SETTINGS,
 	files: DEFAULT_FILES_SETTINGS,
 	dailyNotes: DEFAULT_DAILY_NOTES_SETTINGS,
+	templates: DEFAULT_TEMPLATES_SETTINGS,
 	plugins: DEFAULT_PLUGINS_SETTINGS,
 	tasks: DEFAULT_TASKS_SETTINGS,
 } as const

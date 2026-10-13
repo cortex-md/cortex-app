@@ -8,6 +8,12 @@ vi.mock("@cortex/core", () => ({
 	useUIStore: vi.fn(),
 	useVaultStore: vi.fn(),
 	useWorkspaceStore: vi.fn(),
+	toVaultRelativePath: vi.fn(),
+}))
+
+vi.mock("@cortex/settings", () => ({
+	useSettingsStore: (selector: (state: unknown) => unknown) =>
+		selector({ settings: { templates: { showTeam: true } } }),
 }))
 
 import { useTemplateStore, useUIStore, useVaultStore, useWorkspaceStore } from "@cortex/core"
@@ -50,6 +56,7 @@ beforeEach(() => {
 	vi.mocked(useUIStore).mockImplementation(((selector?: (state: unknown) => unknown) => {
 		const state = {
 			createFromTemplateOpen: true,
+			createFromTemplateId: null,
 			closeCreateFromTemplate,
 			openSettings,
 		}
@@ -58,7 +65,9 @@ beforeEach(() => {
 	vi.mocked(useVaultStore).mockImplementation(((selector?: (state: unknown) => unknown) => {
 		const state = {
 			vault: { path: "/vault", name: "Vault" },
+			files: [],
 			refreshFiles,
+			createFile: vi.fn(),
 		}
 		return selector ? selector(state) : state
 	}) as never)
@@ -77,9 +86,10 @@ describe("CreateFromTemplateDialog", () => {
 	it("creates a note and opens it", async () => {
 		render(<CreateFromTemplateDialog />)
 
-		expect(await screen.findByDisplayValue("weekly-review.md")).toBeInTheDocument()
+		await waitFor(() => expect(previewNoteFromTemplate).toHaveBeenCalled())
+		expect(await screen.findByRole("option", { name: "Weekly Review" })).toBeInTheDocument()
 
-		await userEvent.click(screen.getByRole("button", { name: "Create note" }))
+		await userEvent.click(screen.getByRole("button", { name: /Create note/ }))
 
 		await waitFor(() => {
 			expect(createNoteFromTemplate).toHaveBeenCalledWith(
@@ -87,7 +97,6 @@ describe("CreateFromTemplateDialog", () => {
 				expect.objectContaining({
 					templateId: "weekly",
 					targetFolder: "Reviews",
-					fileName: "weekly-review.md",
 				}),
 			)
 		})

@@ -71,7 +71,8 @@ import { noteHistoryModal } from "../features/sync/noteHistoryModal"
 import { noteShareModal } from "../features/sync/noteShareModal"
 import { deletedNotesModal, syncLogsModal } from "../features/sync/syncDialogStores"
 import { openTasksSidebar, openTodayView } from "../features/tasks/taskModel"
-import { pickVaultFolder } from "../features/vault/createVaultModalStore"
+import { openNewTemplate, openTemplatesView } from "../features/templates/templateActions"
+import { openAddVault } from "../features/vault/vaultActions"
 
 const HELP_URLS = {
 	docs: "https://github.com/cortex-md/cortex-app#readme",
@@ -267,7 +268,14 @@ const appCommands: CommandEntry[] = [
 		label: "Open Vault",
 		category: "Vault",
 		aliases: ["open-vault"],
-		execute: () => void pickVaultFolder("open"),
+		execute: () => openAddVault({ start: "open" }),
+	},
+	{
+		id: "vault.add",
+		label: "Add Vault…",
+		category: "Vault",
+		aliases: ["new-vault", "create-vault", "download-vault"],
+		execute: () => openAddVault(),
 	},
 	{
 		id: "vault.close",
@@ -687,11 +695,31 @@ const appCommands: CommandEntry[] = [
 	},
 	{
 		id: "templates.manage",
-		label: "Manage templates",
+		label: "Open Templates",
 		category: "Templates",
 		aliases: ["templates", "manage-templates"],
 		icon: LayoutTemplateIcon,
-		execute: () => useUIStore.getState().openSettings("templates"),
+		execute: () => openTemplatesView(),
+	},
+	{
+		id: "templates.new",
+		label: "New template",
+		category: "Templates",
+		aliases: ["create-template", "add-template"],
+		icon: LayoutTemplateIcon,
+		execute: () => openNewTemplate({ start: "blank" }),
+	},
+	{
+		id: "templates.save-note-as-template",
+		label: "Save note as template",
+		category: "Templates",
+		aliases: ["save-as-template", "template-from-note"],
+		icon: LayoutTemplateIcon,
+		execute: (context) => {
+			const notePath =
+				getPayloadString(context, "filePath") ?? useEditorStore.getState().activeFilePath
+			if (notePath?.endsWith(".md")) openNewTemplate({ start: "note", notePath })
+		},
 	},
 	{
 		id: "editor.toggle-mode",

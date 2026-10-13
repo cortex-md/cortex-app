@@ -4,7 +4,15 @@ import {
 	type SelfHostedEnvironmentGroup,
 } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
-import { Button, Collapsible, CollapsibleContent, CollapsibleTrigger, Input } from "@cortex/ui"
+import {
+	Badge,
+	Button,
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+	Input,
+	StatusBadge,
+} from "@cortex/ui"
 import {
 	ChevronRight,
 	ClipboardCopy,
@@ -68,7 +76,7 @@ function EnvironmentDisclosure({
 							<b>{group.label}</b>
 							<span>{group.description}</span>
 						</span>
-						<span className="settings-count-pill">{fieldCount}</span>
+						<Badge variant="secondary">{fieldCount}</Badge>
 					</Button>
 				</CollapsibleTrigger>
 				<CollapsibleContent
@@ -107,10 +115,10 @@ function EnvironmentDisclosure({
 												placeholder={field.defaultValue}
 											/>
 											{field.secret && (
-												<span className="settings-env-secret" title="Stored in the OS keychain">
+												<StatusBadge color="gray" dot={false} title="Stored in the OS keychain">
 													<LockIcon />
 													Secret
-												</span>
+												</StatusBadge>
 											)}
 										</div>
 									</SettingsField>
@@ -135,17 +143,28 @@ function findEnvironmentGroupId(fieldId: string | undefined): string | null {
 	return group?.id ?? null
 }
 
+const DEFAULT_OPEN_GROUP_IDS = ["server", "authentication"]
+
 export function SelfHostedEnvironment() {
 	const { environment, environmentFile, secrets, updateField } = useSelfHostedEnvironment()
 	const [copied, showCopied] = useCopyFeedback()
 	const [exported, showExported] = useCopyFeedback()
-	const [openGroupId, setOpenGroupId] = useState<string | null>(null)
+	const [openGroupIds, setOpenGroupIds] = useState<ReadonlySet<string>>(
+		() => new Set(DEFAULT_OPEN_GROUP_IDS),
+	)
+	const setGroupOpen = (groupId: string, open: boolean) =>
+		setOpenGroupIds((current) => {
+			const next = new Set(current)
+			if (open) next.add(groupId)
+			else next.delete(groupId)
+			return next
+		})
 	const revealTarget = useSettingsRevealTarget()
 	const [handledRevealNonce, setHandledRevealNonce] = useState<number | null>(null)
 	if (revealTarget && revealTarget.nonce !== handledRevealNonce) {
 		setHandledRevealNonce(revealTarget.nonce)
 		const revealGroupId = findEnvironmentGroupId(revealTarget.fieldId)
-		if (revealGroupId) setOpenGroupId(revealGroupId)
+		if (revealGroupId) setGroupOpen(revealGroupId, true)
 	}
 
 	const handleCopy = async () => {
@@ -187,10 +206,10 @@ export function SelfHostedEnvironment() {
 					<EnvironmentDisclosure
 						key={group.id}
 						group={group}
-						open={openGroupId === group.id}
+						open={openGroupIds.has(group.id)}
 						values={environment}
 						secrets={secrets}
-						onOpenChange={(open) => setOpenGroupId(open ? group.id : null)}
+						onOpenChange={(open) => setGroupOpen(group.id, open)}
 						onFieldChange={updateField}
 					/>
 				))}

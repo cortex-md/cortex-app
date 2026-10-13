@@ -26,7 +26,6 @@ export function DailyNotesSettings({ templates }: DailyNotesSettingsProps) {
 						onChange={(value) => updateSetting("dailyNotes", "folder", value)}
 						placeholder="Vault root"
 						allowCustomValue
-						reserveDropdownSpace
 					/>
 				</SettingsField>
 				<SettingsField

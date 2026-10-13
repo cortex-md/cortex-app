@@ -28,6 +28,7 @@ import {
 	ChevronLeftIcon,
 	ChevronRightIcon,
 	FileTextIcon,
+	LayoutTemplateIcon,
 	PanelRightIcon,
 	PlusIcon,
 	Table2Icon,
@@ -35,9 +36,15 @@ import {
 } from "lucide-react"
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { DATABASE_VIEW_ID } from "../databases/databaseWorkspace"
+import { NEW_DATABASE_VIEW_ID } from "../databases/newDatabaseWorkspace"
 import { getSidebarNotePresentation } from "../sidebar/sidebarNotePresentation"
 import { useInternalDragSource } from "../split-view/useInternalDragSource"
+import { TEMPLATE_EDITOR_VIEW_ID, TEMPLATES_VIEW_ID } from "../templates/templateViewIds"
 import { getVisibleTabIds } from "./tabOverflow"
+
+function isTemplateView(viewId: string | null | undefined): boolean {
+	return viewId === TEMPLATES_VIEW_ID || viewId === TEMPLATE_EDITOR_VIEW_ID
+}
 
 export interface TabItem {
 	id: string
@@ -141,8 +148,11 @@ const TabBarItem = memo(function TabBarItem({
 					onContextMenu={(e) => onContextMenu?.(tab.id, e)}
 				>
 					{insertMarker && <span className={`tab-drop-marker tab-drop-marker--${insertMarker}`} />}
-					{tab.viewId === DATABASE_VIEW_ID && (
+					{(tab.viewId === DATABASE_VIEW_ID || tab.viewId === NEW_DATABASE_VIEW_ID) && (
 						<Table2Icon className="tab-database-icon" aria-hidden="true" />
+					)}
+					{isTemplateView(tab.viewId) && (
+						<LayoutTemplateIcon className="tab-database-icon" aria-hidden="true" />
 					)}
 					<span className="tab-title">{tab.title}</span>
 					{!tab.isPinned && (
@@ -249,7 +259,13 @@ function HiddenTabsMenu({
 				</DropdownMenuLabel>
 				{tabs.map((tab) => (
 					<DropdownMenuItem key={tab.id} onSelect={() => onActivate(tab.id)}>
-						{tab.viewId === DATABASE_VIEW_ID ? <Table2Icon /> : <FileTextIcon />}
+						{tab.viewId === DATABASE_VIEW_ID || tab.viewId === NEW_DATABASE_VIEW_ID ? (
+							<Table2Icon />
+						) : isTemplateView(tab.viewId) ? (
+							<LayoutTemplateIcon />
+						) : (
+							<FileTextIcon />
+						)}
 						<span className="truncate">{tab.title}</span>
 					</DropdownMenuItem>
 				))}

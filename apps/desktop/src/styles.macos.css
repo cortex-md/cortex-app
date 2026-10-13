@@ -413,8 +413,7 @@ body[data-platform="macos"] .slash-command-icon {
 	transition-timing-function: var(--macos-ease);
 }
 
-body[data-platform="macos"]
-	:where(.template-editor-dialog-content, .create-from-template-dialog-content) {
+body[data-platform="macos"] :where(.template-picker, .template-new-dialog) {
 	overflow: hidden;
 	border-color: transparent;
 	border-radius: var(--dialog-radius);

@@ -7,12 +7,13 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@cortex/ui"
-import { SettingsIcon, StoreIcon } from "lucide-react"
+import { LayoutTemplateIcon, SettingsIcon, StoreIcon } from "lucide-react"
 import { type KeyboardEvent, type ReactNode, useRef } from "react"
 import type { SidebarViewItem } from "../file-explorer/sidebarViewUtils"
 import { useInternalDragSource } from "../split-view/useInternalDragSource"
 import { TasksRailBadge } from "../tasks/TasksSidebar"
 import { TASKS_SIDEBAR_VIEW_ID } from "../tasks/taskModel"
+import { openTemplatesView } from "../templates/templateActions"
 
 interface SidebarRailProps {
 	items: SidebarViewItem[]
@@ -87,6 +88,10 @@ function SidebarRailViewButton({
 	)
 }
 
+function openTemplates() {
+	openTemplatesView()
+}
+
 function MarketplaceRailButton({ onOpen }: { onOpen: () => void }) {
 	const updateCount = useMarketplaceStore(
 		(state) => Object.values(state.availableUpdates).filter(Boolean).length,
@@ -155,6 +160,17 @@ export function SidebarRail({
 					))}
 				</div>
 				<span className="sidebar-rail-fill" />
+				<RailTooltip label="Templates">
+					<Button
+						variant="ghost"
+						type="button"
+						aria-label="Templates"
+						className="sidebar-rail-button"
+						onClick={openTemplates}
+					>
+						<LayoutTemplateIcon size={18} strokeWidth={2} />
+					</Button>
+				</RailTooltip>
 				<MarketplaceRailButton onOpen={onOpenMarketplace} />
 				<RailTooltip label="Settings">
 					<Button
