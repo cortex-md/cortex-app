@@ -3,6 +3,8 @@ const { getDefaultConfig } = require("expo/metro-config")
 
 const config = getDefaultConfig(__dirname)
 
+config.transformer.babelTransformerPath = require.resolve("./metro.babel-transformer.cjs")
+
 const editorPackageRoot = path.resolve(__dirname, "../../packages/editor")
 const katexStylesheet = require.resolve("katex/dist/katex.min.css", { paths: [editorPackageRoot] })
 
