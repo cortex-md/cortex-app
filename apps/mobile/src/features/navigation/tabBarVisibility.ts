@@ -1,5 +1,5 @@
 import { useFocusEffect } from "expo-router"
-import { useCallback, useSyncExternalStore } from "react"
+import { useSyncExternalStore } from "react"
 
 const listeners = new Set<() => void>()
 let hiddenCount = 0
@@ -23,15 +23,17 @@ export function useTabBarHidden(): boolean {
 	return useSyncExternalStore(subscribe, getHidden, getHidden)
 }
 
+function releaseTabBar(): void {
+	hiddenCount -= 1
+	notify()
+}
+
+function hideTabBar(): () => void {
+	hiddenCount += 1
+	notify()
+	return releaseTabBar
+}
+
 export function useHideTabBar(): void {
-	useFocusEffect(
-		useCallback(() => {
-			hiddenCount++
-			notify()
-			return () => {
-				hiddenCount--
-				notify()
-			}
-		}, []),
-	)
+	useFocusEffect(hideTabBar)
 }

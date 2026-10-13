@@ -50,6 +50,7 @@ export function AppGate() {
 				<Stack.Screen name="export" options={formSheetOptions("fitToContents")} />
 				<Stack.Screen name="task" options={fullScreenOrSheetOptions("large")} />
 				<Stack.Screen name="from-template" options={fullScreenOrSheetOptions("large")} />
+				<Stack.Screen name="insert-template" options={formSheetOptions("large")} />
 				<Stack.Screen name="import" options={fullScreenOrSheetOptions("large")} />
 				<Stack.Screen name="share-template" options={fullScreenOrSheetOptions("large")} />
 				<Stack.Screen name="db-view-options" options={formSheetOptions("medium")} />

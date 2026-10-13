@@ -47,6 +47,22 @@ const vaultIconOptions: VaultIconOption[] = [
 	{ Icon: Sparkles, icon: "sparkles", label: "Spark" },
 ]
 
+async function runSubmitting(
+	setSubmitting: (submitting: boolean) => void,
+	setError: (error: string | null) => void,
+	task: () => Promise<void>,
+): Promise<void> {
+	setSubmitting(true)
+	setError(null)
+	try {
+		await task()
+	} catch (error) {
+		setError(getErrorMessage(error))
+	} finally {
+		setSubmitting(false)
+	}
+}
+
 export function OnboardingScreen({
 	startupError,
 	initialFolder,
@@ -73,17 +89,11 @@ export function OnboardingScreen({
 	)
 	const SelectedIcon = selectedIcon.Icon
 
-	async function openExistingVault(entry: VaultRegistryEntry): Promise<void> {
-		setSubmitting(true)
-		setError(null)
-		try {
+	function openExistingVault(entry: VaultRegistryEntry): Promise<void> {
+		return runSubmitting(setSubmitting, setError, async () => {
 			await openVaultSession(entry.path, getRegistryOpenOptions(entry))
 			goToFilesRoot()
-		} catch (openError) {
-			setError(getErrorMessage(openError))
-		} finally {
-			setSubmitting(false)
-		}
+		})
 	}
 
 	async function chooseFolder(mode: PickMode): Promise<void> {
@@ -114,9 +124,7 @@ export function OnboardingScreen({
 			return
 		}
 
-		setSubmitting(true)
-		setError(null)
-		try {
+		await runSubmitting(setSubmitting, setError, async () => {
 			await createVaultFromFolder(selectedFolderPath, {
 				icon,
 				name,
@@ -124,11 +132,7 @@ export function OnboardingScreen({
 			})
 			onCreated?.()
 			goToFilesRoot()
-		} catch (createError) {
-			setError(getErrorMessage(createError))
-		} finally {
-			setSubmitting(false)
-		}
+		})
 	}
 
 	function updatePreference(

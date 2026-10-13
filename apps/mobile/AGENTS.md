@@ -330,3 +330,157 @@ stores, note sessions, and draws plugin UI from a mirror.
 - `src/theme/colors.ts` owns only the native `PlatformColor` mapping. Hex fallbacks,
   `mobileStaticColors`, and `mobileIconColors` derive from `@cortex/theme` `paperTheme`/`inkTheme`
   tokens; do not add hard-coded palette hex values.
+
+## Today, Tasks and Notifications
+
+- `features/today/` owns the Today tab root (`TodayScreen`: `SectionList` over `useTodayTasks`,
+  which reads `useTasksStore`/`selectAllTasks` and groups with `@cortex/tasks` `groupTasks` /
+  `groupTasksByDay`; never re-group or re-parse in screens), `TaskRow`, the `QuickAddOverlay`
+  (RN `Modal` over `parseQuickAdd` + `addTaskFromQuickAdd`; always writes to the inbox file) and
+  `TaskDetailSheet` (`app/task.tsx`, `taskId` param, `findTaskById`, saves one `TaskPatch` through
+  `updateTask`; iOS pushes Repeat / Remind panes inside the sheet, Android uses `RadioDialog`).
+  Completing goes through core `toggleTaskWithUndo` + `revertTaskEditSafely` with `toastWithUndo`.
+  `taskOptions.ts` maps the fixed Repeat / Remind / Time choices onto `TaskRepeat` and
+  `ReminderPreset`.
+- `startAppRuntime` already starts `startTasksRuntime`; it is a no-op on mobile until the platform
+  adapter implements `notifications.schedule`.
+- `features/notifications/` owns Settings → Notifications (`app/settings/notifications.tsx`): the
+  switches and segmented choices write the desktop `settings.tasks` keys; permission state, channels,
+  exact alarms and the test reminder live behind `notificationsAdapter.ts` (`// stub:` until
+  `expo-notifications` is wired). `NotificationPermissionPrompt` is the pre-prompt shown before the
+  OS request.
+- `components/ui/FloatingActionButton` is split: SwiftUI glass-prominent `Button` on iOS, Compose
+  `ExtendedFloatingActionButton` on Android. `RadioDialog` is the Android M3 radio-list dialog and
+  `MiniCalendar` the shared Monday-start month grid.
+
+## Sync, History and Recovery
+
+- `features/sync/` owns Settings → Sync (`app/settings/sync/index|prefs|members|self-hosted|link`,
+  `sync-logs`). Screens read `useSyncStore`, `useRemoteVaultStore`, `useDevicesStore`,
+  `useSyncLogStore` and core presentation helpers (`resolveSyncIndicatorStatus`,
+  `formatLastSyncedAt`, `buildSyncLogItems`/`groupSyncLogItems`, `serializeSelfHostedEnvironment`).
+  `SettingsPage.tsx` holds the shared page scaffold (`SettingsPage`, `SettingsGroup`, `SettingsBlock`,
+  `ActionButton` = `@expo/ui` `Button` in a `Host`).
+- `syncAdapter.ts` is the only door to what the engine does not provide on mobile (`// stub:`):
+  remote vault list/link options, devices, Sync now, log fixtures, excludes seed. Preferences and
+  excludes persist through `updateSyncPreference`/`toggleExcludedPath`; self-hosted secrets go to
+  `getPlatform().keychain` under `createSyncEnvironmentSecretKey`. The link flow is an in-page
+  `@expo/ui` `BottomSheet` (Step 1 of 2 / Step 2 of 2 / done) and unlink uses `ConfirmDialog`.
+- `features/members/membersAdapter.ts` maps `useMembersStore` data when present and otherwise keeps
+  the fixture members and pending invites in memory (invite, cancel, role, remove are stubs).
+- `features/history/` owns Version history (`version-history`, `version` pushed in the tab stacks,
+  `filePath`/`versionId` params) and Deleted notes (`settings/deleted-notes`, `deleted-note`).
+  `versionHistoryAdapter.ts` uses real `listLocalVersions`/`readLocalVersion`/`restoreLocalVersion`
+  and core `buildDiffRows`/`countWordChanges`; it falls back to fixtures when a note has no local
+  versions. `deletedNotesAdapter.ts` is a fixture trash; restore recreates the note with
+  `createFileWithContent`.
+- Marketplace themes and templates come from `features/marketplace/marketplaceAdapter.ts`
+  (fixtures). "Use" on Paper/Ink writes `appearance.theme = "default"` plus `appearance.colorscheme`;
+  community themes toast that they are not available yet. Template Use/Open present the
+  `from-template` sheet with `templateId`. `marketplace-detail` takes `kind` (`plugin` | `theme` |
+  `template`) besides `id`.
+
+## Search, Quick Finder, Bookmarks and Tags
+
+- Indexing stays lazy at boot. `features/search/vaultIndexing.ts` `useEnsureVaultIndexed()` (Search,
+  Quick finder, Tags, Tag page) runs `useSearchStore.indexVault` then `useTagsStore.buildIndexFromFiles`
+  once per vault file list and returns whether the current vault is indexed.
+- Search tab (`SearchScreen`): `Stack.SearchBar` "Search in vault"; completed `tag:`/`path:`/`file:`
+  words become removable `FilterChip` tokens (`searchQuery.ts` parses the mode: results, suggest,
+  path/tag values). Results come from `useSearchStore.runQuery`, are grouped per note with
+  `splitSnippet` highlights, and a hit sets `setNoteHighlight` before `openNote`. Suggestions
+  (`SearchSuggestions`) use `getFolderNoteCounts`, `selectSortedTags` and the store's
+  `recentQueries`. The tab accepts a `tag` param (Tag page "Search in tag").
+- `quick-finder` sheet (`QuickFinderSheet` + `useQuickFinderResults`): title results plus debounced
+  content matches like desktop, recent files when empty, folder/tag/title-only/sort filters, preview
+  (`noteExcerpts.ts` reads frontmatter + first body lazily), Create via `vaultStore.createFile`, `>`
+  or "Commands" replaces it with `command-palette`. Params `query`, `folder`, `relinkBookmark`
+  (relinks a missing bookmark through `renameBookmarkPath`).
+- `command-palette` sheet renders `commandRegistry` grouped by `category` and runs `executeCommand`
+  with `source: "palette"`.
+- Bookmarks tab reads `useBookmarksStore`; missing bookmarks are paths not in `useVaultStore.files`
+  ("Find note" opens the quick finder in relink mode). Edit mode removes and reorders with
+  `reorderBookmark` (up/down buttons).
+- Tags tab shows `buildTagTree` roots (flat `selectSortedTags` while filtering); the Tag page uses
+  `getTagPageModel` with `getFileModifiedTimes`, renames through `renameTag` and colours through
+  `setTagColor` with the theme-derived palette in `features/tags/tagColors.ts`.
+
+## Templates and Sync Conflicts
+
+- `features/templates/` owns New from template (`app/from-template.tsx`, `FromTemplateSheet` list +
+  `TemplatePreviewStep`; optional `templateId` param opens a marketplace template's preview),
+  the template editor (`template-editor` in the tab stacks, `filePath` = the template body under
+  `VAULT_FILES.templates`; it hosts `NoteEditorScreen` with a placeholder bar, a Preview | Source
+  switch and the in-screen `TemplateSettingsSheet` "New notes" `BottomSheet`), Insert template
+  (`app/insert-template.tsx`, opened with `presentInsertTemplate(filePath)`) and Settings → Templates.
+- Data comes from `useTemplateStore` (`readTemplateBody`, `createNoteFromTemplate`,
+  `renderTemplateForInsert`, `updateTemplate`) and `@cortex/templates` (`getTemplateGroups`,
+  `renderTemplate`, `splitTemplateSegments`, `getTemplateValueGroups`). Insert writes the body at the
+  last WebView cursor through `noteCache.writeExternal` and merges properties with
+  `mergeMissingNoteProperties` (Undo uses `removeNoteProperties`).
+- `templatesAdapter.ts` (`// stub:`) seeds the team templates (Design review, Research interview) as
+  remote templates, falls back to the fixture Sprint board database preset, and maps marketplace
+  template ids to fixtures. Placeholders are copied to the clipboard because the editor protocol has
+  no insert-text command.
+- `features/conflict/` owns the `conflict` tab-stack screen (`openConflict(filePath)`): local content
+  from `useSyncStore.conflicts` or the note cache, a fixture remote version, and the diff from core
+  `buildDiffRows`. Keep Local / Keep Remote are `conflictAdapter.ts` stubs (Keep Remote writes the
+  remote content through `noteCache.writeExternal`).
+
+## Files, Note Chrome, Properties and Collaboration
+
+- `features/files/` owns the Files tab root and `folder` route (`FilesScreen`, `path` param): a
+  `SectionList` (Databases / Folders / Notes) built by `useFilesScreenModel` over `useVaultStore`
+  files, `useDatabaseStore` (expandable rows; `DatabaseItemRows` calls `retainDatabase`) and the
+  in-memory sort in `filesSort.ts`. Note rows swipe with `ReanimatedSwipeable` (Bookmark, Delete).
+  Create / More menus come from `filesMenus.ts` (iOS `Stack.Toolbar.Menu`, Android `NativeMenu` and
+  the `CreateFabMenu.android.tsx` speed-dial). `SyncChip` opens the sync `NativeMenu` over
+  `features/sync/syncAdapter`. New folder, rename and delete are `TextPromptDialog` /
+  `ConfirmDialog` (`NewFolderDialog`, `FilesDialogs`, `DeleteEntryDialog`); long-press still uses
+  `file-explorer/EntryActionsSheet`.
+- `features/note/NoteScreen` owns the note header (custom `NoteTitleView` with the sync tone, mode
+  button cycling `useEditorStore` `live-preview` → `source` → `reading`, the ⋯ menu from
+  `noteMenu.ts`, plugin status items appended as a group) and the bottom slot: `FloatingNoteToolbar`
+  (collapses on the WebView `scroll` message), `FormattingBar` while the keyboard is up (type-only
+  `MarkdownToolbarCommandId`; native never imports the command runtime) and the find bar.
+  `NoteEditorScreen` is now chrome-less (`filePath`, `top`, `bottom` props) and keeps the WebView
+  placement logic. The WebView sits above all RN views, so floating chrome is reserved below the
+  placeholder instead of overlapping the editor.
+- Protocol additions: web → native `scroll` (throttled, `direction`/`offset`), native → web `find`
+  (request answered with `{ current, total }`) and `command` with `mobile.blur`, `mobile.focus`,
+  `mobile.slash`, `mobile.reveal-line` (payload: 0-based body line) or any registered editor command
+  id; `serviceCall` `openProperties` (`step`, `key`) presents the `properties` sheet. The WebView
+  shows a compact properties strip (no format toolbar) whose rows send `openProperties`.
+- Sheets: `properties` (`features/properties/PropertiesSheet`, in-sheet step stack values / add /
+  settings / select / option / person / date / auto over `useNoteProperties`, which wraps
+  `loadNotePropertiesSnapshot`, `setProperty`, `updateVaultSchema`), `outline`, `export`
+  (`exportAdapter.ts`: `@cortex/import-export` HTML/CSV, PDF stub → RN `Share`), `tabs`
+  (`TabsScreen` over `useWorkspaceStore`), `comments` (`features/comments/`, real sidecar via
+  `useCommentsStore`; fixtures only for the live fixture note) and `people` (`features/collab/`).
+  Sheets read `filePath` from params and fall back to `useEditorStore.activeFilePath`.
+- `features/collab/collabAdapter.ts` is the only door to presence, follow, remote members and
+  invites (`// stub:`); "Launch plan" is the fixture live note.
+
+## Databases
+
+- `features/database/` owns the database screen (`database`, pushed in the tab stacks with
+  `folderPath`/`view`), the row page (`database-row`, `folderPath`/`filePath`/`viewId`, opened with
+  `openDatabaseRow`), the view options sheet (`db-view-options`, `folderPath`/`viewId`/`tab`) and the
+  New database form (`db-new`, optional `parentPath` and `start=folder`).
+- `useDatabaseView` is the single data hook: `retainDatabase`, `useDatabaseStore` selectors, the vault
+  schema snapshot, `getDatabaseQueryContext` + `resolveAuthorConfig`, and `@cortex/properties/database`
+  `resolveDatabaseProperties`/`queryDatabaseView`/`getDatabaseViewColumns`. Never filter, sort or
+  group rows in screens; tokens and the options sheet only edit the active `DatabaseView` through
+  `updateDatabaseView`, so the screen and the sheet stay in sync through the store.
+- Generic roles replace the prototype's fixed columns (`databaseFormat.ts` `resolveDatabaseRoles`):
+  status = the accent select (`getDatabaseAccentKey`), owner = first person property, due = the view
+  date / sort date / first date property. "Status is not Done" and "Owner is me" are real filters
+  (`is_not` done option, `is $me`).
+- Table keeps the Name column sticky with one `Animated.Value` driven by the horizontal scroll.
+  Calendar reuses `MiniCalendar` (Monday start, 6 rows). The row page renders properties natively and
+  the body with `RowNoteBody` (headings, lists, tasks toggled via `@cortex/tasks` `toggleTaskLine`);
+  editing happens in the note editor ("Open in a new tab" → `openNote`). The status chooser is split:
+  SwiftUI `ConfirmationDialog` on iOS, `@expo/ui` `BottomSheet` radio list on Android.
+- `databaseAdapter.ts` (`// stub:`) falls back to fixture row templates (Project brief, Bug report)
+  when the config has none and to fixture team presets (Sprint board, Research log) when
+  `useTemplateSharingStore.teamDatabasePresets` is empty.
