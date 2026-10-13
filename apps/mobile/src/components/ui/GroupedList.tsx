@@ -64,6 +64,7 @@ export function GroupedRow({
 	destructive = false,
 	disabled = false,
 	leading,
+	multiline = false,
 	onLongPress,
 	onPress,
 	subtitle,
@@ -77,6 +78,7 @@ export function GroupedRow({
 	destructive?: boolean
 	disabled?: boolean
 	leading?: ReactNode
+	multiline?: boolean
 	onLongPress?: () => void
 	onPress?: () => void
 	subtitle?: string
@@ -104,7 +106,7 @@ export function GroupedRow({
 		>
 			{leading ? <View style={styles.leading}>{leading}</View> : null}
 			<View style={styles.rowBody}>
-				<Text numberOfLines={1} style={[styles.title, { color: titleColor }]}>
+				<Text numberOfLines={multiline ? undefined : 1} style={[styles.title, { color: titleColor }]}>
 					{title}
 				</Text>
 				{subtitle || (!IS_IOS && value) ? (

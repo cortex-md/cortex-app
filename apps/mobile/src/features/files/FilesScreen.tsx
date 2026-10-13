@@ -1,7 +1,7 @@
-import { getErrorMessage, useVaultStore } from "@cortex/core"
+import { consumePendingOnboardingNote, getErrorMessage, useVaultStore } from "@cortex/core"
 import { Stack, useLocalSearchParams } from "expo-router"
 import { ChevronsUpDown, FileSearch, MoreVertical } from "lucide-react-native"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Platform, Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from "react-native"
 
 import { EmptyState } from "@/components/ui/EmptyState"
@@ -160,8 +160,13 @@ export function FilesScreen() {
 	const folderPath = Array.isArray(params.path) ? (params.path[0] ?? null) : (params.path ?? null)
 	const { colors } = useMobileColors()
 	const model = useFilesScreenModel(folderPath)
+	const pendingOnboardingNotePath = useVaultStore((state) => state.pendingOnboardingNotePath)
 	const [expandedDatabases, setExpandedDatabases] = useState<ReadonlySet<string>>(() => new Set())
 	const [dialog, setDialog] = useState<FilesDialogState>(NO_FILES_DIALOG)
+
+	useEffect(() => {
+		if (pendingOnboardingNotePath && !folderPath) consumePendingOnboardingNote(openNote)
+	}, [folderPath, pendingOnboardingNotePath])
 	const [refreshing, setRefreshing] = useState(false)
 	const createGroups = buildCreateMenuGroups({
 		onNewFolder: () => setDialog({ kind: "new-folder" }),
