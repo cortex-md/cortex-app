@@ -138,3 +138,40 @@ body,
 	flex: 0 0 auto;
 	font-size: 12px;
 }
+
+.cm-codeblock-embed-preview.is-mermaid-diagram {
+	padding: 8px 0;
+}
+
+.mobile-mermaid {
+	color: var(--text-muted);
+	display: block;
+	font-size: 13px;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+.mobile-mermaid[data-error] {
+	color: var(--status-warning-foreground);
+}
+
+.mobile-mermaid svg {
+	display: block;
+	height: auto;
+	margin: 0 auto;
+	max-width: 100%;
+}
+
+.mobile-drawing-card {
+	border: 1px solid var(--border-subtle);
+	border-radius: 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 12px;
+}
+
+.mobile-drawing-card span {
+	color: var(--text-muted);
+	font-size: 13px;
+}

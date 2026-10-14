@@ -33,6 +33,7 @@ export interface FilesNoteItem {
 	entry: FileEntry
 	title: string
 	detail: string
+	pdf: boolean
 }
 
 export type FilesItem = FilesDatabaseItem | FilesFolderItem | FilesNoteItem
@@ -57,6 +58,10 @@ function compareEntries(order: FilesSortOrder) {
 		}
 		return left.name.localeCompare(right.name, undefined, { sensitivity: "base" })
 	}
+}
+
+function isPdfPath(path: string): boolean {
+	return path.toLowerCase().endsWith(".pdf")
 }
 
 function describeNote(entry: FileEntry): string {
@@ -104,12 +109,14 @@ export function useFilesScreenModel(folderPath: string | null) {
 				folderItems.push({ kind: "folder", entry, title: getFileTreeNodeTitle(entry) })
 				continue
 			}
-			if (!isMarkdownPath(entry.path)) continue
+			const pdf = isPdfPath(entry.path)
+			if (!pdf && !isMarkdownPath(entry.path)) continue
 			noteItems.push({
 				kind: "note",
 				entry,
 				title: getFileTreeNodeTitle(entry),
 				detail: describeNote(entry),
+				pdf,
 			})
 		}
 		const result: FilesSection[] = []

@@ -31,6 +31,7 @@ import {
 	useSyncExternalStore,
 } from "react"
 
+import { MOBILE_CODE_BLOCK_EMBEDS } from "@/features/editor/embeds/mobileCodeBlockEmbeds"
 import {
 	executeMobileEditorMarkdownCommand,
 	getMobileEditorFormatBindings,
@@ -449,6 +450,7 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 			{commitError ? <div className="mobile-code-mirror-commit-error">{commitError}</div> : null}
 			<div className="mobile-code-mirror-shell">
 				<EditorView
+					codeBlockEmbeds={MOBILE_CODE_BLOCK_EMBEDS}
 					commandExecutor={executeMobileEditorMarkdownCommand}
 					content={activeDocument.body}
 					documentKey={activeDocument.filePath}

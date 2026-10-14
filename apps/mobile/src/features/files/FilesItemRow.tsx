@@ -8,7 +8,7 @@ import { useEntryMenuGroups } from "@/features/file-explorer/useEntryMenuGroups"
 import { DatabaseItemRows } from "@/features/files/DatabaseSection"
 import { FolderRow, NoteRow } from "@/features/files/FileRow"
 import type { FilesItem } from "@/features/files/useFilesScreenModel"
-import { openFolder, openNote } from "@/features/navigation/routes"
+import { openFolder, openNote, openPdf } from "@/features/navigation/routes"
 import { triggerDeleteHaptic } from "@/utils/haptics"
 
 const IS_IOS = Platform.OS === "ios"
@@ -23,7 +23,10 @@ function NoteItem({ item }: { item: Extract<FilesItem, { kind: "note" }> }) {
 		<NoteRow
 			bookmarked={bookmarked}
 			detail={item.detail}
-			href={{ params: { filePath: item.entry.path }, pathname: "/note" } as Href}
+			href={
+				{ params: { filePath: item.entry.path }, pathname: item.pdf ? "/pdf" : "/note" } as Href
+			}
+			icon={item.pdf ? { sf: "doc.richtext", md: "picture_as_pdf" } : undefined}
 			menuGroups={menuGroups(item.entry)}
 			onBookmark={() => {
 				if (!vaultPath) return
@@ -38,7 +41,9 @@ function NoteItem({ item }: { item: Extract<FilesItem, { kind: "note" }> }) {
 					source: "menu",
 				})
 			}}
-			onPress={() => openNote(item.entry.path, { reuseActive: true })}
+			onPress={() =>
+				item.pdf ? openPdf(item.entry.path) : openNote(item.entry.path, { reuseActive: true })
+			}
 			title={item.title}
 		/>
 	)

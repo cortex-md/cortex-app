@@ -230,6 +230,10 @@ export function openTemplateEditor(filePath: string): void {
 	router.push(href("/template-editor", { filePath }))
 }
 
+export function openPdf(filePath: string): void {
+	router.push(href("/pdf", { filePath }))
+}
+
 export function openConflict(filePath: string): void {
 	router.push(href("/conflict", { filePath }))
 }

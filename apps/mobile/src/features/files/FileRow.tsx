@@ -105,6 +105,7 @@ export function NoteRow({
 	bookmarked,
 	detail,
 	href,
+	icon = { sf: "doc.text", md: "description" },
 	menuGroups,
 	onBookmark,
 	onDelete,
@@ -114,6 +115,7 @@ export function NoteRow({
 	bookmarked: boolean
 	detail?: string
 	href: Href
+	icon?: SymbolName
 	menuGroups: MenuGroup[]
 	onBookmark: () => void
 	onDelete: () => void

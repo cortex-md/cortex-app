@@ -28,7 +28,8 @@
 			"expo-secure-store",
 			"expo-status-bar",
 			"expo-web-browser",
-			"expo-sqlite"
+			"expo-sqlite",
+			"expo-sharing"
 		],
 		"experiments": {
 			"typedRoutes": true,
