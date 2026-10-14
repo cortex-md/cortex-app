@@ -35,6 +35,7 @@ export interface AppRuntimeOptions {
 	persistWorkspace?: boolean
 	trackActiveFile?: boolean
 	indexing?: VaultIndexingMode
+	tasks?: boolean
 	scheduleIdleWork?: ScheduleIdleWork
 	onVaultOpened?: (vault: VaultMetadata) => void
 	onWorkspaceRestored?: (vault: VaultMetadata) => void
@@ -427,8 +428,8 @@ export function startAppRuntime(options: AppRuntimeOptions = {}): () => void {
 	]
 	if (options.indexing !== "lazy") {
 		disposers.push(startVaultIndexing(options.scheduleIdleWork ?? scheduleTimeoutWork))
-		disposers.push(startTasksRuntime())
 	}
+	if (options.tasks ?? options.indexing !== "lazy") disposers.push(startTasksRuntime())
 	if (options.trackActiveFile !== false) disposers.push(startActiveFileTracking())
 	return () => {
 		for (const dispose of disposers.reverse()) dispose()

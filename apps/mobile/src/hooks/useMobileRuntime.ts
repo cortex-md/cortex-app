@@ -12,6 +12,7 @@ import { useEffect, useState } from "react"
 import { AppState } from "react-native"
 
 import { startMobileThemeSync } from "@/features/themes/themeSync"
+import { startReminderIndexing } from "@/features/today/reminderIndexing"
 import { cleanErrorMessage } from "@/features/vault/vaultErrors"
 import { getMobileVaultAccess } from "@/platform/vaultAccess"
 
@@ -34,9 +35,11 @@ export function useMobileRuntime(): MobileRuntimeState {
 		const stopAppRuntime = startAppRuntime({
 			persistWorkspace: false,
 			indexing: "lazy",
+			tasks: true,
 			onVaultOpened: (vault) => void useHotkeysStore.getState().loadOverrides(vault.path),
 		})
 		const stopSyncLifecycle = startSyncLifecycle()
+		const stopReminderIndexing = startReminderIndexing()
 		const stopThemeSync = startMobileThemeSync()
 		const appStateSubscription = AppState.addEventListener("change", (appState) => {
 			if (appState === "background" || appState === "inactive") void flushPendingWrites()
@@ -57,6 +60,7 @@ export function useMobileRuntime(): MobileRuntimeState {
 			appStateSubscription.remove()
 			stopThemeSync()
 			stopSyncLifecycle()
+			stopReminderIndexing()
 			stopAppRuntime()
 		}
 	}, [])

@@ -25,7 +25,12 @@ export const expoPlatform: Platform = {
 	appUpdates: appUpdatesApi,
 	auth: serverApi.auth,
 	account: serverApi.account,
-	capabilities: [],
+	capabilities: [
+		"notifications",
+		"notifications:sounds",
+		"notifications:actions",
+		"notifications:schedule",
+	],
 	clipboard: clipboardApi,
 	collab: collabApi,
 	device: deviceApi,
