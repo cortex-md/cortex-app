@@ -7,10 +7,12 @@ import {
 	useLinksStore,
 	useVaultStore,
 } from "@cortex/core"
-import { getNoteTitle } from "@cortex/platform/utils"
+import { getNoteTitle, joinPath, toVaultRelativePath } from "@cortex/platform/utils"
 import { extractFrontmatterBody } from "@cortex/properties"
+import { useSearchStore } from "@cortex/search"
 import { useEffect, useMemo, useState } from "react"
 
+import { ensureVaultIndexed } from "@/features/search/vaultIndexing"
 import { workspaceChannel } from "@/features/workspace/workspaceChannel"
 
 export interface BacklinkView {
@@ -66,16 +68,50 @@ export function useNoteBacklinks(filePath: string | null): BacklinkView[] {
 	}, [filePath, files, outgoing, vaultPath])
 }
 
-export function listUnlinkedMentions(filePath: string | null): UnlinkedMentionView[] {
-	// stub: unlinked mentions need the search index, which mobile builds lazily; fixture for Roadmap
-	if (!filePath || getNoteTitle(filePath) !== "Roadmap") return []
-	return [
-		{
-			sourcePath: "Q3 planning.md",
-			title: "Q3 planning",
-			context: "Scope the road to 1.0 and pick ten testers.",
-		},
-	]
+const UNLINKED_LIMIT = 20
+
+export function useUnlinkedMentions(
+	filePath: string | null,
+	backlinks: readonly BacklinkView[],
+): UnlinkedMentionView[] {
+	const vaultPath = useVaultStore((state) => state.vault?.path ?? null)
+	const [state, setState] = useState<{ key: string; mentions: UnlinkedMentionView[] } | null>(null)
+	const key = `${filePath ?? ""}|${backlinks.map((backlink) => backlink.sourcePath).join("|")}`
+
+	useEffect(() => {
+		if (!filePath || !vaultPath) return
+		let canceled = false
+		const excludeIds = new Set(
+			[filePath, ...backlinks.map((backlink) => backlink.sourcePath)].map(
+				(path) => toVaultRelativePath(path, vaultPath) ?? path,
+			),
+		)
+		void ensureVaultIndexed()
+			.then(() =>
+				useSearchStore
+					.getState()
+					.findPhrase(getNoteTitle(filePath), { excludeIds, limit: UNLINKED_LIMIT }),
+			)
+			.then((results) => {
+				if (canceled) return
+				setState({
+					key,
+					mentions: results.map((result) => ({
+						sourcePath: joinPath(vaultPath, result.id),
+						title: result.title,
+						context: result.snippets[0]?.text ?? "",
+					})),
+				})
+			})
+			.catch(() => {
+				if (!canceled) setState({ key, mentions: [] })
+			})
+		return () => {
+			canceled = true
+		}
+	}, [backlinks, filePath, key, vaultPath])
+
+	return state?.key === key ? state.mentions : []
 }
 
 export function revealHeading(heading: NoteHeading): void {

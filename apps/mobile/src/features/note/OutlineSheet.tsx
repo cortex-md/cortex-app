@@ -1,18 +1,16 @@
 import type { NoteHeading } from "@cortex/core"
-import { getNoteTitle } from "@cortex/platform/utils"
 import { Stack } from "expo-router"
 import { Platform } from "react-native"
 
 import { FormRow, FormSection, NativeForm } from "@/components/ui/Form"
 import { HeaderIconButton } from "@/components/ui/HeaderIconButton"
-import { toast } from "@/features/feedback/useToast"
 import { dismissSheet, openNote } from "@/features/navigation/routes"
 import { useSheetFilePath } from "@/features/note/noteSheetParams"
 import {
-	listUnlinkedMentions,
 	revealHeading,
 	useNoteBacklinks,
 	useNoteHeadings,
+	useUnlinkedMentions,
 } from "@/features/note/useNoteOutline"
 
 const IS_IOS = Platform.OS === "ios"
@@ -42,8 +40,7 @@ export function OutlineSheet() {
 	const filePath = useSheetFilePath()
 	const headings = useNoteHeadings(filePath)
 	const backlinks = useNoteBacklinks(filePath)
-	const unlinked = listUnlinkedMentions(filePath)
-	const noteTitle = filePath ? getNoteTitle(filePath) : "this note"
+	const unlinked = useUnlinkedMentions(filePath, backlinks)
 
 	return (
 		<>
@@ -97,9 +94,12 @@ export function OutlineSheet() {
 					<FormSection title="Unlinked mentions">
 						{unlinked.map((mention) => (
 							<FormRow
-								icon={{ sf: "link.badge.plus", md: "add_link" }}
+								icon={{ sf: "doc.text", md: "description" }}
 								key={mention.sourcePath}
-								onPress={() => toast(`Linked ${mention.title} to ${noteTitle}`)}
+								onPress={() => {
+									dismissSheet()
+									openNote(mention.sourcePath)
+								}}
 								subtitle={mention.context}
 								title={mention.title}
 							/>
