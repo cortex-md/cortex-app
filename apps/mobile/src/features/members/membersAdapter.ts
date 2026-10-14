@@ -5,9 +5,16 @@ import { useEffect } from "react"
 import { toast } from "@/features/feedback/useToast"
 import type { MemberRecord, MemberRole, PendingInviteRecord } from "@/features/members/memberTypes"
 
+export interface GroupRecord {
+	id: string
+	name: string
+	memberCount: number
+}
+
 interface MembersSnapshot {
 	members: MemberRecord[]
 	pending: PendingInviteRecord[]
+	groups: GroupRecord[]
 }
 
 const AVATAR_TINTS: MemberRecord["avatarTint"][] = ["accent", "blue", "green", "violet"]
@@ -81,6 +88,7 @@ export function useVaultMembers(): MembersSnapshot {
 	const vaultId = useRemoteVaultStore((state) => state.linkedVaultId)
 	const members = useMembersStore((state) => state.members)
 	const invites = useMembersStore((state) => state.invites)
+	const groups = useMembersStore((state) => state.groups)
 	const userId = useAuthStore((state) => state.user?.userId ?? null)
 
 	useEffect(() => {
@@ -95,7 +103,15 @@ export function useVaultMembers(): MembersSnapshot {
 			.catch(() => undefined)
 	}, [vaultId])
 
-	return { members: mapVaultMembers(members, userId), pending: mapVaultInvites(invites) }
+	return {
+		members: mapVaultMembers(members, userId),
+		pending: mapVaultInvites(invites),
+		groups: groups.map((group) => ({
+			id: group.id,
+			name: group.name,
+			memberCount: group.memberIds.length,
+		})),
+	}
 }
 
 export function roleLabel(role: MemberRole): string {
@@ -121,4 +137,15 @@ export function changeMemberRole(memberId: string, role: MemberRole): void {
 
 export function removeMember(memberId: string): void {
 	void run((vaultId) => useMembersStore.getState().removeMember(vaultId, memberId))
+}
+
+export function createGroup(name: string): void {
+	void run(async (vaultId) => {
+		await useMembersStore.getState().createGroup(vaultId, name, [])
+		toast(`Created ${name}`)
+	})
+}
+
+export function deleteGroup(groupId: string): void {
+	void run((vaultId) => useMembersStore.getState().deleteGroup(vaultId, groupId))
 }
