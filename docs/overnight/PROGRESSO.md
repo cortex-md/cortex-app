@@ -5,7 +5,7 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 ## Estado atual
 
 - Início: 2026-10-13 23:25 (-03).
-- Fase 1 concluída no que dá para fazer sem o Lucas. Em andamento: Fase 2 (medir antes de mexer).
+- Fase 1 concluída no que dá para fazer sem o Lucas. Fase 2: API analisada (bloqueada para edição) e desktop medido e perfilado, com duas otimizações pequenas medidas. O restante depende de arquivos com trabalho não commitado de outra sessão ou de investigação nativa (ver PENDENCIAS §10).
 
 ## Status por item
 
@@ -20,7 +20,7 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 | 7. Lembretes | feito (validar no device) | 3481b7f, 97bd347 | `platform.notifications` com `expo-notifications`: permissão, envio imediato, `schedule(scope, …)` com diff (cancela só o que mudou), categorias com as ações do core, canal Android "reminders", ativação, inclusive em cold start. Opção `tasks` no `startAppRuntime` do core: o mobile liga o `startTasksRuntime` sem a indexação eager; o índice de tarefas é montado 4 s depois de abrir o vault. |
 | 8. Pontuais | feito (dev build / validar no device) | dc6cf98, 075f66c, 56a71c3 | Assinatura: interface `PurchaseProvider` com `web-checkout` real (abre a cobrança no navegador do app e reconsulta o status ao voltar); IAP/Play só pela interface. Módulo Expo local `modules/cortex-native`: bookmarks security-scoped no iOS e permissão persistente no Android, mais extração de texto de PDF (PDFKit / PdfBox-Android). Android: refresh do vault SAF ao voltar ao app. |
 | Fase 2: API | bloqueado (análise feita) | | Repositório `../sync` com trabalho não commitado de outra sessão e sem Docker para medir. A análise estática, priorizada, está em PENDENCIAS §9. |
-| Fase 2: desktop | em andamento | | Base em 50 mil notas (2026-10-14): Quick Finder p95 80 ms (meta 30), Settings 196 ms (100), database 10k abrir 347 ms (300), memória ociosa 1175 MB (800). Dentro da meta: startup 973 ms, troca de aba 16 ms, nota 5k linhas 71 ms, digitação 15 ms, busca 61 ms, filtro de database 54 ms. |
+| Fase 2: desktop | parcial | cceb604, 0f20c6c | | Base em 50 mil notas (2026-10-14): Quick Finder p95 80 ms (meta 30), Settings 196 ms (100), database 10k abrir 347 ms (300), memória ociosa 1175 MB (800). Dentro da meta: startup 973 ms, troca de aba 16 ms, nota 5k linhas 71 ms, digitação 15 ms, busca 61 ms, filtro de database 54 ms. |
 
 ## Decisões
 
@@ -63,6 +63,15 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 - **Assinatura:** o provedor padrão é o checkout web (já existe no servidor). Escolher entre IAP e checkout web, e configurar product IDs, ficou em PENDENCIAS.
 - **Módulo nativo:** é opcional em runtime (`requireOptionalNativeModule`). No Expo Go tudo continua funcionando como antes; num dev build os recursos ligam sozinhos.
 
+- **Fase 2, desktop, medido** (base com 50 mil notas; profile de CPU via CDP com Playwright; scripts em `/private/tmp/.../scratchpad/profile-scripts`):
+  - `formatRelativeTime` do core criava um `Intl.DateTimeFormat` por chamada. Com os formatadores em cache, caiu de 15,6 ms para menos de 0,3 ms de CPU a cada 9 teclas no Quick Finder (`cceb604`).
+  - `normalize` de `@cortex/properties/database/paths` fazia `replaceAll` e regex por linha. Com o atalho para caminhos já normalizados, caiu de 10,8 ms para ~1,5 ms de CPU ao abrir a database de 10 mil linhas (`0f20c6c`).
+  - Revertido por não ter ganho: o `joinPath` hoisted em `readDatabaseRowCache`. O custo ali é o `JSON.parse` e o spread, não o `joinPath`.
+  - Os tempos de parede ficaram dentro do ruído: Quick Finder p95 80→89 ms (5 amostras), database 347→~370 ms (1 amostra). Os dois são dominados por coisas fora desses trechos de código (ver PENDENCIAS §10).
+
 ## Próximo passo exato
 
-Fase 2, API: o servidor está em `../sync` (Go, outro repositório, com mudanças não commitadas de outra sessão). Medir os endpoints de sync e listagem (`/changes`, listagem de vaults, membros) com os testes/benchmarks que existirem lá antes de mexer; se não der para medir sem subir infraestrutura, registrar em PENDENCIAS e seguir para o desktop (`bun run perf`).
+Tudo o que dava para fazer sem você está feito. Próximos passos, todos dependendo de você (PENDENCIAS):
+1. Commitar as mudanças da outra sessão (§1). Isso também destrava o desktop: busca em worker, Settings e database (§10).
+2. Fazer um dev build (§6) e validar no device a lista de cada item.
+3. Aplicar no `../sync` as melhorias 1, 3 e 4 da §9, medindo com `make docker-up`.

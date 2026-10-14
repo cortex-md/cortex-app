@@ -91,3 +91,22 @@ Só o que depende de você. Cada item traz o contexto e a recomendação.
      - correção compatível: padronizar delete em 204 (os clientes TS não leem o corpo) e mandar `X-Next-Cursor` em toda lista paginada (`/changes`, market).
 - **Já está bom:** compressão JSON (`chimw.Compress`), paginação por cursor em `/files/list`, overview sem N+1 (members, users e keys em lote), SSE com replay paginado, lista de vaults.
 - **Recomendação:** aplicar 1, 3 e 4 primeiro (mudanças pequenas e seguras), medindo com `make docker-up` e um vault seed antes e depois. Depois de commitar o branch atual, isso pode virar uma tarefa para mim ou para outra sessão.
+
+## 10. Desktop: metas ainda acima e onde está o custo
+
+- **Quick Finder** (p95 80–89 ms, meta 30):
+  - na thread principal, o JS por tecla é de ~3 ms; o resto é a ida e volta ao worker de busca (`searchTitles`) mais o render com `useDeferredValue`;
+  - o worker (`packages/search/src/backend.ts`, `apps/desktop/src/features/search/searchWorker*`) é trabalho não commitado de outra sessão, por isso não mexi;
+  - **recomendação:** perfilar o worker (CDP `Target.setAutoAttach` com `flatten`) e manter um índice de títulos em memória no próprio renderer só para o Quick Finder: 50 mil títulos ocupam poucos MB e a busca é síncrona.
+- **Database com 10 mil linhas** (~350 ms, meta 300):
+  - o JS medido é ~150 ms: sort com `Intl.Collator` ~25 ms, `readDatabaseRowCache` (`JSON.parse` de um JSON grande que vem por IPC como string) ~16 ms, render ~50 ms; o resto é IPC, layout e GC;
+  - **recomendação:** ler e fazer o parse do cache no main process ou num worker e mandar o objeto pronto (structured clone), ou guardar o cache já ordenado pela ordenação padrão para pular o sort na primeira abertura;
+  - os arquivos de database do desktop têm mudanças não commitadas de outra sessão.
+- **Settings a frio** (p95 ~190 ms, meta 100):
+  - o custo é criar a janela de Settings sob demanda;
+  - **recomendação:** pré-criar a janela escondida depois que o app fica ocioso (trade-off: +~80 MB de memória) ou abrir Settings como rota da janela principal.
+- **Memória ociosa** (1175–1290 MB, meta 800):
+  - a renderer ocupa 693 MB, com 169 MB de heap JS;
+  - o processo main ocupa 476 MB de RSS, mas só 56 MB de heap JS e 64 MB de memória externa, ou seja, o grosso é memória nativa do processo Browser;
+  - **recomendação:** investigar o main com Instruments (Allocations / VM Tracker) em 50 mil notas. Suspeitos: o `fs.watch` recursivo, o cache do `node:sqlite` e buffers de IPC;
+  - na renderer, ver se o índice de busca e o cache de notas ficam vivos em duplicidade com o worker.
