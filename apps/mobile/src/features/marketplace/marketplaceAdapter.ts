@@ -105,6 +105,10 @@ export function findTemplate(id: string | null): MarketplaceTemplate | null {
 	return state.templates.find((template) => template.id === id) ?? null
 }
 
+export function rememberOpenedPublicTemplate(slug: string, opened: OpenedPublicTemplate): void {
+	openedTemplates.set(slug, opened)
+}
+
 export function getOpenedPublicTemplate(slug: string): OpenedPublicTemplate | null {
 	return openedTemplates.get(slug) ?? null
 }
