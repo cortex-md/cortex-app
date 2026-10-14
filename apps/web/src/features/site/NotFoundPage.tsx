@@ -17,7 +17,7 @@ export function NotFoundPage() {
 					<a href="/">Go to the home page</a>
 				</Button>
 				<Button size="lg" variant="secondary" asChild>
-					<a href="/docs">Read the docs</a>
+					<a href="/docs/get-started/welcome">Read the docs</a>
 				</Button>
 			</div>
 		</section>

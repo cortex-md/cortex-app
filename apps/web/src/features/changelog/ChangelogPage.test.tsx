@@ -63,6 +63,6 @@ describe("ChangelogPage", () => {
 			screen.getAllByText("No public stable release notes are available yet.").length,
 		).toBeGreaterThan(0)
 		expect(screen.queryByRole("link", { name: /on GitHub/i })).toBeNull()
-		expect(screen.getByRole("link", { name: "Read the docs" }).getAttribute("href")).toBe("/docs")
+		expect(screen.getByRole("link", { name: "Read the docs" }).getAttribute("href")).toBe("/docs/get-started/welcome")
 	})
 })

@@ -77,7 +77,7 @@ export const primaryNavLinks = [
 export const resourceNavLinks = [
 	{
 		label: "Docs",
-		href: "/docs",
+		href: "/docs/get-started/welcome",
 		description: "Guides for writing, organizing, syncing and extending Cortex.",
 	},
 	{
@@ -135,7 +135,7 @@ export const footerLinkGroups: ReadonlyArray<{ title: string; links: FooterLinkI
 	{
 		title: "Learn",
 		links: [
-			{ label: "Docs", href: "/docs" },
+			{ label: "Docs", href: "/docs/get-started/welcome" },
 			{ label: "Changelog", href: "/changelog" },
 			{ label: "Roadmap", href: "/roadmap" },
 		],

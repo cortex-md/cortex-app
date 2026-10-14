@@ -108,7 +108,8 @@ function useHeaderSession(sessionLoader: () => Promise<AuthSessionResult>) {
 
 function isCurrentPath(pathname: string, href: string) {
 	if (href.startsWith("/#") || href.startsWith("http")) return false
-	return pathname === href || pathname.startsWith(`${href}/`)
+	const base = href.startsWith("/docs/") ? "/docs" : href
+	return pathname === base || pathname.startsWith(`${base}/`)
 }
 
 function getAccountInitial(email: string) {

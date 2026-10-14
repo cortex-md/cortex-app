@@ -276,7 +276,7 @@ function ChangelogEmptyState({ changelog }: ChangelogPageProps) {
 					<Button onClick={() => window.location.reload()}>{changelogCopy.tryAgain}</Button>
 				) : null}
 				<Button variant="secondary" asChild>
-					<a href="/docs">{changelogCopy.readDocs}</a>
+					<a href="/docs/get-started/welcome">{changelogCopy.readDocs}</a>
 				</Button>
 			</div>
 		</section>

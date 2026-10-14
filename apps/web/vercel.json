@@ -58,8 +58,19 @@
 	],
 	"redirects": [
 		{
+			"source": "/docs",
+			"destination": "/docs/get-started/welcome",
+			"permanent": false
+		},
+		{
 			"source": "/marketplace",
-			"has": [{ "type": "query", "key": "tab", "value": "(?<tab>plugins|themes)" }],
+			"has": [
+				{
+					"type": "query",
+					"key": "tab",
+					"value": "(?<tab>plugins|themes)"
+				}
+			],
 			"destination": "/marketplace/browse?kind=:tab",
 			"permanent": true
 		},
