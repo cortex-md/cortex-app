@@ -31,6 +31,7 @@ import {
 } from "@/features/note/NoteHeader"
 import { NotePropertiesBlock } from "@/features/note/NotePropertiesBlock"
 import { NoteTitle } from "@/features/note/NoteTitle"
+import { insertImageFromLibrary } from "@/features/note/noteImages"
 import { buildNoteBottomMenuGroups } from "@/features/note/noteMenu"
 import { type FindInNote, useFindInNote } from "@/features/note/useFindInNote"
 import { useNoteMenu } from "@/features/note/useNoteMenu"
@@ -108,9 +109,15 @@ function NoteBottomBar({
 		)
 	}
 	if (editing) {
-		const toolbar = buildKeyboardToolbar(runEditorCommand, () => {
-			if (filePath) presentInsertTemplate(filePath)
-		})
+		const toolbar = buildKeyboardToolbar(
+			(commandId) => {
+				if (commandId === "format.image" && filePath) void insertImageFromLibrary(filePath)
+				else runEditorCommand(commandId)
+			},
+			() => {
+				if (filePath) presentInsertTemplate(filePath)
+			},
+		)
 		return <KeyboardToolbar {...toolbar} onHideKeyboard={hideKeyboard} />
 	}
 	return (

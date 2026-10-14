@@ -73,6 +73,7 @@ const MOBILE_SLASH_COMMAND = "mobile.slash"
 const MOBILE_INSERT_DIVIDER_COMMAND = "mobile.insert-divider"
 const MOBILE_INSERT_TAG_COMMAND = "mobile.insert-tag"
 const MOBILE_INSERT_WIKILINK_COMMAND = "mobile.insert-wikilink"
+const MOBILE_INSERT_TEXT_COMMAND = "mobile.insert-text"
 
 const realm = createWorkspaceRealm()
 
@@ -372,6 +373,9 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 							return
 						case MOBILE_INSERT_TAG_COMMAND:
 							insertAtSelection(view, "#")
+							return
+						case MOBILE_INSERT_TEXT_COMMAND:
+							if (typeof payload === "string") insertAtSelection(view, payload)
 							return
 						case MOBILE_INSERT_WIKILINK_COMMAND:
 							insertAtSelection(view, "[[", "]]")
