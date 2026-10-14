@@ -12,7 +12,7 @@ import { httpApi } from "./http"
 import { keychainApi } from "./keychain"
 import { notificationsApi } from "./notifications"
 import { serverApi } from "./serverApi"
-import { sharesApi } from "./shares"
+import { sharesApi, templateSharesApi } from "./shares"
 import { storageApi } from "./storage"
 import { syncApi } from "./sync"
 import { unsupportedPhase1 } from "./unsupported"
@@ -47,6 +47,7 @@ export const expoPlatform: Platform = {
 	storage: storageApi,
 	subscription: serverApi.subscription,
 	sync: syncApi,
+	templateShares: templateSharesApi,
 	vault: vaultApi,
 	window: windowApi,
 	menu: { setState: async () => {} },

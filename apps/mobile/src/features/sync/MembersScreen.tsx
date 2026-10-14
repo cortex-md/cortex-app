@@ -11,7 +11,7 @@ import {
 	roleLabel,
 	useVaultMembers,
 } from "@/features/members/membersAdapter"
-import type { MemberRole } from "@/features/members/membersFixtures"
+import type { MemberRole } from "@/features/members/memberTypes"
 import { FormMenu, FormTextField } from "@/features/sync/FormControls"
 
 const INVITE_ROLES: MemberRole[] = ["editor", "viewer"]

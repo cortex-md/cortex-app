@@ -1,11 +1,20 @@
-import { useAuthStore, useMembersStore, useRemoteVaultStore, useVaultStore } from "@cortex/core"
+import {
+	getErrorMessage,
+	useAuthStore,
+	useMembersStore,
+	useNoteSharesStore,
+	useRemoteVaultStore,
+	useVaultStore,
+} from "@cortex/core"
 import type { VaultMember } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
-import { getNoteTitle, toVaultRelativePath } from "@cortex/platform/utils"
+import { toVaultRelativePath } from "@cortex/platform/utils"
 import { useEffect, useSyncExternalStore } from "react"
 
 import type { AvatarTint } from "@/components/ui/Avatar"
 import type { CollabPendingInvite, CollabPerson, CollabRole } from "@/features/collab/collabTypes"
+import { buildSharedNoteBundle } from "@/features/collab/noteShareBundle"
+import { toast } from "@/features/feedback/useToast"
 
 export interface CollabPresence {
 	person: CollabPerson
@@ -20,8 +29,6 @@ export interface CollabNoteSession {
 
 interface CollabStoreState {
 	followingId: string | null
-	pendingInvites: CollabPendingInvite[]
-	linkSharing: Record<string, boolean>
 }
 
 const OVERVIEW_REFRESH_MS = 30_000
@@ -29,7 +36,7 @@ const MEMBER_TINTS: AvatarTint[] = ["accent", "blue", "green", "violet"]
 const EMPTY_PRESENCE: CollabPresence[] = []
 
 const listeners = new Set<() => void>()
-let state: CollabStoreState = { followingId: null, pendingInvites: [], linkSharing: {} }
+let state: CollabStoreState = { followingId: null }
 let lastOverview: { vaultId: string; at: number } | null = null
 
 function setState(next: Partial<CollabStoreState>): void {
@@ -176,40 +183,119 @@ export function toggleFollow(personId: string): void {
 	else followPerson(personId)
 }
 
-export function usePendingInvites(): CollabPendingInvite[] {
-	return useSyncExternalStore(subscribe, getState, getState).pendingInvites
+function toCollabRole(role: string): CollabRole {
+	return toRole(role)
 }
 
-export function inviteToVault(email: string, role: CollabRole): CollabPendingInvite {
-	// stub: invites go through useMembersStore.createInvite once the vault is linked remotely
-	const invite: CollabPendingInvite = {
-		id: `${Date.now()}-${email}`,
-		email,
-		role,
-		expiresLabel: `${role} · Expires in 7 days`,
+function toServerRole(role: CollabRole): string {
+	if (role === "Owner") return "admin"
+	return role === "Viewer" ? "viewer" : "editor"
+}
+
+function inviteExpiry(expiresAt: string): string {
+	const remaining = new Date(expiresAt).getTime() - Date.now()
+	if (Number.isNaN(remaining) || remaining <= 0) return "Expired"
+	const days = Math.max(1, Math.ceil(remaining / 86_400_000))
+	return `Expires in ${days} ${days === 1 ? "day" : "days"}`
+}
+
+const EMPTY_INVITES: CollabPendingInvite[] = []
+
+export function usePendingInvites(): CollabPendingInvite[] {
+	const vaultId = useRemoteVaultStore((store) => store.linkedVaultId)
+	const invites = useMembersStore((store) => store.invites)
+
+	useEffect(() => {
+		if (!vaultId) return
+		void useMembersStore
+			.getState()
+			.fetchInvites(vaultId)
+			.catch(() => undefined)
+	}, [vaultId])
+
+	if (invites.length === 0) return EMPTY_INVITES
+	return invites
+		.filter((invite) => !invite.accepted)
+		.map((invite) => {
+			const role = toCollabRole(invite.role)
+			return {
+				id: invite.id,
+				email: invite.inviteeEmail,
+				role,
+				expiresLabel: `${role} · ${inviteExpiry(invite.expiresAt)}`,
+			}
+		})
+}
+
+async function withLinkedVault(task: (vaultId: string) => Promise<void>): Promise<boolean> {
+	const vaultId = useRemoteVaultStore.getState().linkedVaultId
+	if (!vaultId) {
+		toast("Link this vault to share it")
+		return false
 	}
-	setState({ pendingInvites: [...state.pendingInvites, invite] })
-	return invite
+	try {
+		await task(vaultId)
+		return true
+	} catch (error) {
+		toast(getErrorMessage(error))
+		return false
+	}
+}
+
+export function inviteToVault(email: string, role: CollabRole): Promise<boolean> {
+	return withLinkedVault(async (vaultId) => {
+		await useMembersStore.getState().createInvite(vaultId, email, toServerRole(role), "")
+	})
 }
 
 export function cancelInvite(inviteId: string): void {
-	// stub: cancelling calls useMembersStore.deleteInvite when invites are remote
-	setState({ pendingInvites: state.pendingInvites.filter((invite) => invite.id !== inviteId) })
+	void withLinkedVault((vaultId) => useMembersStore.getState().deleteInvite(vaultId, inviteId))
+}
+
+function notePathFor(filePath: string): string | null {
+	const vaultPath = useVaultStore.getState().vault?.path
+	return vaultPath ? toVaultRelativePath(filePath, vaultPath) : null
 }
 
 export function useLinkSharing(filePath: string | null): boolean {
-	const linkSharing = useSyncExternalStore(subscribe, getState, getState).linkSharing
-	return filePath ? Boolean(linkSharing[filePath]) : false
-}
-
-export function setLinkSharing(filePath: string, enabled: boolean): void {
-	// stub: link sharing is a local flag until note share links come from the sync server
-	setState({ linkSharing: { ...state.linkSharing, [filePath]: enabled } })
-}
-
-export async function copyNoteLink(filePath: string): Promise<void> {
-	// stub: the share link points at the note title until the sync server issues real share links
-	await getPlatform().clipboard.writeText(
-		`cortex://open?note=${encodeURIComponent(getNoteTitle(filePath))}`,
+	const vaultId = useRemoteVaultStore((store) => store.linkedVaultId)
+	const notePath = filePath ? notePathFor(filePath) : null
+	const shared = useNoteSharesStore((store) =>
+		notePath ? Boolean(store.sharesByPath[notePath]) : false,
 	)
+
+	useEffect(() => {
+		if (!vaultId) return
+		void useNoteSharesStore
+			.getState()
+			.fetchShares(vaultId)
+			.catch(() => undefined)
+	}, [vaultId])
+
+	return shared
+}
+
+export function setLinkSharing(filePath: string, enabled: boolean): Promise<boolean> {
+	const notePath = notePathFor(filePath)
+	if (!notePath) return Promise.resolve(false)
+	return withLinkedVault(async (vaultId) => {
+		const store = useNoteSharesStore.getState()
+		if (enabled) {
+			await store.publish(vaultId, notePath, await buildSharedNoteBundle(filePath))
+			return
+		}
+		const share = store.sharesByPath[notePath]
+		if (share) await store.revoke(vaultId, share.id)
+	})
+}
+
+export async function copyNoteLink(filePath: string): Promise<boolean> {
+	const notePath = notePathFor(filePath)
+	const link = notePath ? useNoteSharesStore.getState().sharesByPath[notePath]?.link : null
+	if (!link) {
+		toast("Turn on link sharing first")
+		return false
+	}
+	await getPlatform().clipboard.writeText(link)
+	return true
 }

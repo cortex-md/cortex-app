@@ -1,42 +1,13 @@
-import { useMembersStore } from "@cortex/core"
+import { getErrorMessage, useAuthStore, useMembersStore, useRemoteVaultStore } from "@cortex/core"
 import type { VaultInvite, VaultMember } from "@cortex/platform"
-import { useSyncExternalStore } from "react"
+import { useEffect } from "react"
 
-import {
-	FIXTURE_MEMBERS,
-	FIXTURE_PENDING_INVITES,
-	type MemberRecord,
-	type MemberRole,
-	type PendingInviteRecord,
-} from "@/features/members/membersFixtures"
+import { toast } from "@/features/feedback/useToast"
+import type { MemberRecord, MemberRole, PendingInviteRecord } from "@/features/members/memberTypes"
 
 interface MembersSnapshot {
 	members: MemberRecord[]
 	pending: PendingInviteRecord[]
-}
-
-const listeners = new Set<() => void>()
-let snapshot: MembersSnapshot = { members: FIXTURE_MEMBERS, pending: FIXTURE_PENDING_INVITES }
-let nextInviteId = FIXTURE_PENDING_INVITES.length + 1
-
-function notify(): void {
-	for (const listener of listeners) listener()
-}
-
-function subscribe(listener: () => void): () => void {
-	listeners.add(listener)
-	return () => {
-		listeners.delete(listener)
-	}
-}
-
-function getSnapshot(): MembersSnapshot {
-	return snapshot
-}
-
-function update(next: Partial<MembersSnapshot>): void {
-	snapshot = { ...snapshot, ...next }
-	notify()
 }
 
 const AVATAR_TINTS: MemberRecord["avatarTint"][] = ["accent", "blue", "green", "violet"]
@@ -44,6 +15,10 @@ const AVATAR_TINTS: MemberRecord["avatarTint"][] = ["accent", "blue", "green", "
 function toRole(role: string): MemberRole {
 	if (role === "owner" || role === "admin") return "owner"
 	return role === "viewer" || role === "guest" ? "viewer" : "editor"
+}
+
+function toServerRole(role: MemberRole): string {
+	return role === "owner" ? "admin" : role
 }
 
 function formatJoined(joinedAt: string): string {
@@ -85,12 +60,42 @@ export function mapVaultInvites(invites: VaultInvite[]): PendingInviteRecord[] {
 		}))
 }
 
+function linkedVaultId(): string | null {
+	return useRemoteVaultStore.getState().linkedVaultId
+}
+
+async function run(task: (vaultId: string) => Promise<unknown>): Promise<void> {
+	const vaultId = linkedVaultId()
+	if (!vaultId) {
+		toast("Link this vault to manage members")
+		return
+	}
+	try {
+		await task(vaultId)
+	} catch (error) {
+		toast(getErrorMessage(error))
+	}
+}
+
 export function useVaultMembers(): MembersSnapshot {
-	const realMembers = useMembersStore((state) => state.members)
-	const realInvites = useMembersStore((state) => state.invites)
-	const local = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
-	if (realMembers.length === 0) return local
-	return { members: mapVaultMembers(realMembers, null), pending: mapVaultInvites(realInvites) }
+	const vaultId = useRemoteVaultStore((state) => state.linkedVaultId)
+	const members = useMembersStore((state) => state.members)
+	const invites = useMembersStore((state) => state.invites)
+	const userId = useAuthStore((state) => state.user?.userId ?? null)
+
+	useEffect(() => {
+		if (!vaultId) return
+		void useMembersStore
+			.getState()
+			.fetchOverview(vaultId)
+			.catch(() => undefined)
+		void useMembersStore
+			.getState()
+			.fetchInvites(vaultId)
+			.catch(() => undefined)
+	}, [vaultId])
+
+	return { members: mapVaultMembers(members, userId), pending: mapVaultInvites(invites) }
 }
 
 export function roleLabel(role: MemberRole): string {
@@ -98,31 +103,22 @@ export function roleLabel(role: MemberRole): string {
 }
 
 export function inviteMember(email: string, role: MemberRole): void {
-	// stub: remote invites need the sync server; the invite is kept in memory on mobile
-	const invite: PendingInviteRecord = {
-		id: `invite-${nextInviteId++}`,
-		email,
-		role,
-		expiresLabel: "Expires in 7 days",
-	}
-	update({ pending: [...snapshot.pending, invite] })
-}
-
-export function cancelInvite(inviteId: string): void {
-	// stub: remote invites need the sync server; the invite is removed from memory on mobile
-	update({ pending: snapshot.pending.filter((invite) => invite.id !== inviteId) })
-}
-
-export function changeMemberRole(memberId: string, role: MemberRole): void {
-	// stub: role changes need the sync server; the role is changed in memory on mobile
-	update({
-		members: snapshot.members.map((member) =>
-			member.id === memberId ? { ...member, role } : member,
-		),
+	void run(async (vaultId) => {
+		await useMembersStore.getState().createInvite(vaultId, email, toServerRole(role), "")
+		toast(`Invited ${email}`)
 	})
 }
 
+export function cancelInvite(inviteId: string): void {
+	void run((vaultId) => useMembersStore.getState().deleteInvite(vaultId, inviteId))
+}
+
+export function changeMemberRole(memberId: string, role: MemberRole): void {
+	void run((vaultId) =>
+		useMembersStore.getState().updateMemberRole(vaultId, memberId, toServerRole(role)),
+	)
+}
+
 export function removeMember(memberId: string): void {
-	// stub: member removal needs the sync server; the member is removed from memory on mobile
-	update({ members: snapshot.members.filter((member) => member.id !== memberId) })
+	void run((vaultId) => useMembersStore.getState().removeMember(vaultId, memberId))
 }

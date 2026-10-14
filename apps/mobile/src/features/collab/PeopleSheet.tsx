@@ -49,15 +49,18 @@ export function PeopleSheet() {
 		if (!emailValid) return
 		triggerSelectionHaptic()
 		const value = email.trim()
-		inviteToVault(value, role)
 		setEmail("")
 		setFieldKey((key) => key + 1)
-		toast(`Invited ${value}`)
+		void inviteToVault(value, role).then((invited) => {
+			if (invited) toast(`Invited ${value}`)
+		})
 	}
 
 	const copyLink = () => {
 		if (!filePath) return
-		void copyNoteLink(filePath).then(() => toast("Link copied"))
+		void copyNoteLink(filePath).then((copied) => {
+			if (copied) toast("Link copied")
+		})
 	}
 
 	return (
@@ -159,7 +162,7 @@ export function PeopleSheet() {
 					<FormToggle
 						disabled={!filePath}
 						onValueChange={(value) => {
-							if (filePath) setLinkSharing(filePath, value)
+							if (filePath) void setLinkSharing(filePath, value)
 						}}
 						subtitle="Vault members with the link can open this note"
 						title="Share with link"
