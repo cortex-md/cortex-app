@@ -5,7 +5,7 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 ## Estado atual
 
 - Início: 2026-10-13 23:25 (-03).
-- Item em andamento: 4. Arquivos nativos.
+- Item em andamento: 5. APIs de compartilhamento.
 
 ## Status por item
 
@@ -14,8 +14,8 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 | 1. Sync remoto | feito (validar no device) | e2558b9, 006e95d, 3b3f486 | Motor `@cortex/sync-engine` roda no JS do app com runtime mobile; telas de vínculo E2E, versões, lixeira, conflitos, logs, dispositivos, comentários e presença com dados reais. Convites e links de nota ficam para o item 5. |
 | 2. Editor (Mermaid, desenhos, PDF) | feito (parcial em desenhos) | e5cc5da | Mermaid renderizado sob demanda na WebView com o mesmo renderer do desktop, agora em `@cortex/editor/mermaid`. Desenho vira card só de leitura (contagem de formas). PDF: lista no Files e visualizador nativo (WKWebView no iOS, "abrir com" no Android). |
 | 3. Interface pura | feito | be09d92, 4b8eeed, 46c3267, bc2a0c6, f303f60, bbcc886 | Tabs: fixar, fechar outras, fechar à direita, reabrir fechada, ordem MRU. Paleta: ~45 comandos do app com os mesmos ids do desktop, mais os comandos do editor/formatação via bridge. Daily notes (na página Templates, como no desktop) e Excluded paths na semântica do desktop. Recuperar senha (deep link `cortex://reset-password`), trocar senha, nova recovery key. Menções não vinculadas via `findPhrase` do índice. |
-| 4. Arquivos nativos | em andamento | | |
-| 5. APIs de compartilhamento | pendente | | Inclui convites, links de nota e templates de equipe (`collabAdapter`, `membersAdapter`, `shareAdapter`, `templatesAdapter` ainda com stubs). |
+| 4. Arquivos nativos | feito (PDF depende do item 8) | cf544e8, ef54b4b, e1e9f14 | `dialog.pickFile/pickFiles` com `expo-document-picker` (os arquivos vão para `Documents/Cortex/.picked`, que é app storage); importação sem fixtures (arquivos, CSV, HTML e Obsidian pelo seletor de pasta). Exportação grava o arquivo de verdade (HTML, CSV, PDF via `expo-print`) e abre o share sheet com o MIME/UTI certo. Imagem: item "Image" da toolbar abre a galeria; colar imagem no editor funciona via `saveImage` na bridge (base64). A pasta da imagem segue `editor.imageStorageLocation`, como no desktop. |
+| 5. APIs de compartilhamento | em andamento | | Inclui convites, links de nota e templates de equipe (`collabAdapter`, `membersAdapter`, `shareAdapter`, `templatesAdapter` ainda com stubs). |
 | 6. Colaboração em tempo real | pendente | | |
 | 7. Lembretes | pendente | | |
 | 8. Pontuais | pendente | | |
@@ -46,6 +46,9 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 - **Bug corrigido:** o `SignInSheet` tratava o retorno de `login`/`register` (que é a recovery key) como mensagem de erro. Agora mostra a recovery key para o usuário guardar.
 - **Fora do mobile:** comandos que dependem de split, zoom, janelas e atalhos de teclado do desktop ficaram de fora porque não existem no celular.
 
+- **Bug corrigido:** o export antigo compartilhava `renderMarkdownExportHtml(...)` sem `await`, ou seja, enviava "[object Promise]".
+- **Importar PDF** precisa da extração de texto (item 8). Até lá, a prévia diz que não está disponível no aparelho, em vez de mostrar páginas falsas.
+
 ## Próximo passo exato
 
-Item 4: ler `apps/mobile/src/features/importExport/importAdapter.ts` (fixtures de PDF/Obsidian) e `@cortex/import-export`; usar `expo-document-picker` para escolher arquivos, `expo-image-picker` para inserir imagem na nota (salvar como asset e inserir o link via comando do editor), `expo-print` mais `expo-sharing` para exportar HTML/PDF de verdade.
+Item 5: ver o que `@cortex/sync-api` já oferece (`noteSharesService`, `templateSharesService`, membros/convites) e o que `apps/mobile/src/platform/shares.ts`, `features/members/membersAdapter.ts`, `features/share/shareAdapter.ts`, `features/templates/templatesAdapter.ts` e `features/collab/collabAdapter.ts` (convites, links) ainda fazem com stubs/fixtures; ligar no serviço real como o desktop (`apps/desktop/electron/services/noteShares.ts`, `templateShares.ts`).
