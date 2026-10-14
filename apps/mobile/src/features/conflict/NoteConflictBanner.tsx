@@ -1,10 +1,23 @@
-import { useSyncStore } from "@cortex/core"
+import { getErrorMessage, useSyncStore } from "@cortex/core"
 import { toVaultRelativePath } from "@cortex/platform/utils"
-import { Pressable, StyleSheet, Text } from "react-native"
-
-import { SymbolIcon } from "@/components/ui/Symbol"
+import { useState } from "react"
+import { ConflictBannerView } from "@/features/conflict/ConflictBannerView"
+import { resolveConflictByPath } from "@/features/conflict/conflictAdapter"
+import { toast } from "@/features/feedback/useToast"
 import { openConflict } from "@/features/navigation/routes"
-import { useMobileColors } from "@/hooks/useMobileColors"
+
+async function keepVersion(
+	filePath: string,
+	vaultPath: string | undefined,
+	choice: "local" | "remote",
+): Promise<void> {
+	try {
+		await resolveConflictByPath(filePath, vaultPath, choice)
+		toast(choice === "local" ? "Kept your version" : "Kept the other device's version")
+	} catch (error) {
+		toast(getErrorMessage(error))
+	}
+}
 
 export function NoteConflictBanner({
 	filePath,
@@ -13,51 +26,24 @@ export function NoteConflictBanner({
 	filePath: string | null
 	vaultPath: string | undefined
 }) {
-	const { colors } = useMobileColors()
+	const [busy, setBusy] = useState(false)
 	const relativePath = filePath && vaultPath ? toVaultRelativePath(filePath, vaultPath) : null
 	const conflicted = useSyncStore((state) =>
 		relativePath ? Boolean(state.conflicts[relativePath]) : false,
 	)
 	if (!conflicted || !filePath) return null
 
+	const keep = (choice: "local" | "remote") => {
+		setBusy(true)
+		void keepVersion(filePath, vaultPath, choice).then(() => setBusy(false))
+	}
+
 	return (
-		<Pressable
-			accessibilityRole="button"
-			onPress={() => openConflict(filePath)}
-			style={[styles.banner, { backgroundColor: colors.warningBackground }]}
-		>
-			<SymbolIcon
-				color={colors.warningText}
-				name={{ sf: "exclamationmark.triangle.fill", md: "warning" }}
-				size={18}
-			/>
-			<Text style={[styles.label, { color: colors.warningText }]}>
-				This note changed on another device. Review the conflict.
-			</Text>
-			<SymbolIcon
-				color={colors.warningText}
-				name={{ sf: "chevron.right", md: "chevron_right" }}
-				size={13}
-			/>
-		</Pressable>
+		<ConflictBannerView
+			busy={busy}
+			onCompare={() => openConflict(filePath)}
+			onKeepMine={() => keep("local")}
+			onKeepTheirs={() => keep("remote")}
+		/>
 	)
 }
-
-const styles = StyleSheet.create({
-	banner: {
-		alignItems: "center",
-		borderCurve: "continuous",
-		borderRadius: 12,
-		flexDirection: "row",
-		gap: 10,
-		marginHorizontal: 16,
-		marginVertical: 6,
-		paddingHorizontal: 12,
-		paddingVertical: 10,
-	},
-	label: {
-		flex: 1,
-		fontSize: 14,
-		lineHeight: 19,
-	},
-})

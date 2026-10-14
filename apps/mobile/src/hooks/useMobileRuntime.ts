@@ -12,6 +12,7 @@ import { useEffect, useState } from "react"
 import { AppState } from "react-native"
 
 import { startAccountServerSync } from "@/features/account/accountServer"
+import { startSyncAlerts } from "@/features/sync/syncAlerts"
 import { startMobileThemeSync } from "@/features/themes/themeSync"
 import { startReminderIndexing } from "@/features/today/reminderIndexing"
 import { startExternalVaultRefresh } from "@/features/vault/externalVaultRefresh"
@@ -42,6 +43,7 @@ export function useMobileRuntime(): MobileRuntimeState {
 		})
 		const stopSyncLifecycle = startSyncLifecycle()
 		const stopAccountServerSync = startAccountServerSync()
+		const stopSyncAlerts = startSyncAlerts()
 		const stopReminderIndexing = startReminderIndexing()
 		const stopExternalVaultRefresh = startExternalVaultRefresh()
 		const stopThemeSync = startMobileThemeSync()
@@ -63,6 +65,7 @@ export function useMobileRuntime(): MobileRuntimeState {
 			canceled = true
 			appStateSubscription.remove()
 			stopThemeSync()
+			stopSyncAlerts()
 			stopAccountServerSync()
 			stopSyncLifecycle()
 			stopReminderIndexing()

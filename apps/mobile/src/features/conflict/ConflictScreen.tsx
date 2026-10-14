@@ -1,36 +1,59 @@
 import { type DiffRow, getErrorMessage, useVaultStore } from "@cortex/core"
 import { router, Stack, useLocalSearchParams } from "expo-router"
 import { useEffect, useMemo, useState } from "react"
-import { Platform, ScrollView, StyleSheet, Text, View } from "react-native"
+import { FlatList, Platform, StyleSheet, Text, View } from "react-native"
 
 import type { MenuGroup } from "@/components/ui/menuTypes"
 import { NativeMenu } from "@/components/ui/NativeMenu"
+import { SegmentedControl } from "@/components/ui/SegmentedControl"
 import {
 	buildConflictDiff,
+	keepBothVersions,
 	keepLocalVersion,
 	keepRemoteVersion,
 	loadConflict,
 	type NoteConflict,
 } from "@/features/conflict/conflictAdapter"
 import { toast } from "@/features/feedback/useToast"
+import { openNote } from "@/features/navigation/routes"
 import { useHideTabBar } from "@/features/navigation/tabBarVisibility"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 const IS_IOS = Platform.OS === "ios"
 const MONOSPACE = Platform.select({ android: "monospace", default: "Menlo" })
 
-type Resolution = "local" | "remote"
+type Resolution = "local" | "remote" | "both"
+type ConflictView = "changes" | "mine" | "theirs"
+
+interface ConflictLine {
+	id: string
+	kind: "add" | "del" | "same" | "gap"
+	text: string
+}
+
+const viewOptions: { label: string; value: ConflictView }[] = [
+	{ label: "Changes", value: "changes" },
+	{ label: "Mine", value: "mine" },
+	{ label: "Theirs", value: "theirs" },
+]
+
+const resolutionMessages: Record<Resolution, string> = {
+	both: "Both versions are in the note. Edit it to finish.",
+	local: "Kept your version",
+	remote: "Kept the other device's version",
+}
 
 function readParam(value: string | string[] | undefined): string | null {
 	const resolved = Array.isArray(value) ? value[0] : value
 	return resolved ? resolved : null
 }
 
-async function resolveConflict(conflict: NoteConflict, resolution: Resolution): Promise<boolean> {
+async function applyResolution(conflict: NoteConflict, resolution: Resolution): Promise<boolean> {
 	try {
 		if (resolution === "local") await keepLocalVersion(conflict)
-		else await keepRemoteVersion(conflict)
-		toast(resolution === "local" ? "Kept the local version" : "Kept the remote version")
+		else if (resolution === "remote") await keepRemoteVersion(conflict)
+		else await keepBothVersions(conflict)
+		toast(resolutionMessages[resolution])
 		return true
 	} catch (error) {
 		toast(getErrorMessage(error))
@@ -70,24 +93,115 @@ function useConflict(filePath: string | null): {
 	return { conflict: state.conflict, error: state.error }
 }
 
-function DiffLine({ row }: { row: DiffRow }) {
+function diffLines(rows: DiffRow[]): ConflictLine[] {
+	return rows.map((row) =>
+		row.type === "gap"
+			? {
+					id: String(row.id),
+					kind: "gap",
+					text: `⋯ ${row.count} unchanged line${row.count === 1 ? "" : "s"}`,
+				}
+			: {
+					id: String(row.id),
+					kind: row.kind === "del" ? "del" : row.kind === "add" ? "add" : "same",
+					text: row.segments.map((segment) => segment.text).join(""),
+				},
+	)
+}
+
+function plainLines(content: string, prefix: string): ConflictLine[] {
+	return content
+		.split("\n")
+		.map((text, index) => ({ id: `${prefix}-${index}`, kind: "same", text }))
+}
+
+function linesFor(conflict: NoteConflict, view: ConflictView, diff: DiffRow[]): ConflictLine[] {
+	if (view === "mine") return plainLines(conflict.localContent, "mine")
+	if (view === "theirs") return plainLines(conflict.remoteContent ?? "", "theirs")
+	return diffLines(diff)
+}
+
+function LineRow({ line }: { line: ConflictLine }) {
 	const { colors } = useMobileColors()
-	if (row.type === "gap") {
+	const background =
+		line.kind === "add"
+			? colors.successBackground
+			: line.kind === "del"
+				? colors.errorBackground
+				: "transparent"
+	const color =
+		line.kind === "add"
+			? colors.successText
+			: line.kind === "del"
+				? colors.destructiveText
+				: line.kind === "gap"
+					? colors.tertiaryLabel
+					: colors.label
+	return (
+		<Text style={[styles.line, { backgroundColor: background, color }]}>{line.text || " "}</Text>
+	)
+}
+
+function ConflictToolbar({
+	disabled,
+	resolve,
+}: {
+	disabled: boolean
+	resolve: (resolution: Resolution) => void
+}) {
+	const groups: MenuGroup[] = [
+		[
+			{
+				disabled,
+				icon: { md: "smartphone", sf: "iphone" },
+				key: "local",
+				label: "Keep mine",
+				onPress: () => resolve("local"),
+			},
+			{
+				disabled,
+				icon: { md: "cloud", sf: "icloud" },
+				key: "remote",
+				label: "Keep theirs",
+				onPress: () => resolve("remote"),
+			},
+			{
+				disabled,
+				icon: { md: "merge", sf: "arrow.triangle.merge" },
+				key: "both",
+				label: "Keep both and edit",
+				onPress: () => resolve("both"),
+			},
+		],
+	]
+	if (!IS_IOS) {
 		return (
-			<Text style={[styles.diffLine, { color: colors.tertiaryLabel }]}>
-				{`  ⋯ ${row.count} unchanged line${row.count === 1 ? "" : "s"}`}
-			</Text>
+			<Stack.Screen
+				options={{
+					headerRight: () => (
+						<NativeMenu accessibilityLabel="Resolve" groups={groups} title="Resolve" />
+					),
+				}}
+			/>
 		)
 	}
-	const text = row.segments.map((segment) => segment.text).join("")
-	const prefix = row.kind === "del" ? "- " : row.kind === "add" ? "+ " : "  "
-	const color =
-		row.kind === "del"
-			? colors.destructiveText
-			: row.kind === "add"
-				? colors.successText
-				: colors.secondaryLabel
-	return <Text style={[styles.diffLine, { color }]}>{`${prefix}${text}`}</Text>
+	return (
+		<Stack.Toolbar placement="bottom">
+			<Stack.Toolbar.Button disabled={disabled} onPress={() => resolve("local")}>
+				Keep mine
+			</Stack.Toolbar.Button>
+			<Stack.Toolbar.Spacer />
+			<Stack.Toolbar.Menu disabled={disabled} icon="ellipsis" title="More">
+				<Stack.Toolbar.MenuAction icon="arrow.triangle.merge" onPress={() => resolve("both")}>
+					Keep both and edit
+				</Stack.Toolbar.MenuAction>
+			</Stack.Toolbar.Menu>
+			<Stack.Toolbar.Spacer />
+			<Stack.Toolbar.Button disabled={disabled} onPress={() => resolve("remote")}>
+				Keep theirs
+			</Stack.Toolbar.Button>
+		</Stack.Toolbar>
+	)
 }
 
 export function ConflictScreen() {
@@ -97,109 +211,87 @@ export function ConflictScreen() {
 	const { colors } = useMobileColors()
 	const { conflict, error } = useConflict(filePath)
 	const [resolving, setResolving] = useState(false)
+	const [view, setView] = useState<ConflictView>("changes")
 
 	const diff = useMemo(() => (conflict ? buildConflictDiff(conflict) : []), [conflict])
+	const lines = useMemo(
+		() => (conflict ? linesFor(conflict, view, diff) : []),
+		[conflict, diff, view],
+	)
 	const title = conflict?.title ?? filePath?.split("/").pop()?.replace(/\.md$/i, "") ?? "Conflict"
-	const disabled = !conflict || resolving
+	const theirsMissing = view === "theirs" && conflict?.remoteContent === null
 
 	function resolve(resolution: Resolution) {
 		if (!conflict || resolving) return
 		setResolving(true)
-		void resolveConflict(conflict, resolution).then((resolved) => {
+		void applyResolution(conflict, resolution).then((resolved) => {
 			setResolving(false)
-			if (resolved && router.canGoBack()) router.back()
+			if (!resolved) return
+			if (router.canGoBack()) router.back()
+			if (resolution === "both") openNote(conflict.filePath)
 		})
 	}
 
-	const resolveGroups: MenuGroup[] = [
-		[
-			{
-				disabled,
-				icon: { md: "smartphone", sf: "iphone" },
-				key: "local",
-				label: "Keep local",
-				onPress: () => resolve("local"),
-			},
-			{
-				disabled,
-				icon: { md: "cloud", sf: "icloud" },
-				key: "remote",
-				label: "Keep remote",
-				onPress: () => resolve("remote"),
-			},
-		],
-	]
-
 	return (
 		<>
-			<Stack.Screen
-				options={{
-					headerLargeTitleEnabled: false,
-					headerRight: IS_IOS
-						? undefined
-						: () => (
-								<NativeMenu accessibilityLabel="Resolve" groups={resolveGroups} title="Resolve" />
-							),
-					title,
-				}}
-			/>
-			{IS_IOS ? (
-				<Stack.Toolbar placement="bottom">
-					<Stack.Toolbar.Button disabled={disabled} onPress={() => resolve("local")}>
-						Keep local
-					</Stack.Toolbar.Button>
-					<Stack.Toolbar.Spacer />
-					<Stack.Toolbar.Button disabled={disabled} onPress={() => resolve("remote")}>
-						Keep remote
-					</Stack.Toolbar.Button>
-				</Stack.Toolbar>
-			) : null}
-			<ScrollView
+			<Stack.Screen options={{ headerLargeTitleEnabled: false, title }} />
+			<ConflictToolbar disabled={!conflict || resolving} resolve={resolve} />
+			<FlatList
 				contentContainerStyle={styles.content}
 				contentInsetAdjustmentBehavior="automatic"
-				style={{ backgroundColor: colors.background }}
-			>
-				<Text style={[styles.lead, { color: colors.secondaryLabel }]}>
-					{error ??
-						`${conflict?.relativePath ?? title} changed here and on another device. Keep one version; the other is replaced.`}
-				</Text>
-				{conflict ? (
-					<View style={[styles.code, { backgroundColor: colors.codeBackground }]}>
-						{diff.length > 0 ? (
-							diff.map((row) => <DiffLine key={row.id} row={row} />)
-						) : (
-							<Text style={[styles.diffLine, { color: colors.secondaryLabel }]}>
-								Both versions are identical.
-							</Text>
-						)}
+				data={theirsMissing ? [] : lines}
+				keyExtractor={(line) => line.id}
+				ListEmptyComponent={
+					conflict ? (
+						<Text style={[styles.lead, { color: colors.secondaryLabel }]}>
+							{theirsMissing
+								? "The other device's version isn't available on this phone yet. Sync again to load it."
+								: "Both versions are identical."}
+						</Text>
+					) : null
+				}
+				ListHeaderComponent={
+					<View style={styles.header}>
+						<Text style={[styles.lead, { color: colors.secondaryLabel }]}>
+							{error ?? "This note changed here and on another device. Keep one version or both."}
+						</Text>
+						<SegmentedControl
+							accessibilityLabel="Conflict view"
+							onChange={setView}
+							options={viewOptions}
+							style={styles.segments}
+							value={view}
+						/>
 					</View>
-				) : null}
-			</ScrollView>
+				}
+				renderItem={({ item }) => <LineRow line={item} />}
+				style={{ backgroundColor: colors.background }}
+			/>
 		</>
 	)
 }
 
 const styles = StyleSheet.create({
-	code: {
-		borderRadius: 10,
-		gap: 2,
-		marginHorizontal: 16,
-		marginTop: 12,
-		paddingHorizontal: 12,
-		paddingVertical: 10,
-	},
 	content: {
 		paddingBottom: 120,
-		paddingTop: 8,
 	},
-	diffLine: {
-		fontFamily: MONOSPACE,
-		fontSize: 14,
-		lineHeight: 22,
+	header: {
+		gap: 12,
+		paddingBottom: 12,
+		paddingTop: 8,
 	},
 	lead: {
 		fontSize: IS_IOS ? 15 : 14,
 		lineHeight: 20,
 		paddingHorizontal: 20,
+	},
+	line: {
+		fontFamily: MONOSPACE,
+		fontSize: 14,
+		lineHeight: 22,
+		paddingHorizontal: 16,
+	},
+	segments: {
+		marginHorizontal: 16,
 	},
 })

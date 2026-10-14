@@ -134,6 +134,20 @@ function toActivation(response: Notifications.NotificationResponse): Notificatio
 	}
 }
 
+export function subscribeNotificationOpen(listener: (identifier: string) => void): () => void {
+	let lastHandled: string | null = null
+	const handle = (response: Notifications.NotificationResponse | null) => {
+		if (!response) return
+		const identifier = response.notification.request.identifier
+		if (identifier === lastHandled) return
+		lastHandled = identifier
+		listener(identifier)
+	}
+	void Notifications.getLastNotificationResponseAsync().then(handle)
+	const subscription = Notifications.addNotificationResponseReceivedListener(handle)
+	return () => subscription.remove()
+}
+
 export const notificationsApi = {
 	getCapabilities: () => ({
 		actions: true,
