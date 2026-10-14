@@ -5,7 +5,7 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 ## Estado atual
 
 - Início: 2026-10-13 23:25 (-03).
-- Item em andamento: 5. APIs de compartilhamento.
+- Item em andamento: 6. Colaboração em tempo real.
 
 ## Status por item
 
@@ -15,8 +15,8 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 | 2. Editor (Mermaid, desenhos, PDF) | feito (parcial em desenhos) | e5cc5da | Mermaid renderizado sob demanda na WebView com o mesmo renderer do desktop, agora em `@cortex/editor/mermaid`. Desenho vira card só de leitura (contagem de formas). PDF: lista no Files e visualizador nativo (WKWebView no iOS, "abrir com" no Android). |
 | 3. Interface pura | feito | be09d92, 4b8eeed, 46c3267, bc2a0c6, f303f60, bbcc886 | Tabs: fixar, fechar outras, fechar à direita, reabrir fechada, ordem MRU. Paleta: ~45 comandos do app com os mesmos ids do desktop, mais os comandos do editor/formatação via bridge. Daily notes (na página Templates, como no desktop) e Excluded paths na semântica do desktop. Recuperar senha (deep link `cortex://reset-password`), trocar senha, nova recovery key. Menções não vinculadas via `findPhrase` do índice. |
 | 4. Arquivos nativos | feito (PDF depende do item 8) | cf544e8, ef54b4b, e1e9f14 | `dialog.pickFile/pickFiles` com `expo-document-picker` (os arquivos vão para `Documents/Cortex/.picked`, que é app storage); importação sem fixtures (arquivos, CSV, HTML e Obsidian pelo seletor de pasta). Exportação grava o arquivo de verdade (HTML, CSV, PDF via `expo-print`) e abre o share sheet com o MIME/UTI certo. Imagem: item "Image" da toolbar abre a galeria; colar imagem no editor funciona via `saveImage` na bridge (base64). A pasta da imagem segue `editor.imageStorageLocation`, como no desktop. |
-| 5. APIs de compartilhamento | em andamento | | Inclui convites, links de nota e templates de equipe (`collabAdapter`, `membersAdapter`, `shareAdapter`, `templatesAdapter` ainda com stubs). |
-| 6. Colaboração em tempo real | pendente | | |
+| 5. APIs de compartilhamento | feito (validar no device) | e1fffcd, 35dee7a, 6846184, 4508189, e0b8530 + grupos | Os serviços já existiam em `@cortex/sync-api`, e o servidor (`../sync`, Go) já tem os endpoints; faltava ligar no mobile. Links públicos de nota (bundle com imagens embutidas, sem DOMParser), convites, papéis, remoção, convidado restrito a uma nota (grant no caminho), grupos (criar e apagar), templates de equipe (`refreshTeamTemplates`), marketplace de templates (`listMarketTemplates` e `openPublicTemplate`), publicar template de database, abrir `cortex://s/…`, `cortex://invite/…` e `cortex://t/…`. |
+| 6. Colaboração em tempo real | em andamento | | |
 | 7. Lembretes | pendente | | |
 | 8. Pontuais | pendente | | |
 | Fase 2: API | pendente | | |
@@ -49,6 +49,10 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 - **Bug corrigido:** o export antigo compartilhava `renderMarkdownExportHtml(...)` sem `await`, ou seja, enviava "[object Promise]".
 - **Importar PDF** precisa da extração de texto (item 8). Até lá, a prévia diz que não está disponível no aparelho, em vez de mostrar páginas falsas.
 
+- **Links no mobile:** o expo-router perderia o hash (`#k=` carrega a chave da nota ou do convite). Por isso `app/+native-intent.tsx` converte os links `cortex://` com os parsers do core em rotas nativas (`/shared-note`, `/invite`, `/public-template`).
+- **Telas do marketplace:** `MarketplaceScreen`/`MarketplaceDetailScreen` têm mudanças não commitadas de outra sessão. Mudei só os adapters, mantendo as assinaturas, e deixei `marketplaceFixtures.ts` como reexport de tipos para não quebrar os imports daquelas telas.
+- **Edição de grupos** (membros do grupo, regras de acesso por pasta) ficou fora: o mobile não tem referência de UX para isso. Criar e apagar já funcionam.
+
 ## Próximo passo exato
 
-Item 5: ver o que `@cortex/sync-api` já oferece (`noteSharesService`, `templateSharesService`, membros/convites) e o que `apps/mobile/src/platform/shares.ts`, `features/members/membersAdapter.ts`, `features/share/shareAdapter.ts`, `features/templates/templatesAdapter.ts` e `features/collab/collabAdapter.ts` (convites, links) ainda fazem com stubs/fixtures; ligar no serviço real como o desktop (`apps/desktop/electron/services/noteShares.ts`, `templateShares.ts`).
+Item 6: ver como o desktop liga o `@cortex/collab` (`apps/desktop/electron/services/collab.ts`, `packages/core` `startCollabRuntime`, `@cortex/editor/collab` com y-codemirror) e o que `apps/mobile/src/platform/collab.ts` faz hoje (stub). O plano é rodar o transporte (WebSocket + criptografia do collab) no lado React Native e o Y.Doc/y-codemirror na WebView, trocando updates binários em lote pela bridge (base64), sem serializar o documento inteiro.
