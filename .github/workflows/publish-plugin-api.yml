@@ -58,7 +58,15 @@ jobs:
 
       - name: Apply version
         working-directory: packages/plugin-api
-        run: npm version "${{ steps.version.outputs.version }}" --no-git-tag-version --allow-same-version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          node -e '
+            const fs = require("node:fs")
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"))
+            pkg.version = process.env.VERSION
+            fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, "\t")}\n`)
+          '
 
       - name: Build package
         working-directory: packages/plugin-api
