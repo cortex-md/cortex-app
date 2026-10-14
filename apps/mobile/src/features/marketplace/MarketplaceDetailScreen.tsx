@@ -1,10 +1,14 @@
 import { getErrorMessage, useVaultStore } from "@cortex/core"
 import {
 	findThemeFamily,
+	formatCount,
 	formatManifestValue,
+	formatStatsAge,
 	getCapabilityLabel,
 	getMarketplaceEntryState,
 	getRepositoryUrl,
+	getVoteUrl,
+	type MarketplaceEntryState,
 	type MarketplaceTab,
 	type RegistryEntry,
 	useMarketplaceStore,
@@ -14,10 +18,9 @@ import { usePluginStore } from "@cortex/plugin-host-core"
 import { useSettingsStore } from "@cortex/settings"
 import { Stack, useLocalSearchParams } from "expo-router"
 import { useEffect } from "react"
-
+import { mobilePluginHost } from "@/bootstrap/pluginHost"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { FormRow, FormSection, NativeForm } from "@/components/ui/Form"
-import { mobilePluginHost } from "@/bootstrap/pluginHost"
 import { toast } from "@/features/feedback/useToast"
 import {
 	addTemplate,
@@ -71,16 +74,96 @@ async function disablePlugin(pluginId: string): Promise<void> {
 	}
 }
 
+function useCommunityData() {
+	const stats = useMarketplaceStore((state) => state.stats)
+	const verified = useMarketplaceStore((state) => state.verified)
+	const blocked = useMarketplaceStore((state) => state.blocked)
+	return { stats, verified, blocked }
+}
+
+function ReviewSection({
+	entryState,
+	kind,
+}: {
+	entryState: MarketplaceEntryState
+	kind: MarketplaceTab
+}) {
+	const label = kind === "plugins" ? "plugin" : "theme"
+	const audit = entryState.stats?.audit
+	if (entryState.blockState === "item") {
+		return (
+			<FormSection footer={entryState.blockReason ?? undefined} title="Review">
+				<FormRow destructive title={`This ${label} was removed from the Marketplace`} />
+			</FormSection>
+		)
+	}
+	if (entryState.blockState === "versions") {
+		return (
+			<FormSection footer={entryState.blockReason ?? undefined} title="Review">
+				<FormRow
+					destructive
+					title={`Version ${entryState.blockedVersions.join(", ")} was pulled`}
+				/>
+			</FormSection>
+		)
+	}
+	if (audit && audit.status !== "pass") {
+		return (
+			<FormSection footer={audit.issues.slice(0, 3).join("\n")} title="Review">
+				<FormRow
+					destructive={audit.status === "fail"}
+					title={
+						audit.status === "fail"
+							? `Automated review flagged ${audit.checkedTag}`
+							: `Automated review found warnings in ${audit.checkedTag}`
+					}
+				/>
+			</FormSection>
+		)
+	}
+	return null
+}
+
+function CommunitySection({
+	entryState,
+	voteUrl,
+}: {
+	entryState: MarketplaceEntryState
+	voteUrl: string | null
+}) {
+	const generatedAt = useMarketplaceStore((state) => state.stats.generatedAt)
+	const stats = entryState.stats
+	if (!stats && !entryState.verified) return null
+	return (
+		<FormSection footer={formatStatsAge(generatedAt) ?? undefined} title="Community">
+			{entryState.verified ? <FormRow title="Verified by Cortex" /> : null}
+			{stats ? <FormRow title="Votes" value={formatCount(stats.votes)} /> : null}
+			{stats ? <FormRow title="Downloads" value={formatCount(stats.downloads)} /> : null}
+			{stats ? <FormRow title="GitHub stars" value={formatCount(stats.stars)} /> : null}
+			{voteUrl ? (
+				<FormRow
+					chevron
+					onPress={() => void openExternalUrl(voteUrl)}
+					tint
+					title="Vote on GitHub"
+				/>
+			) : null}
+		</FormSection>
+	)
+}
+
 function PluginPrimaryRow({
 	entry,
 	hasVault,
 	incompatible,
+	installBlocked,
 	installed,
 	updateVersion,
 }: {
 	entry: RegistryEntry
 	hasVault: boolean
 	incompatible: boolean
+	installBlocked: boolean
 	installed: boolean
 	updateVersion: string | null
 }) {
@@ -90,6 +173,8 @@ function PluginPrimaryRow({
 	const install = () => void installEntry(entry, "plugins")
 
 	if (!hasVault) return <FormRow disabled title="Open a vault to install" />
+	if (installBlocked && (updateVersion || !installed))
+		return <FormRow disabled title="Not available" />
 	if (!allowCommunity && !installed) {
 		return (
 			<FormRow
@@ -130,6 +215,7 @@ function PluginDetail({ id }: { id: string }) {
 	const manifestMetadataCache = useMarketplaceStore((state) => state.manifestMetadataCache)
 	const manifestLoading = useMarketplaceStore((state) => Boolean(state.manifestMetadataLoading[id]))
 	const loadManifestMetadata = useMarketplaceStore((state) => state.loadManifestMetadata)
+	const community = useCommunityData()
 
 	useEffect(() => {
 		if (entry) void loadManifestMetadata(entry)
@@ -139,10 +225,12 @@ function PluginDetail({ id }: { id: string }) {
 
 	const installed = Boolean(record)
 	const entryState = getMarketplaceEntryState(
-		{ appVersion, availableUpdates, manifestMetadataCache },
+		{ appVersion, availableUpdates, manifestMetadataCache, ...community },
 		entry.id,
 		installed,
+		"plugins",
 	)
+	const voteUrl = getVoteUrl(community.stats, "plugins", entry.id)
 	const metadata = manifestMetadataCache[entry.id]
 	const capabilities = metadata?.capabilities ?? []
 	const released = formatReleaseDate(releaseDates[entry.id])
@@ -166,10 +254,13 @@ function PluginDetail({ id }: { id: string }) {
 						entry={entry}
 						hasVault={hasVault}
 						incompatible={entryState.incompatible}
+						installBlocked={entryState.installBlocked}
 						installed={installed}
 						updateVersion={entryState.updateVersion}
 					/>
 				</FormSection>
+				<ReviewSection entryState={entryState} kind="plugins" />
+				<CommunitySection entryState={entryState} voteUrl={voteUrl} />
 				<FormSection title="Information">
 					<FormRow
 						title="Version"
@@ -223,12 +314,14 @@ function ThemePrimaryRow({
 	familyName,
 	hasVault,
 	incompatible,
+	installBlocked,
 	updateVersion,
 }: {
 	entry: RegistryEntry
 	familyName: string | null
 	hasVault: boolean
 	incompatible: boolean
+	installBlocked: boolean
 	updateVersion: string | null
 }) {
 	const selectedTheme = useSettingsStore((state) => state.settings.appearance.theme)
@@ -237,6 +330,8 @@ function ThemePrimaryRow({
 	const install = () => void installEntry(entry, "themes")
 
 	if (!hasVault) return <FormRow disabled title="Open a vault to install" />
+	if (installBlocked && (updateVersion || !familyName))
+		return <FormRow disabled title="Not available" />
 	if (updateVersion) {
 		return (
 			<FormRow
@@ -274,6 +369,7 @@ function ThemeDetail({ id }: { id: string }) {
 	const manifestMetadataCache = useMarketplaceStore((state) => state.manifestMetadataCache)
 	const manifestLoading = useMarketplaceStore((state) => Boolean(state.manifestMetadataLoading[id]))
 	const loadManifestMetadata = useMarketplaceStore((state) => state.loadManifestMetadata)
+	const community = useCommunityData()
 
 	useEffect(() => {
 		if (entry) void loadManifestMetadata(entry)
@@ -283,10 +379,12 @@ function ThemeDetail({ id }: { id: string }) {
 
 	const familyName = findThemeFamily(entry, families)?.name ?? null
 	const entryState = getMarketplaceEntryState(
-		{ appVersion, availableUpdates, manifestMetadataCache },
+		{ appVersion, availableUpdates, manifestMetadataCache, ...community },
 		entry.id,
 		familyName !== null,
+		"themes",
 	)
+	const voteUrl = getVoteUrl(community.stats, "themes", entry.id)
 	const metadata = manifestMetadataCache[entry.id]
 	const released = formatReleaseDate(releaseDates[entry.id])
 	const requires = entryState.minAppVersion
@@ -310,9 +408,12 @@ function ThemeDetail({ id }: { id: string }) {
 						familyName={familyName}
 						hasVault={hasVault}
 						incompatible={entryState.incompatible}
+						installBlocked={entryState.installBlocked}
 						updateVersion={entryState.updateVersion}
 					/>
 				</FormSection>
+				<ReviewSection entryState={entryState} kind="themes" />
+				<CommunitySection entryState={entryState} voteUrl={voteUrl} />
 				<FormSection title="Information">
 					<FormRow
 						title="Version"

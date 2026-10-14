@@ -9,6 +9,7 @@ type LandingEvent =
 	| { name: "account_clicked"; location: "header" | "header_mobile" }
 	| { name: "pricing_checkout_clicked"; location: "pricing" | "billing" }
 	| { name: "faq_opened"; question: string }
+	| { name: "marketplace_vote_clicked"; kind: "plugins" | "themes"; id: string }
 
 declare global {
 	interface Window {

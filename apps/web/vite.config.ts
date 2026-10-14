@@ -15,6 +15,7 @@ const runtimeEnvKeys = [
 	"CORTEX_SYNC_URL",
 	"CORTEX_BILLING_RETURN_URL",
 	"CORTEX_BILLING_COMPLETION_URL",
+	"CORTEX_REGISTRY_REPO",
 ] as const
 const dynamicPrerenderPaths = new Set(["/account", "/billing", "/changelog", "/login", "/signup"])
 
@@ -69,7 +70,9 @@ export default defineConfig(({ mode }) => {
 					crawlLinks: true,
 					failOnError: true,
 					filter: ({ path }) =>
-						!path.includes("#") && !dynamicPrerenderPaths.has(getPrerenderPathname(path)),
+						!path.includes("#") &&
+						!dynamicPrerenderPaths.has(getPrerenderPathname(path)) &&
+						!getPrerenderPathname(path).startsWith("/marketplace"),
 				},
 				sitemap: {
 					enabled: true,

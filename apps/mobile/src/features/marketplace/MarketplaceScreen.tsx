@@ -1,6 +1,9 @@
 import {
 	findThemeFamily,
+	formatCount,
+	getItemStats,
 	groupMarketplaceEntries,
+	isVerifiedEntry,
 	type MarketplaceEntryGroupKey,
 	type MarketplaceSortOrder,
 	type MarketplaceTab,
@@ -61,6 +64,8 @@ const KIND_OPTIONS: { label: string; value: TemplateKindFilter }[] = [
 
 const SORT_OPTIONS: { label: string; value: MarketplaceSortOrder }[] = [
 	{ label: "Default order", value: "default" },
+	{ label: "Most voted", value: "popular" },
+	{ label: "Most downloaded", value: "downloads" },
 	{ label: "Newest first", value: "newest" },
 	{ label: "Oldest first", value: "oldest" },
 ]
@@ -231,6 +236,9 @@ export function MarketplaceScreen() {
 	const filterInstalled = useMarketplaceStore((state) => state.filterInstalled)
 	const sortOrder = useMarketplaceStore((state) => state.sortOrder)
 	const releaseDates = useMarketplaceStore((state) => state.releaseDates)
+	const stats = useMarketplaceStore((state) => state.stats)
+	const verified = useMarketplaceStore((state) => state.verified)
+	const blocked = useMarketplaceStore((state) => state.blocked)
 	const availableUpdates = useMarketplaceStore((state) => state.availableUpdates)
 	const registryError = useMarketplaceStore((state) => state.registryError)
 	const setActiveTab = useMarketplaceStore((state) => state.setActiveTab)
@@ -271,6 +279,8 @@ export function MarketplaceScreen() {
 				filterInstalled,
 				sortOrder,
 				releaseDates,
+				stats,
+				blocked,
 			},
 			{ isInstalled },
 		)
@@ -280,10 +290,19 @@ export function MarketplaceScreen() {
 			data: group.entries.map((entry): MarketRow => {
 				const version = activeTab === "plugins" ? plugins[entry.id]?.manifest.version : undefined
 				const inUse = activeTab === "themes" && themeFamilyByEntry.get(entry.id) === selectedTheme
+				const itemStats = getItemStats(stats, activeTab, entry.id)
+				const metaParts = [entry.author]
+				if (version) metaParts.push(version)
+				if (isVerifiedEntry(verified, activeTab, entry.id)) metaParts.push("Verified")
+				if (itemStats)
+					metaParts.push(
+						`${formatCount(itemStats.votes)} 👍`,
+						`${formatCount(itemStats.downloads)} ↓`,
+					)
 				return {
 					key: entry.id,
 					title: entry.name,
-					meta: version ? `${entry.author} · ${version}` : entry.author,
+					meta: metaParts.join(" · "),
 					icon: activeTab === "plugins" ? PLUGIN_ICON : THEME_ICON,
 					imageUrl: entry.coverImageUrl,
 					status:

@@ -18,6 +18,10 @@ packages/marketplace/
     versionUtils.ts        # compareVersions, isVersionCompatible
     marketplaceStore.ts    # Zustand store for UI state and actions
     marketplaceSelectors.ts # Pure catalog/detail selectors shared by desktop and mobile
+    catalogData.ts         # Pure stats/verified/blocked parsing and block rules
+    statsService.ts        # Fetch + 10 min cache of stats.json, verified.json, blocked.json
+    registryConfig.ts      # Registry repo (globalThis.__CORTEX_REGISTRY_REPO__) and raw URLs
+    catalog.ts             # `@cortex/marketplace/catalog`: platform-free subset for the website
     index.ts               # Public exports
 ```
 
@@ -38,6 +42,27 @@ interface RegistryEntry {
   repo: string            // "owner/repo"
 }
 ```
+
+## Votes, Downloads, Verified and Blocked
+
+The registry publishes community data without any backend (see `cortex-md/registry` README):
+
+- `data` branch `stats.json`: per item `votes` (👍 on the item's GitHub Discussion), `downloads`,
+  `stars`, `latest`, `releasedAt`, `discussion.url`, and `audit` (daily static review).
+- `main` branch `verified.json` and `blocked.json` (maintainers only). `versions: null` blocks the
+  whole item; a list pulls only those versions.
+
+`loadRegistry` triggers `loadStats` (silent on failure). Selectors expose `popular`/`downloads`
+sorts, `getItemStats`, `isVerifiedEntry`, `getVoteUrl`, `formatCount`, `formatStatsAge`, and
+`getMarketplaceEntryState(..., kind)` adds `verified`, `stats`, `blockState`, `blockReason`,
+`blockedVersions` and `installBlocked`. Fully blocked items are hidden unless installed;
+`installEntry` refuses blocked items/versions and `checkUpdates` drops blocked update versions.
+Installed blocked plugins are never uninstalled automatically; hosts offer "Disable". Voting
+happens in the browser: hosts open `getVoteUrl` with `app.openExternalUrl`. Release-date sorting
+reads `stats.releasedAt` first and only calls the GitHub API for missing items.
+
+Desktop builds read `CORTEX_REGISTRY_REPO` (default `cortex-md/registry`) into
+`globalThis.__CORTEX_REGISTRY_REPO__` to test against a registry fork.
 
 ## Installation Flow
 
@@ -88,7 +113,7 @@ The store exposes `filterInstalled: boolean` and `sortOrder: "default" | "newest
 - `getCapabilityLabel`, `formatManifestValue`, `marketplaceSortLabels`, `matchesEntry`
 - `getRepositoryUrl`, `getRepositoryLabel`, `getExternalUrl` — Registry link helpers
 - `RegistryEntry` — Type for registry entries
-- `MarketplaceSortOrder` — `"default" | "newest" | "oldest"`
+- `MarketplaceSortOrder` — `"default" | "popular" | "downloads" | "newest" | "oldest"`
 - `fetchPluginRegistry() / fetchThemeRegistry()` — Fetch with in-memory cache
 - `fetchReadme(repo)` — Fetch README.md from GitHub (tries main, then master branch)
 - `fetchManifestMinVersion(repo)` — Fetch minAppVersion from release asset manifest first, then raw source manifest

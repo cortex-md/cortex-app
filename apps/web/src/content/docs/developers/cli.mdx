@@ -1,41 +1,73 @@
 ---
 title: Cortex CLI
-description: Use the CLI for local plugin and theme development against a real Cortex vault.
+description: Create, develop, check, release, and list plugins and themes from one small CLI.
 section: Developer Tools
 sectionOrder: 5
 order: 0
 ---
 
-The CLI mirrors the extension loop: create a project, run against a local vault, build, validate, and prepare artifacts when the work is ready.
+The CLI covers the whole extension loop in five commands: `create`, `dev`, `check`, `release`, and `submit`. Each one detects whether the current folder is a plugin or a theme from `manifest.json`.
+
+## Install
+
+```sh title="Install the CLI"
+npm install -g @cortex.md/cli
+```
 
 ## Create
 
-Start with a small plugin or theme project. Keep the project close to the vault you use for testing so the feedback loop stays short.
+Scaffold a plugin or theme that loads in Cortex as-is. The template includes GitHub Actions workflows for checks and releases, a git repository, and installed dependencies.
 
-```sh title="Create a plugin"
-npm install -g @cortex.md/cli
-cortex plugin create github-emoji
-cd github-emoji
-bun install
+```sh title="Create a plugin or theme"
+cortex create github-emoji --plugin
+cortex create sunset --theme
 ```
 
-## Dev vault
+Run `cortex create` with no arguments for an interactive prompt. In an existing project, `cortex create --update-ci` rewrites only the workflows.
 
-Use a real local folder while developing. The goal is to test the same Markdown files, commands, and views that a user will touch.
+## Develop against a vault
 
-```sh title="Run against a local vault"
-cortex plugin dev --vault ~/notes
+`cortex dev` builds the project and copies it into `<vault>/.cortex/plugins/<id>` or `<vault>/.cortex/themes/<id>`, then rebuilds on every change. Cortex reloads it automatically. The vault is remembered for next time.
+
+```sh title="Develop in a local vault"
+cortex dev --vault ~/notes
+cortex dev --once    # install once and exit
+cortex dev --clean   # remove the development copy
 ```
 
-## Build and validate
+The first time, turn on community plugins in Settings and enable your plugin. Plugin settings and `data/` in the vault are never overwritten.
 
-Build production output and validate structure before publishing or sharing artifacts.
+## Check
 
-```sh title="Prepare release output"
-cortex plugin build
-cortex plugin validate
-cortex plugin publish
+`cortex check` builds the plugin, loads the bundle the same way Cortex does, and runs the checks the Marketplace registry applies: matching ids and versions, valid permissions, CommonJS output, stylesheet scoping, and release readiness. Every problem comes with a fix.
+
+```sh title="Run every check"
+cortex check
+cortex check --strict   # fail on warnings too, used in CI
 ```
+
+## Release
+
+`cortex release` runs the checks, bumps the version in `manifest.json` and `package.json`, commits, creates the `v<version>` tag, and pushes. The release workflow then runs `cortex pack` and publishes the GitHub release that Cortex installs from.
+
+```sh title="Publish a version"
+cortex release patch
+cortex release 1.0.0 --wait   # follow the release and offer to submit it
+```
+
+Versions are plain `MAJOR.MINOR.PATCH`. Pre-release suffixes break update checks in the app.
+
+## List on the Marketplace
+
+`cortex submit` verifies the latest GitHub release, then opens or updates a pull request to `cortex-md/registry` from your fork. The registry entry has no version, so you only submit once, and again when the name, description, author, or cover image change. Every later release reaches users automatically.
+
+```sh title="Submit to the registry"
+cortex login
+cortex submit --dry-run
+cortex submit
+```
+
+`cortex submit` uses `CORTEX_TOKEN`, `GITHUB_TOKEN`, the token stored by `cortex login`, or `gh auth token`, in that order. `cortex whoami` shows which one is active.
 
 ## Related docs
 

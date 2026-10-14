@@ -338,33 +338,35 @@ export const communityThemeShowcase = {
 export const cliProofs = [
 	{
 		title: "Vault-scoped dev",
-		description: "Run hot reload against a local Cortex vault with cortex plugin dev --vault.",
-	},
-	{
-		title: "Build and validate",
 		description:
-			"Build production output, then validate plugin structure and security before release.",
+			"Install into a local Cortex vault and reload on every change with cortex dev --vault.",
 	},
 	{
-		title: "Publish artifacts",
-		description: "Prepare dist/cortex-publish assets for GitHub Releases and registry submission.",
+		title: "Checks before release",
+		description:
+			"cortex check loads the bundle the way Cortex does and runs every Marketplace check.",
+	},
+	{
+		title: "Release and submit",
+		description:
+			"cortex release tags a version for GitHub Actions; cortex submit lists it on the Marketplace.",
 	},
 ] as const
 
 export const cliFlowSteps = [
 	{
 		label: "Scaffold",
-		description: "Start from the plugin template and install the local project.",
+		description: "Start from a plugin or theme template that loads in Cortex as-is.",
 		tone: "amber",
 	},
 	{
 		label: "Develop",
-		description: "Run hot reload against the vault you already use for notes.",
+		description: "Install into the vault you already use for notes and reload on every change.",
 		tone: "sage",
 	},
 	{
 		label: "Release",
-		description: "Build, validate, and prepare reviewed artifacts for submission.",
+		description: "Check, tag, and publish through GitHub Actions, then list it on the Marketplace.",
 		tone: "sky",
 	},
 ] as const
@@ -376,10 +378,10 @@ export const cliTerminalTabs = [
 		status: "New plugin",
 		lines: [
 			{ kind: "comment", text: "# Start from the plugin template" },
-			{ kind: "command", text: "cortex plugin create github-emoji" },
-			{ kind: "success", text: "Plugin 'github-emoji' created successfully" },
-			{ kind: "command", text: "cd github-emoji && bun install" },
-			{ kind: "success", text: "dependencies installed" },
+			{ kind: "command", text: "cortex create github-emoji --plugin" },
+			{ kind: "success", text: "Created plugin github-emoji" },
+			{ kind: "success", text: "Installing dependencies" },
+			{ kind: "command", text: "cd github-emoji" },
 		],
 	},
 	{
@@ -387,62 +389,66 @@ export const cliTerminalTabs = [
 		label: "Develop",
 		status: "Vault dev",
 		lines: [
-			{ kind: "comment", text: "# Run against a real local vault" },
-			{ kind: "command", text: "cortex plugin dev --vault ~/notes" },
-			{ kind: "success", text: "hot reload running for ~/notes" },
-			{ kind: "comment", text: "# Open Cortex and iterate in place" },
-			{ kind: "command", text: "cortex plugin inspect github-emoji" },
+			{ kind: "comment", text: "# Install into a real local vault" },
+			{ kind: "command", text: "cortex dev --vault ~/notes" },
+			{ kind: "success", text: "Installing into the vault" },
+			{ kind: "comment", text: "# Edit src/ and Cortex reloads the plugin" },
+			{ kind: "command", text: "cortex check" },
 		],
 	},
 	{
 		value: "release",
 		label: "Release",
-		status: "Reviewed artifacts",
+		status: "Marketplace",
 		lines: [
-			{ kind: "comment", text: "# Compile and check the package" },
-			{
-				kind: "command",
-				text: "cortex plugin build && cortex plugin validate",
-			},
-			{ kind: "success", text: "plugin valid" },
-			{ kind: "command", text: "cortex plugin publish" },
-			{ kind: "success", text: "artifacts written to dist/cortex-publish" },
+			{ kind: "comment", text: "# Tag a version; GitHub Actions publishes it" },
+			{ kind: "command", text: "cortex release patch" },
+			{ kind: "success", text: "GitHub Actions is publishing v0.1.1" },
+			{ kind: "command", text: "cortex submit" },
+			{ kind: "success", text: "Pull request opened on cortex-md/registry" },
 		],
 	},
 ] as const
 
 export const cliInstall = {
 	title: "Install with npm",
-	description: "Add the CLI once, then run Cortex plugin commands from any local vault.",
+	description:
+		"Add the CLI once, then create, develop, and publish plugins and themes from anywhere.",
 	command: "npm install -g @cortex.md/cli",
 } as const
 
-export const pluginCode = `import { CortexPlugin } from "cortex-plugin-api"
+export const pluginCode = `import { definePlugin } from "@cortex.md/api"
 import { GITHUB_EMOJI_MAP } from "./emojiMap"
 
-export default class GitHubEmojiPlugin extends CortexPlugin {
-
-  onload() {
-
-    this.registerMarkdownInline({
-      id: "github-emoji",
-      pattern: ":([a-z0-9_+-]+):",
-      replacement: (match) => GITHUB_EMOJI_MAP[match[1]] ?? match[0],
-    })
-
-    this.addCommand({
+export default definePlugin({
+  manifest: {
+    id: "github-emoji",
+    name: "GitHub Emoji",
+    version: "0.1.0",
+    minAppVersion: "0.1.0",
+    author: "Cortex",
+    description: "Convert :emoji_code: to emoji characters",
+    icon: "smile",
+    permissions: ["editor:write"],
+  },
+  contributes: {
+    markdown: {
+      inline: [{
+        id: "github-emoji",
+        pattern: ":([a-z0-9_+-]+):",
+        replacement: {
+          type: "text",
+          content: (match) => GITHUB_EMOJI_MAP[match[1]] ?? match[0],
+        },
+      }],
+    },
+    commands: [{
       id: "insert-emoji",
       label: "Insert Emoji",
-      execute: () => this.api.editor.insertAtCursor(":sparkles: "),
-    })
-
-    this.registerView({
-      id: "emoji-browser",
-      label: "Emoji Browser",
-      location: "sidebar-left",
-    })
-  }
-}`
+      run: (ctx) => ctx.editor.insertAtCursor(":sparkles: "),
+    }],
+  },
+})`
 
 export const openSourcePrinciples = [
 	{

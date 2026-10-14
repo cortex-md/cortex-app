@@ -6,18 +6,30 @@ sectionOrder: 3
 order: 1
 ---
 
-This guide creates a small command plugin that inserts text into the active editor.
+This guide creates a small plugin with one command that inserts text into the active editor.
 
-## Minimal Folder
+## Scaffold
+
+```bash
+cortex create hello-cortex --plugin
+cd hello-cortex
+```
+
+The CLI writes a project that loads in Cortex as-is, with CI and release workflows, then
+initializes git and installs dependencies.
 
 ```text
 hello-cortex/
   manifest.json
   package.json
+  tsconfig.json
   src/index.ts
+  .github/workflows/
 ```
 
-## Manifest
+## manifest.json
+
+`manifest.json` is the single source of truth for the plugin identity:
 
 ```json
 {
@@ -29,22 +41,25 @@ hello-cortex/
 	"description": "Adds a sample command.",
 	"icon": "sparkles",
 	"main": "dist/index.js",
-	"capabilities": ["commands", "editor:write"]
+	"permissions": ["editor:write"]
 }
 ```
 
 `main` must be a safe relative path inside the plugin directory. Absolute paths, drive-letter paths,
-empty paths, and paths containing `..` are rejected.
+empty paths, and paths containing `..` are rejected. Versions are plain `MAJOR.MINOR.PATCH`;
+pre-release suffixes break update checks.
 
 ## Package
 
 ```json
 {
 	"name": "hello-cortex",
+	"private": true,
 	"version": "0.1.0",
 	"type": "module",
 	"scripts": {
-		"build": "bun build ./src/index.ts --outfile ./dist/index.js --target browser --format cjs --external @cortex.md/api"
+		"build": "bun build ./src/index.ts --outfile ./dist/index.js --target browser --format cjs --external @cortex.md/api --external @codemirror/state --external @codemirror/view",
+		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@cortex.md/api": "^0.1.0"
@@ -55,57 +70,61 @@ empty paths, and paths containing `..` are rejected.
 }
 ```
 
-The desktop host can load CommonJS bundles through a host-provided `@cortex.md/api` external. ESM
-bundles are also supported when the final bundle is self-contained and exports a default plugin
-class.
+The bundle is CommonJS for the browser. Only `@cortex.md/api`, `@codemirror/state`, and
+`@codemirror/view` may stay external; everything else must be bundled.
 
 ## Plugin Entry
 
 ```ts
-import { CortexPlugin } from "@cortex.md/api"
+import { definePlugin, type PluginManifest } from "@cortex.md/api"
+import manifest from "../manifest.json"
 
-export default class HelloCortexPlugin extends CortexPlugin {
-	onload(): void {
-		this.addCommand({
-			id: "insert-hello",
-			label: "Insert Hello",
-			icon: "sparkles",
-			defaultHotkey: "mod+shift+h",
-			execute: () => {
-				this.api.editor.insertAtCursor("Hello from Cortex")
+export default definePlugin({
+	manifest: manifest as PluginManifest,
+	contributes: {
+		commands: [
+			{
+				id: "insert-hello",
+				label: "Insert Hello",
+				icon: "sparkles",
+				defaultHotkey: "mod+shift+h",
+				run: (ctx) => ctx.editor.insertAtCursor("Hello from Cortex"),
 			},
-		})
-	}
-}
+		],
+	},
+})
 ```
 
-## Build Output
+Importing `manifest.json` keeps the bundle's manifest id identical to the file the loader reads, so
+ids never drift. The command appears in the palette, hotkey settings, and Vim command line as soon
+as the plugin is enabled; `run` executes only when invoked.
 
-After `bun run build`, copy or symlink the plugin into the active vault:
-
-```text
-<vault>/.cortex/plugins/hello-cortex/
-  manifest.json
-  dist/index.js
-```
-
-Keep `manifest.json` at the plugin root. Keep the built file at the path declared by `main`.
-
-## Manual development link
-
-When you are not using the CLI, the manual development workflow is:
+## Run It in a Vault
 
 ```bash
-mkdir -p "<vault>/.cortex/plugins"
-ln -s "/absolute/path/to/hello-cortex" "<vault>/.cortex/plugins/hello-cortex"
+cortex dev --vault ~/Notes
 ```
 
-Restart Cortex or edit a plugin file to trigger the plugin watcher. The plugin list should show the
-manifest name and icon if the bundle loads successfully.
+`cortex dev` builds the plugin and copies it into `<vault>/.cortex/plugins/hello-cortex`, then
+rebuilds on every change. Cortex reloads the plugin automatically. Enable it once in
+Settings > Plugins. Prefer `cortex dev` over symlinking the project folder: the hot-reload watcher
+does not follow symlinks.
+
+- `--once` installs and exits.
+- `--clean` removes the development copy.
+
+## Check Before Releasing
+
+```bash
+cortex check
+```
+
+`cortex check` builds the plugin, loads the bundle exactly like Cortex does, and runs the checks the
+Marketplace registry applies.
 
 ## Next steps
 
 <DocGrid>
   <DocCard href="/docs/developers/cli" title="Cortex CLI" description="Install the CLI and run plugin or theme projects against a local vault." />
-  <DocCard href="/docs/plugins/manifest-and-capabilities" title="Manifest and Capabilities" description="Understand the manifest fields and permission model before expanding the plugin." />
+  <DocCard href="/docs/plugins/manifest-and-capabilities" title="Manifest and Permissions" description="Understand the manifest fields and permission model before expanding the plugin." />
 </DocGrid>

@@ -6,7 +6,8 @@ sectionOrder: 4
 order: 2
 ---
 
-Every community theme needs a root `manifest.json`.
+Every community theme needs a root `manifest.json`. `cortex create <name> --theme` scaffolds one,
+and `cortex check` validates it.
 
 ## Shape
 
@@ -29,11 +30,11 @@ Every community theme needs a root `manifest.json`.
 | Field | Required | Notes |
 | --- | --- | --- |
 | `id` | Yes | Theme install id. Reviewed listings must match this id. |
-| `name` | Yes | Theme family slug. Must match `^[a-z0-9][a-z0-9-]*$`. |
+| `name` | Yes | Theme family slug. Must equal `id` and match `^[a-z0-9][a-z0-9-]*$`. |
 | `displayName` | Yes | User-facing family name. |
 | `author` | Yes | Displayed in theme and reviewed listing surfaces. |
 | `authorUrl` | No | Valid URL for the author or organization. |
-| `version` | Yes | Use semver for update comparisons. |
+| `version` | Yes | Plain `MAJOR.MINOR.PATCH`. Pre-release suffixes break update checks. |
 | `minAppVersion` | No | Minimum Cortex version expected by the theme. |
 | `colorschemes.light` | Yes | Safe relative path to the light CSS file. |
 | `colorschemes.dark` | Yes | Safe relative path to the dark CSS file. |

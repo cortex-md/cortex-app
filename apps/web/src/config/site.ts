@@ -31,6 +31,11 @@ export const siteResourceLinks = [
 		description: "Short answers about files, sync, open source, and accounts.",
 	},
 	{
+		label: "Marketplace",
+		href: "/marketplace",
+		description: "Community plugins and themes, ranked by votes and downloads.",
+	},
+	{
 		label: "Changelog",
 		href: "/changelog",
 		description: "Stable public release notes rendered from GitHub Releases.",

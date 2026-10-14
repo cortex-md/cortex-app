@@ -18,7 +18,7 @@ import { ThemeToggle } from "./ThemeToggle"
 interface SiteHeaderProps {
 	homeHrefPrefix?: "" | "/"
 	sessionLoader?: () => Promise<AuthSessionResult>
-	surface?: "landing" | "docs" | "changelog" | "roadmap" | "billing"
+	surface?: "landing" | "docs" | "changelog" | "roadmap" | "billing" | "marketplace"
 }
 
 interface HeaderAuthAction {

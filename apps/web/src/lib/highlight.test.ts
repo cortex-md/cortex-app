@@ -8,12 +8,12 @@ describe("highlightCode", () => {
 
 		expect(html).toContain("cortex-shiki")
 		expect(html).toContain("background-color: transparent")
-		expect(html).toContain("CortexPlugin")
-		expect(html).toContain("GitHubEmojiPlugin")
-		expect(html).toContain("registerMarkdownInline")
+		expect(html).toContain("definePlugin")
+		expect(html).toContain("@cortex.md/api")
+		expect(html).toContain("github-emoji")
 		expect(html).toContain("insert-emoji")
 		expect(html).not.toContain('</span>\n<span class="line"')
-		expect(html).not.toContain("definePlugin")
+		expect(html).not.toContain("CortexPlugin")
 	})
 
 	it("preserves intentional empty code lines without inter-line text noise", async () => {

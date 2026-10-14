@@ -1,7 +1,7 @@
 import { getPlatform } from "@cortex/platform"
+import { registryFileUrl } from "./registryConfig"
 import type { GitHubRelease, MarketplaceManifestMetadata, RegistryEntry } from "./types"
 
-const REGISTRY_BASE = "https://raw.githubusercontent.com/cortex-md/registry/main"
 const emptyManifestMetadata: MarketplaceManifestMetadata = {
 	version: null,
 	minAppVersion: null,
@@ -19,7 +19,7 @@ interface ReleaseManifestResult {
 
 export async function fetchPluginRegistry(): Promise<RegistryEntry[]> {
 	if (cachedPlugins) return cachedPlugins
-	const response = await getPlatform().http.fetch(`${REGISTRY_BASE}/plugins.json`)
+	const response = await getPlatform().http.fetch(registryFileUrl("main", "plugins.json"))
 	if (!response.ok) throw new Error(`Failed to fetch plugin registry: ${response.status}`)
 	cachedPlugins = (await response.json()) as RegistryEntry[]
 	return cachedPlugins
@@ -27,7 +27,7 @@ export async function fetchPluginRegistry(): Promise<RegistryEntry[]> {
 
 export async function fetchThemeRegistry(): Promise<RegistryEntry[]> {
 	if (cachedThemes) return cachedThemes
-	const response = await getPlatform().http.fetch(`${REGISTRY_BASE}/themes.json`)
+	const response = await getPlatform().http.fetch(registryFileUrl("main", "themes.json"))
 	if (!response.ok) throw new Error(`Failed to fetch theme registry: ${response.status}`)
 	cachedThemes = (await response.json()) as RegistryEntry[]
 	return cachedThemes
