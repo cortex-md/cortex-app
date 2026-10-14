@@ -311,7 +311,7 @@ stores, note sessions, and draws plugin UI from a mirror.
   Its root is a `.markdown-surface`; plugin views pass `pluginStyles`
   (`useMobileCommunityStyles()`), the scoped `styles.css` of enabled community plugins.
 - Surfaces: `workspace.openView` (a WebView `serviceCall`) and drawer "Plugins"
-  rows (`sidebarItems`, `features/sidebar/PluginSidebarSection`) call `openPluginView`, which
+  rows (`sidebarItems` filtered to `sidebar-left` views, `features/sidebar/PluginSidebarRows`, emoji or Lucide icons via `PluginContributionIcon`) call `openPluginView`, which
   pushes `app/(notes)/plugin-view` (`PluginViewScreen`, title from the registered view).
   `selectVisibleStatusBarItems` feeds the note header `Stack.Toolbar` menu (`PluginStatusMenu`);
   `selectContextMenuItems(state, "file", ...)` appends plugin actions to the entry context menu;
@@ -394,7 +394,9 @@ stores, note sessions, and draws plugin UI from a mirror.
   `TaskRow`, the `quick-add` sheet (`QuickAddSheet`, `quickAddActions.ts`: `ensureTaskInbox()` then
   `addTaskFromQuickAdd`, dismiss and toast "Added to Inbox", native Alert on failure) and
   `TaskDetailSheet` (`app/task.tsx`, one native form, saves one `TaskPatch` through `updateTask`).
-  Platform form controls live in `TaskFormControls.{ios,android}.tsx`.
+  Platform form controls live in `TaskFormControls.{ios,android}.tsx`; `TaskScheduleSection` (due
+  date, time, repeat, remind) is shared by quick add and task detail. A hand-picked reminder is
+  applied after `addTaskFromQuickAdd` with `updateTask` on the new inbox task.
 - Completing goes through core `toggleTaskWithUndo` + `revertTaskEditSafely` with `toastWithUndo`.
 - `features/notifications/` owns Settings → Notifications (one `NativeForm` writing `settings.tasks`
   keys); permission, channels and the test reminder stay behind `notificationsAdapter.ts`

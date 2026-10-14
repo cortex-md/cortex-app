@@ -1,7 +1,6 @@
 import { findTaskById, getTaskSource, reportAppError, useTasksStore } from "@cortex/core"
 import { useSettingsStore } from "@cortex/settings"
 import {
-	describeRepeat,
 	isSameRepeat,
 	resolveReminderPreset,
 	type Task,
@@ -19,18 +18,12 @@ import { FormRow, FormSection, FormToggle } from "@/components/ui/Form"
 import { toast } from "@/features/feedback/useToast"
 import { dismissSheet, openNote } from "@/features/navigation/routes"
 import { SheetToolbar } from "@/features/today/SheetToolbar"
-import { ChoiceRow, DateRow, TaskForm } from "@/features/today/TaskFormControls"
-import type { ChoiceOption } from "@/features/today/taskFormTypes"
+import { TaskForm } from "@/features/today/TaskFormControls"
+import { TaskScheduleSection } from "@/features/today/TaskScheduleSection"
 import {
 	describeRemindChoice,
 	type RemindChoice,
 	remindChoiceOf,
-	remindChoices,
-	type RepeatChoice,
-	repeatChoiceOf,
-	repeatChoices,
-	repeatOfChoice,
-	timeChoices,
 } from "@/features/today/taskOptions"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
@@ -136,50 +129,18 @@ function openTaskNote(task: Task): void {
 	openNote(task.path)
 }
 
-function withCustom<T extends string>(
-	options: ChoiceOption<T>[],
-	isCustom: boolean,
-	label: string,
-): ChoiceOption<T | typeof CUSTOM>[] {
-	return isCustom ? [...options, { label, value: CUSTOM }] : options
-}
-
 function TaskDetailForm({ task }: { task: Task }) {
 	const inboxPath = useTasksStore((state) => state.inboxPath)
 	const untimedReminderTime = useSettingsStore((state) => state.settings.tasks.untimedReminderTime)
 	const today = toIsoDate(new Date())
 	const [draft, setDraft] = useState<TaskDraft>(() => draftFromTask(task, untimedReminderTime))
 	const source = `${getTaskSource(task, inboxPath)}.md`
-	const repeatChoice = repeatChoiceOf(draft.repeat)
-	const timeValue = draft.time ?? "none"
-	const timeOptions: ChoiceOption<string>[] = timeChoices.some(
-		(choice) => choice.value === timeValue,
-	)
-		? timeChoices
-		: [...timeChoices, { label: timeValue, value: timeValue }]
 
 	const update = (next: Partial<TaskDraft>) => setDraft((current) => ({ ...current, ...next }))
 
 	const handleSave = () => {
 		const patch = buildPatch(task, draft, untimedReminderTime, today)
 		void saveTask(task, patch).then(dismissSheet)
-	}
-
-	const selectRepeat = (choice: RepeatChoice | typeof CUSTOM) => {
-		if (choice === CUSTOM) return
-		const repeat = repeatOfChoice(choice)
-		update({ repeat, due: repeat ? (draft.due ?? today) : draft.due })
-	}
-
-	const selectTime = (choice: string) => {
-		update({
-			due: choice === "none" ? draft.due : (draft.due ?? today),
-			time: choice === "none" ? undefined : choice,
-		})
-	}
-
-	const selectDate = (due: string | undefined) => {
-		update(due ? { due } : { due: undefined, repeat: undefined, time: undefined })
 	}
 
 	return (
@@ -203,47 +164,14 @@ function TaskDetailForm({ task }: { task: Task }) {
 						value={draft.status === "done"}
 					/>
 				</FormSection>
-				<FormSection>
-					<DateRow
-						icon={{ sf: "calendar", md: "calendar_today" }}
-						onChange={selectDate}
-						title="Due date"
-						today={today}
-						value={draft.due}
-					/>
-					{draft.due ? (
-						<ChoiceRow
-							icon={{ sf: "clock", md: "schedule" }}
-							onChange={selectTime}
-							options={timeOptions}
-							title="Time"
-							value={timeValue}
-						/>
-					) : null}
-					<ChoiceRow
-						icon={{ sf: "repeat", md: "repeat" }}
-						onChange={selectRepeat}
-						options={withCustom(
-							repeatChoices,
-							repeatChoice === CUSTOM,
-							draft.repeat ? describeRepeat(draft.repeat) : "Custom",
-						)}
-						title="Repeat"
-						value={repeatChoice}
-					/>
-					<ChoiceRow
-						disabled={!draft.due}
-						icon={{ sf: "bell", md: "notifications" }}
-						onChange={(remind) => update({ remind })}
-						options={withCustom(
-							remindChoices,
-							draft.remind === CUSTOM,
-							describeRemindChoice(CUSTOM, task, untimedReminderTime),
-						)}
-						title="Remind me"
-						value={draft.due ? draft.remind : "none"}
-					/>
-				</FormSection>
+				<TaskScheduleSection
+					customRemindLabel={describeRemindChoice(CUSTOM, task, untimedReminderTime)}
+					onChange={(schedule) => update(schedule)}
+					onRemindChange={(remind) => update({ remind })}
+					remind={draft.remind}
+					schedule={{ due: draft.due, repeat: draft.repeat, time: draft.time }}
+					today={today}
+				/>
 				<FormSection>
 					<FormRow
 						chevron

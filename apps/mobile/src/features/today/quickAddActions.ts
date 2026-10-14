@@ -1,5 +1,5 @@
-import { addTaskFromQuickAdd, useTasksStore, useVaultStore } from "@cortex/core"
-import type { QuickAddResult } from "@cortex/tasks"
+import { addTaskFromQuickAdd, reportAppError, useTasksStore, useVaultStore } from "@cortex/core"
+import type { QuickAddResult, Task, TaskReminder } from "@cortex/tasks"
 import { type Href, router } from "expo-router"
 
 const INBOX_WAIT_MS = 5000
@@ -38,8 +38,39 @@ async function ensureTaskInbox(): Promise<boolean> {
 	return waitForInbox(INBOX_WAIT_MS)
 }
 
-export async function submitQuickAdd(parsed: QuickAddResult): Promise<boolean> {
+function findAddedTask(title: string): Task | undefined {
+	const { inboxPath, tasksByPath } = useTasksStore.getState()
+	if (!inboxPath) return undefined
+	return (tasksByPath[inboxPath] ?? [])
+		.filter((task) => task.title === title)
+		.reduce<Task | undefined>(
+			(last, task) => (!last || task.line > last.line ? task : last),
+			undefined,
+		)
+}
+
+async function applyReminder(title: string, reminder: TaskReminder | null): Promise<void> {
+	const task = findAddedTask(title)
+	if (!task) return
+	try {
+		await useTasksStore.getState().updateTask(task, { reminder })
+	} catch (cause) {
+		await reportAppError({
+			operation: "update-task",
+			source: "tasks",
+			cause,
+			userMessage: "Cortex added the task but could not set its reminder.",
+		})
+	}
+}
+
+export async function submitQuickAdd(
+	parsed: QuickAddResult,
+	reminder?: TaskReminder | null,
+): Promise<boolean> {
 	if (!parsed.title) return false
 	if (!(await ensureTaskInbox())) return false
-	return addTaskFromQuickAdd(parsed)
+	if (!(await addTaskFromQuickAdd(parsed))) return false
+	if (reminder !== undefined) await applyReminder(parsed.title, reminder)
+	return true
 }
