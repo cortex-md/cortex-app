@@ -1,4 +1,5 @@
 function normalize(path: string): string {
+	if (!path.includes("\\") && !path.endsWith("/")) return path
 	const slashed = path.replaceAll("\\", "/")
 	return slashed.length > 1 ? slashed.replace(/\/+$/u, "") : slashed
 }
