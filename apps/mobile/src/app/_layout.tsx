@@ -19,7 +19,7 @@ export default function RootLayout() {
 
 	return (
 		<ThemeProvider value={navigationTheme}>
-			<GestureHandlerRootView style={styles.root}>
+			<GestureHandlerRootView style={[styles.root, { backgroundColor: colors.background }]}>
 				<AppGate />
 				<StatusBar style={scheme === "dark" ? "light" : "dark"} />
 			</GestureHandlerRootView>

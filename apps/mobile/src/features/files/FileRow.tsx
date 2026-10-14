@@ -1,5 +1,5 @@
 import type { Href } from "expo-router"
-import { useRef } from "react"
+import { useRef, useState } from "react"
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 import ReanimatedSwipeable, {
 	type SwipeableMethods,
@@ -13,6 +13,15 @@ import { triggerSelectionHaptic } from "@/utils/haptics"
 
 const IS_IOS = Platform.OS === "ios"
 const ACTION_WIDTH = IS_IOS ? 80 : 76
+
+function usePressHighlight() {
+	const [pressed, setPressed] = useState(false)
+	return {
+		onPressIn: () => setPressed(true),
+		onPressOut: () => setPressed(false),
+		pressed,
+	}
+}
 
 export function FolderRow({
 	href,
@@ -28,6 +37,7 @@ export function FolderRow({
 	value?: string
 }) {
 	const { colors } = useMobileColors()
+	const press = usePressHighlight()
 	return (
 		<EntryContextMenu groups={menuGroups} header={title} href={href} onPress={onPress}>
 			{(trigger) => (
@@ -36,10 +46,12 @@ export function FolderRow({
 					android_ripple={{ color: colors.hover }}
 					onLongPress={trigger.onLongPress}
 					onPress={trigger.onPress}
-					style={({ pressed }) => [
+					onPressIn={press.onPressIn}
+					onPressOut={press.onPressOut}
+					style={StyleSheet.flatten([
 						styles.row,
-						{ backgroundColor: pressed && IS_IOS ? colors.hover : colors.cell },
-					]}
+						{ backgroundColor: press.pressed && IS_IOS ? colors.hover : colors.cell },
+					])}
 				>
 					<SymbolIcon
 						color={colors.tint}
@@ -109,6 +121,7 @@ export function NoteRow({
 	title: string
 }) {
 	const { colors } = useMobileColors()
+	const press = usePressHighlight()
 	const swipeableRef = useRef<SwipeableMethods>(null)
 
 	function runAction(action: () => void) {
@@ -153,11 +166,13 @@ export function NoteRow({
 						android_ripple={{ color: colors.hover }}
 						onLongPress={trigger.onLongPress}
 						onPress={trigger.onPress}
-						style={({ pressed }) => [
+						onPressIn={press.onPressIn}
+						onPressOut={press.onPressOut}
+						style={StyleSheet.flatten([
 							styles.row,
 							styles.noteRow,
-							{ backgroundColor: pressed && IS_IOS ? colors.hover : colors.cell },
-						]}
+							{ backgroundColor: press.pressed && IS_IOS ? colors.hover : colors.cell },
+						])}
 					>
 						<SymbolIcon
 							color={colors.secondaryLabel}

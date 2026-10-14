@@ -1,5 +1,6 @@
 import type { FileEntry } from "@cortex/platform"
 import type { Href } from "expo-router"
+import { useState } from "react"
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 
 import type { MenuGroup } from "@/components/ui/menuTypes"
@@ -33,6 +34,7 @@ export function SidebarTreeRow({
 	title: string
 }) {
 	const { colors } = useMobileColors()
+	const [pressed, setPressed] = useState(false)
 	const guides = Array.from({ length: depth }, (_, level) => 12 + level * INDENT + 6)
 	const href = (
 		entry.isDir
@@ -56,17 +58,17 @@ export function SidebarTreeRow({
 					android_ripple={{ color: colors.hover }}
 					onLongPress={trigger.onLongPress}
 					onPress={trigger.onPress}
-					style={({ pressed }) => [
-						styles.row,
-						{
-							backgroundColor: active
-								? colors.accentSubtle
-								: pressed && IS_IOS
-									? colors.hover
-									: "transparent",
-							paddingLeft: 12 + depth * INDENT + (entry.isDir ? 0 : CHEVRON_SIZE + ROW_GAP),
-						},
-					]}
+					onPressIn={() => setPressed(true)}
+					onPressOut={() => setPressed(false)}
+					style={{
+						...styles.row,
+						backgroundColor: active
+							? colors.accentSubtle
+							: pressed && IS_IOS
+								? colors.hover
+								: "transparent",
+						paddingLeft: 12 + depth * INDENT + (entry.isDir ? 0 : CHEVRON_SIZE + ROW_GAP),
+					}}
 				>
 					{guides.map((left) => (
 						<View
@@ -87,7 +89,7 @@ export function SidebarTreeRow({
 						/>
 					) : null}
 					<SymbolIcon
-						color={active ? colors.tint : entry.isDir ? colors.tint : colors.secondaryLabel}
+						color={entry.isDir || active ? colors.tint : colors.secondaryLabel}
 						name={
 							entry.isDir ? { sf: "folder", md: "folder" } : { sf: "doc.text", md: "description" }
 						}
@@ -97,10 +99,7 @@ export function SidebarTreeRow({
 						numberOfLines={1}
 						style={[
 							styles.title,
-							{
-								color: active ? colors.tint : colors.label,
-								fontWeight: active ? "600" : IS_IOS ? "400" : "500",
-							},
+							{ color: colors.label, fontWeight: active ? "600" : IS_IOS ? "400" : "500" },
 						]}
 					>
 						{title}

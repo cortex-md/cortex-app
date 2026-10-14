@@ -22,6 +22,7 @@ export function SidebarDrawer({ children, drawerRef, renderContent }: SidebarDra
 		<DrawerLayout
 			ref={drawerRef}
 			drawerBackgroundColor={colors.sidebarBackground}
+			drawerContainerStyle={{ backgroundColor: colors.sidebarBackground }}
 			drawerLockMode="unlocked"
 			drawerPosition="left"
 			drawerType="back"
