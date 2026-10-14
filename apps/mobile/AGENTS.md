@@ -248,26 +248,43 @@ stores, note sessions, and draws plugin UI from a mirror.
   extension. Expo cannot rename SAF documents, so `fs.renameFile` on `content://` entries moves into
   the existing parent when the name is unchanged, and otherwise creates the new directory/file,
   moves children (or copies bytes), and deletes the source.
-- Android `content://` vault roots cannot be watched with Expo FileSystem in Expo Go. Return a
-  no-op watcher and rely on manual refresh until a platform-specific watcher exists.
+- Android `content://` vault roots cannot be watched with Expo FileSystem. The watcher returns a
+  no-op and `features/vault/externalVaultRefresh.ts` refreshes provider-backed vaults when the app
+  returns to the foreground (event-driven, no polling).
 - Vault roots are `internal` or `external` (`platform/vaultRoots.ts`, persisted in
   `Cortex/mobile-vault-roots.json`). `vault.createVaultFolder` creates internal vaults in
   `Paths.document/Cortex/Vaults/<name>` and stores only the path relative to `Paths.document`, so they
   reopen after restarts and app updates without any permission.
-- `dialog.pickFolder` (`Directory.pickDirectoryAsync()`) registers external roots. Android reopens
-  through persistable URI grants. iOS external access is session-only: listing a lost root throws
-  `MobileReauthorizationRequiredError` (`platform/errors.ts`), onboarding shows the vault as "Needs
-  access", and "Reauthorize" re-picks the folder (`registerPickedDirectory` matches it by URI or vault
-  id). Persistent security-scoped bookmarks need a native module and a dev build (follow-up).
+- `dialog.pickFolder` (`Directory.pickDirectoryAsync()`) registers external roots. With the local
+  Expo module `modules/cortex-native` (dev build only; `CortexNative` is `null` in Expo Go) the root
+  record keeps an iOS security-scoped bookmark (resolved and re-accessed on load, refreshed when
+  stale) and Android takes a persistable URI permission. Without the module, iOS access is
+  session-only: listing a lost root throws `MobileReauthorizationRequiredError`, onboarding shows
+  "Needs access", and "Reauthorize" re-picks the folder.
+- `dialog.pickFile`/`pickFiles` use `expo-document-picker` and move the picked files into
+  `Documents/Cortex/.picked/<timestamp>/` (app storage, cleared on the next pick) so the logical fs
+  can read them. `documentImport.extractPdfText` uses the native module (PDFKit on iOS, PdfBox-Android
+  on Android) and rejects in Expo Go.
 - `readVaultRegistry` migrates entries whose name is the vault UUID to the folder name once.
-- Keep the remote sync engine out of this foundation pass.
-  Import/export contracts may be present on the platform shape, but unsupported mobile methods,
-  including native PDF text extraction, should reject clearly until native document picker/share
-  flows are implemented.
+- `platform/sync.ts` hosts `@cortex/sync-engine` `SyncEngine` in the JS thread (Hermes has no
+  workers) behind the same `Platform["sync"]` contract as desktop. `platform/syncRuntime.ts` is the
+  mobile `SyncRuntime`: `expo-sqlite` (sync DB in `Documents/Cortex/sync/<rootId>.db`, never inside the
+  vault), the logical fs helpers (direct `file://` access for internal roots), POSIX paths over
+  logical paths, and `platform/syncCrypto.ts` (`@noble/ciphers`, `@noble/curves`, `@noble/hashes`
+  argon2id with `asyncTick`, `fflate`). `serverApi.ts` calls `configureSyncRuntime` and wires
+  `accountKeyCrypto` and invite keys like desktop. App writes notify the engine through
+  `syncSignals.ts`; going to the background stops the engine and coming back restarts it.
+- `platform/collab.ts` runs core `createCollabTransport` in-process (React Native WebSocket). The
+  Yjs session stays on the native side; `features/workspace/collabBridge.ts` mirrors it into the
+  WebView (`collabMirror.ts`, a local Y.Doc bound through the editor `collab` prop) with incremental
+  updates merged every 16 ms and the cursor forwarded as an awareness field. While the mirror is
+  attached the WebView does not commit body text; collab persistence writes the note.
+- `platform/notifications.ts` uses `expo-notifications`: `schedule(scope, …)` diffs pending
+  notifications (identifier `<scope>::<id>`), keeps the nearest 60, registers categories for the
+  core actions, and reports activations (including cold start). Core `startTasksRuntime` runs through
+  `startAppRuntime({ tasks: true })`.
 - Methods that are not real yet should reject clearly or return an explicit unsupported state. Never
-  silently fake remote vault, search, or storage success. `sync.updateSyncPreferences` is
-  the narrow exception: it resolves as a no-op on mobile so core can persist local preferences while
-  the remote sync engine remains unsupported.
+  silently fake remote vault, search, or storage success.
 
 ## Shared Runtime
 
@@ -399,8 +416,10 @@ stores, note sessions, and draws plugin UI from a mirror.
   applied after `addTaskFromQuickAdd` with `updateTask` on the new inbox task.
 - Completing goes through core `toggleTaskWithUndo` + `revertTaskEditSafely` with `toastWithUndo`.
 - `features/notifications/` owns Settings → Notifications (one `NativeForm` writing `settings.tasks`
-  keys); permission, channels and the test reminder stay behind `notificationsAdapter.ts`
-  (`// stub:`). `promptNotificationPermission()` shows a native Alert before the OS request.
+  keys); permission, the Android "reminders" channel and the test reminder go through
+  `getPlatform().notifications`. `promptNotificationPermission()` shows a native Alert before the OS
+  request. `features/today/reminderIndexing.ts` builds the task index 4 s after a vault opens so
+  reminders are planned without eager search indexing.
 
 ## Sync, History and Recovery
 
@@ -408,16 +427,22 @@ stores, note sessions, and draws plugin UI from a mirror.
   `sync-logs`), each page one `NativeForm` with `FormControls.{ios,android}.tsx` (`FormTextField`,
   `FormMenu`, `FormCheck`). Screens read `useSyncStore`, `useRemoteVaultStore`, `useDevicesStore`,
   `useSyncLogStore` and core presentation helpers.
-- `syncAdapter.ts` is the only door to what the engine does not provide on mobile (`// stub:`).
-  Linking a remote vault pushes `sync/choose`; unlinking confirms with a native Alert. Self-hosted
-  secrets go to `getPlatform().keychain` under `createSyncEnvironmentSecretKey`.
-- `features/members/membersAdapter.ts` maps `useMembersStore` data or fixtures (stubs).
-- `features/history/` owns Version history (`version-history`, `version`) and Deleted notes
-  (`settings/deleted-notes`, `deleted-note`) as React Native lists (`InsetListRow`) with native
-  toolbars. `versionHistoryAdapter.ts` uses real local versions and falls back to fixtures;
-  `deletedNotesAdapter.ts` is a fixture trash.
-- `features/collab/PeopleSheet` (title "Share") and `features/comments/CommentsSheet` use native
-  headers; `collabAdapter.ts` is the stub door to presence, members, invites and link sharing.
+- `syncAdapter.ts` maps core sync state for the screens. Linking a remote vault (`sync/choose`)
+  runs core `createVaultKeyFlow` (key setup, recovery key, waiting for access, legacy vault
+  password) like desktop. Self-hosted secrets go to `getPlatform().keychain` under
+  `createSyncEnvironmentSecretKey`. No fixtures: empty states are real.
+- `features/members/membersAdapter.ts` reads and writes `useMembersStore` (invites, roles, removal,
+  groups) for the linked vault.
+- `features/history/` owns Version history (local snapshots plus the 20 newest server versions,
+  downloaded with concurrency 4) and Deleted notes (server trash via `listDeletedFiles`, body
+  downloaded on open, restore through `restoreDeletedFile`). Conflicts are keyed by vault-relative
+  path like core; `NoteConflictBanner` opens the conflict screen.
+- `features/collab/collabAdapter.ts` maps members, presence (`useMembersStore.presence`), invites
+  (including guests limited to one note through a path grant) and note links
+  (`useNoteSharesStore`, bundle built by `noteShareBundle.ts` without DOMParser).
+- `app/+native-intent.tsx` maps `cortex://s/…`, `cortex://invite/…` and `cortex://t/…` (whose keys
+  live in the URL hash) to the `shared-note`, `invite` and `public-template` routes;
+  `cortex://reset-password` maps to its route directly.
 
 ## Search, Quick Finder, Bookmarks and Tags
 
