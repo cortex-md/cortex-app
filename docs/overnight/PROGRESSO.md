@@ -5,7 +5,7 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 ## Estado atual
 
 - Início: 2026-10-13 23:25 (-03).
-- Item em andamento: 8. Pontuais.
+- Fase 1 concluída no que dá para fazer sem o Lucas. Em andamento: Fase 2 (medir antes de mexer).
 
 ## Status por item
 
@@ -18,8 +18,8 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 | 5. APIs de compartilhamento | feito (validar no device) | e1fffcd, 35dee7a, 6846184, 4508189, e0b8530 + grupos | Os serviços já existiam em `@cortex/sync-api`, e o servidor (`../sync`, Go) já tem os endpoints; faltava ligar no mobile. Links públicos de nota (bundle com imagens embutidas, sem DOMParser), convites, papéis, remoção, convidado restrito a uma nota (grant no caminho), grupos (criar e apagar), templates de equipe (`refreshTeamTemplates`), marketplace de templates (`listMarketTemplates` e `openPublicTemplate`), publicar template de database, abrir `cortex://s/…`, `cortex://invite/…` e `cortex://t/…`. |
 | 6. Colaboração em tempo real | feito (validar no device) | e6116d7 | Transporte do core (`createCollabTransport`) no lado React Native, com o WebSocket do RN. A sessão Yjs do core roda no React Native e a WebView tem um Y.Doc espelho ligado ao CodeMirror (`collab` do `EditorView`). Pela bridge passam só updates incrementais, agrupados em 16 ms com `Y.mergeUpdates`; o cursor vai como campo `cursor` do awareness e os estados dos pares vão codificados. Reconexão e offline ficam com a sessão do `@cortex/collab`. |
 | 7. Lembretes | feito (validar no device) | 3481b7f, 97bd347 | `platform.notifications` com `expo-notifications`: permissão, envio imediato, `schedule(scope, …)` com diff (cancela só o que mudou), categorias com as ações do core, canal Android "reminders", ativação, inclusive em cold start. Opção `tasks` no `startAppRuntime` do core: o mobile liga o `startTasksRuntime` sem a indexação eager; o índice de tarefas é montado 4 s depois de abrir o vault. |
-| 8. Pontuais | em andamento | | |
-| Fase 2: API | pendente | | |
+| 8. Pontuais | feito (dev build / validar no device) | dc6cf98, 075f66c, 56a71c3 | Assinatura: interface `PurchaseProvider` com `web-checkout` real (abre a cobrança no navegador do app e reconsulta o status ao voltar); IAP/Play só pela interface. Módulo Expo local `modules/cortex-native`: bookmarks security-scoped no iOS e permissão persistente no Android, mais extração de texto de PDF (PDFKit / PdfBox-Android). Android: refresh do vault SAF ao voltar ao app. |
+| Fase 2: API | em andamento | | |
 | Fase 2: desktop | pendente | | |
 
 ## Decisões
@@ -59,6 +59,10 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 - **Sobras do item 1 resolvidas** (`46a2117`, database): o "Add vault" remoto usa as chaves E2E reais (senha da conta, recovery key, pedido de chave ao admin, senha legada) e o progresso vem de `initialSyncProgress`. Saíram as fixtures de templates de linha de database e de presets de equipe.
 - **Lembretes no iOS:** o limite de 64 notificações pendentes vira 60 agendadas, sempre as mais próximas. O core replaneja a cada 30 min e a cada mudança de tarefa.
 
+- **PDF no Android:** PdfBox-Android (Apache 2.0, ~3 MB) em vez de OCR (ML Kit é mais pesado e erra em PDF com texto) ou de não suportar. O `PdfRenderer` do Android só gera bitmap. A lib só entra no build Android do módulo.
+- **Assinatura:** o provedor padrão é o checkout web (já existe no servidor). Escolher entre IAP e checkout web, e configurar product IDs, ficou em PENDENCIAS.
+- **Módulo nativo:** é opcional em runtime (`requireOptionalNativeModule`). No Expo Go tudo continua funcionando como antes; num dev build os recursos ligam sozinhos.
+
 ## Próximo passo exato
 
-Item 8: (a) assinatura: abstração de compra em `features/billing` (provedor `web-checkout` real via `subscription` do sync-api e interface para IAP), sem product IDs; (b) módulo Expo local `modules/cortex-bookmarks` (Swift: security-scoped bookmarks; Kotlin: persistable URI permission) e uso em `platform/vaultRoots.ts`; (c) watcher Android; (d) extrator de texto de PDF (PDFKit no iOS no mesmo módulo, Android: decidir).
+Fase 2, API: o servidor está em `../sync` (Go, outro repositório, com mudanças não commitadas de outra sessão). Medir os endpoints de sync e listagem (`/changes`, listagem de vaults, membros) com os testes/benchmarks que existirem lá antes de mexer; se não der para medir sem subir infraestrutura, registrar em PENDENCIAS e seguir para o desktop (`bun run perf`).

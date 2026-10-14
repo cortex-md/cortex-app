@@ -36,3 +36,33 @@ Só o que depende de você. Cada item traz o contexto e a recomendação.
 
 - **Contexto:** o desktop edita desenhos com o Excalidraw. No mobile mostro um card só de leitura com o número de formas.
 - **Recomendação:** decidir se vale levar o editor para o celular. Seria lazy na WebView, mas o pacote é grande e busca fontes por CDN; uma prévia em SVG estático exige o mesmo pacote.
+
+## 6. Dev build do mobile (destrava vários itens)
+
+- **Contexto:** dependem de um dev build (`expo-dev-client`) e não rodam no Expo Go:
+  - o módulo local `apps/mobile/modules/cortex-native` (bookmarks do iOS, permissão persistente do Android, texto de PDF);
+  - lembretes confiáveis (`expo-notifications` com ações);
+  - o argon2id nativo, se o de JS ficar lento.
+- **Recomendação:** criar o perfil `development` no EAS e gerar um build interno para iOS e Android.
+- **Validar no device:**
+  - abrir uma pasta externa, matar o app e reabrir: deve abrir direto, sem "Reauthorize";
+  - importar um PDF;
+  - receber um lembrete e usar as ações (concluir, adiar);
+  - colaborar em tempo real com o desktop na mesma nota.
+
+## 7. Assinatura no celular (provedor, contas e product IDs)
+
+- **Contexto:** a camada `features/billing/purchaseProvider.ts` tem a interface (`app-store`, `play-billing`, `web-checkout`) e o checkout web funcionando: abre `BILLING_URL` e reconsulta o status ao voltar.
+- **Decisões suas:**
+  - usar IAP (App Store / Play Billing) ou só o checkout web; a Apple restringe link externo para compra digital fora de apps "reader";
+  - contas de loja, product IDs, preço por região;
+  - se for IAP, escolher a lib (`expo-iap` ou RevenueCat) e a validação de recibo no servidor (`../sync`).
+- **Recomendação:** checkout web para o lançamento em países onde a regra de link externo permite, e RevenueCat se o IAP for obrigatório, porque simplifica a validação de recibos dos dois lados.
+
+## 8. Fluxos sem referência de UX no celular
+
+- **Contexto:** ficaram de fora porque não têm desenho para o mobile:
+  - editar membros de um grupo e as regras de acesso por pasta (só criar e apagar grupo está feito);
+  - editar desenhos;
+  - escolher a pasta de destino ao baixar um template público.
+- **Recomendação:** desenhar no protótipo "Next" antes de implementar.
