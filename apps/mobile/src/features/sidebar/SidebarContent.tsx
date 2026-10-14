@@ -1,4 +1,10 @@
-import { resolveVaultColor, useDatabaseStore, useEditorStore, useVaultStore } from "@cortex/core"
+import {
+	resolveVaultColor,
+	useDatabaseStore,
+	useEditorStore,
+	useRemoteVaultStore,
+	useVaultStore,
+} from "@cortex/core"
 import { useMarketplaceStore } from "@cortex/marketplace"
 import { router } from "expo-router"
 import { useMemo, useReducer } from "react"
@@ -14,6 +20,7 @@ import { PluginSidebarRows } from "@/features/sidebar/PluginSidebarRows"
 import { SidebarRow, SidebarSectionHeader } from "@/features/sidebar/SidebarRows"
 import { SidebarTreeRow } from "@/features/sidebar/SidebarTreeRow"
 import { initialSidebarUiState, sidebarUiReducer } from "@/features/sidebar/sidebarUiState"
+import { useSyncConflictCount, useSyncStatusPresentation } from "@/features/sync/syncStatus"
 import { useMobileColors } from "@/hooks/useMobileColors"
 import { triggerSelectionHaptic } from "@/utils/haptics"
 
@@ -74,6 +81,9 @@ export function SidebarContent({ closeSidebar }: { closeSidebar: () => void }) {
 	const databaseEntries = useMemo(() => Object.values(databases), [databases])
 	const treeView = explorer.treeView
 	const updateCount = Object.keys(availableUpdates).length
+	const syncStatus = useSyncStatusPresentation()
+	const conflictCount = useSyncConflictCount()
+	const syncLinked = useRemoteVaultStore((state) => state.linkedVaultId !== null)
 
 	function navigate(action: () => void) {
 		closeSidebar()
@@ -93,6 +103,13 @@ export function SidebarContent({ closeSidebar }: { closeSidebar: () => void }) {
 							trailing={
 								updateCount > 0 ? `${updateCount} update${updateCount === 1 ? "" : "s"}` : undefined
 							}
+						/>
+						<SidebarRow
+							badge={conflictCount > 0 ? String(conflictCount) : undefined}
+							icon={syncLinked ? syncStatus.icon : { sf: "icloud", md: "cloud" }}
+							label="Sync"
+							onPress={() => navigate(() => presentSheet("sync"))}
+							trailing={conflictCount > 0 ? undefined : syncLinked ? syncStatus.label : "Off"}
 						/>
 						<SidebarRow
 							icon={{ sf: "gearshape", md: "settings" }}

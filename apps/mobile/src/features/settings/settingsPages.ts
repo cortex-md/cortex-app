@@ -66,6 +66,18 @@ export const SYNC_SETTINGS_LINKS: SettingsLink[] = [
 		page: "sync/prefs",
 	},
 	{ key: "members", title: "Members", icon: { sf: "person.2", md: "group" }, page: "sync/members" },
+	{
+		key: "sync-logs",
+		title: "Sync logs",
+		icon: { sf: "list.bullet.rectangle", md: "receipt_long" },
+		page: "sync-logs",
+	},
+	{
+		key: "deleted-notes",
+		title: "Deleted notes",
+		icon: { sf: "trash", md: "delete" },
+		page: "deleted-notes",
+	},
 ]
 
 export const EXTENSION_SETTINGS_LINKS: SettingsLink[] = [

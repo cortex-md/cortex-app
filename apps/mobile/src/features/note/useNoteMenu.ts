@@ -71,6 +71,7 @@ export function useNoteMenu({
 				.then(() => toast("Copied path"))
 		},
 		onVersionHistory: () => openVersionHistory(filePath ?? undefined),
+		onSyncStatus: () => presentSheet("sync"),
 		onToggleExcluded: () => {
 			if (!relativePath) return
 			void toggleExcludedPath(relativePath, !excluded).then(() =>

@@ -18,6 +18,7 @@ export interface NoteMenuHandlers {
 	onExport: () => void
 	onCopyPath: () => void
 	onVersionHistory: () => void
+	onSyncStatus: () => void
 	onToggleExcluded: () => void
 	onDelete: () => void
 }
@@ -58,6 +59,28 @@ export function buildNoteMenuGroups(handlers: NoteMenuHandlers): MenuGroup[] {
 		],
 		[
 			{
+				key: "version-history",
+				label: "Version history",
+				icon: { sf: "clock.arrow.circlepath", md: "history" },
+				onPress: handlers.onVersionHistory,
+			},
+			{
+				key: "sync-status",
+				label: "Sync status and logs",
+				icon: { sf: "arrow.triangle.2.circlepath.icloud", md: "sync" },
+				onPress: handlers.onSyncStatus,
+			},
+			{
+				key: "exclude",
+				label: handlers.excluded ? "Include in sync" : "Exclude from sync",
+				icon: handlers.excluded
+					? { sf: "icloud", md: "cloud" }
+					: { sf: "icloud.slash", md: "cloud_off" },
+				onPress: handlers.onToggleExcluded,
+			},
+		],
+		[
+			{
 				key: "share",
 				label: "Share",
 				icon: { sf: "person.badge.plus", md: "person_add" },
@@ -94,22 +117,6 @@ export function buildNoteMenuGroups(handlers: NoteMenuHandlers): MenuGroup[] {
 				label: "Copy path",
 				icon: { sf: "link", md: "link" },
 				onPress: handlers.onCopyPath,
-			},
-		],
-		[
-			{
-				key: "version-history",
-				label: "Version history",
-				icon: { sf: "clock.arrow.circlepath", md: "history" },
-				onPress: handlers.onVersionHistory,
-			},
-			{
-				key: "exclude",
-				label: handlers.excluded ? "Include in sync" : "Exclude from sync",
-				icon: handlers.excluded
-					? { sf: "icloud", md: "cloud" }
-					: { sf: "icloud.slash", md: "cloud_off" },
-				onPress: handlers.onToggleExcluded,
 			},
 		],
 	]

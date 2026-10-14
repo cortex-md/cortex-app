@@ -49,6 +49,7 @@ export type SheetName =
 	| "rename"
 	| "new-folder"
 	| "sign-in"
+	| "sync"
 
 type Params = Record<string, string | number | undefined>
 
