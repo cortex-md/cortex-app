@@ -1,4 +1,5 @@
 import {
+	getSyncServerLabel,
 	isMarkdownPath,
 	requiresCloudEntitlement,
 	resolveSyncServerUrl,
@@ -10,7 +11,6 @@ import {
 	useVaultStore,
 } from "@cortex/core"
 import { useEffect, useMemo } from "react"
-import { getSyncServerLabel } from "../../sync/serverLabel"
 import { useSettingsVaultFiles } from "../useSettingsVaultFiles"
 import type { SyncSettingsView } from "./types"
 

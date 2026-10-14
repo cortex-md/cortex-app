@@ -1,3 +1,4 @@
+import { roleInfo } from "@cortex/core/members"
 import {
 	Button,
 	cn,
@@ -8,7 +9,6 @@ import {
 	DropdownMenuTrigger,
 } from "@cortex/ui"
 import { ChevronDownIcon } from "lucide-react"
-import { roleInfo } from "./memberRoles"
 
 interface RoleMenuProps {
 	label: string
@@ -24,7 +24,8 @@ export function RoleMenu({ label, value, roles, disabled, className, onChange }:
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
 				<Button
-					variant="ghost"
+					size="xs"
+					variant="secondary"
 					className={cn("settings-role-pill", className)}
 					aria-label={label}
 					disabled={disabled}

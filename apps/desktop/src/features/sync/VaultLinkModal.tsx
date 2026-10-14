@@ -1,4 +1,12 @@
-import { useRemoteVaultStore, useUIStore, useVaultStore } from "@cortex/core"
+import {
+	CLOUD_SERVER_LABEL,
+	createVaultKeyDraft,
+	NEW_REMOTE,
+	useRemoteVaultStore,
+	useUIStore,
+	useVaultStore,
+	type VaultKeyDraft,
+} from "@cortex/core"
 import {
 	Button,
 	Item,
@@ -11,7 +19,7 @@ import {
 import { Check } from "lucide-react"
 import { useState } from "react"
 import { ModalHost } from "@/utils/ModalHost"
-import { NEW_REMOTE, RemoteStep } from "../vault/add-vault/AddVaultSteps"
+import { RemoteStep } from "../vault/add-vault/AddVaultSteps"
 import { useAddVaultRemotes } from "../vault/add-vault/useAddVaultRemotes"
 import {
 	FlowBody,
@@ -21,10 +29,8 @@ import {
 	FlowHeader,
 	FlowProgressBars,
 } from "../vault/FlowDialog"
-import { CLOUD_SERVER_LABEL } from "./serverLabel"
 import { useVaultKeyFlow } from "./vault-key/useVaultKeyFlow"
 import { VaultKeyStepView } from "./vault-key/VaultKeyStepView"
-import { createVaultKeyDraft, type VaultKeyDraft } from "./vault-key/vaultKeyDraft"
 
 interface VaultLinkModalProps {
 	open: boolean
@@ -122,14 +128,12 @@ function VaultLinkModalContent({
 					</FlowBody>
 					<FlowFooter
 						start={
-							<Button variant="ghost" size="sm" onClick={() => setView("pick")}>
+							<Button variant="ghost" onClick={() => setView("pick")}>
 								Back
 							</Button>
 						}
 					>
-						<Button size="sm" onClick={close}>
-							Close
-						</Button>
+						<Button onClick={close}>Close</Button>
 					</FlowFooter>
 				</FlowDialogContent>
 			)
@@ -177,9 +181,7 @@ function VaultLinkModalContent({
 					</Item>
 				</FlowBody>
 				<FlowFooter>
-					<Button size="sm" onClick={close}>
-						Done
-					</Button>
+					<Button onClick={close}>Done</Button>
 				</FlowFooter>
 			</FlowDialogContent>
 		)
@@ -215,13 +217,12 @@ function VaultLinkModalContent({
 			</FlowBody>
 			<FlowFooter
 				start={
-					<Button variant="ghost" size="sm" onClick={close} disabled={busy}>
+					<Button variant="ghost" onClick={close} disabled={busy}>
 						Cancel
 					</Button>
 				}
 			>
 				<Button
-					size="sm"
 					onClick={() => void startLink()}
 					disabled={
 						busy ||

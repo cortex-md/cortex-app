@@ -1,11 +1,11 @@
 import { useAccountStore, useMembersStore, useServerCapabilities, useSyncStore } from "@cortex/core"
+import { TEAM_ROLES } from "@cortex/core/members"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@cortex/ui"
 import { useEffect, useState } from "react"
 import { useSettingsRevealTarget } from "../settings/settingsReveal"
 import { GroupsTab } from "./GroupsTab"
 import { KeyTrustBanner } from "./KeyTrustBanner"
 import { isVaultAdminRole } from "./memberDirectory"
-import { TEAM_ROLES } from "./memberRoles"
 import { PeopleTab } from "./PeopleTab"
 import { VaultAccessSettings } from "./VaultAccessSettings"
 

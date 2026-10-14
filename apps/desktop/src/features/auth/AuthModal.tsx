@@ -241,7 +241,7 @@ function AuthModalContent({ initialView, recoveryKey, onRecoveryKey }: AuthModal
 								</Alert>
 							)}
 							<Field>
-								<Button type="submit" size="sm" className="w-full" disabled={loading}>
+								<Button type="submit" className="w-full" disabled={loading}>
 									{loading ? "Signing in..." : "Sign in"}
 								</Button>
 								<FieldDescription className="flex items-center justify-center gap-1 text-center">
@@ -368,7 +368,7 @@ function AuthModalContent({ initialView, recoveryKey, onRecoveryKey }: AuthModal
 								</Alert>
 							)}
 							<Field>
-								<Button type="submit" size="sm" className="w-full" disabled={loading}>
+								<Button type="submit" className="w-full" disabled={loading}>
 									{loading ? "Creating account..." : "Create account"}
 								</Button>
 								<FieldDescription className="flex items-center justify-center gap-1 text-center">

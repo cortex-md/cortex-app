@@ -1,17 +1,16 @@
 import { getDatabaseQueryContext, useVaultStore } from "@cortex/core"
 import {
 	getPropertiesRuntime,
-	getVaultSchema,
 	type PropertyDefinition,
 	type ResolvedAuthorConfig,
 	resolveAuthorConfig,
-	updateVaultSchema,
+	upsertVaultSchemaDefinition,
 	type VaultSchema,
 } from "@cortex/properties"
 import type { DatabaseQueryContext } from "@cortex/properties/database"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useLocalToday } from "@/hooks/useMinuteNow"
-import { setVaultSchemaSnapshot, useVaultSchemaSnapshot } from "./useVaultSchemaSnapshot"
+import { useVaultSchemaSnapshot } from "./useVaultSchemaSnapshot"
 
 export interface DatabaseEnvironment {
 	schema: VaultSchema
@@ -52,16 +51,7 @@ export function useDatabaseEnvironment(): DatabaseEnvironment {
 	const updateDefinition = useCallback(
 		async (definition: PropertyDefinition) => {
 			if (!vaultPath) return
-			const current = await getVaultSchema(vaultPath)
-			const exists = current.properties.some((item) => item.id === definition.id)
-			const next: VaultSchema = {
-				version: 1,
-				properties: exists
-					? current.properties.map((item) => (item.id === definition.id ? definition : item))
-					: [...current.properties, { ...definition, observed: undefined }],
-			}
-			await updateVaultSchema(vaultPath, next)
-			setVaultSchemaSnapshot(vaultPath, next)
+			await upsertVaultSchemaDefinition(vaultPath, definition)
 		},
 		[vaultPath],
 	)

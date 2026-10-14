@@ -3,6 +3,7 @@ import {
 	canWriteVaultPath,
 	FILE_COMMAND_IDS,
 	type FileTreeNode,
+	openDatabaseView,
 	reportAppError,
 	useVaultStore,
 	useWorkspaceStore,
@@ -10,7 +11,6 @@ import {
 import { FilePlusIcon, FolderPlusIcon } from "lucide-react"
 import { type RefObject, useMemo, useReducer } from "react"
 import type { MenuPosition } from "@/utils/context-menu"
-import { openDatabaseView } from "../databases/databaseWorkspace"
 import { FILE_EXPLORER_COMMAND_IDS, type FileExplorerCommandId } from "./fileExplorerCommands"
 import { buildFileMenuItems } from "./fileMenu"
 import { getFileTreeItemId, getKeyboardMenuPosition } from "./fileTreeDom"

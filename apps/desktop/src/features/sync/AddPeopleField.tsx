@@ -178,7 +178,6 @@ export function AddPeopleField({
 					<NativeSelectOption value="edit">Can edit</NativeSelectOption>
 				</NativeSelect>
 				<Button
-					size="sm"
 					disabled={busy || (!target && !resolution.blockedMessage)}
 					onClick={() => void submit()}
 				>

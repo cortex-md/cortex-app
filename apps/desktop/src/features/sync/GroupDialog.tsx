@@ -193,7 +193,7 @@ function CreateGroupForm({ vaultId, onDone }: { vaultId: string; onDone(): void 
 				{error && <p className="settings-section-error">{error}</p>}
 			</div>
 			<DialogFooter>
-				<Button type="submit" disabled={busy || !name.trim()}>
+				<Button size="sm" type="submit" disabled={busy || !name.trim()}>
 					{busy && <Spinner className="size-3" />}
 					Create group
 				</Button>
@@ -330,9 +330,9 @@ function EditGroupContent({ vaultId, group, canManage, onDeleted }: EditGroupCon
 			{canManage && (
 				<DialogFooter className="sm:justify-start">
 					<Button
-						variant="ghost"
+						size="sm"
+						variant="destructive-soft"
 						disabled={busy}
-						className="text-status-error-foreground"
 						onClick={() => void remove()}
 					>
 						<Trash2 />

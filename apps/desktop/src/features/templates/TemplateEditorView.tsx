@@ -527,7 +527,6 @@ function TemplateEditorContent({ template, source }: TemplateEditorContentProps)
 				/>
 				<Button
 					variant="secondary"
-					size="sm"
 					className="self-start"
 					onClick={() => openCreateFromTemplate(template.id)}
 				>

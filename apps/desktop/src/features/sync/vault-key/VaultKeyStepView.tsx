@@ -1,10 +1,10 @@
+import type { VaultKeyFlow } from "@cortex/core"
+import { VAULT_KEY_POLL_MS, type VaultKeyDraft } from "@cortex/core"
 import { Button, Input, Label, Spinner } from "@cortex/ui"
 import { Hourglass, KeyRound, Lock } from "lucide-react"
 import { type ReactNode, useEffect, useEffectEvent, useId, useState } from "react"
 import { RecoveryKeyPanel } from "../../auth/RecoveryKeyPanel"
 import { FlowBody, FlowError, FlowFooter, FlowHeader, FlowNote } from "../../vault/FlowDialog"
-import type { VaultKeyFlow } from "./useVaultKeyFlow"
-import { VAULT_KEY_POLL_MS, type VaultKeyDraft } from "./vaultKeyDraft"
 
 interface VaultKeyStepViewProps {
 	draft: VaultKeyDraft
@@ -44,7 +44,7 @@ export function VaultKeyStepView({
 	const changePassword = (event: React.ChangeEvent<HTMLInputElement>) =>
 		updateDraft({ password: event.target.value, encryptionError: null })
 	const backButton = onBack ? (
-		<Button variant="ghost" size="sm" onClick={onBack} disabled={encryptionLoading}>
+		<Button variant="ghost" onClick={onBack} disabled={encryptionLoading}>
 			Back
 		</Button>
 	) : null
@@ -98,7 +98,7 @@ export function VaultKeyStepView({
 					<FlowError>{encryptionError}</FlowError>
 				</FlowBody>
 				<FlowFooter start={backButton}>
-					<Button size="sm" onClick={submit} disabled={!ready || encryptionLoading}>
+					<Button onClick={submit} disabled={!ready || encryptionLoading}>
 						{encryptionLoading ? <Spinner className="size-3.5" /> : null}
 						{submitLabel}
 					</Button>
@@ -136,7 +136,6 @@ export function VaultKeyStepView({
 						draft.hasPasswordKey ? (
 							<Button
 								variant="ghost"
-								size="sm"
 								onClick={() =>
 									updateDraft({ encryptionStep: "enter-password", encryptionError: null })
 								}
@@ -146,12 +145,10 @@ export function VaultKeyStepView({
 						) : null
 					}
 				>
-					<Button variant="secondary" size="sm" disabled={checking} onClick={() => void checkNow()}>
+					<Button variant="secondary" disabled={checking} onClick={() => void checkNow()}>
 						Check now
 					</Button>
-					<Button size="sm" onClick={onClose}>
-						Close
-					</Button>
+					<Button onClick={onClose}>Close</Button>
 				</FlowFooter>
 			</>
 		)

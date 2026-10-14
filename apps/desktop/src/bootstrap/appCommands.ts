@@ -1,6 +1,7 @@
 import { type CommandEntry, type CommandExecutionContext, registerCommands } from "@cortex/commands"
 import {
 	canReadVaultPath,
+	createDatabaseCommandEntries,
 	createFileCommandEntries,
 	type EditorMode,
 	type RightSidebarPanel,
@@ -43,6 +44,7 @@ import {
 	Share2Icon,
 	StoreIcon,
 	SunMoonIcon,
+	Table2Icon,
 	TagIcon,
 	TerminalIcon,
 	TrashIcon,
@@ -53,7 +55,6 @@ import {
 import { checkForAppUpdate } from "../features/app-updates/appUpdateStore"
 import { openChangelogTab } from "../features/app-updates/openChangelog"
 import { commentCommands } from "../features/comments/commentCommands"
-import { createDatabaseCommandEntries } from "../features/databases/databaseCommands"
 import { insertDrawingBlock } from "../features/drawings/drawingCommands"
 import { copyFilePath, toggleSyncExclusion } from "../features/file-explorer/fileActions"
 import {
@@ -262,7 +263,7 @@ const appCommands: CommandEntry[] = [
 	...createFileCommandEntries({
 		openFile: (filePath) => useWorkspaceStore.getState().openTab(filePath),
 	}),
-	...createDatabaseCommandEntries(),
+	...createDatabaseCommandEntries({ icon: Table2Icon }),
 	{
 		id: "vault.open",
 		label: "Open Vault",

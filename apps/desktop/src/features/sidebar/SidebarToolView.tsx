@@ -52,7 +52,7 @@ function SidebarToolEmpty({
 			<EmptyMedia className="mb-0">{icon}</EmptyMedia>
 			<EmptyDescription className="text-xs text-muted-foreground">{message}</EmptyDescription>
 			{clearable && onClear ? (
-				<Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onClear}>
+				<Button variant="ghost" size="xs" onClick={onClear}>
 					Clear filter
 				</Button>
 			) : (
@@ -90,6 +90,7 @@ export function SidebarNoteRow({
 }: SidebarNoteRowProps) {
 	return (
 		<Button
+			size="sm"
 			variant="ghost"
 			className={cn("sidebar-tool-row sidebar-note-row", className)}
 			onClick={onOpen}

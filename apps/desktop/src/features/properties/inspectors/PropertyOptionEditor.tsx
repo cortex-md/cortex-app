@@ -54,7 +54,7 @@ export function PropertyOptionEditor({
 					}
 				}}
 			/>
-			<Button variant="ghost" onClick={() => onPush({ kind: "color", optionId })}>
+			<Button size="sm" variant="ghost" onClick={() => onPush({ kind: "color", optionId })}>
 				<span className="note-property-color-dot" data-color={option.color} />
 				<span>Color</span>
 				<small>{propertyColorLabels[option.color]}</small>
@@ -76,7 +76,8 @@ export function PropertyOptionEditor({
 			)}
 			<Separator />
 			<Button
-				variant="ghost"
+				size="sm"
+				variant="destructive-soft"
 				className="note-property-delete-action"
 				onClick={() => {
 					void (async () => {

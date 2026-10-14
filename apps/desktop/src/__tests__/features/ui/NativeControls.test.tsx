@@ -63,7 +63,7 @@ describe("native controls", () => {
 			"data-variant",
 			"search",
 		)
-		expect(screen.getByRole("group", { name: "Note search" })).toHaveClass("h-9", "bg-input-bg")
+		expect(screen.getByRole("group", { name: "Note search" })).toHaveClass("h-10", "bg-input-bg")
 		expect(screen.getByRole("textbox", { name: "Search notes" })).toHaveAttribute(
 			"data-slot",
 			"input-group-control",
@@ -82,15 +82,15 @@ describe("native controls", () => {
 		)
 
 		expect(screen.getByRole("textbox", { name: "Default input" })).toHaveClass(
-			"h-[var(--input-height-md,32px)]",
+			"h-[var(--input-height-md,36px)]",
 			"px-3",
 			"bg-input-bg",
 		)
 		expect(screen.getByRole("textbox", { name: "Compact input" })).toHaveClass(
-			"h-[var(--control-height-sm,24px)]",
-			"px-2",
+			"h-[var(--control-height-sm,28px)]",
+			"px-2.5",
 		)
-		expect(screen.getByRole("group", { name: "Compact search" })).toHaveClass("h-8")
+		expect(screen.getByRole("group", { name: "Compact search" })).toHaveClass("h-9")
 		expect(screen.getByRole("textbox", { name: "Default input" })).not.toHaveClass(
 			"backdrop-blur-xl",
 		)

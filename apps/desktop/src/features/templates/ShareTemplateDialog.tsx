@@ -117,7 +117,6 @@ function ShareTemplateContent({ target }: { target: ShareTemplateTarget }) {
 						</EmptyDescription>
 					</EmptyHeader>
 					<Button
-						size="sm"
 						onClick={() => {
 							close()
 							openSettings("sync")
@@ -204,9 +203,7 @@ function ShareTemplateContent({ target }: { target: ShareTemplateTarget }) {
 				<DialogFooter className="template-share-foot">
 					<span className="template-new-hint">Change or stop sharing from the same menu.</span>
 					<span className="flex-1" />
-					<Button size="sm" onClick={close}>
-						Done
-					</Button>
+					<Button onClick={close}>Done</Button>
 				</DialogFooter>
 			</DialogContent>
 		)
@@ -312,16 +309,15 @@ function ShareTemplateContent({ target }: { target: ShareTemplateTarget }) {
 			</div>
 			<DialogFooter className="template-share-foot">
 				{existing ? (
-					<Button variant="ghost" size="sm" disabled={busy} onClick={() => void handleStop()}>
+					<Button variant="ghost" disabled={busy} onClick={() => void handleStop()}>
 						Stop sharing
 					</Button>
 				) : null}
 				<span className="flex-1" />
-				<Button variant="ghost" size="sm" onClick={close}>
+				<Button variant="ghost" onClick={close}>
 					Cancel
 				</Button>
 				<Button
-					size="sm"
 					disabled={busy || (audience === "market" && !description.trim())}
 					onClick={() => void handleShare()}
 				>

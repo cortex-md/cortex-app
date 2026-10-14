@@ -67,13 +67,13 @@ export function DatabaseHeader({
 			)}
 			{!readOnly && (
 				<span className="db-new-split">
-					<Button className="db-new-main" onClick={() => onCreate(null)}>
+					<Button size="sm" className="db-new-main" onClick={() => onCreate(null)}>
 						<PlusIcon />
 						New
 					</Button>
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
-							<Button className="db-new-more" aria-label="New from template">
+							<Button size="sm" className="db-new-more" aria-label="New from template">
 								<ChevronDownIcon />
 							</Button>
 						</DropdownMenuTrigger>

@@ -41,7 +41,7 @@ export function StatusBarModeButton() {
 		<Button
 			variant="ghost"
 			size="xs"
-			className="statusbar-item statusbar-btn gap-1 text-[11px] leading-[inherit] tracking-normal active:scale-100 active:brightness-100"
+			className="statusbar-item statusbar-btn gap-1.5 tracking-normal active:scale-100"
 			onClick={() => executeCommand("editor.toggle-mode", { source: "menu" })}
 			title="Cycle editor mode"
 		>
@@ -59,7 +59,7 @@ function StatusBarItem({ item }: { item: RegisteredStatusBarItem }) {
 		<Button
 			variant="ghost"
 			size="xs"
-			className="statusbar-item statusbar-btn gap-1 text-[11px] leading-[inherit] tracking-normal active:scale-100 active:brightness-100"
+			className="statusbar-item statusbar-btn gap-1.5 tracking-normal active:scale-100"
 			onClick={item.onClick}
 			title={item.tooltip}
 		>

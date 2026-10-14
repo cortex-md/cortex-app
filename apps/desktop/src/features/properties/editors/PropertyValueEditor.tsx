@@ -82,6 +82,7 @@ export function PropertyValueEditor({
 	if (propertyType.baseType === "checkbox") {
 		return (
 			<Button
+				size="sm"
 				variant="ghost"
 				className="note-property-checkbox-editor"
 				onClick={() => {

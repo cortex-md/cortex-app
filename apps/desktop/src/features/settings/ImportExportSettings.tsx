@@ -9,13 +9,14 @@ export function ImportExportSection() {
 			<SettingsSection title="Import" description="Bring external documents into this vault.">
 				<SettingsGroup>
 					<SettingsField fieldId="import-export.batch-import">
-						<Button type="button" onClick={() => runInMainWindow("importFiles")}>
+						<Button size="sm" type="button" onClick={() => runInMainWindow("importFiles")}>
 							<UploadIcon />
 							Import files
 						</Button>
 					</SettingsField>
 					<SettingsField fieldId="import-export.obsidian">
 						<Button
+							size="sm"
 							type="button"
 							variant="outline"
 							onClick={() => runInMainWindow("importObsidian")}

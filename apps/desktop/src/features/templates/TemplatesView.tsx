@@ -1,5 +1,10 @@
 import { type TemplateDefinition, useTemplateStore, useUIStore, useVaultStore } from "@cortex/core"
-import { getFileNameParts, getTemplateValueLabel } from "@cortex/templates"
+import {
+	getFileNameParts,
+	getTemplateGroups,
+	getTemplateValueLabel,
+	isTeamTemplate,
+} from "@cortex/templates"
 import {
 	Button,
 	DropdownMenu,
@@ -37,7 +42,6 @@ import type { CoreViewProps } from "../split-view/coreViewProps"
 import { openShareTemplate } from "./shareActions"
 import { TemplateNotePreview } from "./TemplateNotePreview"
 import { openNewTemplate, openTemplateEditor } from "./templateActions"
-import { getTemplateGroups, isTeamTemplate } from "./templateGroups"
 import "./templates.css"
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" })
@@ -194,29 +198,22 @@ export function TemplatesView({ viewState, onStateChange }: CoreViewProps) {
 								{selected.description ? <p>{selected.description}</p> : null}
 							</div>
 							<div className="templates-detail-actions">
-								<Button size="sm" onClick={() => openCreateFromTemplate(selected.id)}>
-									Use
-								</Button>
+								<Button onClick={() => openCreateFromTemplate(selected.id)}>Use</Button>
 								{mine ? (
 									<Button
 										variant="secondary"
-										size="sm"
 										onClick={() => openTemplateEditor(selected.id, selected.name)}
 									>
 										Edit
 									</Button>
 								) : (
-									<Button
-										variant="secondary"
-										size="sm"
-										onClick={() => void handleEditCopy(selected)}
-									>
+									<Button variant="secondary" onClick={() => void handleEditCopy(selected)}>
 										Make a copy to edit
 									</Button>
 								)}
 								<DropdownMenu>
 									<DropdownMenuTrigger asChild>
-										<Button variant="ghost" size="icon-sm" aria-label="More actions">
+										<Button variant="ghost" size="icon" aria-label="More actions">
 											<EllipsisIcon />
 										</Button>
 									</DropdownMenuTrigger>

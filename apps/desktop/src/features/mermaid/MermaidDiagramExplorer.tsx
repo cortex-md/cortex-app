@@ -369,7 +369,6 @@ export function MermaidDiagramExplorer({
 				<Button
 					type="button"
 					variant="ghost"
-					size="sm"
 					className="mermaid-explorer-tool"
 					aria-label="Zoom out"
 					title="Zoom out"
@@ -380,7 +379,6 @@ export function MermaidDiagramExplorer({
 				<Button
 					type="button"
 					variant="ghost"
-					size="sm"
 					className="mermaid-explorer-tool"
 					aria-label="Zoom in"
 					title="Zoom in"
@@ -391,7 +389,6 @@ export function MermaidDiagramExplorer({
 				<Button
 					type="button"
 					variant="ghost"
-					size="sm"
 					className="mermaid-explorer-tool"
 					aria-label="Fit diagram"
 					title="Fit diagram"
@@ -402,7 +399,6 @@ export function MermaidDiagramExplorer({
 				<Button
 					type="button"
 					variant="ghost"
-					size="sm"
 					className="mermaid-explorer-tool"
 					aria-label="Reset view"
 					title="Reset view"

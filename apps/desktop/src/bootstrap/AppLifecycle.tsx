@@ -6,15 +6,14 @@ import {
 	openVaultSession,
 	reportAppError,
 	startAppRuntime,
+	startAuthSession,
 	useAppStore,
-	useAuthStore,
 	useDragStore,
 	useVaultStore,
 	useWorkspaceStore,
 } from "@cortex/core"
 import { loadEditorRuntime } from "@cortex/editor/runtime"
 import { useHotkeyListener, useHotkeysStore } from "@cortex/hotkeys"
-import { getPlatform } from "@cortex/platform"
 import { useSettingsStore } from "@cortex/settings"
 import { useEffect } from "react"
 import { useTeamTemplates } from "../features/templates/useTeamTemplates"
@@ -58,14 +57,7 @@ function openTabInActivePane(filePath: string) {
 }
 
 function useAuthSessionWatcher() {
-	useEffect(() => {
-		const { loadPreferences, checkAuth } = useAuthStore.getState()
-		void loadPreferences().then(() => checkAuth())
-
-		return getPlatform().app.onNativeEvent("auth-session-expired", () => {
-			void useAuthStore.getState().logout()
-		})
-	}, [])
+	useEffect(() => startAuthSession(), [])
 }
 
 function reportWorkspacePersistError(error: unknown, vaultPath: string) {

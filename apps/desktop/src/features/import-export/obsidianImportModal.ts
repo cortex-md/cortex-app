@@ -1,7 +1,6 @@
+import type { ObsidianImportTarget } from "@cortex/import-export"
 import { createModalStore } from "@/utils/createModalStore"
 
-export type ObsidianImportTarget =
-	| { mode: "import"; sourcePath: string; defaultFolder: string }
-	| { mode: "adopt" }
+export type { ObsidianImportTarget }
 
 export const obsidianImportModal = createModalStore<ObsidianImportTarget>()

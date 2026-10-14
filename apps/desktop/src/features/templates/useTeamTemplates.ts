@@ -1,13 +1,13 @@
 import {
-	refreshTeamTemplates,
+	startTeamTemplatesRefresh,
+	teamTemplatesRefreshKey,
 	useAuthStore,
 	useRemoteVaultStore,
 	useVaultStore,
 } from "@cortex/core"
 import { useSettingsStore } from "@cortex/settings"
 import { useEffect } from "react"
-
-const focusRefreshInterval = 60_000
+import { onWindowFocus } from "@/utils/windowFocus"
 
 export function useTeamTemplates(): void {
 	const vaultPath = useVaultStore((state) => state.vault?.path ?? null)
@@ -17,18 +17,10 @@ export function useTeamTemplates(): void {
 	)
 	const showTeam = useSettingsStore((state) => state.settings.templates.showTeam)
 
-	const refreshKey = vaultPath ? [vaultPath, remoteVaultId, userId, showTeam].join("|") : null
+	const refreshKey = teamTemplatesRefreshKey({ vaultPath, remoteVaultId, userId, showTeam })
 
 	useEffect(() => {
 		if (!refreshKey) return
-		let lastRefresh = Date.now()
-		void refreshTeamTemplates()
-		const onFocus = () => {
-			if (Date.now() - lastRefresh < focusRefreshInterval) return
-			lastRefresh = Date.now()
-			void refreshTeamTemplates()
-		}
-		window.addEventListener("focus", onFocus)
-		return () => window.removeEventListener("focus", onFocus)
+		return startTeamTemplatesRefresh(onWindowFocus)
 	}, [refreshKey])
 }

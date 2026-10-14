@@ -9,6 +9,8 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 	Toggle,
+	Toolbar,
+	ToolbarSeparator,
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,
@@ -204,9 +206,8 @@ export function SelectionToolbar({
 
 	return createPortal(
 		<TooltipProvider delayDuration={500}>
-			<div
+			<Toolbar
 				className="selection-toolbar"
-				role="toolbar"
 				aria-label="Format selection"
 				data-placement={state.position.placement}
 				style={{ left: state.position.left, top: state.position.top }}
@@ -226,11 +227,11 @@ export function SelectionToolbar({
 						}
 					/>
 				)}
-				{showFormatting && <span className="selection-toolbar-sep" aria-hidden="true" />}
+				{showFormatting && <ToolbarSeparator />}
 				{inlineCommands.map((command) => (
 					<CommandButton key={command.id} command={command} onRun={runCommand} />
 				))}
-				{showFormatting && <span className="selection-toolbar-sep" aria-hidden="true" />}
+				{showFormatting && <ToolbarSeparator />}
 				{blockCommands.map((command) => (
 					<CommandButton key={command.id} command={command} onRun={runCommand} />
 				))}
@@ -243,9 +244,7 @@ export function SelectionToolbar({
 						trigger={<MoreHorizontalIcon aria-hidden="true" />}
 					/>
 				)}
-				{showFormatting && annotateCommands.length > 0 && (
-					<span className="selection-toolbar-sep" aria-hidden="true" />
-				)}
+				{showFormatting && annotateCommands.length > 0 && <ToolbarSeparator />}
 				{annotateCommands.map((command) => (
 					<CommandButton
 						key={command.id}
@@ -254,7 +253,7 @@ export function SelectionToolbar({
 						showLabel={!showFormatting}
 					/>
 				))}
-			</div>
+			</Toolbar>
 		</TooltipProvider>,
 		document.body,
 	)

@@ -45,8 +45,9 @@ export function MermaidDiagramSurface({
 	if (onOpen) {
 		return (
 			<Button
+				size="sm"
 				variant="ghost"
-				className={`${surfaceClassName} h-auto whitespace-normal active:scale-100 active:brightness-100`}
+				className={`${surfaceClassName} h-auto whitespace-normal active:scale-100`}
 				onClick={onOpen}
 				aria-label={`Open ${title}`}
 			>

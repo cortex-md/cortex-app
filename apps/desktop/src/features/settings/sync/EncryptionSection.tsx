@@ -61,7 +61,7 @@ function KeySetupForm({ onRecoveryKey }: { onRecoveryKey(recoveryKey: string): v
 						value={password}
 						onChange={(event) => setPassword(event.target.value)}
 					/>
-					<Button type="submit" size="sm" disabled={busy || password.length < 8}>
+					<Button type="submit" disabled={busy || password.length < 8}>
 						{busy && <Spinner className="size-3" />}
 						{upgrading ? "Set up" : "Unlock"}
 					</Button>
@@ -137,12 +137,7 @@ export function EncryptionSection() {
 									: "Not set up. Without it, a password reset waits for an admin or another of your devices."
 							}
 						>
-							<Button
-								variant="secondary"
-								size="sm"
-								disabled={busy}
-								onClick={() => void regenerate()}
-							>
+							<Button variant="secondary" disabled={busy} onClick={() => void regenerate()}>
 								{busy && <Spinner className="size-3" />}
 								{keyStatus.hasRecoveryKey ? "Generate new recovery key" : "Create recovery key"}
 							</Button>

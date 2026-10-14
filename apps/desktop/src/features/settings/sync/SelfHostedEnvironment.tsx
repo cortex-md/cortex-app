@@ -67,7 +67,12 @@ function EnvironmentDisclosure({
 		<Collapsible open={open} onOpenChange={onOpenChange} asChild>
 			<SettingsGroup className="settings-env-group">
 				<CollapsibleTrigger asChild>
-					<Button variant="ghost" aria-label={group.label} className="settings-env-trigger">
+					<Button
+						size="sm"
+						variant="ghost"
+						aria-label={group.label}
+						className="settings-env-trigger"
+					>
 						<ChevronRight className="settings-env-chevron" />
 						<SettingsIconTile>
 							<GroupIcon />

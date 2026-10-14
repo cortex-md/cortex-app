@@ -53,7 +53,7 @@ function FileSidebarHeader({ vaultPath, onCreate }: FileSidebarHeaderProps) {
 						<Button
 							type="button"
 							variant="ghost"
-							size="icon"
+							size="icon-sm"
 							className="sidebar-action-button text-text-muted hover:text-text-primary hover:bg-bg-hover"
 							title="Create"
 							aria-label="Create"

@@ -189,11 +189,11 @@ function SyncLogsContent() {
 				title="Sync logs"
 				actions={
 					<>
-						<Button variant="ghost" size="sm" onClick={handleCopy} disabled={entries.length === 0}>
+						<Button variant="ghost" onClick={handleCopy} disabled={entries.length === 0}>
 							<CopyIcon />
 							{copied ? "Copied" : "Copy"}
 						</Button>
-						<Button variant="ghost" size="sm" onClick={clear} disabled={entries.length === 0}>
+						<Button variant="ghost" onClick={clear} disabled={entries.length === 0}>
 							Clear
 						</Button>
 					</>

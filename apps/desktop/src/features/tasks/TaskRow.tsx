@@ -97,7 +97,7 @@ export const TaskRow = memo(function TaskRow({
 			data-selected={selected ? "true" : undefined}
 		>
 			<TaskCheck task={task} surface={surface} inboxPath={inboxPath} />
-			<Button variant="ghost" className="task-row-open" onClick={() => onOpen(task)}>
+			<Button size="sm" variant="ghost" className="task-row-open" onClick={() => onOpen(task)}>
 				<span className="task-row-title">{task.title}</span>
 				{surface === "sidebar" ? (
 					<span className="task-row-source">{getTaskSource(task, inboxPath)}</span>

@@ -72,6 +72,7 @@ function SuspendedTabContent({ tab, paneId, isActive }: TabEditorProps) {
 			aria-hidden={!isActive}
 		>
 			<Button
+				size="sm"
 				variant="ghost"
 				className="flex-1 flex items-center justify-center text-xs text-text-muted bg-bg-primary border-none font-family-ui w-full hover:bg-bg-secondary"
 				onClick={handleResume}
@@ -145,7 +146,6 @@ const ViewTabContent = memo(function ViewTabContent({
 					View not available
 					<Button
 						variant="ghost"
-						size="sm"
 						onClick={() => useWorkspaceStore.getState().closeTab(tab.id, paneId)}
 					>
 						Close tab

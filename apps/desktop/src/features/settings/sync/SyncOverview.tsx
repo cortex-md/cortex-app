@@ -132,12 +132,7 @@ function SyncStatusHero({
 					<span>{serverLabel}</span>
 				</span>
 			</div>
-			<Button
-				variant="secondary"
-				size="sm"
-				disabled={syncing}
-				onClick={() => runInMainWindow("restartSync")}
-			>
+			<Button variant="secondary" disabled={syncing} onClick={() => runInMainWindow("restartSync")}>
 				{syncing ? "Syncing..." : "Sync now"}
 			</Button>
 			<div className="settings-sync-stats">
@@ -246,12 +241,7 @@ export function VaultLinkSection({
 								label="Stop syncing this vault"
 								description={`Notes stay on this Mac. ${vaultName} isn’t touched.`}
 							>
-								<Button
-									variant="ghost"
-									size="xs"
-									className="text-status-error-foreground hover:text-status-error-foreground"
-									onClick={onStopSyncing}
-								>
+								<Button variant="destructive-soft" size="xs" onClick={onStopSyncing}>
 									Stop syncing…
 								</Button>
 							</SettingsField>
@@ -328,7 +318,7 @@ function DevicesSection() {
 								<>
 									<span className="settings-field-value">{lastSeenLabel}</span>
 									<Button
-										variant="ghost"
+										variant="destructive-soft"
 										size="xs"
 										className="settings-device-revoke"
 										onClick={() => revoke(device.id, device.deviceName)}

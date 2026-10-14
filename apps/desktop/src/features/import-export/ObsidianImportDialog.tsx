@@ -153,9 +153,11 @@ function ObsidianImportContent({ target }: { target: ObsidianImportTarget }) {
 					</DialogBody>
 					<DialogFooter className="dialog-chrome-footer">
 						<DialogClose asChild>
-							<Button variant="outline">Cancel</Button>
+							<Button size="sm" variant="outline">
+								Cancel
+							</Button>
 						</DialogClose>
-						<Button type="submit" disabled={!isValidDestination(destinationFolder)}>
+						<Button size="sm" type="submit" disabled={!isValidDestination(destinationFolder)}>
 							Import
 						</Button>
 					</DialogFooter>
@@ -180,7 +182,7 @@ function ObsidianImportContent({ target }: { target: ObsidianImportTarget }) {
 						</div>
 					</DialogBody>
 					<DialogFooter className="dialog-chrome-footer">
-						<Button variant="outline" onClick={() => abortRef.current?.abort()}>
+						<Button size="sm" variant="outline" onClick={() => abortRef.current?.abort()}>
 							Cancel
 						</Button>
 					</DialogFooter>
@@ -278,7 +280,7 @@ function ObsidianImportSummary({ summary }: { summary: ObsidianRunSummary }) {
 			</DialogBody>
 			<DialogFooter className="dialog-chrome-footer">
 				<DialogClose asChild>
-					<Button>Done</Button>
+					<Button size="sm">Done</Button>
 				</DialogClose>
 			</DialogFooter>
 		</>

@@ -1,7 +1,7 @@
 import type { Tab, ViewTabState } from "@cortex/core"
 import { useWorkspaceStore } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
-import { Button, Input, Progress, Spinner } from "@cortex/ui"
+import { Button, ButtonGroup, Input, Progress, Spinner } from "@cortex/ui"
 import {
 	AlertCircleIcon,
 	ChevronLeftIcon,
@@ -136,7 +136,7 @@ export function PdfTabView({ tab, paneId, isActive }: PdfTabViewProps) {
 				<fieldset className="pdf-viewer-controls" aria-label="PDF page controls">
 					<Button
 						variant="ghost"
-						size="icon-sm"
+						size="icon"
 						aria-label="Previous page"
 						disabled={documentStatus.type !== "ready" || pageNumber <= 1}
 						onClick={handlePreviousPage}
@@ -155,7 +155,7 @@ export function PdfTabView({ tab, paneId, isActive }: PdfTabViewProps) {
 					<span className="pdf-viewer-page-total">/ {pageCount || "-"}</span>
 					<Button
 						variant="ghost"
-						size="icon-sm"
+						size="icon"
 						aria-label="Next page"
 						disabled={documentStatus.type !== "ready" || pageCount === 0 || pageNumber >= pageCount}
 						onClick={handleNextPage}
@@ -163,36 +163,35 @@ export function PdfTabView({ tab, paneId, isActive }: PdfTabViewProps) {
 						<ChevronRightIcon className="size-4" />
 					</Button>
 				</fieldset>
-				<fieldset className="pdf-viewer-controls" aria-label="PDF zoom controls">
+				<ButtonGroup role="group" aria-label="PDF zoom controls">
 					<Button
 						variant="ghost"
-						size="icon-sm"
+						size="icon"
 						aria-label="Zoom out"
 						disabled={documentStatus.type !== "ready" || viewState.zoom <= MIN_ZOOM}
 						onClick={handleZoomOut}
 					>
-						<MinusIcon className="size-4" />
+						<MinusIcon />
 					</Button>
 					<Button
 						variant="ghost"
-						size="sm"
 						className="pdf-viewer-zoom-reset"
 						disabled={documentStatus.type !== "ready"}
 						onClick={handleZoomReset}
 					>
-						<RotateCcwIcon className="size-3.5" />
+						<RotateCcwIcon className="size-4" />
 						{Math.round(viewState.zoom * 100)}%
 					</Button>
 					<Button
 						variant="ghost"
-						size="icon-sm"
+						size="icon"
 						aria-label="Zoom in"
 						disabled={documentStatus.type !== "ready" || viewState.zoom >= MAX_ZOOM}
 						onClick={handleZoomIn}
 					>
-						<PlusIcon className="size-4" />
+						<PlusIcon />
 					</Button>
-				</fieldset>
+				</ButtonGroup>
 			</div>
 
 			<div className="pdf-viewer-scroll">
@@ -207,7 +206,7 @@ export function PdfTabView({ tab, paneId, isActive }: PdfTabViewProps) {
 					<div className="pdf-viewer-message">
 						<AlertCircleIcon className="size-6 text-destructive" />
 						<span>{documentStatus.message}</span>
-						<Button variant="outline" size="sm" onClick={handleReveal}>
+						<Button variant="outline" onClick={handleReveal}>
 							Reveal file
 						</Button>
 					</div>

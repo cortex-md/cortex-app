@@ -71,15 +71,11 @@ function ProfileSection() {
 						description="Shown to people you share vaults with."
 					>
 						<div className="flex gap-2">
-							<Button variant="secondary" size="sm" onClick={() => void pickAvatar()}>
+							<Button variant="secondary" onClick={() => void pickAvatar()}>
 								Change
 							</Button>
 							{profile.avatarUrl && (
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={() => void deleteAvatar().catch(() => {})}
-								>
+								<Button variant="ghost" onClick={() => void deleteAvatar().catch(() => {})}>
 									Remove
 								</Button>
 							)}
@@ -145,7 +141,6 @@ function EmailSection() {
 					{!profile.emailVerified && verificationEnabled && (
 						<Button
 							variant="secondary"
-							size="sm"
 							onClick={() =>
 								void resendEmailVerification()
 									.then(() => setStatus("Verification email sent."))
@@ -173,7 +168,7 @@ function EmailSection() {
 								value={password}
 								onChange={(event) => setPassword(event.target.value)}
 							/>
-							<Button type="submit" size="sm" disabled={!newEmail.trim() || !password}>
+							<Button type="submit" disabled={!newEmail.trim() || !password}>
 								Change
 							</Button>
 						</div>
@@ -225,7 +220,7 @@ function PasswordSection() {
 								value={newPassword}
 								onChange={(event) => setNewPassword(event.target.value)}
 							/>
-							<Button type="submit" size="sm" disabled={!currentPassword || newPassword.length < 8}>
+							<Button type="submit" disabled={!currentPassword || newPassword.length < 8}>
 								Change
 							</Button>
 						</div>

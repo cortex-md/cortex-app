@@ -72,7 +72,6 @@ function HotkeyRecorder({
 			<Button
 				ref={recorderRef}
 				variant="outline"
-				size="sm"
 				className="min-w-[100px] text-xs text-brand border-brand/50 animate-pulse"
 				onClick={() => setRecording(false)}
 			>
@@ -85,7 +84,6 @@ function HotkeyRecorder({
 		<Button
 			aria-label={hasKeys ? "Change shortcut" : "Add shortcut"}
 			variant="outline"
-			size="sm"
 			className="min-w-[100px] text-xs"
 			onClick={() => setRecording(true)}
 		>
@@ -135,12 +133,12 @@ const HotkeyRow = memo(function HotkeyRow({
 				{binding.keys !== binding.defaultKeys && (
 					<Button
 						variant="ghost"
-						size="sm"
-						className="text-xs text-muted-foreground h-7 w-7 p-0"
+						size="icon-xs"
 						onClick={() => onReset(binding.id)}
 						title="Reset to default"
+						aria-label="Reset to default"
 					>
-						<RotateCcwIcon className="size-3" />
+						<RotateCcwIcon />
 					</Button>
 				)}
 			</div>
@@ -232,7 +230,7 @@ export function HotkeysSection() {
 				title="Keyboard shortcuts"
 				description="Search, record, and reset command bindings for this vault."
 				action={
-					<Button variant="ghost" size="sm" onClick={handleResetAll}>
+					<Button variant="ghost" onClick={handleResetAll}>
 						<RotateCcwIcon className="size-3" />
 						Reset All
 					</Button>

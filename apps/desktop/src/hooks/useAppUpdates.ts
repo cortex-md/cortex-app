@@ -1,4 +1,5 @@
 import type { VaultMetadata } from "@cortex/core"
+import { sendCoreNotification } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
 import { useEffect, useRef } from "react"
 import {
@@ -7,7 +8,6 @@ import {
 } from "../features/app-updates/appUpdateChangelogMarker"
 import { checkForAppUpdate, refreshAppUpdateStatus } from "../features/app-updates/appUpdateStore"
 import { openChangelogTab } from "../features/app-updates/openChangelog"
-import { sendCoreNotification } from "../utils/nativeNotifications"
 
 export function useAppUpdateLifecycle(version: string | null, vault: VaultMetadata | null) {
 	const startupCheckAttempted = useRef(false)

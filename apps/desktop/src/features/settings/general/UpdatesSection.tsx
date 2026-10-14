@@ -95,7 +95,6 @@ export function UpdatesSection() {
 					<div className="flex flex-wrap items-center gap-2">
 						<Button
 							variant="secondary"
-							size="sm"
 							onClick={handleCheckForUpdates}
 							disabled={checking || installing}
 						>
@@ -103,11 +102,7 @@ export function UpdatesSection() {
 							Check for updates
 						</Button>
 						{pendingUpdate && (
-							<Button
-								size="sm"
-								onClick={handleInstallPendingUpdate}
-								disabled={checking || installing}
-							>
+							<Button onClick={handleInstallPendingUpdate} disabled={checking || installing}>
 								<Download />
 								{getInstallLabel()}
 							</Button>

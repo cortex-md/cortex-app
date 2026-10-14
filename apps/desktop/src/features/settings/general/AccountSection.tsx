@@ -69,8 +69,7 @@ export function AccountSection() {
 							</p>
 						</div>
 						<Button
-							variant="destructive"
-							size="sm"
+							variant="destructive-soft"
 							onClick={() => void handleSignOut()}
 							disabled={signingOut}
 						>
@@ -89,7 +88,7 @@ export function AccountSection() {
 								Sign in to enable sync and collaborate in remote vaults.
 							</p>
 						</div>
-						<Button size="sm" onClick={() => openAuth("login", "general")}>
+						<Button onClick={() => openAuth("login", "general")}>
 							<LogIn />
 							Sign in
 						</Button>

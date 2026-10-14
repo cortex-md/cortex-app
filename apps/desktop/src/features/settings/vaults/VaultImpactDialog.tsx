@@ -1,3 +1,4 @@
+import type { VaultImpact } from "@cortex/core"
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -14,22 +15,7 @@ import {
 import { Cloud, Laptop, Users } from "lucide-react"
 import { type ReactNode, useId, useState } from "react"
 
-export type ImpactTone = "keep" | "stop" | "gone"
-
-export interface VaultImpact {
-	title: string
-	description: string
-	cells: [ImpactCell, ImpactCell, ImpactCell]
-	confirmLabel: string
-	destructive?: boolean
-	confirmName?: string
-}
-
-interface ImpactCell {
-	where: string
-	what: string
-	tone: ImpactTone
-}
+export type { VaultImpact }
 
 const CELL_ICONS: [ReactNode, ReactNode, ReactNode] = [
 	<Laptop key="mac" />,
@@ -112,12 +98,9 @@ function VaultImpactContent({
 				</div>
 			) : null}
 			<AlertDialogFooter className="mt-5">
-				<AlertDialogCancel variant="ghost" size="sm">
-					Cancel
-				</AlertDialogCancel>
+				<AlertDialogCancel variant="ghost">Cancel</AlertDialogCancel>
 				<AlertDialogAction
 					variant={impact.destructive ? "destructive" : "default"}
-					size="sm"
 					disabled={locked}
 					onClick={(event) => {
 						if (locked) {

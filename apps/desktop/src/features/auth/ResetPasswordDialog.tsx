@@ -82,7 +82,6 @@ function ResetPasswordContent({ target }: { target: ResetPasswordTarget }) {
 				</DialogHeader>
 				<DialogFooter className="dialog-chrome-footer">
 					<Button
-						size="sm"
 						onClick={() => {
 							resetPasswordModal.close()
 							openAuth("login")
@@ -158,11 +157,11 @@ function ResetPasswordContent({ target }: { target: ResetPasswordTarget }) {
 				</DialogBody>
 				<DialogFooter className="dialog-chrome-footer">
 					<DialogClose asChild>
-						<Button type="button" variant="ghost" size="sm">
+						<Button type="button" variant="ghost">
 							Cancel
 						</Button>
 					</DialogClose>
-					<Button type="submit" size="sm" disabled={busy || !password || !confirmPassword}>
+					<Button type="submit" disabled={busy || !password || !confirmPassword}>
 						{busy && <Spinner className="size-3" />}
 						Change password
 					</Button>

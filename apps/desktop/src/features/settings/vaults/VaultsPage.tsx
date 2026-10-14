@@ -1,8 +1,15 @@
 import {
+	CLOUD_SERVER_LABEL,
+	deleteImpact,
+	forgetImpact,
+	getSyncServerLabel,
+	getVaultDisplayPath,
+	leaveImpact,
 	leaveRemoteVault,
 	linkVaultFolder,
 	loadVaultListItems,
 	resolveVaultColor,
+	unlinkImpact,
 	unlinkVaultFolder,
 	useAuthStore,
 	useRemoteVaultStore,
@@ -24,9 +31,8 @@ import {
 import { Cloud, Laptop, MoreHorizontal, Pause, TriangleAlert } from "lucide-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { runInMainWindow } from "@/windows/runInMainWindow"
-import { CLOUD_SERVER_LABEL, getSyncServerLabel } from "../../sync/serverLabel"
+import { DEVICE_LABEL } from "../../vault/deviceLabel"
 import { VaultTile } from "../../vault/VaultTile"
-import { getVaultDisplayPath } from "../../vault/vaultDisplay"
 import {
 	SettingsEmptyState,
 	SettingsGroup,
@@ -36,7 +42,6 @@ import {
 	SettingsSection,
 } from "../SettingsPrimitives"
 import { type VaultImpact, VaultImpactDialog } from "./VaultImpactDialog"
-import { deleteImpact, forgetImpact, leaveImpact, unlinkImpact } from "./vaultImpacts"
 
 interface PendingAction {
 	impact: VaultImpact
@@ -195,7 +200,7 @@ export function VaultsPage() {
 		const removeItem = (
 			<DropdownMenuItem
 				onSelect={() =>
-					confirm(forgetImpact(item.entry.name, itemServer), async () => forget(item))
+					confirm(forgetImpact(item.entry.name, itemServer, DEVICE_LABEL), async () => forget(item))
 				}
 			>
 				Remove from list{item.status === "missing" ? "" : "…"}
@@ -236,7 +241,12 @@ export function VaultsPage() {
 				<DropdownMenuItem
 					onSelect={() =>
 						confirm(
-							unlinkImpact(item.entry.name, remote?.name ?? item.entry.name, itemServer),
+							unlinkImpact(
+								item.entry.name,
+								remote?.name ?? item.entry.name,
+								itemServer,
+								DEVICE_LABEL,
+							),
 							() => unlink(item),
 						)
 					}
@@ -253,10 +263,13 @@ export function VaultsPage() {
 			<DropdownMenuItem
 				variant="destructive"
 				onSelect={() =>
-					confirm(deleteImpact(remote.name, server, remote.memberCount ?? 1), async () => {
-						await deleteRemoteVault(remote.id)
-						toast(`${remote.name} deleted from ${server}`)
-					})
+					confirm(
+						deleteImpact(remote.name, server, remote.memberCount ?? 1, DEVICE_LABEL),
+						async () => {
+							await deleteRemoteVault(remote.id)
+							toast(`${remote.name} deleted from ${server}`)
+						},
+					)
 				}
 			>
 				Delete from {server}…
@@ -265,7 +278,7 @@ export function VaultsPage() {
 			<DropdownMenuItem
 				variant="destructive"
 				onSelect={() =>
-					confirm(leaveImpact(remote.name, server), async () => {
+					confirm(leaveImpact(remote.name, server, DEVICE_LABEL), async () => {
 						await leaveRemoteVault(remote.id)
 						toast(`You left ${remote.name}`)
 					})
@@ -322,7 +335,7 @@ export function VaultsPage() {
 												<DropdownMenuTrigger asChild>
 													<Button
 														variant="ghost"
-														size="icon-sm"
+														size="icon"
 														aria-label={`More for ${item.entry.name}`}
 													>
 														<MoreHorizontal />
@@ -378,11 +391,7 @@ export function VaultsPage() {
 										</Button>
 										<DropdownMenu>
 											<DropdownMenuTrigger asChild>
-												<Button
-													variant="ghost"
-													size="icon-sm"
-													aria-label={`More for ${remote.name}`}
-												>
+												<Button variant="ghost" size="icon" aria-label={`More for ${remote.name}`}>
 													<MoreHorizontal />
 												</Button>
 											</DropdownMenuTrigger>

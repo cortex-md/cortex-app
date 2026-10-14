@@ -89,6 +89,7 @@ export function TaskMiniCalendar({ label, selected, today, onSelect }: TaskMiniC
 				))}
 				{days.map((day) => (
 					<Button
+						size="sm"
 						key={day.date}
 						variant="ghost"
 						className="task-calendar-day"

@@ -114,10 +114,10 @@ const buttonVariantMap: Record<
 	danger: "destructive",
 }
 
-const buttonSizeMap: Record<ViewSize, "xs" | "default" | "sm"> = {
+const buttonSizeMap: Record<ViewSize, "xs" | "sm" | "default"> = {
 	sm: "xs",
-	md: "default",
-	lg: "sm",
+	md: "sm",
+	lg: "default",
 }
 
 const scrollSizeClasses: Record<ViewScrollSize, string> = {
@@ -634,7 +634,7 @@ function ViewNodeRenderer({ node, dispatch }: { node: ViewNode; dispatch: ViewDi
 				<Button
 					type="button"
 					variant={buttonVariantMap[node.variant ?? "ghost"]}
-					size={node.size === "lg" ? "icon-sm" : node.size === "sm" ? "icon-xs" : "icon"}
+					size={node.size === "lg" ? "icon" : node.size === "sm" ? "icon-xs" : "icon-sm"}
 					aria-label={node.label}
 					title={node.label}
 					disabled={node.disabled}
@@ -734,8 +734,9 @@ function ViewNodeRenderer({ node, dispatch }: { node: ViewNode; dispatch: ViewDi
 			return (
 				<li>
 					<Button
+						size="sm"
 						variant="ghost"
-						className="h-auto w-full justify-start rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent active:scale-100"
+						className="h-auto min-h-[var(--row-height)] w-full justify-start rounded-[var(--row-radius)] px-2.5 py-[7px] text-left font-normal text-text-primary active:scale-100"
 						disabled={node.disabled}
 						onClick={() => dispatchNodeAction(dispatch, node.action, node.payload)}
 					>

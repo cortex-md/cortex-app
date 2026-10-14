@@ -1,25 +1,27 @@
 import {
-	createDefaultSyncPreferences,
-	createVaultFolder,
+	ADD_VAULT_STEP_LABELS,
+	type AddVaultPath,
+	type AddVaultStep,
+	type AddVaultTarget,
+	addVaultStepsFor,
+	CLOUD_SERVER_LABEL,
+	createAddVaultFlow,
+	createVaultKeyDraft,
+	formatVaultPath,
 	getDefaultVaultLocation,
-	registerVaultFolder,
-	resolvePickedFolder,
+	NEW_REMOTE,
+	resolveAddVaultNames,
 	resolveVaultColor,
-	useRemoteVaultStore,
 	useUIStore,
-	useVaultStore,
-	VAULT_COLORS,
+	type VaultKeyDraft,
 } from "@cortex/core"
 import { isObsidianVault } from "@cortex/import-export"
-import { getPlatform, type VaultRegistryEntry } from "@cortex/platform"
 import { Button, Spinner } from "@cortex/ui"
-import { useEffect, useEffectEvent, useState } from "react"
+import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react"
 import { ModalStoreHost } from "@/utils/ModalHost"
 import { obsidianImportModal } from "../../import-export/obsidianImportModal"
-import { CLOUD_SERVER_LABEL } from "../../sync/serverLabel"
-import { useVaultKeyFlow } from "../../sync/vault-key/useVaultKeyFlow"
+import { useVaultKeyFlow, type VaultKeyFlow } from "../../sync/vault-key/useVaultKeyFlow"
 import { VaultKeyStepView } from "../../sync/vault-key/VaultKeyStepView"
-import { createVaultKeyDraft, type VaultKeyDraft } from "../../sync/vault-key/vaultKeyDraft"
 import {
 	FlowBody,
 	FlowDialogContent,
@@ -32,100 +34,16 @@ import {
 	FlowSummary,
 } from "../FlowDialog"
 import { VaultTile } from "../VaultTile"
-import {
-	type AddVaultPath,
-	type AddVaultTarget,
-	addVaultModal,
-	openRecentVault,
-} from "../vaultActions"
-import { formatVaultPath } from "../vaultDisplay"
+import { addVaultModal, openRecentVault } from "../vaultActions"
 import {
 	ChooseStep,
 	FolderStep,
 	LocationStep,
 	NameStep,
-	NEW_REMOTE,
-	type PickedFolderInfo,
 	RemoteStep,
 	SyncChoiceStep,
-	type SyncMode,
 } from "./AddVaultSteps"
 import { useAddVaultRemotes } from "./useAddVaultRemotes"
-
-type AddVaultStep =
-	| "choose"
-	| "name"
-	| "folder"
-	| "sync"
-	| "remote"
-	| "location"
-	| "password"
-	| "done"
-
-const STEP_LABELS: Record<Exclude<AddVaultStep, "choose">, string> = {
-	name: "Name",
-	folder: "Folder",
-	sync: "Sync",
-	remote: "Remote vault",
-	location: "Folder",
-	password: "Password",
-	done: "Done",
-}
-
-const FIRST_STEP: Record<AddVaultPath, AddVaultStep> = {
-	create: "name",
-	open: "folder",
-	download: "remote",
-}
-
-function stepsFor(path: AddVaultPath, syncing: boolean): AddVaultStep[] {
-	if (path === "download") return ["remote", "location", "password", "done"]
-	const first = FIRST_STEP[path]
-	return syncing ? [first, "sync", "remote", "password", "done"] : [first, "sync", "done"]
-}
-
-interface AddVaultDraft {
-	path: AddVaultPath | null
-	step: AddVaultStep
-	name: string
-	color: string
-	parentPath: string | null
-	folder: PickedFolderInfo | null
-	picking: boolean
-	adoptObsidian: boolean
-	mode: SyncMode | null
-	remoteId: string | null
-	newRemoteName: string
-	linkedRemoteName: string | null
-	entry: VaultRegistryEntry | null
-	busy: boolean
-	error: string | null
-}
-
-function createDraft(target: AddVaultTarget): AddVaultDraft {
-	const path = target.start === "choose" ? null : target.start
-	return {
-		path,
-		step: path ? FIRST_STEP[path] : "choose",
-		name: "Second brain",
-		color: VAULT_COLORS[0],
-		parentPath: null,
-		folder: null,
-		picking: false,
-		adoptObsidian: true,
-		mode: path === "download" ? "sync" : null,
-		remoteId: target.remoteVaultId ?? null,
-		newRemoteName: "",
-		linkedRemoteName: null,
-		entry: null,
-		busy: false,
-		error: null,
-	}
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error)
-}
 
 export function AddVaultDialogHost() {
 	return (
@@ -136,13 +54,26 @@ export function AddVaultDialogHost() {
 }
 
 function AddVaultDialogContent({ target }: { target: AddVaultTarget }) {
-	const [draft, setDraft] = useState<AddVaultDraft>(() => createDraft(target))
+	const keyFlowRef = useRef<VaultKeyFlow | null>(null)
+	const [controller] = useState(() =>
+		createAddVaultFlow(target, {
+			close: () => addVaultModal.close(),
+			isObsidianVault,
+			openVault: (entry, options) => openRecentVault(entry, "auto", options),
+			linkRemote: async (remoteVaultId, vaultPath) => {
+				await keyFlowRef.current?.link(remoteVaultId, vaultPath)
+			},
+			onOpened: ({ opensHere, adoptObsidian }) => {
+				if (opensHere && adoptObsidian) obsidianImportModal.open({ mode: "adopt" })
+			},
+		}),
+	)
+	const draft = useSyncExternalStore(controller.store.subscribe, controller.store.getState)
 	const [keyDraft, setKeyDraft] = useState<VaultKeyDraft>(() => createVaultKeyDraft())
 	const [defaultLocation, setDefaultLocation] = useState<string | null>(null)
 	const remotes = useAddVaultRemotes()
-	const createRemoteVault = useRemoteVaultStore((state) => state.createRemoteVault)
 	const openSettings = useUIStore((state) => state.openSettings)
-	const update = (next: Partial<AddVaultDraft>) => setDraft((current) => ({ ...current, ...next }))
+	const update = controller.update
 	const updateKeyDraft = (next: Partial<VaultKeyDraft>) =>
 		setKeyDraft((current) => ({ ...current, ...next }))
 
@@ -152,6 +83,7 @@ function AddVaultDialogContent({ target }: { target: AddVaultTarget }) {
 		updateDraft: updateKeyDraft,
 		onLinked: () => update({ step: "done", busy: false }),
 	})
+	keyFlowRef.current = flow
 
 	useEffect(() => {
 		let active = true
@@ -165,61 +97,16 @@ function AddVaultDialogContent({ target }: { target: AddVaultTarget }) {
 
 	const { path, step } = draft
 	const syncing = path === "download" || draft.mode === "sync"
-	const steps = path ? stepsFor(path, syncing) : []
-	const stepIndex = steps.indexOf(step)
+	const steps = path ? addVaultStepsFor(path, syncing) : []
 	const selectedRemote = remotes.options.find((option) => option.remote.id === draft.remoteId)
 	const isNewRemote = draft.remoteId === NEW_REMOTE
-	const localName =
-		path === "open"
-			? (draft.folder?.name ?? "")
-			: path === "download"
-				? (selectedRemote?.remote.name ?? draft.linkedRemoteName ?? "")
-				: draft.name.trim() || "Untitled"
-	const remoteName = isNewRemote
-		? draft.newRemoteName.trim() || localName
-		: (selectedRemote?.remote.name ?? draft.linkedRemoteName ?? "")
+	const names = resolveAddVaultNames(draft, selectedRemote?.remote.name)
+	const { localName, remoteName } = names
 	const parentDisplay = formatVaultPath(draft.parentPath ?? defaultLocation ?? "~/Documents/Cortex")
 	const serverLabel = remotes.serverLabel
 	const close = () => addVaultModal.close()
 
-	const pickFolder = async () => {
-		update({ picking: true })
-		try {
-			const folderPath = await getPlatform().dialog.pickFolder()
-			if (!folderPath) return
-			const picked = await resolvePickedFolder(folderPath)
-			if (picked.kind === "existing") {
-				close()
-				await openRecentVault(picked.entry)
-				return
-			}
-			update({
-				folder: {
-					path: folderPath,
-					displayPath: formatVaultPath(folderPath),
-					name: picked.defaultName,
-					noteCount: null,
-					obsidian: false,
-				},
-			})
-			const [files, obsidian] = await Promise.all([
-				getPlatform()
-					.vault.scanVault(folderPath)
-					.catch(() => []),
-				isObsidianVault(folderPath).catch(() => false),
-			])
-			const noteCount = files.filter((file) => !file.isDir && file.path.endsWith(".md")).length
-			setDraft((current) =>
-				current.folder?.path === folderPath
-					? { ...current, folder: { ...current.folder, noteCount, obsidian } }
-					: current,
-			)
-		} catch (error) {
-			update({ error: errorMessage(error) })
-		} finally {
-			update({ picking: false })
-		}
-	}
+	const pickFolder = controller.pickFolder
 
 	const autoPick = useEffectEvent(() => {
 		if (path === "open" && step === "folder" && !draft.folder && !draft.picking) void pickFolder()
@@ -229,90 +116,22 @@ function AddVaultDialogContent({ target }: { target: AddVaultTarget }) {
 		if (path === "open") autoPick()
 	}, [path])
 
-	const pickParent = async () => {
-		const parentPath = await getPlatform().dialog.pickFolder()
-		if (parentPath) update({ parentPath })
-	}
-
-	const ensureEntry = async (): Promise<VaultRegistryEntry> => {
-		if (draft.entry) return draft.entry
-		const folderPath =
-			path === "open" && draft.folder
-				? draft.folder.path
-				: await createVaultFolder(draft.parentPath, localName)
-		const entry = await registerVaultFolder(folderPath, {
-			name: localName,
-			color: path === "create" ? draft.color : null,
-			syncPreferences: createDefaultSyncPreferences(),
-		})
-		update({ entry })
-		return entry
-	}
-
-	const run = async (task: () => Promise<void>) => {
-		update({ busy: true, error: null })
-		try {
-			await task()
-		} catch (error) {
-			update({ error: errorMessage(error) })
-		} finally {
-			update({ busy: false })
-		}
-	}
-
-	const finishLocal = () =>
-		run(async () => {
-			await ensureEntry()
-			update({ step: "done" })
-		})
-
-	const startSync = () =>
-		run(async () => {
-			const entry = await ensureEntry()
-			let remoteVaultId = draft.remoteId
-			if (!remoteVaultId) return
-			if (remoteVaultId === NEW_REMOTE) {
-				const created = await createRemoteVault(remoteName, null)
-				remoteVaultId = created.id
-				update({ remoteId: created.id, linkedRemoteName: created.name })
-			} else {
-				update({ linkedRemoteName: remoteName })
-			}
-			update({ step: "password" })
-			await flow.link(remoteVaultId, entry.path)
-		})
-
-	const openVault = async () => {
-		const entry = draft.entry
-		if (!entry) return
-		const opensHere = useVaultStore.getState().vault === null
-		close()
-		await openRecentVault(entry, "auto", {
-			createOnboardingNote: path === "create" || (path === "open" && draft.folder?.noteCount === 0),
-		})
-		if (opensHere && draft.folder?.obsidian && draft.adoptObsidian) {
-			obsidianImportModal.open({ mode: "adopt" })
-		}
-	}
+	const pickParent = controller.pickParent
+	const finishLocal = () => controller.finishLocal(names)
+	const startSync = () => controller.startSync(names)
+	const openVault = controller.openVault
 
 	const switchServer = () => openSettings("sync-self-host")
 
-	const go = (nextStep: AddVaultStep) => update({ step: nextStep, error: null })
-	const back = () => {
-		if (step === "done" && draft.mode === "keep") return go("sync")
-		if (stepIndex > 0) return go(steps[stepIndex - 1] ?? "choose")
-		if (target.start === "choose") update({ path: null, step: "choose", error: null })
-	}
-	const canGoBack =
-		step !== "choose" &&
-		(step !== "done" || draft.mode === "keep") &&
-		(stepIndex > 0 || target.start === "choose")
+	const go = (nextStep: AddVaultStep) => controller.go(nextStep)
+	const back = () => controller.back(steps)
+	const canGoBack = controller.canGoBack(steps)
 	const backButton = canGoBack ? (
-		<Button variant="ghost" size="sm" onClick={back} disabled={draft.busy}>
+		<Button variant="ghost" onClick={back} disabled={draft.busy}>
 			Back
 		</Button>
 	) : step === "done" ? null : (
-		<Button variant="ghost" size="sm" onClick={close} disabled={draft.busy}>
+		<Button variant="ghost" onClick={close} disabled={draft.busy}>
 			Cancel
 		</Button>
 	)
@@ -320,7 +139,10 @@ function AddVaultDialogContent({ target }: { target: AddVaultTarget }) {
 	const stepper = path ? (
 		<FlowStepper
 			steps={steps.map(
-				(id): FlowStep => ({ id, label: STEP_LABELS[id as keyof typeof STEP_LABELS] }),
+				(id): FlowStep => ({
+					id,
+					label: ADD_VAULT_STEP_LABELS[id as keyof typeof ADD_VAULT_STEP_LABELS],
+				}),
 			)}
 			current={step}
 		/>
@@ -337,7 +159,7 @@ function AddVaultDialogContent({ target }: { target: AddVaultTarget }) {
 						</FlowError>
 					</FlowBody>
 					<FlowFooter start={backButton}>
-						<Button size="sm" onClick={() => void startSync()} disabled={draft.busy}>
+						<Button onClick={() => void startSync()} disabled={draft.busy}>
 							{draft.busy ? <Spinner className="size-3.5" /> : null}
 							Try again
 						</Button>
@@ -468,17 +290,7 @@ function AddVaultDialogContent({ target }: { target: AddVaultTarget }) {
 			</FlowHeader>
 			<FlowBody>
 				{step === "choose" ? (
-					<ChooseStep
-						onPick={(nextPath) =>
-							update({
-								path: nextPath,
-								step: FIRST_STEP[nextPath],
-								mode: nextPath === "download" ? "sync" : null,
-								remoteId: null,
-								error: null,
-							})
-						}
-					/>
+					<ChooseStep onPick={(nextPath: AddVaultPath) => controller.choosePath(nextPath)} />
 				) : null}
 				{step === "name" ? (
 					<NameStep
@@ -519,13 +331,7 @@ function AddVaultDialogContent({ target }: { target: AddVaultTarget }) {
 						allowNew={path !== "download"}
 						newRemoteName={draft.newRemoteName}
 						newRemoteTarget={remotes.syncConfig.selfHosted ? "your server" : CLOUD_SERVER_LABEL}
-						onSelect={(remoteId) =>
-							update({
-								remoteId,
-								newRemoteName:
-									remoteId === NEW_REMOTE ? draft.newRemoteName || localName : draft.newRemoteName,
-							})
-						}
+						onSelect={(remoteId) => controller.selectRemote(remoteId, localName)}
 						onNewRemoteNameChange={(newRemoteName) => update({ newRemoteName })}
 						onSeePlans={remotes.openBillingPage}
 						onSwitchServer={switchServer}
@@ -569,12 +375,12 @@ function AddVaultDialogContent({ target }: { target: AddVaultTarget }) {
 			) : (
 				<FlowFooter start={backButton}>
 					{alternate ? (
-						<Button variant="secondary" size="sm" onClick={alternate.onClick} disabled={draft.busy}>
+						<Button variant="secondary" onClick={alternate.onClick} disabled={draft.busy}>
 							{alternate.label}
 						</Button>
 					) : null}
 					{primary ? (
-						<Button size="sm" onClick={primary.onClick} disabled={primary.disabled || draft.busy}>
+						<Button onClick={primary.onClick} disabled={primary.disabled || draft.busy}>
 							{draft.busy ? <Spinner className="size-3.5" /> : null}
 							{primary.label}
 						</Button>

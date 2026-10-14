@@ -45,6 +45,7 @@ export const DatabaseCell = memo(function DatabaseCell({
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
 				<Button
+					size="sm"
 					variant="ghost"
 					className="db-cell"
 					aria-label={`Edit ${definition.name} for ${row.title}`}

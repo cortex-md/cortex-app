@@ -1,4 +1,5 @@
 import {
+	type AddVaultTarget,
 	getRegistryOpenOptions,
 	type OpenVaultOptions,
 	openVaultSession,
@@ -8,12 +9,7 @@ import {
 import { getPlatform, type VaultRegistryEntry } from "@cortex/platform"
 import { createModalStore } from "@/utils/createModalStore"
 
-export type AddVaultPath = "create" | "open" | "download"
-
-export interface AddVaultTarget {
-	start: "choose" | AddVaultPath
-	remoteVaultId?: string
-}
+export type { AddVaultPath, AddVaultTarget } from "@cortex/core"
 
 export const addVaultModal = createModalStore<AddVaultTarget>()
 

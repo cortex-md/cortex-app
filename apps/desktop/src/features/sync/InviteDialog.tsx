@@ -1,4 +1,5 @@
 import { useMembersStore, useServerCapabilities } from "@cortex/core"
+import { roleInfo } from "@cortex/core/members"
 import type { PathGrant, VaultInvite } from "@cortex/platform"
 import {
 	Button,
@@ -16,7 +17,6 @@ import { SettingsGroup } from "../settings/SettingsPrimitives"
 import { GuestAccessEditor } from "./GuestAccessEditor"
 import { InviteLinkField } from "./InviteLinkField"
 import { EMAIL_REGEX, messageOf } from "./memberDirectory"
-import { roleInfo } from "./memberRoles"
 import { RoleMenu } from "./RoleMenu"
 
 interface InviteDialogProps {
@@ -95,6 +95,7 @@ function InviteForm({ vaultId, roles, onDone }: InviteFormProps) {
 				)}
 				<DialogFooter>
 					<Button
+						size="sm"
 						variant="secondary"
 						onClick={() => {
 							setInvite(null)
@@ -104,7 +105,9 @@ function InviteForm({ vaultId, roles, onDone }: InviteFormProps) {
 					>
 						Invite another
 					</Button>
-					<Button onClick={onDone}>Done</Button>
+					<Button size="sm" onClick={onDone}>
+						Done
+					</Button>
 				</DialogFooter>
 			</>
 		)
@@ -150,7 +153,7 @@ function InviteForm({ vaultId, roles, onDone }: InviteFormProps) {
 				{error && <p className="settings-section-error">{error}</p>}
 			</div>
 			<DialogFooter>
-				<Button type="submit" disabled={!canSubmit}>
+				<Button size="sm" type="submit" disabled={!canSubmit}>
 					{busy && <Spinner className="size-3" />}
 					{emailEnabled ? "Send invite" : "Create invite"}
 				</Button>

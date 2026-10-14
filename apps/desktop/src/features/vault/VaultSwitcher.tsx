@@ -1,4 +1,5 @@
 import {
+	getVaultStatusTitles,
 	loadVaultListItems,
 	resolveVaultColor,
 	useAuthStore,
@@ -38,9 +39,9 @@ import {
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react"
 import type { MenuItem } from "@/utils/context-menu"
 import { useContextMenu } from "../context-menu/useContextMenu"
+import { DEVICE_LABEL } from "./deviceLabel"
 import { VaultTile } from "./VaultTile"
 import { openAddVault, openRecentVault } from "./vaultActions"
-import { VAULT_STATUS_TITLE } from "./vaultDisplay"
 
 const SWITCHER_HINTS = [
 	{ keys: ["↵"], label: "open" },
@@ -53,6 +54,8 @@ const STATUS_ICON: Record<VaultListItem["status"], ReactNode> = {
 	local: null,
 	missing: <TriangleAlert className="size-3.5 text-status-warning-foreground" aria-hidden="true" />,
 }
+
+const VAULT_STATUS_TITLE = getVaultStatusTitles(DEVICE_LABEL)
 
 const ROW_CLASS = "h-9 gap-2.5 rounded-[var(--popup-item-radius,6px)] px-2 text-[13px]"
 
@@ -161,7 +164,11 @@ export function VaultSwitcher() {
 		<div className="vault-switcher">
 			<Popover open={open} onOpenChange={setOpen}>
 				<PopoverTrigger asChild>
-					<Button variant="ghost" className="vault-switcher-button w-full justify-between gap-2">
+					<Button
+						size="sm"
+						variant="ghost"
+						className="vault-switcher-button w-full justify-between gap-2"
+					>
 						<span className="flex min-w-0 items-center gap-2">
 							<VaultTile name={currentName} color={currentColor} size="sm" />
 							<span className="truncate">{currentName}</span>

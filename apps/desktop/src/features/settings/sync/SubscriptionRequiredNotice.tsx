@@ -23,7 +23,7 @@ export function SubscriptionRequiredNotice() {
 			<AlertDescription>
 				<div className="flex flex-col gap-3">
 					<p>{block.message}</p>
-					<Button size="sm" className="w-fit" onClick={handleOpenBilling} disabled={loading}>
+					<Button className="w-fit" onClick={handleOpenBilling} disabled={loading}>
 						{loading ? "Opening plan page" : "Manage plan"}
 					</Button>
 				</div>

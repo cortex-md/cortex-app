@@ -153,6 +153,7 @@ export function SearchQueryField({
 				<div className="search-suggestions" role="listbox" aria-label="Search suggestions">
 					{suggestions.map((suggestion, index) => (
 						<Button
+							size="sm"
 							key={`${suggestion.kind}:${suggestion.label}`}
 							variant="ghost"
 							role="option"

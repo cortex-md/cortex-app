@@ -138,7 +138,7 @@ export function TaskQuickAddTrigger({
 	onActivate: () => void
 }) {
 	return (
-		<Button variant="ghost" className="task-quick-add-trigger" onClick={onActivate}>
+		<Button size="sm" variant="ghost" className="task-quick-add-trigger" onClick={onActivate}>
 			<PlusIcon className="size-3.5" aria-hidden="true" />
 			<span>Add a task…</span>
 			{shortcut && <Kbd className="task-kbd">{shortcut}</Kbd>}

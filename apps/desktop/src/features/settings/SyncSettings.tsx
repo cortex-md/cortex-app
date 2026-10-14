@@ -1,8 +1,9 @@
-import { linkVaultFolder, unlinkVaultFolder } from "@cortex/core"
+import { linkVaultFolder, unlinkImpact, unlinkVaultFolder } from "@cortex/core"
 import { toast } from "@cortex/ui"
 import { type ReactNode, Suspense, useState } from "react"
 import { useHasOpened } from "../../hooks/useHasOpened"
 import { LazyVaultLinkModal } from "../sync/LazyVaultLinkModal"
+import { DEVICE_LABEL } from "../vault/deviceLabel"
 import { SelfHostedPage } from "./sync/SelfHostedPage"
 import { SyncMembersPage } from "./sync/SyncMembers"
 import { SyncOverviewPage } from "./sync/SyncOverview"
@@ -10,7 +11,6 @@ import { SyncPreferencesPage } from "./sync/SyncPreferences"
 import type { SyncSettingsView } from "./sync/types"
 import { useSyncOverview } from "./sync/useSyncOverview"
 import { type VaultImpact, VaultImpactDialog } from "./vaults/VaultImpactDialog"
-import { unlinkImpact } from "./vaults/vaultImpacts"
 
 export type { SyncSettingsView } from "./sync/types"
 
@@ -64,7 +64,7 @@ export function SyncSection({ view = "overview" }: SyncSectionProps) {
 					localVaultName={overview.vault?.name}
 					onOpenLink={openLink}
 					onStopSyncing={() =>
-						setStopImpact(unlinkImpact(localName, remoteName, overview.serverLabel))
+						setStopImpact(unlinkImpact(localName, remoteName, overview.serverLabel, DEVICE_LABEL))
 					}
 				/>
 			)

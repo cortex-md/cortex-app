@@ -66,7 +66,7 @@ export function RecoveryKeyPanel({
 				</div>
 			</DialogBody>
 			<DialogFooter className="dialog-chrome-footer">
-				<Button size="sm" disabled={!saved} onClick={onDone}>
+				<Button disabled={!saved} onClick={onDone}>
 					{confirmLabel}
 				</Button>
 			</DialogFooter>

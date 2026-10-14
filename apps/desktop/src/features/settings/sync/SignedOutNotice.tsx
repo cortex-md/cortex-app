@@ -11,7 +11,7 @@ export function SignedOutNotice() {
 			<AlertDescription>
 				<div className="flex flex-col gap-3">
 					<p>Connect your Cortex account to enable sync and link a remote vault.</p>
-					<Button size="sm" className="w-fit" onClick={() => openAuth("login", "sync")}>
+					<Button className="w-fit" onClick={() => openAuth("login", "sync")}>
 						Sign in
 					</Button>
 				</div>

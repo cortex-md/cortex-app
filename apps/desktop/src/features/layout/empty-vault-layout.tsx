@@ -85,11 +85,11 @@ export function EmptyVaultLayout() {
 					<p className="pt-2.5">Open an existing folder or create a new vault</p>
 				)}
 				<div className="flex flex-wrap justify-center gap-2 pt-1 pb-2.5">
-					<Button onClick={createVaultFromPicker}>
+					<Button size="sm" onClick={createVaultFromPicker}>
 						<FolderPlus size={16} />
 						Create new vault
 					</Button>
-					<Button variant="outline" onClick={openVaultFromPicker}>
+					<Button size="sm" variant="outline" onClick={openVaultFromPicker}>
 						<FolderOpen size={16} />
 						Open folder
 					</Button>

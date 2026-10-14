@@ -1,5 +1,6 @@
 import { useTemplateStore, useVaultStore } from "@cortex/core"
 import { useSettingsStore } from "@cortex/settings"
+import { getTeamLabel, isTeamTemplate } from "@cortex/templates"
 import { Button, Switch } from "@cortex/ui"
 import { LayoutTemplateIcon } from "lucide-react"
 import { useEffect } from "react"
@@ -11,7 +12,6 @@ import {
 	SettingsSection,
 } from "../settings/SettingsPrimitives"
 import { DailyNotesSettings } from "./DailyNotesSettings"
-import { getTeamLabel, isTeamTemplate } from "./templateGroups"
 
 function pluralize(count: number, word: string): string {
 	return `${count} ${word}${count === 1 ? "" : "s"}`
@@ -47,16 +47,10 @@ export function TemplatesSection() {
 						<span>{breakdown}</span>
 					</div>
 					<div className="settings-sync-hero-actions">
-						<Button
-							variant="secondary"
-							size="sm"
-							onClick={() => runInMainWindow("openNewTemplate")}
-						>
+						<Button variant="secondary" onClick={() => runInMainWindow("openNewTemplate")}>
 							New template
 						</Button>
-						<Button size="sm" onClick={() => runInMainWindow("openTemplates")}>
-							Open Templates
-						</Button>
+						<Button onClick={() => runInMainWindow("openTemplates")}>Open Templates</Button>
 					</div>
 				</div>
 			</section>

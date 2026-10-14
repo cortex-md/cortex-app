@@ -77,6 +77,7 @@ function SortMenu({
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
 				<Button
+					size="sm"
 					variant="ghost"
 					aria-label="Sort"
 					data-active={current ? true : undefined}
@@ -163,6 +164,7 @@ function LayoutMenu({
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
 				<Button
+					size="sm"
 					variant="ghost"
 					aria-label={layout.label}
 					data-active={current ? true : undefined}
@@ -208,7 +210,7 @@ function PropertiesMenu({
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button variant="ghost" size="icon-sm" aria-label="Properties" className="db-tool">
+				<Button variant="ghost" size="icon" aria-label="Properties" className="db-tool">
 					<SlidersHorizontalIcon />
 				</Button>
 			</DropdownMenuTrigger>
@@ -262,6 +264,7 @@ export function DatabaseToolbar({
 					const Icon = DATABASE_VIEW_ICONS[view.type]
 					return (
 						<Button
+							size="sm"
 							key={view.id}
 							variant="ghost"
 							role="tab"
@@ -276,7 +279,7 @@ export function DatabaseToolbar({
 				})}
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
-						<Button variant="ghost" className="db-view-tab db-view-add">
+						<Button size="sm" variant="ghost" className="db-view-tab db-view-add">
 							<PlusIcon />
 							View
 						</Button>
@@ -308,6 +311,7 @@ export function DatabaseToolbar({
 			</div>
 			<div className="db-tools">
 				<Button
+					size="sm"
 					variant="ghost"
 					aria-label="Filter"
 					aria-expanded={filtersOpen}

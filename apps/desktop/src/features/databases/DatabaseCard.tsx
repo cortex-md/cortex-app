@@ -87,6 +87,7 @@ export const DatabaseCard = memo(function DatabaseCard({
 	if (variant === "gallery") {
 		return (
 			<Button
+				size="sm"
 				variant="ghost"
 				className="db-gcard"
 				data-selected={selected || undefined}
@@ -110,6 +111,7 @@ export const DatabaseCard = memo(function DatabaseCard({
 	}
 	return (
 		<Button
+			size="sm"
 			variant="ghost"
 			className="db-card"
 			data-selected={selected || undefined}

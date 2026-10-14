@@ -7,6 +7,7 @@ import {
 	getParentPath,
 	loadNoteSyncAttribution,
 	type NoteSyncAttribution,
+	openDatabaseView,
 	toVaultRelativePath,
 	useAccountStore,
 	useAuthStore,
@@ -39,7 +40,6 @@ import { Fragment, memo, type Ref, useCallback, useEffect, useMemo, useRef, useS
 import { useMinuteNow } from "@/hooks/useMinuteNow"
 import type { MenuItem } from "@/utils/context-menu"
 import { MenuItemList } from "../context-menu/useContextMenu"
-import { openDatabaseView } from "../databases/databaseWorkspace"
 import { buildFileMenuItems } from "../file-explorer/fileMenu"
 import { memberDisplayName, useMemberDirectory } from "../sync/memberDirectory"
 import { type FacepileUser, UserAvatar, UserFacepile } from "../sync/UserAvatar"
@@ -226,7 +226,7 @@ function NoteBookmarkButton({ filePath }: { filePath: string }) {
 		<Button
 			type="button"
 			variant="ghost"
-			size="icon"
+			size="icon-xs"
 			className="note-header-actions-button"
 			data-active={bookmarked || undefined}
 			aria-label={label}
@@ -259,12 +259,12 @@ function NoteHeaderActions({ filePath, paneId, onRename }: NoteHeaderActionsProp
 					<Button
 						type="button"
 						variant="ghost"
-						size="icon"
+						size="icon-xs"
 						className="note-header-actions-button"
 						aria-label="Note actions"
 						title="Note actions"
 					>
-						<MoreHorizontal className="size-[15px]" />
+						<MoreHorizontal />
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end" sideOffset={4} className="w-56">

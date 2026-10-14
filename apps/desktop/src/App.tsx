@@ -163,12 +163,12 @@ const AppTitlebar = memo(function AppTitlebar({ hasVault }: AppShellProps) {
 	} as CSSProperties
 
 	return (
-		<div className="app-titlebar h-10 flex-shrink-0" style={titlebarStyle}>
+		<div className="app-titlebar h-[var(--titlebar-height)] flex-shrink-0" style={titlebarStyle}>
 			<div className="app-titlebar-drag-region" aria-hidden="true" />
 			{hasVault && (
 				<Button
 					type="button"
-					variant="ghost"
+					variant="secondary"
 					size="icon-sm"
 					className={`app-sidebar-toggle ${
 						leftSidebarCollapsed ? "app-sidebar-toggle--collapsed" : ""
@@ -178,7 +178,7 @@ const AppTitlebar = memo(function AppTitlebar({ hasVault }: AppShellProps) {
 					title={leftSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar"}
 					onClick={toggleLeftSidebar}
 				>
-					<PanelLeftIcon size={16} strokeWidth={2} />
+					<PanelLeftIcon size={17} strokeWidth={2} />
 				</Button>
 			)}
 		</div>

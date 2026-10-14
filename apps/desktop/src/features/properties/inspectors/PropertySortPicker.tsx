@@ -21,6 +21,7 @@ export function PropertySortPicker({
 			<div className="note-property-choice-list">
 				{(["manual", "alphabetical"] as const).map((sort) => (
 					<Button
+						size="sm"
 						key={sort}
 						variant="ghost"
 						onClick={() => {

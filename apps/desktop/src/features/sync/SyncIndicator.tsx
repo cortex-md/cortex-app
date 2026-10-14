@@ -39,8 +39,7 @@ import { LazyVaultLinkModal } from "./LazyVaultLinkModal"
 import { noteHistoryModal } from "./noteHistoryModal"
 import { deletedNotesModal, syncLogsModal } from "./syncDialogStores"
 
-const STATUS_BUTTON_CLASS =
-	"statusbar-item gap-1.5 text-[11px] leading-[inherit] tracking-normal hover:bg-transparent active:scale-100 active:brightness-100"
+const STATUS_BUTTON_CLASS = "statusbar-item statusbar-btn gap-1.5 tracking-normal active:scale-100"
 
 function countActiveSyncFiles(syncingFiles: Record<string, string>): number {
 	let count = 0

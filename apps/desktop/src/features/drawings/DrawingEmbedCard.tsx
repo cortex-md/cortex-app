@@ -50,11 +50,11 @@ export function DrawingEmbedCard({ filePath, block }: DrawingEmbedCardProps) {
 				<div className="drawing-embed-meta">{formatDrawingUpdatedAt(document.updatedAt)}</div>
 			</div>
 			<div className="drawing-embed-actions">
-				<Button type="button" variant="outline" size="sm" onClick={handleOpenModal}>
+				<Button type="button" variant="outline" onClick={handleOpenModal}>
 					<Maximize2Icon className="size-3.5" aria-hidden="true" />
 					Open
 				</Button>
-				<Button type="button" variant="ghost" size="sm" onClick={handleOpenTab}>
+				<Button type="button" variant="ghost" onClick={handleOpenTab}>
 					<PanelTopOpenIcon className="size-3.5" aria-hidden="true" />
 					Tab
 				</Button>

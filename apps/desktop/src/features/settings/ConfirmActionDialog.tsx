@@ -29,9 +29,8 @@ export function useConfirmAction() {
 						<AlertDialogDescription>{request.description}</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel size="sm">Cancel</AlertDialogCancel>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction
-							size="sm"
 							variant={request.destructive ? "destructive" : "default"}
 							onClick={() => void request.onConfirm()}
 						>

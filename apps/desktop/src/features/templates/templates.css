@@ -281,15 +281,16 @@
 
 .templates-list-row[data-slot="item"] {
 	width: 100%;
+	border-radius: var(--row-radius, 10px);
 	text-align: left;
 }
 
 .templates-list-row[data-slot="item"]:hover {
-	background: var(--bg-hover);
+	background: var(--fill-quiet);
 }
 
 .templates-list-row[data-slot="item"][aria-pressed="true"] {
-	background: var(--accent-subtle);
+	background: var(--fill-selected);
 }
 
 .templates-detail {

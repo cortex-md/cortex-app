@@ -170,6 +170,7 @@ export function PropertyRow({
 			<div className="note-property-row" data-read-only={readOnly || undefined}>
 				{definitionConfigurable ? (
 					<Button
+						size="sm"
 						variant="ghost"
 						className="note-property-name"
 						disabled={unavailable}
@@ -202,6 +203,7 @@ export function PropertyRow({
 							</div>
 						) : (
 							<Button
+								size="sm"
 								variant="ghost"
 								className="note-property-value"
 								aria-label={definition.name}

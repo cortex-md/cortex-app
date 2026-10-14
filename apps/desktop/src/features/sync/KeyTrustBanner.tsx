@@ -113,7 +113,7 @@ function KeyTrustList({ issues, members, canManage }: KeyTrustListProps) {
 								</div>
 								{canManage && (
 									<div className="settings-row-trail">
-										<Button size="sm" variant="secondary" onClick={() => void verify(issue, name)}>
+										<Button variant="secondary" onClick={() => void verify(issue, name)}>
 											Verify and grant
 										</Button>
 									</div>

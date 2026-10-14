@@ -1,4 +1,5 @@
 import { useMembersStore } from "@cortex/core"
+import { roleInfo } from "@cortex/core/members"
 import type { VaultInvite, VaultMember } from "@cortex/platform"
 import {
 	Badge,
@@ -28,7 +29,6 @@ import {
 import { GuestAccessDialog } from "./GuestAccessDialog"
 import { InviteDialog } from "./InviteDialog"
 import { memberDisplayName } from "./memberDirectory"
-import { roleInfo } from "./memberRoles"
 import { RoleMenu } from "./RoleMenu"
 import { UserAvatar } from "./UserAvatar"
 
@@ -252,7 +252,7 @@ function InvitedList({ vaultId }: { vaultId: string }) {
 							</div>
 							<div className="settings-row-trail">
 								<Button
-									variant="ghost"
+									variant="destructive-soft"
 									size="xs"
 									onClick={() => cancel(invite)}
 									aria-label={`Cancel invite for ${invite.inviteeEmail}`}
@@ -333,7 +333,7 @@ function InviteRow({ vaultId, roles, onMoreOptions }: InviteRowProps) {
 						roles={inlineRoles}
 						onChange={setRole}
 					/>
-					<Button type="submit" size="sm" disabled={!valid || busy}>
+					<Button type="submit" disabled={!valid || busy}>
 						{busy ? <Spinner className="size-3" /> : <UserPlusIcon />}
 						Invite
 					</Button>

@@ -55,6 +55,7 @@ function BookmarkRow({ row, sortableProps, onOpen, onRemove }: BookmarkRowProps)
 				</span>
 			)}
 			<Button
+				size="sm"
 				variant="ghost"
 				className="sidebar-bookmark-open"
 				disabled={row.missing}
@@ -86,7 +87,7 @@ function BookmarkRow({ row, sortableProps, onOpen, onRemove }: BookmarkRowProps)
 				<TooltipTrigger asChild>
 					<Button
 						variant="ghost"
-						size="icon-sm"
+						size="icon"
 						className="sidebar-bookmark-action"
 						onClick={() => onRemove(row.bookmark.path)}
 						aria-label={`Remove ${row.title} from bookmarks`}

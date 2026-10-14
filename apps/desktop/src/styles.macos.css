@@ -55,9 +55,9 @@ body[data-platform="macos"]:where(.theme-ink, .theme-paper) {
 	--font-editor:
 		-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Arial,
 		sans-serif;
-	--ui-font-size: 13px;
+	--ui-font-size: 14px;
 	--ui-font-weight: 400;
-	--ui-line-height: 17px;
+	--ui-line-height: 18px;
 	--editor-line-height: calc(var(--editor-font-size, 16px) * 1.6);
 	--macos-ease: cubic-bezier(0.32, 0.72, 0, 1);
 	--macos-duration-fast: 80ms;
@@ -462,9 +462,9 @@ body[data-platform="macos"]
 
 body[data-platform="macos"] [data-slot="dialog-close"] {
 	border-radius: 999px;
-	transition-property: background-color, color, opacity, box-shadow;
-	transition-duration: var(--macos-duration-base);
-	transition-timing-function: var(--macos-ease);
+	transition-property: transform, background-color, color, box-shadow;
+	transition-duration: 120ms;
+	transition-timing-function: ease-out;
 }
 
 body[data-platform="macos"]:where(.theme-ink, .theme-paper) .note-property-row {

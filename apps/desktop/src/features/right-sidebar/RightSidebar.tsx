@@ -46,6 +46,7 @@ function OutlinePanel() {
 		<nav className="right-sidebar-list" aria-label="Outline">
 			{document.headings.map((heading, index) => (
 				<Button
+					size="sm"
 					key={`${heading.line}:${heading.text}`}
 					variant="ghost"
 					className="right-sidebar-outline-item"
@@ -79,6 +80,7 @@ function BacklinkItem({ backlink }: { backlink: Backlink }) {
 	const [firstLink] = backlink.links
 	return (
 		<Button
+			size="sm"
 			variant="ghost"
 			className="right-sidebar-item"
 			onClick={() => openNoteAtLine(backlink.sourcePath, firstLink.line)}
@@ -97,6 +99,7 @@ function UnlinkedMentionItem({ result, vaultPath }: { result: SearchResult; vaul
 	const [snippet] = result.snippets
 	return (
 		<Button
+			size="sm"
 			variant="ghost"
 			className="right-sidebar-item"
 			onClick={() => openNoteAtLine(filePath, 0)}

@@ -1,6 +1,10 @@
-import { toVaultRelativePath, useSyncStore, useVaultStore } from "@cortex/core"
+import {
+	sendCoreNotification,
+	toVaultRelativePath,
+	useSyncStore,
+	useVaultStore,
+} from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
-import { sendCoreNotification } from "@/utils/nativeNotifications"
 
 export type FilePathKind = "relative" | "absolute"
 

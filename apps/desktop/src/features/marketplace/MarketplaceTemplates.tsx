@@ -2,6 +2,7 @@ import {
 	addPublicNoteTemplate,
 	listMarketTemplates,
 	type OpenedPublicTemplate,
+	openNewDatabaseView,
 	openPublicTemplate,
 	type TemplateDefinition,
 	useTemplateSharingStore,
@@ -11,6 +12,7 @@ import {
 } from "@cortex/core"
 import type { PublicTemplateInfo } from "@cortex/platform"
 import type { DatabasePreset } from "@cortex/properties/database"
+import { getTeamLabel, isTeamTemplate } from "@cortex/templates"
 import {
 	Button,
 	Empty,
@@ -37,10 +39,8 @@ import {
 } from "@cortex/ui"
 import { FileTextIcon, LayoutTemplateIcon, Search, ShieldCheckIcon, Table2Icon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
-import { openNewDatabaseView } from "../databases/newDatabaseWorkspace"
 import { TemplateNotePreview } from "../templates/TemplateNotePreview"
 import { openTemplatesView } from "../templates/templateActions"
-import { getTeamLabel, isTeamTemplate } from "../templates/templateGroups"
 import { TEMPLATE_LINK_ENTRY_PREFIX } from "../templates/useTemplateDeepLink"
 import type { MarketplaceViewTab } from "./marketplaceWorkspaceView"
 import "../templates/templates.css"
@@ -296,6 +296,7 @@ export function MarketplaceTemplates({
 											data-active={entry.id === selected?.id}
 										>
 											<Button
+												size="sm"
 												variant="ghost"
 												className="marketplace-catalog-row"
 												aria-current={entry.id === selected?.id ? "true" : undefined}
@@ -400,14 +401,9 @@ function TemplateDetail({ entry, hasVault }: { entry: TemplateEntry; hasVault: b
 	const primary = (() => {
 		if (entry.group === "team" || entry.group === "vault") {
 			return entry.kind === "database" ? (
-				<Button size="sm" onClick={() => preset && openNewDatabaseView({ preset })}>
-					Use template
-				</Button>
+				<Button onClick={() => preset && openNewDatabaseView({ preset })}>Use template</Button>
 			) : (
-				<Button
-					size="sm"
-					onClick={() => entry.template && openCreateFromTemplate(entry.template.id)}
-				>
+				<Button onClick={() => entry.template && openCreateFromTemplate(entry.template.id)}>
 					Use template
 				</Button>
 			)
@@ -416,7 +412,7 @@ function TemplateDetail({ entry, hasVault }: { entry: TemplateEntry; hasVault: b
 			return (
 				<>
 					<span className="marketplace-template-added">In Templates</span>
-					<Button variant="secondary" size="sm" onClick={() => openTemplatesView(added.id)}>
+					<Button variant="secondary" onClick={() => openTemplatesView(added.id)}>
 						Open
 					</Button>
 				</>
@@ -424,7 +420,6 @@ function TemplateDetail({ entry, hasVault }: { entry: TemplateEntry; hasVault: b
 		}
 		return (
 			<Button
-				size="sm"
 				disabled={!hasVault || busy || (!opened?.value && entry.kind === "note")}
 				onClick={() => void handleAdd()}
 			>

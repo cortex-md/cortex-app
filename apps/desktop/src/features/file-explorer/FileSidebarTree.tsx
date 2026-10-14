@@ -175,19 +175,11 @@ export function FileSidebarTree({
 					<FolderIcon className="size-6 text-text-muted" />
 					<p className="m-0 text-xs text-text-muted">No files yet</p>
 					<div className="flex items-center gap-2">
-						<Button
-							variant="secondary"
-							size="sm"
-							onClick={() => actions.startCreate(vaultPath, "file")}
-						>
+						<Button variant="secondary" onClick={() => actions.startCreate(vaultPath, "file")}>
 							<FilePlusIcon className="size-3.5" />
 							New note
 						</Button>
-						<Button
-							variant="secondary"
-							size="sm"
-							onClick={() => actions.startCreate(vaultPath, "folder")}
-						>
+						<Button variant="secondary" onClick={() => actions.startCreate(vaultPath, "folder")}>
 							<FolderPlusIcon className="size-3.5" />
 							New folder
 						</Button>
@@ -293,6 +285,7 @@ function TreeNodeRow({
 
 	return (
 		<Button
+			size="sm"
 			id={getFileTreeItemId(node.path)}
 			variant={"ghost"}
 			role="treeitem"

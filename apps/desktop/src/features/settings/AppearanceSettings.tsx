@@ -191,7 +191,7 @@ export function AppearanceSection({
 				title="Theme"
 				description="Choose the active theme, color scheme, and accent color."
 				action={
-					<Button variant="ghost" size="sm" onClick={() => onBrowseMarketplace("themes")}>
+					<Button variant="ghost" onClick={() => onBrowseMarketplace("themes")}>
 						<Store size={12} />
 						Browse themes
 					</Button>
@@ -213,7 +213,6 @@ export function AppearanceSection({
 							</NativeSelect>
 							<Button
 								variant="ghost"
-								size="sm"
 								disabled={!canOpenSelectedThemeInMarketplace}
 								onClick={handleOpenSelectedThemeInMarketplace}
 								title={canOpenSelectedThemeInMarketplace ? undefined : "Built-in theme"}
@@ -301,7 +300,7 @@ export function AppearanceSection({
 					<SettingsField fieldId="appearance.native-window-effects" htmlFor="native-window-effects">
 						<div className="flex items-center gap-3">
 							{nativeWindowEffectsRestartPending && (
-								<Button variant="outline" size="sm" onClick={restartApp}>
+								<Button variant="outline" onClick={restartApp}>
 									<RefreshCw size={12} />
 									Restart now
 								</Button>

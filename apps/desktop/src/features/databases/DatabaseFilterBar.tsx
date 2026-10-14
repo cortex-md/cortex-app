@@ -13,6 +13,8 @@ import {
 } from "@cortex/properties/database"
 import {
 	Button,
+	chipVariants,
+	cn,
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
@@ -193,7 +195,7 @@ interface FilterChipProps {
 function FilterChip({ filter, definition, onChange, onRemove }: FilterChipProps) {
 	const value = needsValue(filter.op) ? describeValue(definition, filter.value) : ""
 	return (
-		<span className="db-chip">
+		<span className={cn(chipVariants({ size: "sm" }), "db-chip")}>
 			<Popover>
 				<PopoverTrigger asChild>
 					<Button variant="ghost" className="db-chip-main">
@@ -228,6 +230,7 @@ function FilterChip({ filter, definition, onChange, onRemove }: FilterChipProps)
 			<Button
 				variant="ghost"
 				size="icon-xs"
+				className="db-chip-remove"
 				aria-label={`Remove ${definition.name} filter`}
 				onClick={onRemove}
 			>
@@ -278,7 +281,7 @@ export function DatabaseFilterBar({ view, properties, onUpdateView }: DatabaseFi
 			})}
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
-					<Button variant="ghost" className="db-filter-add">
+					<Button size="sm" variant="ghost" className="db-filter-add">
 						<PlusIcon />
 						Add filter
 					</Button>

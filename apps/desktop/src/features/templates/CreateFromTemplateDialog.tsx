@@ -7,6 +7,7 @@ import {
 	useWorkspaceStore,
 } from "@cortex/core"
 import { useSettingsStore } from "@cortex/settings"
+import { getTemplateGroups } from "@cortex/templates"
 import {
 	Button,
 	Command,
@@ -35,7 +36,6 @@ import { ModalHost } from "@/utils/ModalHost"
 import { openMarketplaceView } from "../marketplace/openMarketplaceView"
 import { TemplateNotePreview } from "./TemplateNotePreview"
 import { openNewTemplate, openTemplatesView } from "./templateActions"
-import { getTemplateGroups } from "./templateGroups"
 import { useTemplateFolderOptions } from "./useTemplateFolderOptions"
 import "./templates.css"
 
@@ -155,7 +155,7 @@ function PickerFooter({ folder, error, creating, onFolderChange, onCreate }: Pic
 			</div>
 			{message ? <span className="template-picker-error">{message}</span> : null}
 			<span className="flex-1" />
-			<Button size="sm" disabled={creating || Boolean(message)} onClick={onCreate}>
+			<Button disabled={creating || Boolean(message)} onClick={onCreate}>
 				{creating ? "Opening…" : "Create note"}
 				<Kbd>↵</Kbd>
 			</Button>

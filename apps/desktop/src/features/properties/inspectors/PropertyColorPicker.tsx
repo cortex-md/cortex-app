@@ -25,6 +25,7 @@ export function PropertyColorPicker({
 			<div className="note-property-color-list">
 				{PROPERTY_COLORS.map((color) => (
 					<Button
+						size="sm"
 						key={color}
 						variant="ghost"
 						onClick={() => {

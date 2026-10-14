@@ -98,7 +98,7 @@ function SaveTemplateButton({
 			}}
 		>
 			<PopoverTrigger asChild>
-				<Button variant="ghost" size="icon" aria-label="Save as template">
+				<Button variant="ghost" size="icon-sm" aria-label="Save as template">
 					<BookmarkPlusIcon />
 				</Button>
 			</PopoverTrigger>
@@ -188,7 +188,7 @@ export function DatabasePeek({
 				<div className="db-peek-bar">
 					<Button
 						variant="ghost"
-						size="icon"
+						size="icon-sm"
 						aria-label="Previous note"
 						disabled={position <= 1}
 						onClick={onPrevious}
@@ -197,7 +197,7 @@ export function DatabasePeek({
 					</Button>
 					<Button
 						variant="ghost"
-						size="icon"
+						size="icon-sm"
 						aria-label="Next note"
 						disabled={position >= count}
 						onClick={onNext}
@@ -211,13 +211,13 @@ export function DatabasePeek({
 					)}
 					<span className="flex-1" />
 					{!readOnly && <SaveTemplateButton defaultName={row.title} onSave={onSaveTemplate} />}
-					<Button variant="ghost" size="icon" aria-label="Open in a new tab" onClick={openInTab}>
+					<Button variant="ghost" size="icon-sm" aria-label="Open in a new tab" onClick={openInTab}>
 						<ExternalLinkIcon />
 					</Button>
-					<Button variant="ghost" size="icon" aria-label="Open to the side" onClick={openToSide}>
+					<Button variant="ghost" size="icon-sm" aria-label="Open to the side" onClick={openToSide}>
 						<Columns2Icon />
 					</Button>
-					<Button variant="ghost" size="icon" aria-label="Close" onClick={onClose}>
+					<Button variant="ghost" size="icon-sm" aria-label="Close" onClick={onClose}>
 						<XIcon />
 					</Button>
 				</div>

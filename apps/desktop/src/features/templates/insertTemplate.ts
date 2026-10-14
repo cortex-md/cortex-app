@@ -1,57 +1,16 @@
 import { useTemplateStore, useVaultStore } from "@cortex/core"
-import type { SlashCommandItem } from "@cortex/editor/slash-commands"
 import type { EditorRuntimeView } from "@cortex/editor/types"
 import {
-	getPropertiesRuntime,
-	parseFrontmatter,
-	removeFrontmatterValue,
-	setFrontmatterValue,
+	mergeMissingNoteProperties as mergeProperties,
+	removeNoteProperties as removeProperties,
 } from "@cortex/properties"
-import { useSettingsStore } from "@cortex/settings"
 import { toast } from "@cortex/ui"
-import { getTeamLabel, isTeamTemplate } from "./templateGroups"
 
-export const TEMPLATE_SLASH_PREFIX = "template:"
-
-export function getTemplateSlashItems(): SlashCommandItem[] {
-	const templates = useTemplateStore.getState().templates
-	const showTeam = useSettingsStore.getState().settings.templates.showTeam
-	const teamLabel = getTeamLabel(templates)
-	return templates
-		.filter((template) => showTeam || !isTeamTemplate(template))
-		.map((template) => ({
-			id: `${TEMPLATE_SLASH_PREFIX}${template.id}`,
-			label: template.name,
-			category: isTeamTemplate(template) ? teamLabel : "Templates",
-			aliases: ["template", "templates", template.name],
-		}))
-}
+export { getTemplateSlashItems, TEMPLATE_SLASH_PREFIX } from "@cortex/core"
 
 function getNoteTitle(filePath: string): string {
 	const name = filePath.split(/[\\/]/).pop() ?? filePath
 	return name.replace(/\.md$/i, "")
-}
-
-async function mergeProperties(filePath: string, properties: Record<string, unknown>) {
-	const added: string[] = []
-	await getPropertiesRuntime().notes.updateNote(filePath, (raw) => {
-		const { meta } = parseFrontmatter(raw)
-		let next = raw
-		for (const [key, value] of Object.entries(properties)) {
-			if (Object.hasOwn(meta, key)) continue
-			next = setFrontmatterValue(next, key, value ?? "")
-			added.push(key)
-		}
-		return next
-	})
-	return added
-}
-
-async function removeProperties(filePath: string, keys: string[]) {
-	if (keys.length === 0) return
-	await getPropertiesRuntime().notes.updateNote(filePath, (raw) =>
-		keys.reduce((next, key) => removeFrontmatterValue(next, key), raw),
-	)
 }
 
 export async function insertTemplateIntoNote(

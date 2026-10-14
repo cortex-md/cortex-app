@@ -62,6 +62,7 @@ function SidebarRailViewButton({
 	return (
 		<RailTooltip label={item.label}>
 			<Button
+				size="sm"
 				ref={buttonRef}
 				variant="ghost"
 				type="button"
@@ -78,9 +79,9 @@ function SidebarRailViewButton({
 				{...dragProps}
 			>
 				{typeof item.icon === "string" ? (
-					<LucideIcon name={item.icon} size={18} strokeWidth={2} />
+					<LucideIcon name={item.icon} size={19} strokeWidth={2} />
 				) : (
-					<item.icon size={18} strokeWidth={2} />
+					<item.icon size={19} strokeWidth={2} />
 				)}
 				{item.id === TASKS_SIDEBAR_VIEW_ID && <TasksRailBadge />}
 			</Button>
@@ -104,13 +105,14 @@ function MarketplaceRailButton({ onOpen }: { onOpen: () => void }) {
 	return (
 		<RailTooltip label={label}>
 			<Button
+				size="sm"
 				variant="ghost"
 				type="button"
 				aria-label={label}
 				className="sidebar-rail-button"
 				onClick={onOpen}
 			>
-				<StoreIcon size={18} strokeWidth={2} />
+				<StoreIcon size={19} strokeWidth={2} />
 				{updateCount > 0 && (
 					<span className="sidebar-rail-badge" aria-hidden="true">
 						{updateCount}
@@ -162,25 +164,27 @@ export function SidebarRail({
 				<span className="sidebar-rail-fill" />
 				<RailTooltip label="Templates">
 					<Button
+						size="sm"
 						variant="ghost"
 						type="button"
 						aria-label="Templates"
 						className="sidebar-rail-button"
 						onClick={openTemplates}
 					>
-						<LayoutTemplateIcon size={18} strokeWidth={2} />
+						<LayoutTemplateIcon size={19} strokeWidth={2} />
 					</Button>
 				</RailTooltip>
 				<MarketplaceRailButton onOpen={onOpenMarketplace} />
 				<RailTooltip label="Settings">
 					<Button
+						size="sm"
 						variant="ghost"
 						type="button"
 						aria-label="Settings"
 						className="sidebar-rail-button"
 						onClick={onOpenSettings}
 					>
-						<SettingsIcon size={18} strokeWidth={2} />
+						<SettingsIcon size={19} strokeWidth={2} />
 					</Button>
 				</RailTooltip>
 			</nav>

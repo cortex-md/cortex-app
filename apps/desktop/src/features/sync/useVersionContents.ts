@@ -1,9 +1,11 @@
-import { countWordChanges, type WordChangeCount } from "@cortex/core"
+import {
+	computeVersionDeltas,
+	VERSION_PREFETCH_CONCURRENCY as PREFETCH_CONCURRENCY,
+	VERSION_PREFETCH_LIMIT as PREFETCH_LIMIT,
+	type WordChangeCount,
+} from "@cortex/core"
 import { mapWithConcurrency } from "@cortex/platform/utils"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-
-const PREFETCH_LIMIT = 30
-const PREFETCH_CONCURRENCY = 2
 
 export interface VersionContents {
 	contents: Record<string, string>
@@ -44,24 +46,10 @@ export function useVersionContents<T extends { id: string }>(
 		)
 	}, [entries, loadContent])
 
-	const deltas = useMemo(() => {
-		const result: Record<string, WordChangeCount> = {}
-		if (!entries) return result
-		for (const [index, entry] of entries.slice(0, PREFETCH_LIMIT).entries()) {
-			const previous = entries[index + 1]
-			const after = contents[entry.id]
-			const before = previous ? contents[previous.id] : ""
-			if (after === undefined || before === undefined) continue
-			const key = `${entry.id}:${previous?.id ?? "start"}`
-			let delta = deltaCache.current.get(key)
-			if (!delta) {
-				delta = countWordChanges(before, after)
-				deltaCache.current.set(key, delta)
-			}
-			result[entry.id] = delta
-		}
-		return result
-	}, [entries, contents])
+	const deltas = useMemo(
+		() => computeVersionDeltas(entries, contents, deltaCache.current),
+		[entries, contents],
+	)
 
 	return { contents, deltas, loadContent }
 }

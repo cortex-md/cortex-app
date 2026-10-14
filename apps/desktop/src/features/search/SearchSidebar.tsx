@@ -78,6 +78,7 @@ function SearchResultGroup({
 	return (
 		<div className="sidebar-search-file">
 			<Button
+				size="sm"
 				variant="ghost"
 				className="sidebar-search-file-header"
 				aria-expanded={!collapsed}
@@ -95,6 +96,7 @@ function SearchResultGroup({
 				(result.snippets.length > 0 ? (
 					result.snippets.map((snippet, index) => (
 						<Button
+							size="sm"
 							key={`${result.id}:${snippet.text}`}
 							variant="ghost"
 							className="sidebar-search-snippet"
@@ -106,7 +108,12 @@ function SearchResultGroup({
 						</Button>
 					))
 				) : (
-					<Button variant="ghost" className="sidebar-search-snippet" onClick={() => openMatch(0)}>
+					<Button
+						size="sm"
+						variant="ghost"
+						className="sidebar-search-snippet"
+						onClick={() => openMatch(0)}
+					>
 						<span>Open note</span>
 					</Button>
 				))}

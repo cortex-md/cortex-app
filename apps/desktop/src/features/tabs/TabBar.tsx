@@ -8,6 +8,7 @@ import {
 	useVaultStore,
 	useWorkspaceStore,
 } from "@cortex/core"
+import { DATABASE_VIEW_ID, NEW_DATABASE_VIEW_ID } from "@cortex/core/database-view-ids"
 import {
 	Button,
 	DropdownMenu,
@@ -35,8 +36,6 @@ import {
 	XIcon,
 } from "lucide-react"
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { DATABASE_VIEW_ID } from "../databases/databaseWorkspace"
-import { NEW_DATABASE_VIEW_ID } from "../databases/newDatabaseWorkspace"
 import { getSidebarNotePresentation } from "../sidebar/sidebarNotePresentation"
 import { useInternalDragSource } from "../split-view/useInternalDragSource"
 import { TEMPLATE_EDITOR_VIEW_ID, TEMPLATES_VIEW_ID } from "../templates/templateViewIds"
@@ -175,7 +174,7 @@ const TabBarItem = memo(function TabBarItem({
 							}}
 							onPointerDown={(e) => e.stopPropagation()}
 						>
-							<XIcon size={12} />
+							<XIcon size={12} strokeWidth={2.25} />
 						</span>
 					)}
 				</TabsTrigger>
@@ -193,8 +192,8 @@ function TabNavigationButtons({ paneId }: { paneId: string }) {
 	return (
 		<>
 			<Button
-				variant="ghost"
-				size="icon"
+				variant="secondary"
+				size="icon-sm"
 				className="tab-bar-nav"
 				aria-label="Back"
 				disabled={!canStepNavigationHistory(history, -1)}
@@ -203,8 +202,8 @@ function TabNavigationButtons({ paneId }: { paneId: string }) {
 				<ChevronLeftIcon />
 			</Button>
 			<Button
-				variant="ghost"
-				size="icon"
+				variant="secondary"
+				size="icon-sm"
 				className="tab-bar-nav"
 				aria-label="Forward"
 				disabled={!canStepNavigationHistory(history, 1)}
@@ -212,7 +211,6 @@ function TabNavigationButtons({ paneId }: { paneId: string }) {
 			>
 				<ChevronRightIcon />
 			</Button>
-			<span className="tab-bar-sep" aria-hidden="true" />
 		</>
 	)
 }
@@ -222,7 +220,7 @@ function RightSidebarToggle() {
 	const label = collapsed ? "Show right sidebar" : "Hide right sidebar"
 	return (
 		<Button
-			variant="ghost"
+			variant="secondary"
 			size="icon-sm"
 			className="tab-bar-right-toggle"
 			aria-label={label}
@@ -230,7 +228,7 @@ function RightSidebarToggle() {
 			title={label}
 			onClick={() => executeCommand("view.toggle-right-sidebar", { source: "menu" })}
 		>
-			<PanelRightIcon size={16} strokeWidth={2} />
+			<PanelRightIcon size={17} strokeWidth={2} />
 		</Button>
 	)
 }
@@ -249,7 +247,12 @@ function HiddenTabsMenu({
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button variant="ghost" className="tab-more" aria-label={`${tabs.length} more tabs`}>
+				<Button
+					size="sm"
+					variant="ghost"
+					className="tab-more"
+					aria-label={`${tabs.length} more tabs`}
+				>
 					+{tabs.length}
 				</Button>
 			</DropdownMenuTrigger>
@@ -386,7 +389,7 @@ export function TabBar({ tabs, activeTabId, paneId, onActivate, onClose, onConte
 				</TabsList>
 				<Button
 					variant="ghost"
-					size="icon"
+					size="icon-sm"
 					className="tab-new"
 					aria-label="New tab"
 					onClick={() => executeCommand("tabs.new", { source: "menu", payload: { paneId } })}

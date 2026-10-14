@@ -99,8 +99,9 @@ function TagPickerDialog({ activeFilePath }: { activeFilePath: string }) {
 				<CommandEmpty className="py-4">
 					{inputValue.trim() && !inputMatchesExisting ? (
 						<Button
+							size="sm"
 							variant="ghost"
-							className="mx-auto h-auto gap-2 rounded-[8px] px-3 py-2 text-sm text-brand hover:bg-muted/55 hover:text-brand/80 active:scale-100 dark:hover:bg-muted/55"
+							className="mx-auto h-auto gap-2 rounded-[var(--row-radius)] px-3 py-2 text-brand-text hover:text-brand-text active:scale-100"
 							onClick={handleCreateTag}
 						>
 							Create tag "{inputValue.trim()}"

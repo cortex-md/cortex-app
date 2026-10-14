@@ -246,11 +246,10 @@ function CustomValueContent({
 				</div>
 			</form>
 			<DialogFooter>
-				<Button variant="ghost" size="sm" onClick={onClose}>
+				<Button variant="ghost" onClick={onClose}>
 					Cancel
 				</Button>
 				<Button
-					size="sm"
 					disabled={!trimmedName || Boolean(nameError) || Boolean(preview.error)}
 					onClick={() => onSave({ name: trimmedName, expression })}
 				>

@@ -260,17 +260,21 @@
 	width: auto;
 	min-width: 28px;
 	height: 28px;
-	padding: 0 7px;
+	padding: 0 10px;
 	border: 0;
-	border-radius: 8px;
+	border-radius: var(--control-pill-radius, 999px);
 	background: transparent;
-	color: var(--text-muted);
-	font: 500 12px / 1 var(--font-ui);
+	color: var(--text-secondary);
+	font: 500 12.5px / 1 var(--font-ui);
 }
 
-.db-tool:hover,
+.db-tool:hover {
+	background: var(--fill-quiet);
+	color: var(--text-primary);
+}
+
 .db-tool[aria-expanded="true"] {
-	background: var(--bg-hover);
+	background: var(--fill-quiet-strong);
 	color: var(--text-primary);
 }
 
@@ -343,28 +347,21 @@
 }
 
 .db-chip {
-	display: inline-flex;
-	align-items: center;
 	gap: 2px;
-	height: 26px;
-	padding: 0 4px 0 0;
-	border-radius: 999px;
-	background: var(--accent-subtle);
-	color: var(--accent-text);
+	padding: 0 7px 0 0;
 }
 
-.db-chip-main {
+.db-chip .db-chip-main[data-slot="button"] {
 	gap: 4px;
-	height: 26px;
-	padding: 0 4px 0 10px;
-	border: 0;
-	border-radius: 999px 0 0 999px;
+	height: 100%;
+	padding: 0 4px 0 12px;
 	background: transparent;
 	color: inherit;
-	font: 500 12px / 1 var(--font-ui);
+	font: inherit;
 }
 
-.db-chip-main:hover {
+.db-chip .db-chip-main[data-slot="button"]:hover,
+.db-chip .db-chip-main[data-slot="button"][data-state="open"] {
 	background: transparent;
 	color: inherit;
 }
@@ -373,19 +370,19 @@
 	font-weight: 600;
 }
 
-.db-chip > button:last-child {
+.db-chip .db-chip-remove[data-slot="button"] {
 	width: 18px;
+	min-width: 18px;
 	height: 18px;
-	border-radius: 999px;
-	color: inherit;
+	color: var(--text-secondary);
 }
 
-.db-chip > button:last-child:hover {
-	background: color-mix(in srgb, var(--accent) 20%, transparent);
-	color: inherit;
+.db-chip .db-chip-remove[data-slot="button"]:hover {
+	background: var(--fill-quiet-strong);
+	color: var(--text-primary);
 }
 
-.db-chip svg {
+.db-chip .db-chip-remove svg {
 	width: 12px;
 	height: 12px;
 }
@@ -613,7 +610,7 @@
 }
 
 .db-row:hover {
-	background: var(--bg-hover);
+	background: var(--fill-quiet);
 }
 
 .db-row[data-selected] {
@@ -908,7 +905,7 @@
 }
 
 .db-col-add:hover {
-	background: var(--bg-hover);
+	background: var(--fill-quiet);
 	color: var(--text-primary);
 }
 
@@ -1244,7 +1241,7 @@
 }
 
 .db-peek-bar > button:hover {
-	background: var(--bg-hover);
+	background: var(--fill-quiet);
 	color: var(--text-primary);
 }
 

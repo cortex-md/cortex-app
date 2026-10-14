@@ -164,7 +164,12 @@ export function DatabaseBoardView({
 						))}
 					</div>
 					{!readOnly && (
-						<Button variant="ghost" className="db-col-add" onClick={() => onCreate(group)}>
+						<Button
+							size="sm"
+							variant="ghost"
+							className="db-col-add"
+							onClick={() => onCreate(group)}
+						>
 							<PlusIcon />
 							New
 						</Button>

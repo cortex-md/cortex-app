@@ -1,11 +1,14 @@
-import { useAuthStore, useDevicesStore, useMembersStore, useRemoteVaultStore } from "@cortex/core"
+import type { SyncActorNames } from "@cortex/core"
+import {
+	buildSyncActorNames,
+	useAuthStore,
+	useDevicesStore,
+	useMembersStore,
+	useRemoteVaultStore,
+} from "@cortex/core"
 import { useEffect, useMemo } from "react"
 
-export interface SyncActorNames {
-	personName: (userId: string | null) => string | null
-	deviceName: (deviceId: string | null) => string | null
-	currentDeviceId: string | null
-}
+export type { SyncActorNames }
 
 export function useSyncActorNames(): SyncActorNames {
 	const user = useAuthStore((state) => state.user)
@@ -25,17 +28,8 @@ export function useSyncActorNames(): SyncActorNames {
 		}
 	}, [authenticated, linkedVaultId])
 
-	return useMemo(() => {
-		const people = new Map<string, string>()
-		for (const member of members) people.set(member.userId, member.displayName || member.email)
-		if (user) people.set(user.userId, user.displayName || user.email)
-		const devices = new Map<string, string>()
-		for (const device of memberDevices) devices.set(device.id, device.deviceName)
-		for (const device of deviceEntries) devices.set(device.id, device.deviceName)
-		return {
-			personName: (userId) => (userId ? (people.get(userId) ?? null) : null),
-			deviceName: (deviceId) => (deviceId ? (devices.get(deviceId) ?? null) : null),
-			currentDeviceId: deviceEntries.find((device) => device.isCurrent)?.id ?? null,
-		}
-	}, [user, members, memberDevices, deviceEntries])
+	return useMemo(
+		() => buildSyncActorNames(user, members, memberDevices, deviceEntries),
+		[user, members, memberDevices, deviceEntries],
+	)
 }

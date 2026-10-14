@@ -1,4 +1,5 @@
 import { useMembersStore } from "@cortex/core"
+import { buildUserGrantRules, grantsByUser } from "@cortex/core/members"
 import type { PathGrant, VaultMember } from "@cortex/platform"
 import {
 	Button,
@@ -15,7 +16,6 @@ import { ModalHost } from "@/utils/ModalHost"
 import { SettingsGroup } from "../settings/SettingsPrimitives"
 import { GuestAccessEditor } from "./GuestAccessEditor"
 import { memberDisplayName, messageOf } from "./memberDirectory"
-import { buildUserGrantRules, grantsByUser } from "./memberRoles"
 
 const EMPTY_GRANTS: PathGrant[] = []
 
@@ -73,7 +73,7 @@ function GuestAccessContent({ vaultId, member }: { vaultId: string; member: Vaul
 			<DialogFooter>
 				{busy && <Spinner className="size-3" />}
 				<DialogClose asChild>
-					<Button>Done</Button>
+					<Button size="sm">Done</Button>
 				</DialogClose>
 			</DialogFooter>
 		</>

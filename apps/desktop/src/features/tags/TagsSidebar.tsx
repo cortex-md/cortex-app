@@ -57,6 +57,7 @@ function TagTreeRow({
 					<span className="sidebar-tag-toggle" aria-hidden="true" />
 				)}
 				<Button
+					size="sm"
 					variant="ghost"
 					className="sidebar-tag-open"
 					aria-label={`Open #${node.tag}`}

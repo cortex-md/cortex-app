@@ -1,5 +1,5 @@
+import { getVaultInitial } from "@cortex/core"
 import { cn } from "@cortex/ui"
-import { getVaultInitial } from "./vaultDisplay"
 
 const TILE_SIZE = {
 	sm: "size-[22px] rounded-md text-[10px]",

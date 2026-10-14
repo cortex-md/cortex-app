@@ -1,8 +1,11 @@
 import {
+	closeNewDatabaseTab,
 	convertFolderToDatabase,
 	createDatabase,
 	getParentPath,
 	isMarkdownPath,
+	openDatabaseView,
+	readNewDatabaseViewState,
 	removeDatabase,
 	reportAppError,
 	toVaultRelativePath,
@@ -39,8 +42,6 @@ import { type FormEvent, useMemo, useState } from "react"
 import { formatCount } from "@/utils/format"
 import type { CoreViewProps } from "../split-view/coreViewProps"
 import { useTemplateFolderOptions } from "../templates/useTemplateFolderOptions"
-import { openDatabaseView } from "./databaseWorkspace"
-import { closeNewDatabaseTab, readNewDatabaseViewState } from "./newDatabaseWorkspace"
 import "./database.css"
 
 const MAX_FOLDER_SUGGESTIONS = 12
@@ -371,7 +372,7 @@ export function NewDatabaseView({ viewState }: CoreViewProps) {
 								</Label>
 							) : null}
 							<span className="flex-1" />
-							<Button type="submit" size="sm" disabled={!parentPath || busy}>
+							<Button type="submit" disabled={!parentPath || busy}>
 								Create database
 							</Button>
 						</div>
@@ -389,6 +390,7 @@ export function NewDatabaseView({ viewState }: CoreViewProps) {
 									<div className="db-folders">
 										{folders.map((folder) => (
 											<Button
+												size="sm"
 												key={folder.path}
 												type="button"
 												variant="ghost"

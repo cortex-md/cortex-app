@@ -60,6 +60,15 @@ describe("generateCSSVariables", () => {
 			"--markdown-callout-padding-block",
 			"--h1-font-size",
 			"--h6-color",
+			"--surface-raised",
+			"--surface-raised-hover",
+			"--hairline",
+			"--fill-quiet",
+			"--fill-quiet-strong",
+			"--fill-selected",
+			"--shadow-raised",
+			"--shadow-floating-pill",
+			"--shadow-primary",
 		]
 
 		for (const variable of publicVariables) {

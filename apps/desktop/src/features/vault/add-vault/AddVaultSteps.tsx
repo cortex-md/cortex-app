@@ -1,4 +1,11 @@
-import { VAULT_COLORS } from "@cortex/core"
+import {
+	type AddVaultPath,
+	NEW_REMOTE,
+	type PickedFolderInfo,
+	type RemoteVaultOption,
+	type SyncMode,
+	VAULT_COLORS,
+} from "@cortex/core"
 import {
 	Alert,
 	AlertDescription,
@@ -23,10 +30,6 @@ import { Cloud, Download, Folder, Laptop, LogIn, Plus, Server, Sparkles } from "
 import { type ReactNode, useId } from "react"
 import { FlowLabel, FlowLocation, FlowNote } from "../FlowDialog"
 import { VaultTile } from "../VaultTile"
-import type { AddVaultPath } from "../vaultActions"
-import type { RemoteVaultOption } from "./useAddVaultRemotes"
-
-export const NEW_REMOTE = "new"
 
 const CHOICES: { path: AddVaultPath; title: string; description: string; icon: ReactNode }[] = [
 	{
@@ -114,14 +117,6 @@ export function NameStep({
 	)
 }
 
-export interface PickedFolderInfo {
-	path: string
-	displayPath: string
-	name: string
-	noteCount: number | null
-	obsidian: boolean
-}
-
 interface FolderStepProps {
 	folder: PickedFolderInfo | null
 	picking: boolean
@@ -145,7 +140,7 @@ export function FolderStep({
 				<span className="text-[13px] text-text-secondary">
 					Choose a folder in the system picker.
 				</span>
-				<Button variant="secondary" size="sm" onClick={onPick} disabled={picking}>
+				<Button variant="secondary" onClick={onPick} disabled={picking}>
 					{picking ? <Spinner className="size-3.5" /> : null}
 					Choose folder…
 				</Button>
@@ -197,8 +192,6 @@ export function FolderStep({
 		</>
 	)
 }
-
-export type SyncMode = "keep" | "sync"
 
 export function SyncChoiceStep({
 	mode,

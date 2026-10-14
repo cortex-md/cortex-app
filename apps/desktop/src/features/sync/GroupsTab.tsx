@@ -34,7 +34,7 @@ export function GroupsTab({ vaultId, canManage }: GroupsTabProps) {
 					Groups let you give access to several people at once from Share or Manage access.
 				</span>
 				{canManage && groups.length > 0 && (
-					<Button size="sm" onClick={openCreate}>
+					<Button onClick={openCreate}>
 						<PlusIcon />
 						New group
 					</Button>
@@ -55,7 +55,7 @@ export function GroupsTab({ vaultId, canManage }: GroupsTabProps) {
 					</EmptyHeader>
 					{canManage && (
 						<EmptyContent>
-							<Button size="sm" onClick={openCreate}>
+							<Button onClick={openCreate}>
 								<PlusIcon />
 								New group
 							</Button>

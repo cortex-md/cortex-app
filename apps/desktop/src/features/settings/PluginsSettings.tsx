@@ -136,15 +136,11 @@ export function PluginsSection({ onBrowseMarketplace }: PluginsSectionProps) {
 				description="Vault-scoped plugins installed in this workspace."
 				action={
 					<>
-						<Button variant="ghost" size="sm" onClick={() => onBrowseMarketplace("plugins")}>
+						<Button variant="ghost" onClick={() => onBrowseMarketplace("plugins")}>
 							<Store size={12} />
 							Browse
 						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={() => runInMainWindow("openCommunityPluginsFolder")}
-						>
+						<Button variant="ghost" onClick={() => runInMainWindow("openCommunityPluginsFolder")}>
 							<FolderOpen size={12} />
 							Open folder
 						</Button>

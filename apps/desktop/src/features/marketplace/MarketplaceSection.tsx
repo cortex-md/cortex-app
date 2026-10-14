@@ -1,7 +1,11 @@
 import { useVaultStore } from "@cortex/core"
 import {
+	formatCount,
+	getItemStats,
 	groupMarketplaceEntries,
 	isEntryInstalled,
+	isVerifiedEntry,
+	type MarketplaceItemStats,
 	type MarketplaceSortOrder,
 	type MarketplaceTab,
 	marketplaceSortLabels,
@@ -36,13 +40,16 @@ import {
 	TabsTrigger,
 } from "@cortex/ui"
 import {
+	BadgeCheck,
 	CheckIcon,
 	ChevronDown,
+	Download,
 	MoreHorizontal,
 	Package,
 	PackageSearch,
 	RefreshCw,
 	Search,
+	ThumbsUp,
 	TriangleAlert,
 } from "lucide-react"
 import {
@@ -77,6 +84,8 @@ interface MarketplaceCatalogRowProps {
 	hasUpdate: boolean
 	canInstall: boolean
 	releaseDate?: string
+	stats: MarketplaceItemStats | null
+	verified: boolean
 	rowRef?: Ref<HTMLButtonElement>
 	onSelect: () => void
 }
@@ -141,6 +150,8 @@ function MarketplaceCatalogRow({
 	hasUpdate,
 	canInstall,
 	releaseDate,
+	stats,
+	verified,
 	rowRef,
 	onSelect,
 }: MarketplaceCatalogRowProps) {
@@ -149,6 +160,7 @@ function MarketplaceCatalogRow({
 	return (
 		<div className="marketplace-catalog-item" data-active={isActive}>
 			<Button
+				size="sm"
 				ref={rowRef}
 				variant="ghost"
 				type="button"
@@ -161,11 +173,28 @@ function MarketplaceCatalogRow({
 			>
 				<MarketplaceArtwork entry={entry} />
 				<span className="marketplace-catalog-copy">
-					<span className="marketplace-catalog-title">{entry.name}</span>
+					<span className="marketplace-catalog-title">
+						{entry.name}
+						{verified && (
+							<BadgeCheck className="marketplace-verified-badge" aria-label="Verified by Cortex" />
+						)}
+					</span>
 					<span className="marketplace-catalog-meta">
 						{entry.author}
 						{formattedReleaseDate && ` · ${formattedReleaseDate}`}
 					</span>
+					{stats && (stats.votes !== undefined || stats.downloads !== undefined) && (
+						<span className="marketplace-catalog-stats">
+							<span title="Votes on GitHub">
+								<ThumbsUp aria-hidden="true" />
+								{formatCount(stats.votes)}
+							</span>
+							<span title="Downloads">
+								<Download aria-hidden="true" />
+								{formatCount(stats.downloads)}
+							</span>
+						</span>
+					)}
 				</span>
 			</Button>
 			<span className="marketplace-catalog-action">
@@ -192,6 +221,7 @@ function MarketplaceCatalogGroup({ label, count, children }: MarketplaceCatalogG
 	return (
 		<div className="marketplace-catalog-group">
 			<Button
+				size="sm"
 				variant="ghost"
 				type="button"
 				className="marketplace-catalog-group-header"
@@ -246,6 +276,9 @@ export function MarketplaceSection({
 	const updatesChecking = useMarketplaceStore((state) => state.updatesChecking)
 	const releaseDates = useMarketplaceStore((state) => state.releaseDates)
 	const releaseDatesLoading = useMarketplaceStore((state) => state.releaseDatesLoading)
+	const stats = useMarketplaceStore((state) => state.stats)
+	const verified = useMarketplaceStore((state) => state.verified)
+	const blocked = useMarketplaceStore((state) => state.blocked)
 	const setActiveTab = useMarketplaceStore((state) => state.setActiveTab)
 	const setSearchQuery = useMarketplaceStore((state) => state.setSearchQuery)
 	const setFilterInstalled = useMarketplaceStore((state) => state.setFilterInstalled)
@@ -286,10 +319,22 @@ export function MarketplaceSection({
 					filterInstalled,
 					sortOrder,
 					releaseDates,
+					stats,
+					blocked,
 				},
 				{ isInstalled: (id) => isEntryInstalled(id, activeTab) },
 			),
-		[activeTab, filterInstalled, pluginEntries, releaseDates, searchQuery, sortOrder, themeEntries],
+		[
+			activeTab,
+			blocked,
+			filterInstalled,
+			pluginEntries,
+			releaseDates,
+			searchQuery,
+			sortOrder,
+			stats,
+			themeEntries,
+		],
 	)
 
 	const selectedEntry =
@@ -334,6 +379,8 @@ export function MarketplaceSection({
 			hasUpdate={Boolean(availableUpdates[entry.id])}
 			canInstall={Boolean(vault) && (activeTab === "themes" || allowCommunity)}
 			releaseDate={releaseDates[entry.id]}
+			stats={getItemStats(stats, activeTab, entry.id)}
+			verified={isVerifiedEntry(verified, activeTab, entry.id)}
 			rowRef={entry.id === selectedEntryId ? selectedRowRef : undefined}
 			onSelect={() => handleEntrySelect(entry)}
 		/>
@@ -430,12 +477,14 @@ export function MarketplaceSection({
 					</div>
 				)}
 
-				{releaseDatesLoading && sortOrder !== "default" && !isLoading && (
-					<div className="marketplace-catalog-status">
-						<Spinner className="size-3" />
-						Loading release dates...
-					</div>
-				)}
+				{releaseDatesLoading &&
+					(sortOrder === "newest" || sortOrder === "oldest") &&
+					!isLoading && (
+						<div className="marketplace-catalog-status">
+							<Spinner className="size-3" />
+							Loading release dates...
+						</div>
+					)}
 
 				<ScrollArea className="marketplace-catalog-scroll">
 					{isLoading && <MarketplaceCatalogSkeleton />}

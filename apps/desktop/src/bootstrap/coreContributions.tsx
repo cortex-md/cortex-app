@@ -1,9 +1,8 @@
+import { DATABASE_VIEW_ID, NEW_DATABASE_VIEW_ID, SHARED_NOTE_VIEW_ID } from "@cortex/core"
 import { CORE_OWNER, type ContributionSet, registerContributions } from "@cortex/plugin-host-core"
 import { BookmarkIcon, CircleCheckIcon, FolderClosed, SearchIcon, TagIcon } from "lucide-react"
 import { type ComponentType, lazy } from "react"
 import { BookmarksSidebar } from "../features/bookmarks/BookmarksSidebar"
-import { DATABASE_VIEW_ID } from "../features/databases/databaseWorkspace"
-import { NEW_DATABASE_VIEW_ID } from "../features/databases/newDatabaseWorkspace"
 import { DRAWING_BOARD_VIEW_ID } from "../features/drawings/drawingDocument"
 import { FileSidebar } from "../features/file-explorer/FileSidebar"
 import { MARKETPLACE_VIEW_ID } from "../features/marketplace/marketplaceWorkspaceView"
@@ -17,7 +16,6 @@ import {
 	StatusBarWordCount,
 } from "../features/statusbar/StatusBar"
 import { SyncIndicator } from "../features/sync/SyncIndicator"
-import { SHARED_NOTE_VIEW_ID } from "../features/sync/sharedNote"
 import { SYNC_WELCOME_VIEW_ID } from "../features/sync/syncWelcome"
 import { TagsSidebar } from "../features/tags/TagsSidebar"
 import { TAG_VIEW_ID } from "../features/tags/tagWorkspaceView"

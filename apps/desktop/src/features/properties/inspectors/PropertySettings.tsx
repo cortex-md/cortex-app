@@ -88,14 +88,14 @@ export function PropertySettings({
 			</div>
 			{nameError && <output className="note-properties-error">{nameError}</output>}
 			<div className="note-property-config-list">
-				<Button variant="ghost" onClick={() => onPush({ kind: "types" })}>
+				<Button size="sm" variant="ghost" onClick={() => onPush({ kind: "types" })}>
 					<PropertyTypeIcon icon={propertyType?.icon ?? "circle-help"} />
 					<span>Type</span>
 					<small>{propertyType?.displayName ?? definition.type}</small>
 					<ChevronRightIcon />
 				</Button>
 				{optionBased && (
-					<Button variant="ghost" onClick={() => onPush({ kind: "sort" })}>
+					<Button size="sm" variant="ghost" onClick={() => onPush({ kind: "sort" })}>
 						<ArrowDownAZIcon />
 						<span>Sort</span>
 						<small>{definition.optionSort === "alphabetical" ? "Alphabetical" : "Manual"}</small>
@@ -154,6 +154,7 @@ export function PropertySettings({
 						{options.map((option) => (
 							<li className="note-property-option-row" key={option.id}>
 								<Button
+									size="sm"
 									variant="ghost"
 									className="note-property-option-main"
 									onClick={() => onPush({ kind: "option", optionId: option.id })}
@@ -168,12 +169,13 @@ export function PropertySettings({
 			)}
 			<Separator />
 			<div className="note-property-settings-actions">
-				<Button variant="ghost" onClick={() => void onDuplicateDefinition()}>
+				<Button size="sm" variant="ghost" onClick={() => void onDuplicateDefinition()}>
 					<CopyIcon />
 					Duplicate property
 				</Button>
 				<Button
-					variant="ghost"
+					size="sm"
+					variant="destructive-soft"
 					className="note-property-delete-action"
 					onClick={() => void handleDelete()}
 				>

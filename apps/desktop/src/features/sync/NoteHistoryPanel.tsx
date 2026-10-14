@@ -1,12 +1,16 @@
 import {
 	buildDiffRows,
+	buildHistoryEntries as buildEntries,
 	canWriteVaultPath,
 	captureCurrentNoteVersion,
-	getBaseName,
+	historyVersionCopyName as copyName,
+	type HistoryDeviceFilter as DeviceFilter,
 	getParentPath,
+	type HistoryEntry,
 	type LocalVersion,
 	type LocalVersionReason,
 	listLocalVersions,
+	matchesHistoryDeviceFilter as matchesDeviceFilter,
 	readCurrentNoteContent,
 	readLocalVersion,
 	reportAppError,
@@ -36,24 +40,16 @@ import {
 	HistoryLoading,
 	historyDayLabel,
 	NoteReadingPreview,
-	parseTimestamp,
 } from "./HistoryDialogParts"
 import { noteHistoryModal } from "./noteHistoryModal"
 import { UserAvatar } from "./UserAvatar"
 import { type SyncActorNames, useSyncActorNames } from "./useSyncActorNames"
 import { useVersionContents } from "./useVersionContents"
 
-type DeviceFilter = "all" | "device" | "others"
 type PaneMode = "changes" | "full"
-
-type HistoryEntry =
-	| { kind: "current"; id: string; timestamp: null }
-	| { kind: "local"; id: string; timestamp: number; local: LocalVersion }
-	| { kind: "server"; id: string; timestamp: number | null; server: VersionInfo }
 
 const TIME_FORMAT = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" })
 const DATE_FORMAT = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" })
-const CURRENT_ENTRY: HistoryEntry = { kind: "current", id: "current", timestamp: null }
 const THIS_DEVICE = "This device"
 
 const DEVICE_FILTERS: readonly { value: DeviceFilter; label: string }[] = [
@@ -96,50 +92,6 @@ function entryMeta(entry: HistoryEntry, actors: SyncActorNames): string {
 			: [THIS_DEVICE]
 	if (entry.timestamp !== null) parts.push(formatDateTime(entry.timestamp))
 	return parts.filter(Boolean).join(" · ")
-}
-
-function compareEntries(left: HistoryEntry, right: HistoryEntry): number {
-	const timeOrder = (right.timestamp ?? 0) - (left.timestamp ?? 0)
-	if (timeOrder !== 0) return timeOrder
-	if (left.kind === "server" && right.kind === "server") {
-		return right.server.version - left.server.version
-	}
-	return 0
-}
-
-function buildEntries(
-	localVersions: readonly LocalVersion[],
-	serverVersions: readonly VersionInfo[],
-): HistoryEntry[] {
-	const versions: HistoryEntry[] = [
-		...localVersions.map(
-			(local): HistoryEntry => ({
-				kind: "local",
-				id: `local:${local.id}`,
-				timestamp: local.timestamp,
-				local,
-			}),
-		),
-		...serverVersions.map(
-			(server): HistoryEntry => ({
-				kind: "server",
-				id: `server:${server.snapshotId}`,
-				timestamp: parseTimestamp(server.createdAt),
-				server,
-			}),
-		),
-	]
-	return [CURRENT_ENTRY, ...versions.sort(compareEntries)]
-}
-
-function matchesDeviceFilter(
-	entry: HistoryEntry,
-	filter: DeviceFilter,
-	currentDeviceId: string | null,
-): boolean {
-	if (filter === "all") return true
-	const onThisDevice = entry.kind !== "server" || entry.server.deviceId === currentDeviceId
-	return filter === "device" ? onThisDevice : !onThisDevice
 }
 
 export function NoteHistoryHost() {
@@ -186,6 +138,7 @@ function VersionWho({ entry, actors }: { entry: HistoryEntry; actors: SyncActorN
 function VersionRow({ entry, last, selected, delta, actors, onSelect }: VersionRowProps) {
 	return (
 		<Button
+			size="sm"
 			variant="ghost"
 			className="history-row version-row"
 			data-selected={selected ? "true" : undefined}
@@ -309,13 +262,6 @@ interface VersionPaneProps {
 	onError: (message: string) => void
 }
 
-function copyName(filePath: string, entry: HistoryEntry): string {
-	const baseName = getBaseName(filePath).replace(/\.md$/i, "")
-	return entry.kind === "server"
-		? `${baseName} (version ${entry.server.version})`
-		: `${baseName} (earlier version)`
-}
-
 function VersionPane({
 	filePath,
 	relativePath,
@@ -420,24 +366,19 @@ function VersionPane({
 					<InfoIcon className="size-3.5" aria-hidden="true" />
 					Restoring keeps the current text as a new version, so nothing is lost.
 				</span>
-				<Button variant="ghost" size="sm" onClick={handleCopy} disabled={content === undefined}>
+				<Button variant="ghost" onClick={handleCopy} disabled={content === undefined}>
 					<CopyIcon />
 					{copied ? "Copied" : "Copy text"}
 				</Button>
 				<Button
 					variant="secondary"
-					size="sm"
 					onClick={() => void handleOpenAsCopy()}
 					disabled={content === undefined || busy !== null}
 				>
 					{busy === "copy" ? <Spinner className="size-3" /> : <ExternalLinkIcon />}
 					Open as copy
 				</Button>
-				<Button
-					size="sm"
-					onClick={() => void handleRestore()}
-					disabled={!canRestore || busy !== null}
-				>
+				<Button onClick={() => void handleRestore()} disabled={!canRestore || busy !== null}>
 					{busy === "restore" ? <Spinner className="size-3" /> : <RotateCcwIcon />}
 					Restore this version
 				</Button>

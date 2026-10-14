@@ -179,10 +179,10 @@ function NewTemplateContent({ target }: { target: NewTemplateTarget }) {
 				{error ? <p className="template-picker-error">{error}</p> : null}
 			</form>
 			<DialogFooter className="template-new-foot">
-				<Button variant="ghost" size="sm" onClick={() => newTemplateModal.close()}>
+				<Button variant="ghost" onClick={() => newTemplateModal.close()}>
 					Cancel
 				</Button>
-				<Button size="sm" disabled={!trimmedName || creating} onClick={() => void handleCreate()}>
+				<Button disabled={!trimmedName || creating} onClick={() => void handleCreate()}>
 					Create template
 				</Button>
 			</DialogFooter>
