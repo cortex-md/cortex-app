@@ -18,6 +18,7 @@ import { getMobileVaultPathParts } from "./mobile-vault-paths"
 import { resolveEntry, resolveLogicalDirectory } from "./pathResolver"
 import { mobileCrypto } from "./syncCrypto"
 import { findMobileVaultRootByPath, listDirectoryEntries } from "./vaultRoots"
+import { emitSyntheticWatchEvent } from "./watcher"
 
 const SYNC_DB_RELATIVE_PATH = ".cortex/sync.db"
 
@@ -161,6 +162,7 @@ const mobileSyncFs: SyncFs = {
 	readTextFile: async (path) => (await readFileEntry(path)).text(),
 	writeFile: async (path, content) => {
 		await writeLogicalFile(path, content)
+		emitSyntheticWatchEvent(path, "created")
 	},
 	stat: statEntry,
 	lstat: statEntry,
@@ -182,15 +184,19 @@ const mobileSyncFs: SyncFs = {
 	},
 	mkdir: async (path) => {
 		await resolveLogicalDirectory(path, { create: true })
+		emitSyntheticWatchEvent(path, "created")
 	},
 	mkdirSync: () => {},
 	rename: async (oldPath, newPath) => {
 		await renameFile(oldPath, newPath, { overwrite: true })
+		emitSyntheticWatchEvent(oldPath, "deleted")
+		emitSyntheticWatchEvent(newPath, "created")
 	},
 	rm: async (path) => {
 		try {
 			const entry = await resolveExisting(path)
 			entry.delete()
+			emitSyntheticWatchEvent(path, "deleted")
 		} catch (error) {
 			if ((error as { code?: string }).code !== "ENOENT") throw error
 		}
