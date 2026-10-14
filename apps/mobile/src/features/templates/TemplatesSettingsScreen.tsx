@@ -9,11 +9,11 @@ import { openSettings, openTemplateEditor } from "@/features/navigation/routes"
 import { DailyNotesSection } from "@/features/templates/DailyNotesSection"
 import {
 	getTemplateBodyFilePath,
+	TEAM_GROUP_FALLBACK,
 	toNoteEntry,
 	useTeamDatabaseTemplates,
 	useVaultTemplates,
 } from "@/features/templates/templatesAdapter"
-import { FIXTURE_TEAM_GROUP } from "@/features/templates/templatesFixtures"
 
 async function createTemplate(vault: TemplateVault, name: string): Promise<void> {
 	try {
@@ -42,7 +42,7 @@ export function TemplatesSettingsScreen() {
 				.sort((a, b) => a.name.localeCompare(b.name)),
 			team: teamTemplates,
 			teamGroup:
-				teamTemplates[0]?.remote?.group ?? databases[0]?.meta?.groupName ?? FIXTURE_TEAM_GROUP,
+				teamTemplates[0]?.remote?.group ?? databases[0]?.meta?.groupName ?? TEAM_GROUP_FALLBACK,
 		}
 	}, [databases, templates])
 

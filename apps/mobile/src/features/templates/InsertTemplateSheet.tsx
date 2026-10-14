@@ -7,8 +7,11 @@ import { FormRow, FormSection, NativeForm } from "@/components/ui/Form"
 import { CLOSE_ICON, HeaderActions } from "@/features/importExport/HeaderActions"
 import { dismissSheet } from "@/features/navigation/routes"
 import { insertTemplateIntoNote } from "@/features/templates/insertTemplate"
-import { toNoteEntry, useVaultTemplates } from "@/features/templates/templatesAdapter"
-import { FIXTURE_TEAM_GROUP } from "@/features/templates/templatesFixtures"
+import {
+	TEAM_GROUP_FALLBACK,
+	toNoteEntry,
+	useVaultTemplates,
+} from "@/features/templates/templatesAdapter"
 
 function readParam(value: string | string[] | undefined): string | null {
 	const resolved = Array.isArray(value) ? value[0] : value
@@ -24,7 +27,7 @@ export function InsertTemplateSheet() {
 	const groups = useMemo(() => {
 		const local = templates.filter((template) => !isTeamTemplate(template))
 		const team = templates.filter((template) => isTeamTemplate(template))
-		const teamGroup = team[0]?.remote?.group ?? FIXTURE_TEAM_GROUP
+		const teamGroup = team[0]?.remote?.group ?? TEAM_GROUP_FALLBACK
 		return { local, team, teamGroup }
 	}, [templates])
 

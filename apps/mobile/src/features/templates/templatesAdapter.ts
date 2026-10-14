@@ -1,5 +1,6 @@
 import {
 	createDatabase,
+	refreshTeamTemplates,
 	type TemplateDefinition,
 	type TemplateRenderContext,
 	type TemplateVault,
@@ -10,27 +11,23 @@ import {
 } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
 import { parseFrontmatter } from "@cortex/properties"
-import { getDatabasePreset } from "@cortex/properties/database"
 import { useSettingsStore } from "@cortex/settings"
 import { getTemplateGroups, isTeamTemplate, renderTemplate } from "@cortex/templates"
 import { useEffect, useMemo } from "react"
 
 import type { SymbolName } from "@/components/ui/Symbol"
-import { FIXTURE_TEMPLATES } from "@/features/marketplace/marketplaceFixtures"
-import {
-	type DatabaseTemplate,
-	FIXTURE_MARKET_NOTE_TEMPLATES,
-	FIXTURE_TEAM_DATABASE_TEMPLATES,
-	FIXTURE_TEAM_GROUP,
-	FIXTURE_TEAM_NOTE_TEMPLATES,
-	MARKET_DATABASE_PRESET_IDS,
-	type MarketNoteTemplate,
-	type TeamTemplateMeta,
-} from "@/features/templates/templatesFixtures"
+import { getOpenedPublicTemplate } from "@/features/marketplace/marketplaceAdapter"
+import type {
+	DatabaseTemplate,
+	MarketNoteTemplate,
+	TeamTemplateMeta,
+} from "@/features/templates/templateTypes"
 
 export type { DatabaseTemplate, TeamTemplateMeta }
 
 export const BLANK_TEMPLATE_FOLDER = "Inbox"
+
+export const TEAM_GROUP_FALLBACK = "your team"
 
 interface EntryBase {
 	key: string
@@ -111,7 +108,7 @@ function firstName(name: string): string {
 export function getTeamTemplateMeta(template: TemplateDefinition): TeamTemplateMeta | null {
 	if (!isTeamTemplate(template)) return null
 	return {
-		groupName: template.remote?.group ?? FIXTURE_TEAM_GROUP,
+		groupName: template.remote?.group ?? TEAM_GROUP_FALLBACK,
 		ownerName: template.remote?.sharedBy ?? "your team",
 		updatedLabel: TEAM_UPDATED_FORMAT.format(new Date(template.updatedAt)),
 	}
@@ -179,24 +176,19 @@ export const BLANK_TEMPLATE_ENTRY: BlankTemplateEntry = {
 }
 
 export function ensureTeamTemplates(): void {
-	// stub: team templates come from Cortex Sync template shares; fixtures stand in on mobile
-	const { setRemoteTemplates, templates } = useTemplateStore.getState()
-	if (templates.some((template) => isTeamTemplate(template))) return
-	setRemoteTemplates(FIXTURE_TEAM_NOTE_TEMPLATES)
+	void refreshTeamTemplates()
 }
 
 export function useTeamDatabaseTemplates(): DatabaseTemplate[] {
-	// stub: shared database presets fall back to fixtures until template shares work on mobile
 	const presets = useTemplateSharingStore((state) => state.teamDatabasePresets)
 	return useMemo(() => {
-		if (presets.length === 0) return FIXTURE_TEAM_DATABASE_TEMPLATES
 		return presets.map((shared) => ({
 			id: shared.preset.id,
 			name: shared.preset.name,
 			defaultName: shared.preset.name,
 			defaultFolder: shared.groupName ?? "",
 			meta: {
-				groupName: shared.groupName ?? FIXTURE_TEAM_GROUP,
+				groupName: shared.groupName ?? TEAM_GROUP_FALLBACK,
 				ownerName: shared.ownerName,
 				updatedLabel: "",
 			},
@@ -256,7 +248,7 @@ export function useTemplateSections(query: string): {
 		const teamGroup =
 			groups.find((group) => group.id === "team")?.templates[0]?.remote?.group ??
 			teamDatabases[0]?.meta?.groupName ??
-			FIXTURE_TEAM_GROUP
+			TEAM_GROUP_FALLBACK
 		const blank =
 			!normalized || matchesQuery(BLANK_TEMPLATE_ENTRY.name, normalized)
 				? [BLANK_TEMPLATE_ENTRY]
@@ -296,52 +288,44 @@ export function resolveMarketplaceEntry(
 	vault: TemplateVault,
 	teamDatabases: DatabaseTemplate[],
 ): TemplateEntry | null {
-	// stub: marketplace templates are fixtures until remote template listings work on mobile
-	const team = FIXTURE_TEAM_NOTE_TEMPLATES.find(
-		(entry) => entry.definition.id === `team-${marketplaceIdToTeamId(marketplaceId)}`,
+	const installed = templates.find((template) => template.remote?.id === marketplaceId)
+	if (installed) return toNoteEntry(installed, vault)
+	const teamDatabase = teamDatabases.find(
+		(database) => database.id === marketplaceId || database.id === `team-${marketplaceId}`,
 	)
-	if (team) {
-		const stored = templates.find((template) => template.id === team.definition.id)
-		return toNoteEntry(stored ?? team.definition, vault)
+	if (teamDatabase) return toDatabaseEntry(teamDatabase)
+	const opened = getOpenedPublicTemplate(marketplaceId)
+	if (!opened) return null
+	if (opened.database) {
+		const id = `market-${marketplaceId}`
+		return toDatabaseEntry({
+			id,
+			name: opened.template.name,
+			defaultName: opened.template.name,
+			defaultFolder: "",
+			meta: null,
+			preset: { ...opened.database, id, name: opened.template.name },
+			previewRows: [],
+		})
 	}
-	if (marketplaceId === "sprint") {
-		const database = teamDatabases.find((item) => item.name === "Sprint board")
-		return toDatabaseEntry(database ?? FIXTURE_TEAM_DATABASE_TEMPLATES[0])
+	if (!opened.note) return null
+	const market: MarketNoteTemplate = {
+		id: marketplaceId,
+		name: opened.note.name,
+		targetFolderPattern: opened.note.fields.targetFolderPattern ?? "",
+		fileNamePattern: opened.note.fields.fileNamePattern ?? "{{ note.title }}",
+		body: opened.note.body,
 	}
-	const market = FIXTURE_MARKET_NOTE_TEMPLATES.find((item) => item.id === marketplaceId)
-	if (market) {
-		const installed = templates.find(
-			(template) => !isTeamTemplate(template) && template.name === market.name,
-		)
-		if (installed) return toNoteEntry(installed, vault)
-		return {
-			kind: "note",
-			key: `market:${market.id}`,
-			name: market.name,
-			hint: market.targetFolderPattern,
-			icon: noteTemplateIcon(market.fileNamePattern),
-			team: null,
-			template: null,
-			market,
-		}
+	return {
+		kind: "note",
+		key: `market:${market.id}`,
+		name: market.name,
+		hint: market.targetFolderPattern,
+		icon: noteTemplateIcon(market.fileNamePattern),
+		team: null,
+		template: null,
+		market,
 	}
-	const listing = FIXTURE_TEMPLATES.find((item) => item.id === marketplaceId)
-	const presetId = MARKET_DATABASE_PRESET_IDS[marketplaceId]
-	if (!listing || !presetId) return null
-	const preset = getDatabasePreset(presetId)
-	return toDatabaseEntry({
-		id: `market-${listing.id}`,
-		name: listing.name,
-		defaultName: listing.name,
-		defaultFolder: listing.destination?.split(" / ").slice(1).join("/") ?? "",
-		meta: null,
-		preset: { ...preset, id: `market-${listing.id}`, name: listing.name },
-		previewRows: listing.preview.map(([name, status]) => ({ name, status })),
-	})
-}
-
-function marketplaceIdToTeamId(marketplaceId: string): string {
-	return marketplaceId === "review" ? "design-review" : marketplaceId
 }
 
 export async function loadNoteTemplateSource(
@@ -424,7 +408,6 @@ async function installMarketNoteTemplate(
 	vault: TemplateVault,
 	market: MarketNoteTemplate,
 ): Promise<TemplateDefinition> {
-	// stub: marketplace bodies are fixtures; installing writes a regular vault template
 	return useTemplateStore.getState().createTemplate(vault, {
 		askName: true,
 		body: market.body,
