@@ -164,7 +164,7 @@ export function createServerApiServices(options: ServerApiOptions): ServerApiSer
 	) => {
 		assertPasswordStrength(password)
 		const api = await client(serverUrl)
-		if (!keys.crypto) {
+		if (!keys.crypto || (await prelogin(api, email)) === null) {
 			return await endpoints.register(api, session, email, password, displayName)
 		}
 		const created = await createAccountIdentity(keys.crypto, password)
