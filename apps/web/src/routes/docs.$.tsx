@@ -1,19 +1,15 @@
 import { createFileRoute, notFound } from "@tanstack/react-router"
 import { docsDescription } from "../content/docs"
 import { DocsShell } from "../features/docs/components/DocsShell"
-import { docsNavigation, getDocBySlug } from "../features/docs/registry"
 import { createSeoHead, pageTitle } from "../seo/metadata"
 import { breadcrumbSchema, jsonLdScripts, techArticleSchema } from "../seo/structuredData"
+import { getDocsPage, getDocsSearchEntries } from "../server/docs"
 
 export const Route = createFileRoute("/docs/$")({
-	loader: ({ params }) => {
-		const page = getDocBySlug(params._splat)
-		if (!page) throw notFound()
-
-		return {
-			page,
-			navigation: docsNavigation,
-		}
+	loader: async ({ params }) => {
+		const result = await getDocsPage({ data: { slug: params._splat } })
+		if (!result) throw notFound()
+		return result
 	},
 	head: ({ loaderData }) => {
 		const page = loaderData?.page
@@ -27,7 +23,8 @@ export const Route = createFileRoute("/docs/$")({
 		if (!page) return seoHead
 
 		const sectionHref =
-			docsNavigation.find((group) => group.section === page.section)?.pages[0]?.href ?? page.href
+			loaderData?.navigation.find((group) => group.section === page.section)?.pages[0]?.href ??
+			page.href
 
 		return {
 			...seoHead,
@@ -52,5 +49,11 @@ export const Route = createFileRoute("/docs/$")({
 function DocsPageRoute() {
 	const { page, navigation } = Route.useLoaderData()
 
-	return <DocsShell page={page} navigation={navigation} />
+	return (
+		<DocsShell
+			page={page}
+			navigation={navigation}
+			loadSearchEntries={() => getDocsSearchEntries()}
+		/>
+	)
 }

@@ -5,7 +5,7 @@ import { MarketplaceBrowsePage } from "../features/marketplace/MarketplaceBrowse
 import { getItemHref } from "../features/marketplace/marketplaceModel"
 import { createSeoHead, pageTitle } from "../seo/metadata"
 import { breadcrumbSchema, itemListSchema, jsonLdScripts } from "../seo/structuredData"
-import { getMarketplaceCatalog } from "../server/marketplace"
+import { getMarketplaceCatalog } from "../server/functions"
 
 const searchSchema = z.object({
 	kind: z.enum(["all", "plugins", "themes"]).catch("all"),

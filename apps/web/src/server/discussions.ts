@@ -1,11 +1,10 @@
-import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { withCache } from "./cache"
 import { renderReleaseMarkdown } from "./changelog"
-import { githubApiHeaders } from "./github"
-import { getRegistryRepo } from "./marketplace"
+import { githubApiHeaders, githubFetch } from "./github"
 
 const GITHUB_USER_AGENT = "Cortex website marketplace"
-const CACHE_TTL_MS = 5 * 60 * 1000
+export const DISCUSSION_CACHE_SECONDS = 300
 const VISIBLE_COMMENTS = 10
 const maintainerAssociations = new Set(["OWNER", "MEMBER", "COLLABORATOR"])
 
@@ -45,8 +44,6 @@ export interface DiscussionCommentsResult {
 	total: number
 	comments: DiscussionComment[]
 }
-
-const cachedComments = new Map<string, { expiresAt: number; value: DiscussionCommentsResult }>()
 
 function sizedAvatar(avatarUrl: string) {
 	const url = new URL(avatarUrl)
@@ -100,19 +97,18 @@ export async function fetchDiscussionComments(
 	}
 }
 
-export async function fetchCachedDiscussionComments(repo: string, number: number) {
-	const key = `${repo}#${number}`
-	const now = Date.now()
-	const cached = cachedComments.get(key)
-	if (cached && cached.expiresAt > now) return cached.value
-
-	const next = await fetchDiscussionComments(repo, number)
-	if (next.status === "unavailable" && cached) return cached.value
-
-	cachedComments.set(key, { value: next, expiresAt: now + CACHE_TTL_MS })
-	return next
+export async function fetchCachedDiscussionComments(
+	repo: string,
+	number: number,
+): Promise<DiscussionCommentsResult> {
+	const cached = await withCache({
+		key: `discussion:${repo}#${number}`,
+		ttlSeconds: DISCUSSION_CACHE_SECONDS,
+		tags: ["marketplace", `discussion:${repo}#${number}`],
+		load: async () => {
+			const result = await fetchDiscussionComments(repo, number, githubFetch)
+			return result.status === "unavailable" ? null : result
+		},
+	})
+	return cached?.value ?? { status: "unavailable", total: 0, comments: [] }
 }
-
-export const getDiscussionComments = createServerFn({ method: "GET" })
-	.validator(z.object({ number: z.number().int().positive() }))
-	.handler(({ data }) => fetchCachedDiscussionComments(getRegistryRepo(), data.number))

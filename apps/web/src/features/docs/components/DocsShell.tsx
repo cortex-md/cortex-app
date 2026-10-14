@@ -30,19 +30,19 @@ import {
 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { docsCopy, docsSourceBaseUrl } from "../../../content/docs"
-import { createDocLlmText } from "../llms"
-import type { DocPage, DocsNavigationGroup, DocsSearchEntry } from "../registry"
-import { docsSearchEntries } from "../registry"
+import { createDocLlmText } from "../llmsPage"
+import type { DocPage, DocsNavigationSummaryGroup, DocsSearchEntry } from "../registry"
 import { DocsMarkdown } from "./DocsMarkdown"
 
 interface DocsShellProps {
 	page: DocPage
-	navigation: DocsNavigationGroup[]
+	navigation: DocsNavigationSummaryGroup[]
+	loadSearchEntries: () => Promise<DocsSearchEntry[]>
 }
 
 interface DocsSidebarProps {
 	currentSlug: string
-	navigation: DocsNavigationGroup[]
+	navigation: DocsNavigationSummaryGroup[]
 	onSearch: () => void
 }
 
@@ -67,7 +67,7 @@ function getReadingMinutes(page: DocPage) {
 	return Math.max(1, Math.round(words / wordsPerMinute))
 }
 
-function getAdjacentPages(page: DocPage, navigation: DocsNavigationGroup[]) {
+function getAdjacentPages(page: DocPage, navigation: DocsNavigationSummaryGroup[]) {
 	const pages = navigation.flatMap((group) => group.pages)
 	const index = pages.findIndex((item) => item.slug === page.slug)
 	return { previous: pages[index - 1], next: pages[index + 1] }
@@ -90,14 +90,31 @@ function useDocsSearchShortcut(setOpen: (update: (open: boolean) => boolean) => 
 function DocsSearchDialog({
 	open,
 	onOpenChange,
+	loadSearchEntries,
 }: {
 	open: boolean
 	onOpenChange: (open: boolean) => void
+	loadSearchEntries: () => Promise<DocsSearchEntry[]>
 }) {
-	const pageEntries = useMemo(() => docsSearchEntries.filter((entry) => entry.type === "page"), [])
+	const [entries, setEntries] = useState<DocsSearchEntry[]>([])
+
+	useEffect(() => {
+		if (!open || entries.length > 0) return
+		let active = true
+		loadSearchEntries()
+			.then((loaded) => {
+				if (active) setEntries(loaded)
+			})
+			.catch(() => {})
+		return () => {
+			active = false
+		}
+	}, [open, entries.length, loadSearchEntries])
+
+	const pageEntries = useMemo(() => entries.filter((entry) => entry.type === "page"), [entries])
 	const headingEntries = useMemo(
-		() => docsSearchEntries.filter((entry) => entry.type === "heading"),
-		[],
+		() => entries.filter((entry) => entry.type === "heading"),
+		[entries],
 	)
 
 	function renderEntry(entry: DocsSearchEntry) {
@@ -172,7 +189,13 @@ function SearchButton({ onSearch }: { onSearch: () => void }) {
 	)
 }
 
-function DocsNavGroup({ group, currentSlug }: { group: DocsNavigationGroup; currentSlug: string }) {
+function DocsNavGroup({
+	group,
+	currentSlug,
+}: {
+	group: DocsNavigationSummaryGroup
+	currentSlug: string
+}) {
 	const containsCurrent = group.pages.some((item) => item.slug === currentSlug)
 	const [isOpen, setIsOpen] = useState(containsCurrent || group.pages.length <= 2)
 	const listId = `docs-group-${group.sectionOrder}`
@@ -426,7 +449,7 @@ function MobileDocsNav({ currentSlug, navigation, onSearch }: DocsSidebarProps) 
 	)
 }
 
-export function DocsShell({ page, navigation }: DocsShellProps) {
+export function DocsShell({ page, navigation, loadSearchEntries }: DocsShellProps) {
 	const activeHeadingId = useActiveHeading(page)
 	const [searchOpen, setSearchOpen] = useState(false)
 	const openSearch = () => setSearchOpen(true)
@@ -535,7 +558,11 @@ export function DocsShell({ page, navigation }: DocsShellProps) {
 				<DocsTableOfContents page={page} activeHeadingId={activeHeadingId} />
 			</aside>
 
-			<DocsSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
+			<DocsSearchDialog
+				open={searchOpen}
+				onOpenChange={setSearchOpen}
+				loadSearchEntries={loadSearchEntries}
+			/>
 		</div>
 	)
 }

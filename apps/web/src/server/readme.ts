@@ -1,17 +1,13 @@
-import { createServerFn } from "@tanstack/react-start"
-import { z } from "zod"
 import { prepareReadmeMarkdown } from "../lib/registry/readme"
+import { withCache } from "./cache"
 import { renderReleaseMarkdown } from "./changelog"
-import { fetchCachedMarketplaceCatalog } from "./marketplace"
 
-const CACHE_TTL_MS = 10 * 60 * 1000
+export const README_CACHE_SECONDS = 600
 const USER_AGENT = "Cortex website marketplace"
 
 export interface MarketplaceReadme {
 	html: string
 }
-
-const cachedReadmes = new Map<string, { expiresAt: number; value: MarketplaceReadme | null }>()
 
 export async function fetchReadme(
 	repo: string,
@@ -33,23 +29,14 @@ export async function fetchReadme(
 }
 
 export async function fetchCachedReadme(repo: string) {
-	const now = Date.now()
-	const cached = cachedReadmes.get(repo)
-	if (cached && cached.expiresAt > now) return cached.value
-
-	const next = await fetchReadme(repo)
-	if (next === undefined) return cached?.value ?? null
-
-	cachedReadmes.set(repo, { value: next, expiresAt: now + CACHE_TTL_MS })
-	return next
-}
-
-export const getMarketplaceReadme = createServerFn({ method: "GET" })
-	.validator(z.object({ kind: z.enum(["plugins", "themes"]), id: z.string().min(1).max(100) }))
-	.handler(async ({ data }) => {
-		const catalog = await fetchCachedMarketplaceCatalog()
-		const item = catalog.items.find(
-			(candidate) => candidate.kind === data.kind && candidate.id === data.id,
-		)
-		return item ? fetchCachedReadme(item.repo) : null
+	const cached = await withCache<MarketplaceReadme | null>({
+		key: `readme:${repo}`,
+		ttlSeconds: README_CACHE_SECONDS,
+		tags: ["marketplace", `readme:${repo}`],
+		load: async () => {
+			const readme = await fetchReadme(repo)
+			return readme === undefined ? null : { html: readme?.html ?? "" }
+		},
 	})
+	return cached?.value?.html ? cached.value : null
+}

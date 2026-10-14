@@ -1,11 +1,12 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { defaultDoc } from "../features/docs/registry"
+import { getDefaultDocSlug } from "../server/docs"
 
 export const Route = createFileRoute("/docs/")({
-	beforeLoad: () => {
+	beforeLoad: async () => {
+		const slug = await getDefaultDocSlug()
 		throw redirect({
 			to: "/docs/$",
-			params: { _splat: defaultDoc.slug },
+			params: { _splat: slug ?? "" },
 		})
 	},
 })

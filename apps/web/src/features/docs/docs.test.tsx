@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DocsShell } from "./components/DocsShell"
-import { docsNavigation, getDocBySlug } from "./registry"
+import { docsNavigation, docsSearchEntries, getDocBySlug } from "./registry"
 
 let intersectionCallback: IntersectionObserverCallback | undefined
 
@@ -27,6 +27,8 @@ function getRequiredDoc(slug: string) {
 	return page
 }
 
+const loadSearchEntries = async () => docsSearchEntries
+
 describe("DocsShell", () => {
 	beforeEach(() => {
 		intersectionCallback = undefined
@@ -42,7 +44,9 @@ describe("DocsShell", () => {
 	it("renders navigation, markdown content, cards, toc, and the sidebar command search", () => {
 		const page = getRequiredDoc("plugins/overview")
 
-		const { container } = render(<DocsShell page={page} navigation={docsNavigation} />)
+		const { container } = render(
+			<DocsShell page={page} navigation={docsNavigation} loadSearchEntries={loadSearchEntries} />,
+		)
 
 		expect(screen.getByRole("heading", { level: 1, name: "Community Plugins" })).toBeTruthy()
 		expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toBeTruthy()
@@ -63,20 +67,24 @@ describe("DocsShell", () => {
 
 	it("opens command search with mod+k and includes pages and headings", async () => {
 		const page = getRequiredDoc("plugins/overview")
-		render(<DocsShell page={page} navigation={docsNavigation} />)
+		render(
+			<DocsShell page={page} navigation={docsNavigation} loadSearchEntries={loadSearchEntries} />,
+		)
 
 		fireEvent.keyDown(window, { key: "k", metaKey: true })
 
 		expect(await screen.findByPlaceholderText("Search docs...")).toBeTruthy()
-		expect(screen.getAllByText("Sync Overview").length).toBeGreaterThan(0)
-		expect(screen.getAllByText("Extension surfaces").length).toBeGreaterThan(0)
+		expect((await screen.findAllByText("Sync Overview")).length).toBeGreaterThan(0)
+		expect((await screen.findAllByText("Extension surfaces")).length).toBeGreaterThan(0)
 	})
 
 	it("marks the active toc heading as the observer changes sections", () => {
 		const page = getRequiredDoc("plugins/overview")
 		const nextHeading = page.headings[1]
 		if (!nextHeading) throw new Error("Missing docs heading fixture")
-		render(<DocsShell page={page} navigation={docsNavigation} />)
+		render(
+			<DocsShell page={page} navigation={docsNavigation} loadSearchEntries={loadSearchEntries} />,
+		)
 
 		const target = document.getElementById(nextHeading.id)
 		if (!target) throw new Error(`Missing rendered heading target: ${nextHeading.id}`)
@@ -107,7 +115,9 @@ describe("DocsShell", () => {
 
 	it("copies the current page as llm-readable markdown", async () => {
 		const page = getRequiredDoc("plugins/overview")
-		render(<DocsShell page={page} navigation={docsNavigation} />)
+		render(
+			<DocsShell page={page} navigation={docsNavigation} loadSearchEntries={loadSearchEntries} />,
+		)
 
 		const copyButton = screen.getAllByRole("button", { name: "Copy page as Markdown" })[0]
 		if (!copyButton) throw new Error("Missing copy page button")

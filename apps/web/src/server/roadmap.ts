@@ -1,11 +1,11 @@
-import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { type RoadmapItem, type RoadmapResult, roadmapLabels } from "../content/roadmap"
-import { githubApiHeaders, githubRepo } from "./github"
+import { withCache } from "./cache"
+import { githubApiHeaders, githubFetch, githubRepo } from "./github"
 
 const GITHUB_ROADMAP_URL = `https://api.github.com/repos/${githubRepo}/issues?labels=${encodeURIComponent(roadmapLabels.roadmap)}&state=all&per_page=100`
 const GITHUB_USER_AGENT = "Cortex website roadmap"
-const CACHE_TTL_MS = 5 * 60 * 1000
+export const ROADMAP_CACHE_SECONDS = 300
 const DESCRIPTION_LIMIT = 220
 
 const githubIssueSchema = z.object({
@@ -27,13 +27,6 @@ const githubIssueSchema = z.object({
 const githubIssuesSchema = z.array(githubIssueSchema)
 
 export type GithubIssue = z.infer<typeof githubIssueSchema>
-
-interface CachedRoadmap {
-	expiresAt: number
-	result: RoadmapResult
-}
-
-let cachedRoadmap: CachedRoadmap | undefined
 
 function labelNames(issue: GithubIssue) {
 	return (issue.labels ?? [])
@@ -123,21 +116,16 @@ export async function fetchRoadmapItems(fetcher: typeof fetch = fetch): Promise<
 	}
 }
 
-export async function fetchCachedRoadmapItems() {
-	const now = Date.now()
-	if (cachedRoadmap && cachedRoadmap.expiresAt > now) {
-		return cachedRoadmap.result
-	}
-
-	const nextResult = await fetchRoadmapItems()
-	if (nextResult.status === "unavailable" && cachedRoadmap) {
-		return { ...cachedRoadmap.result, isStale: true }
-	}
-
-	cachedRoadmap = { result: nextResult, expiresAt: now + CACHE_TTL_MS }
-	return nextResult
+export async function fetchCachedRoadmapItems(): Promise<RoadmapResult> {
+	const cached = await withCache({
+		key: "roadmap",
+		ttlSeconds: ROADMAP_CACHE_SECONDS,
+		tags: ["roadmap"],
+		load: async () => {
+			const result = await fetchRoadmapItems(githubFetch)
+			return result.status === "unavailable" ? null : result
+		},
+	})
+	if (!cached) return { status: "unavailable", items: [] }
+	return cached.isStale ? { ...cached.value, isStale: true } : cached.value
 }
-
-export const getRoadmapItems = createServerFn({ method: "GET" }).handler(() =>
-	fetchCachedRoadmapItems(),
-)

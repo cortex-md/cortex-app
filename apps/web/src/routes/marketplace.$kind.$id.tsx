@@ -6,7 +6,11 @@ import { MarketplaceDetailPage } from "../features/marketplace/MarketplaceDetail
 import { getItemHref } from "../features/marketplace/marketplaceModel"
 import { createSeoHead, noIndexRobots, pageTitle } from "../seo/metadata"
 import { breadcrumbSchema, jsonLdScripts, softwareApplicationSchema } from "../seo/structuredData"
-import { getMarketplaceItem } from "../server/marketplace"
+import {
+	getDiscussionComments,
+	getMarketplaceItem,
+	getMarketplaceReadme,
+} from "../server/functions"
 
 const kinds = new Set(["plugins", "themes"])
 
@@ -21,10 +25,6 @@ export const Route = createFileRoute("/marketplace/$kind/$id")({
 			return { result, comments: null, readme: null }
 		}
 		const { item } = result
-		const [{ getDiscussionComments }, { getMarketplaceReadme }] = await Promise.all([
-			import("../server/discussions"),
-			import("../server/readme"),
-		])
 		const [comments, readme] = await Promise.all([
 			item.discussionNumber
 				? getDiscussionComments({ data: { number: item.discussionNumber } })

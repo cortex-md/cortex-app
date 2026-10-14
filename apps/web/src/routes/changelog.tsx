@@ -3,15 +3,10 @@ import { changelogCopy, changelogLinks } from "../content/changelog"
 import { ChangelogPage } from "../features/changelog/ChangelogPage"
 import docsCss from "../features/docs/docs.css?url"
 import { createSeoHead, pageTitle } from "../seo/metadata"
+import { getChangelogReleases } from "../server/functions"
 
 export const Route = createFileRoute("/changelog")({
-	loader: async () => {
-		const { getChangelogReleases } = await import("../server/changelog")
-
-		return {
-			changelog: await getChangelogReleases(),
-		}
-	},
+	loader: async () => ({ changelog: await getChangelogReleases() }),
 	headers: () => ({
 		"Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=86400",
 	}),

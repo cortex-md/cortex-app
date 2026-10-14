@@ -1,7 +1,5 @@
-import { createServerFn } from "@tanstack/react-start"
 import type { IconNode } from "lucide-react"
 import { dynamicIconImports } from "lucide-react/dynamic"
-import { z } from "zod"
 import type { MarketplaceKind } from "../content/marketplace"
 import {
 	defaultRegistryRepo,
@@ -25,9 +23,10 @@ import type {
 	ThemePalette,
 	VerifiedEntry,
 } from "../lib/registry/types"
+import { withCache } from "./cache"
 
-const CATALOG_TTL_MS = 5 * 60 * 1000
-const MANIFEST_TTL_MS = 30 * 60 * 1000
+export const CATALOG_CACHE_SECONDS = 300
+const MANIFEST_TTL_SECONDS = 1800
 const USER_AGENT = "Cortex website marketplace"
 
 export interface MarketplaceItem {
@@ -60,15 +59,6 @@ export interface MarketplaceCatalog {
 	generatedAt: string | null
 	isStale: boolean
 }
-
-interface CachedValue<Value> {
-	value: Value
-	expiresAt: number
-}
-
-let cachedCatalog: CachedValue<MarketplaceCatalog> | undefined
-const cachedManifests = new Map<string, CachedValue<RegistryManifest | null>>()
-const cachedPalettes = new Map<string, CachedValue<ThemePalette | null>>()
 
 export function getRegistryRepo() {
 	const configured = process.env.CORTEX_REGISTRY_REPO?.trim()
@@ -108,19 +98,14 @@ async function fetchText(url: string, fetchImpl: typeof fetch) {
 	}
 }
 
-async function withCache<Value>(
-	cache: Map<string, CachedValue<Value>>,
-	key: string,
-	load: () => Promise<Value>,
-	isEmpty: (value: Value) => boolean,
-) {
-	const now = Date.now()
-	const cached = cache.get(key)
-	if (cached && cached.expiresAt > now) return cached.value
-	const value = await load()
-	if (isEmpty(value) && cached) return cached.value
-	cache.set(key, { value, expiresAt: now + MANIFEST_TTL_MS })
-	return value
+async function cachedOptional<Value>(key: string, load: () => Promise<Value | null>) {
+	const cached = await withCache({
+		key,
+		ttlSeconds: MANIFEST_TTL_SECONDS,
+		tags: ["marketplace"],
+		load,
+	})
+	return cached?.value ?? null
 }
 
 const cachedIconNodes = new Map<string, IconNode | null>()
@@ -162,13 +147,11 @@ function rawFileUrl(repo: string, fileName: string) {
 }
 
 export function fetchManifest(repo: string, fetchImpl: typeof fetch = fetch) {
-	return withCache(
-		cachedManifests,
-		repo,
+	return cachedOptional(
+		`manifest:${repo}`,
 		async () =>
 			parseRegistryManifest(await fetchJson(releaseAssetUrl(repo, "manifest.json"), fetchImpl)) ??
 			parseRegistryManifest(await fetchJson(rawFileUrl(repo, "manifest.json"), fetchImpl)),
-		(value) => value === null,
 	)
 }
 
@@ -178,17 +161,12 @@ function fetchPalette(
 	label: ThemePalette["label"],
 	fetchImpl: typeof fetch,
 ) {
-	return withCache(
-		cachedPalettes,
-		`${repo}/${fileName}`,
-		async () => {
-			const css =
-				(await fetchText(releaseAssetUrl(repo, fileName), fetchImpl)) ??
-				(await fetchText(rawFileUrl(repo, fileName), fetchImpl))
-			return css ? parseThemePalette(css, label) : null
-		},
-		(value) => value === null,
-	)
+	return cachedOptional(`palette:${repo}/${fileName}`, async () => {
+		const css =
+			(await fetchText(releaseAssetUrl(repo, fileName), fetchImpl)) ??
+			(await fetchText(rawFileUrl(repo, fileName), fetchImpl))
+		return css ? parseThemePalette(css, label) : null
+	})
 }
 
 async function fetchThemePalettes(
@@ -297,38 +275,20 @@ export async function fetchMarketplaceCatalog(
 }
 
 export async function fetchCachedMarketplaceCatalog(): Promise<MarketplaceCatalog> {
-	const now = Date.now()
-	if (cachedCatalog && cachedCatalog.expiresAt > now) return cachedCatalog.value
-
-	const next = await fetchMarketplaceCatalog()
-	if (next.status === "unavailable") {
-		return cachedCatalog ? { ...cachedCatalog.value, isStale: true } : next
-	}
-	cachedCatalog = { value: next, expiresAt: now + CATALOG_TTL_MS }
-	return next
+	const cached = await withCache({
+		key: "marketplace:catalog",
+		ttlSeconds: CATALOG_CACHE_SECONDS,
+		tags: ["marketplace"],
+		load: async () => {
+			const catalog = await fetchMarketplaceCatalog()
+			return catalog.status === "unavailable" ? null : catalog
+		},
+	})
+	if (!cached) return { status: "unavailable", items: [], generatedAt: null, isStale: false }
+	return cached.isStale ? { ...cached.value, isStale: true } : cached.value
 }
-
-export const getMarketplaceCatalog = createServerFn({ method: "GET" }).handler(() =>
-	fetchCachedMarketplaceCatalog(),
-)
-
-const itemInputSchema = z.object({
-	kind: z.enum(["plugins", "themes"]),
-	id: z.string().min(1).max(100),
-})
 
 export type MarketplaceItemResult =
 	| { status: "ok"; item: MarketplaceItem; isStale: boolean }
 	| { status: "notFound" }
 	| { status: "unavailable" }
-
-export const getMarketplaceItem = createServerFn({ method: "GET" })
-	.validator(itemInputSchema)
-	.handler(async ({ data }): Promise<MarketplaceItemResult> => {
-		const catalog = await fetchCachedMarketplaceCatalog()
-		if (catalog.status === "unavailable") return { status: "unavailable" }
-		const item = catalog.items.find(
-			(candidate) => candidate.kind === data.kind && candidate.id === data.id,
-		)
-		return item ? { status: "ok", item, isStale: catalog.isStale } : { status: "notFound" }
-	})

@@ -1,4 +1,3 @@
-import { createServerFn } from "@tanstack/react-start"
 import type { Nodes } from "hast"
 import { fromHtml } from "hast-util-from-html"
 import { toHtml } from "hast-util-to-html"
@@ -10,11 +9,12 @@ import { type Plugin, unified } from "unified"
 import { visit } from "unist-util-visit"
 import { z } from "zod"
 import { highlightDocsCode } from "../lib/highlight"
-import { githubApiHeaders, githubRepo } from "./github"
+import { withCache } from "./cache"
+import { githubApiHeaders, githubFetch, githubRepo } from "./github"
 
 const GITHUB_RELEASES_URL = `https://api.github.com/repos/${githubRepo}/releases?per_page=20`
 const GITHUB_USER_AGENT = "Cortex website changelog"
-const CACHE_TTL_MS = 5 * 60 * 1000
+export const CHANGELOG_CACHE_SECONDS = 300
 
 type HastNode = {
 	type: string
@@ -90,13 +90,6 @@ export interface ChangelogResult {
 	message: string
 	isStale?: boolean
 }
-
-interface CachedChangelog {
-	expiresAt: number
-	result: ChangelogResult
-}
-
-let cachedChangelog: CachedChangelog | undefined
 
 function isStablePublicRelease(release: GithubRelease) {
 	return !release.draft && !release.prerelease
@@ -493,28 +486,22 @@ export async function fetchChangelogReleases(
 	}
 }
 
-export async function fetchCachedChangelogReleases() {
-	const now = Date.now()
-	if (cachedChangelog && cachedChangelog.expiresAt > now) {
-		return cachedChangelog.result
-	}
-
-	const nextResult = await fetchChangelogReleases()
-	if (nextResult.status === "unavailable" && cachedChangelog) {
-		return {
-			...cachedChangelog.result,
-			isStale: true,
-			message: "Showing the latest cached release notes while GitHub is unavailable.",
-		}
-	}
-
-	cachedChangelog = {
-		result: nextResult,
-		expiresAt: now + CACHE_TTL_MS,
-	}
-	return nextResult
+export async function fetchCachedChangelogReleases(): Promise<ChangelogResult> {
+	const cached = await withCache({
+		key: "changelog",
+		ttlSeconds: CHANGELOG_CACHE_SECONDS,
+		tags: ["changelog"],
+		load: async () => {
+			const result = await fetchChangelogReleases(githubFetch)
+			return result.status === "unavailable" ? null : result
+		},
+	})
+	if (!cached) return unavailableResult("Release notes are temporarily unavailable.")
+	return cached.isStale
+		? {
+				...cached.value,
+				isStale: true,
+				message: "Showing the latest cached release notes while GitHub is unavailable.",
+			}
+		: cached.value
 }
-
-export const getChangelogReleases = createServerFn({ method: "GET" }).handler(() =>
-	fetchCachedChangelogReleases(),
-)
