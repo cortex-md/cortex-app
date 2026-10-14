@@ -15,7 +15,7 @@ import { Avatar } from "@/components/ui/Avatar"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { HeaderIconButton } from "@/components/ui/HeaderIconButton"
 import { SymbolIcon } from "@/components/ui/Symbol"
-import type { CollabPerson } from "@/features/collab/collabFixtures"
+import type { CollabPerson } from "@/features/collab/collabTypes"
 import {
 	type CommentThreadView,
 	listMentionCandidates,

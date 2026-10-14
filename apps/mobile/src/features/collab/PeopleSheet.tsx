@@ -15,7 +15,7 @@ import {
 	useLinkSharing,
 	usePendingInvites,
 } from "@/features/collab/collabAdapter"
-import type { CollabRole } from "@/features/collab/collabFixtures"
+import type { CollabRole } from "@/features/collab/collabTypes"
 import { toast } from "@/features/feedback/useToast"
 import { dismissSheet, openSettings } from "@/features/navigation/routes"
 import { useSheetFilePath } from "@/features/note/noteSheetParams"

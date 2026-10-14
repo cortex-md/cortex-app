@@ -6,15 +6,11 @@ import {
 	useMembersStore,
 	useVaultStore,
 } from "@cortex/core"
-import { useEffect, useMemo, useSyncExternalStore } from "react"
+import { useEffect, useMemo } from "react"
 
 import type { AvatarTint } from "@/components/ui/Avatar"
-import { getCurrentPerson, isLiveCollabNote, listNotePeople } from "@/features/collab/collabAdapter"
-import type { CollabPerson } from "@/features/collab/collabFixtures"
-import {
-	FIXTURE_COMMENT_THREADS,
-	type FixtureCommentThread,
-} from "@/features/comments/commentsFixtures"
+import { getCurrentPerson, listNotePeople } from "@/features/collab/collabAdapter"
+import type { CollabPerson } from "@/features/collab/collabTypes"
 import { toast } from "@/features/feedback/useToast"
 
 type CommentsFile = ReturnType<typeof selectNoteComments>
@@ -39,26 +35,6 @@ export interface CommentThreadView {
 const MENTION_TOKEN = /@\[\[([^\]\n]+)\]\]/g
 const LOCAL_AUTHOR_ID = "local"
 const MINUTE_MS = 60_000
-
-const fixtureListeners = new Set<() => void>()
-const fixtureStartedAt = Date.now()
-let fixtureThreads: FixtureCommentThread[] = FIXTURE_COMMENT_THREADS
-
-function subscribeFixtures(listener: () => void): () => void {
-	fixtureListeners.add(listener)
-	return () => {
-		fixtureListeners.delete(listener)
-	}
-}
-
-function getFixtureThreads(): FixtureCommentThread[] {
-	return fixtureThreads
-}
-
-function setFixtureThreads(next: FixtureCommentThread[]): void {
-	fixtureThreads = next
-	for (const listener of fixtureListeners) listener()
-}
 
 export function formatCommentTime(timestamp: number, now = Date.now()): string {
 	const minutes = Math.floor((now - timestamp) / MINUTE_MS)
@@ -89,12 +65,8 @@ export function encodeCommentMentions(draft: string, people: readonly CollabPers
 }
 
 function resolveAuthor(authorId: string): { name: string; tint: AvatarTint } {
-	if (authorId === LOCAL_AUTHOR_ID) {
-		const you = getCurrentPerson()
-		return { name: you.name, tint: you.tint }
-	}
-	const fixture = listNotePeople().find((person) => person.id === authorId)
-	if (fixture) return { name: fixture.name, tint: fixture.tint }
+	const you = getCurrentPerson()
+	if (authorId === LOCAL_AUTHOR_ID || authorId === you.id) return { name: you.name, tint: you.tint }
 	const member = useMembersStore.getState().members.find((entry) => entry.userId === authorId)
 	return { name: member?.displayName || member?.email || "Someone", tint: "blue" }
 }
@@ -122,58 +94,26 @@ function toThreadView(thread: StoredThread): CommentThreadView {
 	}
 }
 
-function fixtureToThreadView(thread: FixtureCommentThread): CommentThreadView {
-	const messages = thread.messages.map((message) => {
-		const author = resolveAuthor(message.personId)
-		const createdAt = fixtureStartedAt - message.minutesAgo * MINUTE_MS
-		return {
-			id: message.id,
-			authorName: author.name,
-			authorTint: author.tint,
-			timeLabel: formatCommentTime(createdAt),
-			body: message.body,
-		}
-	})
-	return {
-		id: thread.id,
-		quote: thread.quote,
-		resolved: thread.resolved,
-		createdAt: fixtureStartedAt - (thread.messages[0]?.minutesAgo ?? 0) * MINUTE_MS,
-		messages,
-	}
-}
-
-function usesFixtures(filePath: string | null, file: CommentsFile): boolean {
-	return isLiveCollabNote(filePath) && Object.keys(file.threads).length === 0
-}
-
 export function useNoteThreads(filePath: string | null): CommentThreadView[] {
 	const vaultPath = useVaultStore((state) => state.vault?.path ?? null)
 	const file = useCommentsStore((state) => selectNoteComments(state, filePath))
-	const fixtures = useSyncExternalStore(subscribeFixtures, getFixtureThreads, getFixtureThreads)
 
 	useEffect(() => {
 		if (!vaultPath || !filePath) return
 		void useCommentsStore.getState().loadNoteComments(vaultPath, filePath)
 	}, [filePath, vaultPath])
 
-	return useMemo(() => {
-		if (usesFixtures(filePath, file)) {
-			// stub: the live fixture note shows seeded threads until remote comments sync on mobile
-			return fixtures.map(fixtureToThreadView)
-		}
-		return Object.values(file.threads)
-			.map(toThreadView)
-			.sort((left, right) => left.createdAt - right.createdAt)
-	}, [file, filePath, fixtures])
+	return useMemo(
+		() =>
+			Object.values(file.threads)
+				.map(toThreadView)
+				.sort((left, right) => left.createdAt - right.createdAt),
+		[file],
+	)
 }
 
 export function useOpenCommentCount(filePath: string | null): number {
 	return useNoteThreads(filePath).filter((thread) => !thread.resolved).length
-}
-
-function isFixtureThread(threadId: string): boolean {
-	return fixtureThreads.some((thread) => thread.id === threadId)
 }
 
 export async function setCommentThreadResolved(
@@ -181,12 +121,6 @@ export async function setCommentThreadResolved(
 	threadId: string,
 	resolved: boolean,
 ): Promise<void> {
-	if (isFixtureThread(threadId)) {
-		setFixtureThreads(
-			fixtureThreads.map((thread) => (thread.id === threadId ? { ...thread, resolved } : thread)),
-		)
-		return
-	}
 	const vaultPath = useVaultStore.getState().vault?.path
 	if (!vaultPath) return
 	try {
@@ -203,27 +137,6 @@ export async function replyToCommentThread(
 ): Promise<void> {
 	const body = encodeCommentMentions(draft.trim(), listNotePeople())
 	if (!body) return
-	if (isFixtureThread(threadId)) {
-		setFixtureThreads(
-			fixtureThreads.map((thread) =>
-				thread.id === threadId
-					? {
-							...thread,
-							messages: [
-								...thread.messages,
-								{
-									id: `fixture-reply-${Date.now()}`,
-									personId: getCurrentPerson().id,
-									body,
-									minutesAgo: (fixtureStartedAt - Date.now()) / MINUTE_MS,
-								},
-							],
-						}
-					: thread,
-			),
-		)
-		return
-	}
 	const vaultPath = useVaultStore.getState().vault?.path
 	if (!vaultPath) return
 	try {
@@ -236,6 +149,5 @@ export async function replyToCommentThread(
 }
 
 export function listMentionCandidates(): CollabPerson[] {
-	// stub: mention candidates are the fixture collaborators until remote members load on mobile
 	return listNotePeople().filter((person) => !person.isYou)
 }
