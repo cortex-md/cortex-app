@@ -5,7 +5,7 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 ## Estado atual
 
 - Início: 2026-10-13 23:25 (-03).
-- Item em andamento: 6. Colaboração em tempo real.
+- Item em andamento: 7. Lembretes de tarefa.
 
 ## Status por item
 
@@ -16,8 +16,8 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 | 3. Interface pura | feito | be09d92, 4b8eeed, 46c3267, bc2a0c6, f303f60, bbcc886 | Tabs: fixar, fechar outras, fechar à direita, reabrir fechada, ordem MRU. Paleta: ~45 comandos do app com os mesmos ids do desktop, mais os comandos do editor/formatação via bridge. Daily notes (na página Templates, como no desktop) e Excluded paths na semântica do desktop. Recuperar senha (deep link `cortex://reset-password`), trocar senha, nova recovery key. Menções não vinculadas via `findPhrase` do índice. |
 | 4. Arquivos nativos | feito (PDF depende do item 8) | cf544e8, ef54b4b, e1e9f14 | `dialog.pickFile/pickFiles` com `expo-document-picker` (os arquivos vão para `Documents/Cortex/.picked`, que é app storage); importação sem fixtures (arquivos, CSV, HTML e Obsidian pelo seletor de pasta). Exportação grava o arquivo de verdade (HTML, CSV, PDF via `expo-print`) e abre o share sheet com o MIME/UTI certo. Imagem: item "Image" da toolbar abre a galeria; colar imagem no editor funciona via `saveImage` na bridge (base64). A pasta da imagem segue `editor.imageStorageLocation`, como no desktop. |
 | 5. APIs de compartilhamento | feito (validar no device) | e1fffcd, 35dee7a, 6846184, 4508189, e0b8530 + grupos | Os serviços já existiam em `@cortex/sync-api`, e o servidor (`../sync`, Go) já tem os endpoints; faltava ligar no mobile. Links públicos de nota (bundle com imagens embutidas, sem DOMParser), convites, papéis, remoção, convidado restrito a uma nota (grant no caminho), grupos (criar e apagar), templates de equipe (`refreshTeamTemplates`), marketplace de templates (`listMarketTemplates` e `openPublicTemplate`), publicar template de database, abrir `cortex://s/…`, `cortex://invite/…` e `cortex://t/…`. |
-| 6. Colaboração em tempo real | em andamento | | |
-| 7. Lembretes | pendente | | |
+| 6. Colaboração em tempo real | feito (validar no device) | e6116d7 | Transporte do core (`createCollabTransport`) no lado React Native, com o WebSocket do RN. A sessão Yjs do core roda no React Native e a WebView tem um Y.Doc espelho ligado ao CodeMirror (`collab` do `EditorView`). Pela bridge passam só updates incrementais, agrupados em 16 ms com `Y.mergeUpdates`; o cursor vai como campo `cursor` do awareness e os estados dos pares vão codificados. Reconexão e offline ficam com a sessão do `@cortex/collab`. |
+| 7. Lembretes | em andamento | | |
 | 8. Pontuais | pendente | | |
 | Fase 2: API | pendente | | |
 | Fase 2: desktop | pendente | | |
@@ -53,6 +53,9 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 - **Telas do marketplace:** `MarketplaceScreen`/`MarketplaceDetailScreen` têm mudanças não commitadas de outra sessão. Mudei só os adapters, mantendo as assinaturas, e deixei `marketplaceFixtures.ts` como reexport de tipos para não quebrar os imports daquelas telas.
 - **Edição de grupos** (membros do grupo, regras de acesso por pasta) ficou fora: o mobile não tem referência de UX para isso. Criar e apagar já funcionam.
 
+- **Collab no mobile:** enquanto o espelho está ligado, a WebView não faz commit do texto, porque a persistência do collab grava pelo `noteCache.writeLive`. Isso evita aplicar a mesma edição duas vezes (diff mais Yjs). As transações vindas da bridge entram como origem rastreada do UndoManager, então a persistência as trata como edição local.
+- `yjs` e `y-protocols` foram adicionados ao mobile nas mesmas versões fixas do `@cortex/collab` (uma única cópia no `node_modules/.bun`), para não quebrar o `instanceof` do Yjs.
+
 ## Próximo passo exato
 
-Item 6: ver como o desktop liga o `@cortex/collab` (`apps/desktop/electron/services/collab.ts`, `packages/core` `startCollabRuntime`, `@cortex/editor/collab` com y-codemirror) e o que `apps/mobile/src/platform/collab.ts` faz hoje (stub). O plano é rodar o transporte (WebSocket + criptografia do collab) no lado React Native e o Y.Doc/y-codemirror na WebView, trocando updates binários em lote pela bridge (base64), sem serializar o documento inteiro.
+Item 7: instalar `expo-notifications`, implementar `platform/notifications.ts` (permissão, envio e agendamento) e ver como o desktop agenda lembretes (`apps/desktop/electron/services/taskReminderActions.ts`, `packages/core` reminders/`nativeNotifications`, capability `notifications:schedule`); reagendar quando as tarefas mudam.
