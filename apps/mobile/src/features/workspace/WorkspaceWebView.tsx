@@ -63,6 +63,7 @@ interface PendingCommit {
 }
 
 const COMMIT_DEBOUNCE_MS = 750
+const SCROLL_MARGINS = { bottom: 48, top: 16 }
 const MOBILE_BLUR_COMMAND = "mobile.blur"
 const MOBILE_FOCUS_COMMAND = "mobile.focus"
 const MOBILE_REVEAL_LINE_COMMAND = "mobile.reveal-line"
@@ -142,6 +143,7 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 
 	const [extraExtensions] = useState<EditorExtensionFactory[]>(() => [
 		createFrontmatterExtension({ initialError: null, initialMeta: {} }),
+		(runtime) => runtime.view.EditorView.scrollMargins.of(() => SCROLL_MARGINS),
 		(runtime) => searchHighlightExtension(runtime),
 		async () => (readOnlyRef.current ? await readonlyExtension() : []),
 		(runtime) =>

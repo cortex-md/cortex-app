@@ -17,8 +17,3 @@ export interface KeyboardToolbarProps {
 	more: MenuGroup[]
 	onHideKeyboard: () => void
 }
-
-export interface NotePropertiesRowProps {
-	count: number
-	onPress: () => void
-}

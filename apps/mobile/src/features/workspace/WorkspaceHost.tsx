@@ -1,3 +1,4 @@
+import type { DOMProps } from "expo/dom"
 import {
 	memo,
 	type RefObject,
@@ -12,8 +13,14 @@ import WorkspaceWebView from "@/features/workspace/WorkspaceWebView"
 import { workspaceChannel } from "@/features/workspace/workspaceChannel"
 import type { WorkspaceViewHandle } from "@/features/workspace/workspaceProtocol"
 
-const domProps = {
+const domProps: DOMProps = {
+	automaticallyAdjustContentInsets: false,
+	bounces: false,
 	containerStyle: { flex: 1 },
+	contentInsetAdjustmentBehavior: "never",
+	hideKeyboardAccessoryView: true,
+	keyboardDisplayRequiresUserAction: false,
+	overScrollMode: "never",
 	scrollEnabled: false,
 	useExpoDOMWebView: false,
 }

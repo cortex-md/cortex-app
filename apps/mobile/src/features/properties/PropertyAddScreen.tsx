@@ -1,4 +1,8 @@
-import { createPropertyDefinition, type PropertyDefinition } from "@cortex/properties"
+import {
+	createPropertyDefinition,
+	type PropertyDefinition,
+	TAGS_PROPERTY_DEFINITION,
+} from "@cortex/properties"
 import { useState } from "react"
 
 import { FormRow, FormSection, NativeForm } from "@/components/ui/Form"
@@ -20,7 +24,12 @@ export function PropertyAddScreen() {
 	const [query, setQuery] = useState("")
 	const normalized = query.trim().toLocaleLowerCase()
 	const onNote = new Set([...Object.keys(properties.persistedMeta), ...properties.revealedKeys])
-	const suggestions = properties.schema.properties.filter(
+	const candidates = properties.schema.properties.some(
+		(definition) => definition.key === TAGS_PROPERTY_DEFINITION.key,
+	)
+		? properties.schema.properties
+		: [TAGS_PROPERTY_DEFINITION, ...properties.schema.properties]
+	const suggestions = candidates.filter(
 		(definition) =>
 			!onNote.has(definition.key) &&
 			!AUTOMATIC_TYPES.has(definition.type) &&
@@ -76,7 +85,11 @@ export function PropertyAddScreen() {
 								icon={getTypeIcon(definition.type)}
 								key={definition.key}
 								onPress={() => addExisting(definition)}
-								subtitle={`${getTypeLabel(definition.type)} · ${usage} ${usage === 1 ? "note" : "notes"}`}
+								subtitle={
+									usage > 0
+										? `${getTypeLabel(definition.type)} · ${usage} ${usage === 1 ? "note" : "notes"}`
+										: getTypeLabel(definition.type)
+								}
 								title={definition.name}
 							/>
 						)

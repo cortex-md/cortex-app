@@ -12,8 +12,8 @@ import { StyleSheet, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { SymbolIcon } from "@/components/ui/Symbol"
-import { NOTE_BOTTOM_MENU_ICON } from "@/features/note/noteMenu"
 import type { NoteBottomMenuProps } from "@/features/note/noteChromeTypes"
+import { NOTE_BOTTOM_MENU_ICON } from "@/features/note/noteMenu"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 export function NoteBottomMenu({ groups }: NoteBottomMenuProps) {

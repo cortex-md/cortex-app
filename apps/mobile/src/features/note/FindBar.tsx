@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
 	},
 	wrap: {
 		paddingBottom: 8,
-		paddingHorizontal: 8,
+		paddingHorizontal: 16,
 		paddingTop: 6,
 	},
 })

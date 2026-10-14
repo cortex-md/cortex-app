@@ -11,12 +11,14 @@ import { buildNoteMenuGroups } from "@/features/note/noteMenu"
 
 export function useNoteMenu({
 	filePath,
+	onAddProperty,
 	onDialog,
 	onFind,
 	relativePath,
 	title,
 }: {
 	filePath: string | null
+	onAddProperty?: () => void
 	onDialog: (dialog: NoteDialog) => void
 	onFind: () => void
 	relativePath: string
@@ -43,6 +45,7 @@ export function useNoteMenu({
 			label: item.text ?? item.tooltip ?? item.id,
 			onPress: item.onClick,
 		})),
+		onAddProperty,
 		onFind,
 		onToggleBookmark: () => {
 			if (!vaultPath || !filePath) return

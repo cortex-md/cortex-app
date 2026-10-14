@@ -8,6 +8,7 @@ export interface NoteMenuHandlers {
 	excluded: boolean
 	pluginItems: { key: string; label: string; onPress?: () => void }[]
 	onFind: () => void
+	onAddProperty?: () => void
 	onToggleBookmark: () => void
 	onShare: () => void
 	onComments: () => void
@@ -44,6 +45,16 @@ export function buildNoteMenuGroups(handlers: NoteMenuHandlers): MenuGroup[] {
 				icon: { sf: "list.bullet.indent", md: "toc" },
 				onPress: handlers.onOutline,
 			},
+			...(handlers.onAddProperty
+				? [
+						{
+							key: "add-property",
+							label: "Add property",
+							icon: { sf: "list.bullet.rectangle", md: "list_alt" } satisfies SymbolName,
+							onPress: handlers.onAddProperty,
+						},
+					]
+				: []),
 		],
 		[
 			{

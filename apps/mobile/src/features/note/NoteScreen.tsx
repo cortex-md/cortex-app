@@ -27,11 +27,13 @@ import {
 	type NoteHeaderState,
 	NoteToolbarIos,
 } from "@/features/note/NoteHeader"
+import { NotePropertiesBlock } from "@/features/note/NotePropertiesBlock"
 import { buildNoteBottomMenuGroups } from "@/features/note/noteMenu"
-import { NotePropertiesRow } from "@/features/note/NotePropertiesRow"
 import { type FindInNote, useFindInNote } from "@/features/note/useFindInNote"
 import { useNoteMenu } from "@/features/note/useNoteMenu"
-import { useNotePropertyCount } from "@/features/properties/useNotePropertyCount"
+import { presentPropertyRoute } from "@/features/properties/propertyRoutes"
+import { useNoteProperties } from "@/features/properties/useNoteProperties"
+import { visiblePropertyDefinitions } from "@/features/properties/visibleProperties"
 import { presentInsertTemplate } from "@/features/templates/insertTemplate"
 import { workspaceChannel } from "@/features/workspace/workspaceChannel"
 import { useMobileColors } from "@/hooks/useMobileColors"
@@ -121,7 +123,8 @@ export function NoteScreen() {
 	const keyboardVisible = useKeyboardVisible()
 	const find = useFindInNote()
 	const session = useCollabNoteSession(filePath)
-	const propertyCount = useNotePropertyCount(filePath)
+	const properties = useNoteProperties(filePath, { trackUsage: false })
+	const propertyDefinitions = visiblePropertyDefinitions(properties)
 	const [dialog, setDialog] = useState<NoteDialog>("none")
 	const title = (filePath && getNotePathPresentation(filePath, vaultPath).title) || "Note"
 	const relativePath = filePath && vaultPath ? (toVaultRelativePath(filePath, vaultPath) ?? "") : ""
@@ -129,6 +132,10 @@ export function NoteScreen() {
 	const modePresentation = getModePresentation(mode)
 	const menuGroups = useNoteMenu({
 		filePath,
+		onAddProperty:
+			filePath && propertyDefinitions.length === 0
+				? () => presentPropertyRoute(filePath, "add")
+				: undefined,
 		onDialog: setDialog,
 		onFind: find.show,
 		relativePath,
@@ -157,10 +164,7 @@ export function NoteScreen() {
 					editing ? null : (
 						<>
 							{session.live ? <PresenceRow session={session} /> : null}
-							<NotePropertiesRow
-								count={propertyCount}
-								onPress={() => presentSheet("properties", filePath ? { filePath } : undefined)}
-							/>
+							<NotePropertiesBlock definitions={propertyDefinitions} properties={properties} />
 						</>
 					)
 				}

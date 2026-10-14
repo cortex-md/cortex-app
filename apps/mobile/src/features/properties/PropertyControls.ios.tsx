@@ -3,7 +3,6 @@ import {
 	autocorrectionDisabled,
 	datePickerStyle,
 	font,
-	foregroundStyle,
 	keyboardType,
 	onSubmit as onSubmitModifier,
 	pickerStyle,
@@ -17,6 +16,7 @@ import type {
 	PropertyPickerProps,
 	PropertyTextFieldProps,
 } from "@/features/properties/propertyControlTypes"
+import { useFormTheme } from "@/components/ui/formTheme"
 
 function keyboardFor(keyboard: PropertyKeyboard) {
 	switch (keyboard) {
@@ -43,12 +43,15 @@ export function PropertyTextField({
 	onSubmit,
 	placeholder,
 }: PropertyTextFieldProps) {
+	const theme = useFormTheme()
 	const text = useNativeState(initialValue)
 	const plain = keyboard !== "default"
 	const modifiers = [
 		textInputAutocapitalization(plain ? "never" : "sentences"),
 		autocorrectionDisabled(plain),
 		keyboardFor(keyboard),
+		theme.label,
+		...(label ? [] : theme.row),
 		onSubmitModifier(() => {
 			const value = text.get()
 			onCommit?.(value)
@@ -69,25 +72,19 @@ export function PropertyTextField({
 	)
 	if (!label) return field
 	return (
-		<VStack alignment="leading" spacing={4}>
-			<Text
-				modifiers={[
-					font({ textStyle: "footnote" }),
-					foregroundStyle({ type: "hierarchical", style: "secondary" }),
-				]}
-			>
-				{label}
-			</Text>
+		<VStack alignment="leading" modifiers={theme.row} spacing={4}>
+			<Text modifiers={[font({ textStyle: "footnote" }), theme.secondary]}>{label}</Text>
 			{field}
 		</VStack>
 	)
 }
 
 export function PropertyPicker({ icon, onChange, options, title, value }: PropertyPickerProps) {
+	const theme = useFormTheme()
 	return (
 		<Picker
 			label={title}
-			modifiers={[pickerStyle("menu")]}
+			modifiers={[pickerStyle("menu"), theme.label, ...theme.row]}
 			onSelectionChange={(selection) => onChange(String(selection))}
 			selection={value}
 			systemImage={icon?.sf}
@@ -102,10 +99,11 @@ export function PropertyPicker({ icon, onChange, options, title, value }: Proper
 }
 
 export function PropertyDatePicker({ onChange, value }: PropertyDatePickerProps) {
+	const theme = useFormTheme()
 	return (
 		<DatePicker
 			displayedComponents={["date"]}
-			modifiers={[datePickerStyle("graphical")]}
+			modifiers={[datePickerStyle("graphical"), theme.toggle, ...theme.row]}
 			onDateChange={onChange}
 			selection={value ?? new Date()}
 			title="Date"

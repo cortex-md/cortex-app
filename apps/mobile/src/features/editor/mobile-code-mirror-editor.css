@@ -1,3 +1,13 @@
+html,
+body,
+#root {
+	height: 100%;
+	margin: 0;
+	overflow: hidden;
+	overscroll-behavior: none;
+	width: 100%;
+}
+
 .mobile-code-mirror-root {
 	background: var(--bg-primary);
 	color: var(--text-primary);
@@ -5,8 +15,10 @@
 	flex-direction: column;
 	font-family: var(--font-ui);
 	height: 100%;
+	inset: 0;
 	min-height: 0;
 	overflow: hidden;
+	position: fixed;
 	width: 100%;
 }
 
@@ -17,7 +29,7 @@
 	flex-shrink: 0;
 	font-size: 12px;
 	line-height: 16px;
-	padding: 8px 12px;
+	padding: 8px 16px;
 }
 
 .mobile-code-mirror-commit-error {
@@ -27,10 +39,11 @@
 	flex-shrink: 0;
 	font-size: 12px;
 	line-height: 16px;
-	padding: 8px 12px;
+	padding: 8px 16px;
 }
 
 .mobile-code-mirror-shell {
+	--markdown-content-gutter: 16px;
 	flex: 1;
 	min-height: 0;
 	overflow: hidden;
@@ -56,20 +69,18 @@
 
 .mobile-code-mirror-root .cm-scroller {
 	font-family: inherit;
+	height: 100%;
 	line-height: var(--editor-line-height);
+	overflow: auto;
 	overscroll-behavior: contain;
 	-webkit-overflow-scrolling: touch;
 }
 
 .mobile-code-mirror-root .cm-content {
+	box-sizing: border-box;
 	caret-color: var(--accent);
 	min-height: 100%;
-	padding: 16px;
-}
-
-.mobile-code-mirror-root .cm-line {
-	padding-left: 0;
-	padding-right: 0;
+	padding: 12px 0 48px;
 }
 
 .mobile-code-mirror-root .cm-gutters {

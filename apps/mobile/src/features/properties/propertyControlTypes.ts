@@ -1,6 +1,6 @@
 import type { SymbolName } from "@/components/ui/Symbol"
 
-export type PropertyKeyboard = "default" | "number" | "email" | "url" | "phone"
+export type PropertyKeyboard = "default" | "number" | "email" | "url" | "phone" | "tag"
 
 export interface PropertyTextFieldProps {
 	autoFocus?: boolean

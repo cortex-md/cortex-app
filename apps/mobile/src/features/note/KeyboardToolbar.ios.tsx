@@ -92,7 +92,7 @@ export function KeyboardToolbar({ actions, more, onHideKeyboard }: KeyboardToolb
 const styles = StyleSheet.create({
 	host: {
 		marginBottom: 8,
-		marginHorizontal: 12,
+		marginHorizontal: 16,
 		marginTop: 6,
 	},
 })

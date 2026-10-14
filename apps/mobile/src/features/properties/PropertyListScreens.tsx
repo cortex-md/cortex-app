@@ -1,8 +1,4 @@
-import {
-	getVisiblePropertyDefinitions,
-	isResolvedPropertyActor,
-	type PropertyDefinition,
-} from "@cortex/properties"
+import { isResolvedPropertyActor, type PropertyDefinition } from "@cortex/properties"
 import { Stack } from "expo-router"
 import { Platform } from "react-native"
 
@@ -19,26 +15,9 @@ import {
 } from "@/features/properties/propertyPresentation"
 import { pushPropertyRoute } from "@/features/properties/propertyRoutes"
 import type { NoteProperties } from "@/features/properties/useNoteProperties"
+import { visiblePropertyDefinitions } from "@/features/properties/visibleProperties"
 
 const IS_IOS = Platform.OS === "ios"
-
-function visibleDefinitions(properties: NoteProperties): PropertyDefinition[] {
-	const idsByKey = new Map(
-		properties.schema.properties.map((definition) => [definition.key, definition.id]),
-	)
-	const revealedIds = new Set(
-		[...properties.revealedKeys].flatMap((key) => {
-			const id = idsByKey.get(key)
-			return id ? [id] : []
-		}),
-	)
-	return getVisiblePropertyDefinitions({
-		properties: properties.schema.properties,
-		persistedMeta: properties.persistedMeta,
-		resolvedMeta: properties.resolvedMeta,
-		revealedDefinitionIds: revealedIds,
-	}).filter((definition) => !AUTOMATIC_TYPES.has(definition.type))
-}
 
 function PropertyRow({
 	definition,
@@ -72,7 +51,7 @@ function PropertyRow({
 
 export function PropertyValuesScreen() {
 	const properties = useProperties()
-	const definitions = visibleDefinitions(properties)
+	const definitions = visiblePropertyDefinitions(properties)
 	const hasAutomatic = properties.schema.properties.some((definition) =>
 		AUTOMATIC_TYPES.has(definition.type),
 	)

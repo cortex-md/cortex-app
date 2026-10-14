@@ -1,9 +1,9 @@
 import {
 	getPropertyType,
 	isResolvedPropertyActor,
-	parsePropertyDate,
 	type PropertyColor,
 	type PropertyDefinition,
+	parsePropertyDate,
 	resolvePropertyOption,
 } from "@cortex/properties"
 
@@ -15,6 +15,7 @@ export type PropertyRouteName =
 	| "edit"
 	| "value"
 	| "select"
+	| "tags"
 	| "option"
 	| "person"
 	| "date"
@@ -100,6 +101,8 @@ export function routeForDefinition(definition: PropertyDefinition): PropertyRout
 	switch (getBaseType(definition)) {
 		case "select":
 			return "select"
+		case "tags":
+			return "tags"
 		case "person":
 			return "person"
 		case "date":
@@ -109,6 +112,21 @@ export function routeForDefinition(definition: PropertyDefinition): PropertyRout
 		default:
 			return "value"
 	}
+}
+
+export function getPropertyTags(value: unknown): string[] {
+	const values = Array.isArray(value) ? value : typeof value === "string" ? [value] : []
+	const seen = new Set<string>()
+	const tags: string[] = []
+	for (const item of values) {
+		if (typeof item !== "string" && typeof item !== "number") continue
+		const tag = String(item).trim().replace(/^#+/, "")
+		const key = tag.toLocaleLowerCase()
+		if (!tag || seen.has(key)) continue
+		seen.add(key)
+		tags.push(tag)
+	}
+	return tags
 }
 
 export function formatDate(value: unknown): string | null {

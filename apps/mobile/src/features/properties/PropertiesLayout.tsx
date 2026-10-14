@@ -39,6 +39,7 @@ export function PropertiesLayout() {
 				<Stack.Screen name="auto" options={{ title: "Automatic properties" }} />
 				<Stack.Screen name="value" />
 				<Stack.Screen name="select" />
+				<Stack.Screen name="tags" />
 				<Stack.Screen name="person" />
 				<Stack.Screen name="date" />
 			</Stack>

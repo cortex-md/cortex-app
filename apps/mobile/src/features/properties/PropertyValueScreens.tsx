@@ -3,8 +3,8 @@ import {
 	createPropertyOption,
 	getPropertyValueList,
 	getSortedPropertyOptions,
-	parsePropertyDate,
 	type PropertyDefinition,
+	parsePropertyDate,
 	resolveTextPropertyDraft,
 	serializePropertyDate,
 	togglePropertyValue,
@@ -51,7 +51,7 @@ function ScreenTitle({ definition }: { definition: PropertyDefinition | null }) 
 	return <Stack.Screen options={{ title: definition?.name ?? "Property" }} />
 }
 
-function PropertyFooterSection({
+export function PropertyFooterSection({
 	definition,
 	properties,
 }: {
@@ -85,14 +85,6 @@ function commitTextValue(
 	definition: PropertyDefinition,
 	draft: string,
 ): string | null {
-	if (getBaseType(definition) === "tags") {
-		const tags = draft
-			.split(",")
-			.map((tag) => tag.trim().replace(/^#/, ""))
-			.filter(Boolean)
-		void properties.setValue(definition, tags)
-		return null
-	}
 	const resolution = resolveTextPropertyDraft(definition.type, draft)
 	if (resolution.kind === "invalid") return resolution.message
 	if (resolution.kind === "remove") void properties.removeValue(definition)
@@ -150,7 +142,7 @@ function TextValueForm({
 						setError(null)
 					}}
 					onCommit={commit}
-					placeholder={baseType === "tags" ? "tag, another tag" : "Empty"}
+					placeholder="Empty"
 				/>
 			</FormSection>
 			{baseType === "url" && link.trim() ? (

@@ -20,3 +20,13 @@ export function replacePropertyRoute(name: PropertyRouteName, params?: PropertyR
 export function popPropertyRoute(): void {
 	if (router.canGoBack()) router.back()
 }
+
+export function presentPropertyRoute(
+	filePath: string,
+	name: PropertyRouteName,
+	params?: PropertyRouteParams,
+): void {
+	router.push({ params: { ...params, filePath }, pathname: `/properties/${name}` } as Href, {
+		withAnchor: true,
+	})
+}

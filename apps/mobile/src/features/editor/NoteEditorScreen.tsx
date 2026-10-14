@@ -58,6 +58,8 @@ export function NoteEditorScreen({
 	const [screenState, setScreenState] = useState<NoteScreenState>(initialNoteScreenState)
 	const [editorOwner] = useState(() => ({}))
 	const placeholderRef = useRef<View>(null)
+	const rootRef = useRef<View>(null)
+	const [keyboardOffset, setKeyboardOffset] = useState(0)
 	const sessionRef = useRef<NoteDocumentSession | null>(null)
 	const focusedRef = useRef(false)
 	const transitioningRef = useRef(true)
@@ -161,34 +163,47 @@ export function NoteEditorScreen({
 		}, [armTransitionFallback, clearTransitionFallback, editorOwner, showEditor]),
 	)
 
+	const measureKeyboardOffset = useCallback(() => {
+		rootRef.current?.measureInWindow((_x, y) => {
+			setKeyboardOffset((current) => (current === y ? current : y))
+		})
+	}, [])
+
 	const loading = Boolean(filePath && screenState.filePath !== filePath && !screenState.error)
 	const displayError = filePath ? screenState.error : "No note was selected."
 	return (
-		<KeyboardAvoidingView
-			behavior={Platform.OS === "ios" ? "padding" : undefined}
-			keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
+		<View
+			collapsable={false}
+			onLayout={measureKeyboardOffset}
+			ref={rootRef}
 			style={[styles.root, { backgroundColor: colors.background }]}
 		>
-			{top}
-			{loading || displayError || !filePath ? (
-				<View style={styles.messageFrame}>
-					<Text selectable style={[styles.messageTitle, { color: colors.label }]}>
-						{loading ? "Opening note" : "Could not open note"}
-					</Text>
-					<Text selectable style={[styles.messageBody, { color: colors.secondaryLabel }]}>
-						{loading ? "Loading the local file snapshot." : displayError}
-					</Text>
-				</View>
-			) : (
-				<View
-					collapsable={false}
-					onLayout={showEditor}
-					ref={placeholderRef}
-					style={styles.editorFrame}
-				/>
-			)}
-			{bottom}
-		</KeyboardAvoidingView>
+			<KeyboardAvoidingView
+				behavior={Platform.OS === "ios" ? "padding" : undefined}
+				keyboardVerticalOffset={Platform.OS === "ios" ? keyboardOffset : 0}
+				style={styles.root}
+			>
+				{top}
+				{loading || displayError || !filePath ? (
+					<View style={styles.messageFrame}>
+						<Text selectable style={[styles.messageTitle, { color: colors.label }]}>
+							{loading ? "Opening note" : "Could not open note"}
+						</Text>
+						<Text selectable style={[styles.messageBody, { color: colors.secondaryLabel }]}>
+							{loading ? "Loading the local file snapshot." : displayError}
+						</Text>
+					</View>
+				) : (
+					<View
+						collapsable={false}
+						onLayout={showEditor}
+						ref={placeholderRef}
+						style={styles.editorFrame}
+					/>
+				)}
+				{bottom}
+			</KeyboardAvoidingView>
+		</View>
 	)
 }
 

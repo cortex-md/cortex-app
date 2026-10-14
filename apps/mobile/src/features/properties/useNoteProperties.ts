@@ -12,6 +12,7 @@ import {
 	schemaWithRegisteredProperty,
 	schemaWithUpdatedProperty,
 	setProperty,
+	TAGS_PROPERTY_DEFINITION,
 	updateVaultSchema,
 } from "@cortex/properties"
 import { useEffect, useState } from "react"
@@ -36,7 +37,10 @@ async function runPropertyWrite(task: () => Promise<void>): Promise<boolean> {
 	}
 }
 
-export function useNoteProperties(filePath: string | null) {
+export function useNoteProperties(
+	filePath: string | null,
+	{ trackUsage = true }: { trackUsage?: boolean } = {},
+) {
 	const vaultPath = useVaultStore((state) => state.vault?.path ?? null)
 	const [scoped, setScoped] = useState<ScopedSnapshot | null>(null)
 	const [usage, setUsage] = useState<Record<string, PropertyValueUsage>>({})
@@ -72,7 +76,7 @@ export function useNoteProperties(filePath: string | null) {
 	}, [filePath, vaultPath])
 
 	useEffect(() => {
-		if (!vaultPath) return
+		if (!vaultPath || !trackUsage) return
 		let cancelled = false
 		const keys = snapshot.schema.properties.map((definition) => definition.key)
 		void Promise.all(keys.map((key) => getPropertyValueUsage(vaultPath, key))).then((results) => {
@@ -82,14 +86,14 @@ export function useNoteProperties(filePath: string | null) {
 		return () => {
 			cancelled = true
 		}
-	}, [snapshot.schema, vaultPath])
+	}, [snapshot.schema, trackUsage, vaultPath])
 
 	function findDefinition(key: string | undefined): PropertyDefinition | null {
 		if (!key) return null
 		return (
 			snapshot.schema.properties.find((definition) => definition.key === key) ??
 			snapshot.observedDefinitions.find((definition) => definition.key === key) ??
-			null
+			(key === TAGS_PROPERTY_DEFINITION.key ? TAGS_PROPERTY_DEFINITION : null)
 		)
 	}
 
@@ -117,6 +121,7 @@ export function useNoteProperties(filePath: string | null) {
 	}
 
 	return {
+		filePath,
 		findDefinition,
 		persistedMeta: snapshot.persistedMeta,
 		removeValue,

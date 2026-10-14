@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
 		gap: 8,
 		justifyContent: "space-between",
 		marginBottom: 8,
-		marginHorizontal: 12,
+		marginHorizontal: 16,
 		marginTop: 6,
 	},
 	surface: {
