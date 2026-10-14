@@ -14,6 +14,7 @@ export function useNoteMenu({
 	onAddProperty,
 	onDialog,
 	onFind,
+	onRename,
 	relativePath,
 	title,
 }: {
@@ -21,6 +22,7 @@ export function useNoteMenu({
 	onAddProperty?: () => void
 	onDialog: (dialog: NoteDialog) => void
 	onFind: () => void
+	onRename: () => void
 	relativePath: string
 	title: string
 }): MenuGroup[] {
@@ -61,7 +63,7 @@ export function useNoteMenu({
 			executeCommand("file.duplicate", { payload: { filePath }, source: "menu" })
 			toast(`Made a copy of ${title}`)
 		},
-		onRename: () => onDialog("rename"),
+		onRename,
 		onExport: () => presentSheet("export", sheetParams),
 		onCopyPath: () => {
 			void getPlatform()

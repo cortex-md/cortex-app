@@ -32,7 +32,7 @@ function ToolbarButton({
 export function KeyboardToolbar({ actions, more, onHideKeyboard }: KeyboardToolbarProps) {
 	const { colors } = useMobileColors()
 	return (
-		<View style={styles.row}>
+		<View pointerEvents="box-none" style={styles.row}>
 			<View style={[styles.surface, { backgroundColor: colors.secondaryBackground }]}>
 				{actions.map((action) => (
 					<ToolbarButton

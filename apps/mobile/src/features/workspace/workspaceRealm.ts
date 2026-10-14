@@ -36,6 +36,7 @@ export interface WorkspaceEditorHandlers {
 	openDocument(document: WorkspaceDocument): void
 	closeDocument(filePath: string): Promise<void>
 	showEditor(visible: boolean): void
+	setBottomInset(value: number): void
 	flushPendingCommit(): Promise<void>
 	getFilePath(): string | null
 	runCommand(commandId: string, payload: JsonValue | undefined): void
@@ -361,6 +362,12 @@ export function createWorkspaceRealm() {
 					return
 				case "showEditor":
 					editor?.showEditor(message.visible)
+					return
+				case "bottomInset":
+					editor?.setBottomInset(message.value)
+					return
+				case "flush":
+					answerWorkspaceRequest(message.id, () => editor?.flushPendingCommit(), send)
 					return
 				case "watchEvent":
 					watchListeners.get(message.watchId)?.(message.event)

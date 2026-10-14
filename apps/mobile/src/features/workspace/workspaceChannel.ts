@@ -7,7 +7,7 @@ import {
 } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
 import { createPluginUiMirror, type JsonValue } from "@cortex/plugin-host-core"
-import type { RefObject } from "react"
+import type { ReactNode, RefObject } from "react"
 
 import { openMobileNote } from "@/bootstrap/appCommands"
 import { openPluginView } from "@/features/plugins/openPluginView"
@@ -35,8 +35,14 @@ export interface WorkspaceRect {
 }
 
 export interface WorkspaceLayout {
+	owner: object | null
 	rect: WorkspaceRect | null
 	visible: boolean
+}
+
+export interface WorkspaceChrome {
+	owner: object | null
+	node: ReactNode
 }
 
 const STALE_COMMIT_ERROR = "The note changed before this mobile editor commit could be applied."
@@ -47,14 +53,16 @@ const sessions = new Map<string, NoteDocumentSession[]>()
 const watchers = new Map<number, () => void>()
 const layoutListeners = new Set<() => void>()
 const styleListeners = new Set<() => void>()
+const chromeListeners = new Set<() => void>()
 
 let viewRef: RefObject<WorkspaceViewHandle | null> | null = null
 let publisher: WorkspaceStatePublisher | null = null
 let connected = false
 let queue: WorkspaceInboundMessage[] = []
 let shownDocument: WorkspaceDocument | null = null
-let editorOwner: object | null = null
-let layout: WorkspaceLayout = { rect: null, visible: false }
+let layout: WorkspaceLayout = { owner: null, rect: null, visible: false }
+let chrome: WorkspaceChrome = { owner: null, node: null }
+let bottomInset = 0
 let communityStyles = ""
 
 const pluginUiMirror = createPluginUiMirror({
@@ -98,6 +106,7 @@ function handleReady(): void {
 	handle.receive({ type: "state", patch: publisher.snapshot() })
 	if (shownDocument) handle.receive({ type: "openDocument", document: shownDocument })
 	handle.receive({ type: "showEditor", visible: layout.visible })
+	handle.receive({ type: "bottomInset", value: bottomInset })
 	const queued = queue
 	queue = []
 	for (const message of queued) handle.receive(message)
@@ -249,14 +258,37 @@ function setLayout(next: WorkspaceLayout): void {
 }
 
 function showEditor(owner: object, rect: WorkspaceRect): void {
-	editorOwner = owner
-	setLayout({ rect, visible: true })
+	setLayout({ owner, rect, visible: true })
 }
 
 function hideEditor(owner: object): void {
-	if (editorOwner !== owner) return
-	editorOwner = null
-	setLayout({ rect: layout.rect, visible: false })
+	if (layout.owner !== owner) return
+	setLayout({ owner: null, rect: layout.rect, visible: false })
+}
+
+/** Native chrome drawn over the bottom of the editor rectangle while `owner` shows the editor. */
+function setChrome(owner: object, node: ReactNode): void {
+	chrome = { owner, node }
+	for (const listener of chromeListeners) listener()
+}
+
+function clearChrome(owner: object): void {
+	if (chrome.owner !== owner) return
+	chrome = { owner: null, node: null }
+	for (const listener of chromeListeners) listener()
+}
+
+function setBottomInset(value: number): void {
+	const next = Math.round(value)
+	if (next === bottomInset) return
+	bottomInset = next
+	post({ type: "bottomInset", value: next })
+}
+
+/** Writes the WebView's debounced edits to the open note session. */
+function flush(): Promise<void> {
+	if (!connected) return Promise.resolve()
+	return requests.request<void>((id) => post({ type: "flush", id }))
 }
 
 export const workspaceChannel = {
@@ -267,6 +299,10 @@ export const workspaceChannel = {
 	showDocument,
 	showEditor,
 	hideEditor,
+	setChrome,
+	clearChrome,
+	setBottomInset,
+	flush,
 	sendCommand,
 	find,
 	getLayout: () => layout,
@@ -274,6 +310,13 @@ export const workspaceChannel = {
 		layoutListeners.add(listener)
 		return () => {
 			layoutListeners.delete(listener)
+		}
+	},
+	getChrome: () => chrome,
+	subscribeChrome(listener: () => void) {
+		chromeListeners.add(listener)
+		return () => {
+			chromeListeners.delete(listener)
 		}
 	},
 	getCommunityStyles: () => communityStyles,

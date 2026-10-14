@@ -192,7 +192,7 @@ export function NotePropertiesBlock({
 	const rows = truncated ? definitions.slice(0, PREVIEW_ROWS) : definitions
 
 	return (
-		<View style={[styles.block, { borderBottomColor: colors.separator }]}>
+		<View style={styles.block}>
 			<Pressable
 				accessibilityLabel={`Properties, ${definitions.length}`}
 				accessibilityRole="button"
@@ -219,14 +219,16 @@ export function NotePropertiesBlock({
 			</Pressable>
 			{isCollapsed ? null : (
 				<>
-					{rows.map((definition) => (
-						<PropertyRow
-							colors={colors}
-							definition={definition}
-							key={definition.id}
-							properties={properties}
-						/>
-					))}
+					<View style={[styles.box, { borderColor: colors.border }]}>
+						{rows.map((definition) => (
+							<PropertyRow
+								colors={colors}
+								definition={definition}
+								key={definition.id}
+								properties={properties}
+							/>
+						))}
+					</View>
 					<View style={styles.footer}>
 						<Pressable
 							accessibilityRole="button"
@@ -234,8 +236,10 @@ export function NotePropertiesBlock({
 							onPress={() => presentPropertyRoute(filePath, "add")}
 							style={styles.footerButton}
 						>
-							<SymbolIcon color={colors.tint} name={ADD_ICON} size={14} />
-							<Text style={[styles.footerText, { color: colors.tint }]}>Add property</Text>
+							<SymbolIcon color={colors.secondaryLabel} name={ADD_ICON} size={14} />
+							<Text style={[styles.footerText, { color: colors.secondaryLabel }]}>
+								Add property
+							</Text>
 						</Pressable>
 						{definitions.length > PREVIEW_ROWS + 1 ? (
 							<Pressable
@@ -244,7 +248,7 @@ export function NotePropertiesBlock({
 								onPress={() => setExpandedPath(expanded ? null : filePath)}
 								style={styles.footerButton}
 							>
-								<Text style={[styles.footerText, { color: colors.tint }]}>
+								<Text style={[styles.footerText, { color: colors.secondaryLabel }]}>
 									{expanded ? "Show less" : `Show all (${definitions.length})`}
 								</Text>
 							</Pressable>
@@ -261,9 +265,15 @@ const INSET = 16
 
 const styles = StyleSheet.create({
 	block: {
-		borderBottomWidth: StyleSheet.hairlineWidth,
 		marginHorizontal: INSET,
-		paddingBottom: 6,
+		paddingBottom: 4,
+	},
+	box: {
+		borderCurve: "continuous",
+		borderRadius: 14,
+		borderWidth: StyleSheet.hairlineWidth,
+		paddingHorizontal: 4,
+		paddingVertical: 2,
 	},
 	capsule: {
 		borderRadius: 11,
@@ -284,14 +294,14 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		flexDirection: "row",
 		gap: 4,
-		justifyContent: "flex-end",
 		overflow: "hidden",
 	},
 	footer: {
 		alignItems: "center",
 		flexDirection: "row",
 		justifyContent: "space-between",
-		minHeight: 32,
+		minHeight: 36,
+		paddingHorizontal: 10,
 	},
 	footerButton: {
 		alignItems: "center",
@@ -317,12 +327,13 @@ const styles = StyleSheet.create({
 	name: {
 		alignItems: "center",
 		flexDirection: "row",
-		gap: 8,
-		maxWidth: "45%",
+		gap: 6,
+		width: 112,
 	},
 	nameText: {
 		flexShrink: 1,
-		fontSize: ROW_FONT,
+		fontSize: 14,
+		fontWeight: "500",
 	},
 	pressed: {
 		opacity: 0.5,
@@ -330,15 +341,13 @@ const styles = StyleSheet.create({
 	row: {
 		alignItems: "center",
 		flexDirection: "row",
-		gap: 12,
-		minHeight: 32,
+		minHeight: 38,
+		paddingHorizontal: 10,
 	},
 	value: {
 		fontSize: ROW_FONT,
-		textAlign: "right",
 	},
 	valueFrame: {
-		alignItems: "flex-end",
 		flex: 1,
 		minWidth: 0,
 	},

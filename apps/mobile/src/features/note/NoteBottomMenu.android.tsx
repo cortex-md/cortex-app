@@ -21,7 +21,10 @@ export function NoteBottomMenu({ groups }: NoteBottomMenuProps) {
 	const insets = useSafeAreaInsets()
 	const [expanded, setExpanded] = useState(false)
 	return (
-		<View style={[styles.row, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+		<View
+			pointerEvents="box-none"
+			style={[styles.row, { paddingBottom: Math.max(insets.bottom, 16) }]}
+		>
 			<Host colorScheme={scheme} matchContents seedColor={colors.tintFill}>
 				<DropdownMenu
 					color={colors.fill}

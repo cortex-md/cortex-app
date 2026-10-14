@@ -63,7 +63,8 @@ interface PendingCommit {
 }
 
 const COMMIT_DEBOUNCE_MS = 750
-const SCROLL_MARGINS = { bottom: 48, top: 16 }
+const SCROLL_MARGIN = 16
+const DRAG_DISMISS_DISTANCE = 10
 const MOBILE_BLUR_COMMAND = "mobile.blur"
 const MOBILE_FOCUS_COMMAND = "mobile.focus"
 const MOBILE_REVEAL_LINE_COMMAND = "mobile.reveal-line"
@@ -107,6 +108,54 @@ function revealLine(view: EditorRuntimeView, line: number): void {
 	})
 }
 
+/** Blurs the editor when the user drags the scroller, like `keyboardDismissMode="on-drag"`. */
+function dismissKeyboardOnDrag(getView: () => EditorRuntimeView | null): () => void {
+	let touching = false
+	let startScrollTop = 0
+	const onTouchStart = () => {
+		touching = true
+		startScrollTop = getView()?.scrollDOM.scrollTop ?? 0
+	}
+	const onTouchEnd = () => {
+		touching = false
+	}
+	const onScroll = (event: Event) => {
+		const view = getView()
+		if (!touching || !view || event.target !== view.scrollDOM || !view.hasFocus) return
+		if (Math.abs(view.scrollDOM.scrollTop - startScrollTop) < DRAG_DISMISS_DISTANCE) return
+		view.contentDOM.blur()
+	}
+	const passive = { capture: true, passive: true }
+	document.addEventListener("touchstart", onTouchStart, passive)
+	document.addEventListener("touchend", onTouchEnd, passive)
+	document.addEventListener("touchcancel", onTouchEnd, passive)
+	document.addEventListener("scroll", onScroll, passive)
+	return () => {
+		document.removeEventListener("touchstart", onTouchStart, passive)
+		document.removeEventListener("touchend", onTouchEnd, passive)
+		document.removeEventListener("touchcancel", onTouchEnd, passive)
+		document.removeEventListener("scroll", onScroll, passive)
+	}
+}
+
+/** Keeps the editor root inside the visual viewport if WebKit shrinks or scrolls it. */
+function syncVisualViewport(): () => void {
+	const viewport = window.visualViewport
+	if (!viewport) return () => {}
+	const root = document.documentElement.style
+	const sync = () => {
+		root.setProperty("--mobile-viewport-height", `${viewport.height}px`)
+		root.setProperty("--mobile-viewport-top", `${viewport.offsetTop}px`)
+	}
+	sync()
+	viewport.addEventListener("resize", sync)
+	viewport.addEventListener("scroll", sync)
+	return () => {
+		viewport.removeEventListener("resize", sync)
+		viewport.removeEventListener("scroll", sync)
+	}
+}
+
 function toWorkspaceCursor(cursor: CursorInfo): WorkspaceCursor {
 	return { column: cursor.col, line: cursor.line, offset: cursor.offset }
 }
@@ -117,6 +166,8 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 	const [slashCommandState, setSlashCommandState] = useState<SlashCommandMenuState | null>(null)
 	const [assetVersion, setAssetVersion] = useState(0)
 	const [commitError, setCommitError] = useState<string | null>(null)
+	const [bottomInset, setBottomInset] = useState(0)
+	const bottomInsetRef = useRef(0)
 	const [assetCache] = useState(() => new Map<string, string>())
 	const [assetLoads] = useState(() => new Set<string>())
 	const sendRef = useRef(send)
@@ -143,7 +194,11 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 
 	const [extraExtensions] = useState<EditorExtensionFactory[]>(() => [
 		createFrontmatterExtension({ initialError: null, initialMeta: {} }),
-		(runtime) => runtime.view.EditorView.scrollMargins.of(() => SCROLL_MARGINS),
+		(runtime) =>
+			runtime.view.EditorView.scrollMargins.of(() => ({
+				bottom: bottomInsetRef.current + SCROLL_MARGIN,
+				top: SCROLL_MARGIN,
+			})),
 		(runtime) => searchHighlightExtension(runtime),
 		async () => (readOnlyRef.current ? await readonlyExtension() : []),
 		(runtime) =>
@@ -285,6 +340,10 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 					viewRef.current?.contentDOM.blur()
 					void flushPendingCommitRef.current()
 				},
+				setBottomInset(value) {
+					bottomInsetRef.current = value
+					setBottomInset(value)
+				},
 				flushPendingCommit: () => flushPendingCommitRef.current(),
 				getFilePath: () => documentRef.current?.filePath ?? null,
 				runCommand(commandId, payload) {
@@ -328,9 +387,13 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 			},
 		)
 		const flush = () => void flushPendingCommitRef.current()
+		const stopDragDismiss = dismissKeyboardOnDrag(() => viewRef.current)
+		const stopViewportSync = syncVisualViewport()
 		window.addEventListener("blur", flush)
 		window.addEventListener("pagehide", flush)
 		return () => {
+			stopDragDismiss()
+			stopViewportSync()
 			window.removeEventListener("blur", flush)
 			window.removeEventListener("pagehide", flush)
 			disconnect()
@@ -371,7 +434,12 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 			className="mobile-code-mirror-root"
 			data-asset-version={assetVersion}
 			data-document-revision={activeDocument.revision}
-			style={workspace.themeTokens as CSSProperties}
+			style={
+				{
+					...workspace.themeTokens,
+					"--mobile-editor-bottom-inset": `${bottomInset}px`,
+				} as CSSProperties
+			}
 		>
 			{activeDocument.frontmatterError ? (
 				<div className="mobile-code-mirror-frontmatter-error">

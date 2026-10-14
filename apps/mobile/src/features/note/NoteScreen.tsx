@@ -8,13 +8,14 @@ import {
 import { toVaultRelativePath } from "@cortex/platform/utils"
 import { Stack, useLocalSearchParams } from "expo-router"
 import { useEffect, useState } from "react"
-import { Keyboard, Platform } from "react-native"
+import { Keyboard, Platform, View } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { useCollabNoteSession } from "@/features/collab/collabAdapter"
 import { PresenceRow } from "@/features/collab/PresenceRow"
 import { NoteEditorScreen } from "@/features/editor/NoteEditorScreen"
 import { toast } from "@/features/feedback/useToast"
-import { openNote, presentSheet } from "@/features/navigation/routes"
+import { openNote, presentSheet, useActiveNoteTab } from "@/features/navigation/routes"
 import { useHideTabBar } from "@/features/navigation/tabBarVisibility"
 import { FindBar } from "@/features/note/FindBar"
 import { KeyboardToolbar } from "@/features/note/KeyboardToolbar"
@@ -28,6 +29,7 @@ import {
 	NoteToolbarIos,
 } from "@/features/note/NoteHeader"
 import { NotePropertiesBlock } from "@/features/note/NotePropertiesBlock"
+import { NoteTitle } from "@/features/note/NoteTitle"
 import { buildNoteBottomMenuGroups } from "@/features/note/noteMenu"
 import { type FindInNote, useFindInNote } from "@/features/note/useFindInNote"
 import { useNoteMenu } from "@/features/note/useNoteMenu"
@@ -87,13 +89,23 @@ function NoteBottomBar({
 	editing,
 	filePath,
 	find,
+	keyboardVisible,
 }: {
 	editing: boolean
 	filePath: string | null
 	find: FindInNote
+	keyboardVisible: boolean
 }) {
 	const tabCount = useWorkspaceStore((state) => state.panes[state.activePaneId]?.tabs.length ?? 0)
-	if (find.open) return IS_IOS ? <FindBar find={find} /> : null
+	const insets = useSafeAreaInsets()
+	if (find.open) {
+		if (!IS_IOS) return null
+		return (
+			<View style={{ paddingBottom: keyboardVisible ? 0 : insets.bottom }}>
+				<FindBar find={find} />
+			</View>
+		)
+	}
 	if (editing) {
 		const toolbar = buildKeyboardToolbar(runEditorCommand, () => {
 			if (filePath) presentInsertTemplate(filePath)
@@ -116,6 +128,7 @@ export function NoteScreen() {
 	useHideTabBar()
 	const params = useLocalSearchParams<{ filePath?: string | string[] }>()
 	const filePath = getParam(params.filePath)
+	useActiveNoteTab(filePath)
 	const { colors } = useMobileColors()
 	const vaultPath = useVaultStore((state) => state.vault?.path)
 	const mode = useEditorStore((state) => state.mode)
@@ -126,9 +139,10 @@ export function NoteScreen() {
 	const properties = useNoteProperties(filePath, { trackUsage: false })
 	const propertyDefinitions = visiblePropertyDefinitions(properties)
 	const [dialog, setDialog] = useState<NoteDialog>("none")
+	const [titleEditing, setTitleEditing] = useState(false)
 	const title = (filePath && getNotePathPresentation(filePath, vaultPath).title) || "Note"
 	const relativePath = filePath && vaultPath ? (toVaultRelativePath(filePath, vaultPath) ?? "") : ""
-	const editing = keyboardVisible && !find.open && mode !== "reading"
+	const editing = keyboardVisible && !find.open && !titleEditing && mode !== "reading"
 	const modePresentation = getModePresentation(mode)
 	const menuGroups = useNoteMenu({
 		filePath,
@@ -138,6 +152,7 @@ export function NoteScreen() {
 				: undefined,
 		onDialog: setDialog,
 		onFind: find.show,
+		onRename: () => setTitleEditing(true),
 		relativePath,
 		title,
 	})
@@ -158,23 +173,30 @@ export function NoteScreen() {
 			<Stack.Screen options={buildNoteScreenOptions(headerState, IS_IOS)} />
 			{IS_IOS ? <NoteToolbarIos state={headerState} /> : null}
 			<NoteEditorScreen
-				bottom={<NoteBottomBar editing={editing} filePath={filePath} find={find} />}
+				bottom={
+					<NoteBottomBar
+						editing={editing}
+						filePath={filePath}
+						find={find}
+						keyboardVisible={keyboardVisible}
+					/>
+				}
 				filePath={filePath}
 				top={
-					editing ? null : (
-						<>
-							{session.live ? <PresenceRow session={session} /> : null}
-							<NotePropertiesBlock definitions={propertyDefinitions} properties={properties} />
-						</>
-					)
+					<>
+						<NoteTitle
+							editable={mode !== "reading"}
+							editing={titleEditing}
+							filePath={filePath}
+							onEditingChange={setTitleEditing}
+							title={title}
+						/>
+						{session.live ? <PresenceRow session={session} /> : null}
+						<NotePropertiesBlock definitions={propertyDefinitions} properties={properties} />
+					</>
 				}
 			/>
-			<NoteDialogs
-				dialog={dialog}
-				filePath={filePath}
-				onClose={() => setDialog("none")}
-				title={title}
-			/>
+			<NoteDialogs dialog={dialog} filePath={filePath} onClose={() => setDialog("none")} />
 		</>
 	)
 }

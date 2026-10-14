@@ -80,7 +80,7 @@ export function buildNoteScreenOptions(
 		headerStyle: { backgroundColor: state.colors.background },
 		headerTransparent: false,
 		title: state.title,
-		headerTitle: androidFind ? () => <AndroidFindHeaderTitle find={state.find} /> : undefined,
+		headerTitle: androidFind ? () => <AndroidFindHeaderTitle find={state.find} /> : "",
 		headerLeft: androidFind ? () => <AndroidFindHeaderLeft find={state.find} /> : undefined,
 		headerRight: isIos
 			? undefined

@@ -14,11 +14,12 @@ body,
 	display: flex;
 	flex-direction: column;
 	font-family: var(--font-ui);
-	height: 100%;
-	inset: 0;
+	height: var(--mobile-viewport-height, 100%);
+	left: 0;
 	min-height: 0;
 	overflow: hidden;
 	position: fixed;
+	top: var(--mobile-viewport-top, 0);
 	width: 100%;
 }
 
@@ -80,7 +81,7 @@ body,
 	box-sizing: border-box;
 	caret-color: var(--accent);
 	min-height: 100%;
-	padding: 12px 0 48px;
+	padding: 8px 0 calc(var(--mobile-editor-bottom-inset) + 24px);
 }
 
 .mobile-code-mirror-root .cm-gutters {

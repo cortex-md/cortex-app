@@ -69,6 +69,8 @@ export type WorkspaceInboundMessage =
 	| { type: "openDocument"; document: WorkspaceDocument }
 	| { type: "closeDocument"; id: number; filePath: string }
 	| { type: "showEditor"; visible: boolean }
+	| { type: "bottomInset"; value: number }
+	| { type: "flush"; id: number }
 	| { type: "watchEvent"; watchId: number; event: WatchEvent }
 	| { type: "command"; commandId: string; payload?: JsonValue }
 	| { type: "find"; id: number; query: string; direction?: "next" | "prev" }

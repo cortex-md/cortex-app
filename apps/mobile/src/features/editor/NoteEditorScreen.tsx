@@ -7,7 +7,15 @@ import {
 } from "@cortex/core"
 import { type NativeStackNavigationProp, useFocusEffect, useNavigation } from "expo-router"
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from "react-native"
+import {
+	Dimensions,
+	Keyboard,
+	type KeyboardEvent,
+	Platform,
+	StyleSheet,
+	Text,
+	View,
+} from "react-native"
 
 import { workspaceChannel } from "@/features/workspace/workspaceChannel"
 import type { WorkspaceDocument } from "@/features/workspace/workspaceProtocol"
@@ -16,6 +24,12 @@ import { useMobileColors } from "@/hooks/useMobileColors"
 type StackNavigation = NativeStackNavigationProp<Record<string, object | undefined>>
 
 const TRANSITION_FALLBACK_MS = 400
+const IS_IOS = Platform.OS === "ios"
+
+function keyboardTopFrom(event: KeyboardEvent): number | null {
+	const top = event.endCoordinates.screenY
+	return top >= Dimensions.get("window").height ? null : top
+}
 
 interface NoteScreenState {
 	error: string | null
@@ -58,8 +72,7 @@ export function NoteEditorScreen({
 	const [screenState, setScreenState] = useState<NoteScreenState>(initialNoteScreenState)
 	const [editorOwner] = useState(() => ({}))
 	const placeholderRef = useRef<View>(null)
-	const rootRef = useRef<View>(null)
-	const [keyboardOffset, setKeyboardOffset] = useState(0)
+	const keyboardTopRef = useRef<number | null>(null)
 	const sessionRef = useRef<NoteDocumentSession | null>(null)
 	const focusedRef = useRef(false)
 	const transitioningRef = useRef(true)
@@ -70,7 +83,8 @@ export function NoteEditorScreen({
 		if (!focusedRef.current || transitioningRef.current || !snapshot) return
 		placeholderRef.current?.measureInWindow((x, y, width, height) => {
 			if (!focusedRef.current || transitioningRef.current) return
-			workspaceChannel.showEditor(editorOwner, { x, y, width, height })
+			const bottom = Math.min(y + height, keyboardTopRef.current ?? Number.POSITIVE_INFINITY)
+			workspaceChannel.showEditor(editorOwner, { x, y, width, height: Math.max(bottom - y, 0) })
 		})
 	}, [editorOwner])
 
@@ -148,6 +162,33 @@ export function NoteEditorScreen({
 		}
 	}, [armTransitionFallback, editorOwner, finishTransition, navigation])
 
+	useEffect(() => {
+		const update = (top: number | null) => {
+			keyboardTopRef.current = top
+			showEditor()
+		}
+		const subscriptions = IS_IOS
+			? [
+					Keyboard.addListener("keyboardWillChangeFrame", (event) =>
+						update(keyboardTopFrom(event)),
+					),
+					Keyboard.addListener("keyboardWillHide", () => update(null)),
+				]
+			: [
+					Keyboard.addListener("keyboardDidShow", (event) => update(keyboardTopFrom(event))),
+					Keyboard.addListener("keyboardDidHide", () => update(null)),
+				]
+		return () => {
+			for (const subscription of subscriptions) subscription.remove()
+		}
+	}, [showEditor])
+
+	useEffect(() => {
+		workspaceChannel.setChrome(editorOwner, bottom)
+	}, [bottom, editorOwner])
+
+	useEffect(() => () => workspaceChannel.clearChrome(editorOwner), [editorOwner])
+
 	useFocusEffect(
 		useCallback(() => {
 			focusedRef.current = true
@@ -163,28 +204,14 @@ export function NoteEditorScreen({
 		}, [armTransitionFallback, clearTransitionFallback, editorOwner, showEditor]),
 	)
 
-	const measureKeyboardOffset = useCallback(() => {
-		rootRef.current?.measureInWindow((_x, y) => {
-			setKeyboardOffset((current) => (current === y ? current : y))
-		})
-	}, [])
-
 	const loading = Boolean(filePath && screenState.filePath !== filePath && !screenState.error)
 	const displayError = filePath ? screenState.error : "No note was selected."
+	const showMessage = loading || Boolean(displayError) || !filePath
 	return (
-		<View
-			collapsable={false}
-			onLayout={measureKeyboardOffset}
-			ref={rootRef}
-			style={[styles.root, { backgroundColor: colors.background }]}
-		>
-			<KeyboardAvoidingView
-				behavior={Platform.OS === "ios" ? "padding" : undefined}
-				keyboardVerticalOffset={Platform.OS === "ios" ? keyboardOffset : 0}
-				style={styles.root}
-			>
-				{top}
-				{loading || displayError || !filePath ? (
+		<View style={[styles.root, { backgroundColor: colors.background }]}>
+			{top}
+			{showMessage ? (
+				<>
 					<View style={styles.messageFrame}>
 						<Text selectable style={[styles.messageTitle, { color: colors.label }]}>
 							{loading ? "Opening note" : "Could not open note"}
@@ -193,16 +220,16 @@ export function NoteEditorScreen({
 							{loading ? "Loading the local file snapshot." : displayError}
 						</Text>
 					</View>
-				) : (
-					<View
-						collapsable={false}
-						onLayout={showEditor}
-						ref={placeholderRef}
-						style={styles.editorFrame}
-					/>
-				)}
-				{bottom}
-			</KeyboardAvoidingView>
+					{bottom}
+				</>
+			) : (
+				<View
+					collapsable={false}
+					onLayout={showEditor}
+					ref={placeholderRef}
+					style={styles.editorFrame}
+				/>
+			)}
 		</View>
 	)
 }

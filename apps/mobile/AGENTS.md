@@ -96,8 +96,13 @@ src/
 - Multi-step sheets are folder routes with their own `Stack` (`app/properties/`, `app/add-vault/`,
   `app/import/`, `app/share-template/`, `app/from-template/`); AppGate declares them with
   `headerShown: false` so each step gets a native header and back button.
-- `openNote` replaces the current note screen when a note is already on top of the focused tab stack,
-  so opening notes from inside a note does not grow the stack.
+- `openNote(path, { reuseActive? })` mirrors desktop `openTab`: by default it focuses an existing tab
+  or opens a new one (quick finder, links, search); the file tree passes `reuseActive`. Navigation
+  replaces the note on top instead of stacking. `retargetNoteRoutes` (subscribed to
+  `noteCache.onPathChange`) updates every route's `filePath` after a rename or move;
+  `renameVaultEntry` flushes the WebView before renaming.
+- Database rows open in the `database-row-sheet` sheet (Close / Open note); views are managed from
+  `DatabaseViewBar` with the same core actions as desktop.
 
 ## App Gate and Onboarding
 
@@ -449,14 +454,16 @@ stores, note sessions, and draws plugin UI from a mirror.
   The root title is the vault name; Create / More menus come from `filesMenus.ts`.
 - The drawer (`features/sidebar/`) shows the vault switcher row, Today, Databases, the file tree,
   Plugins, Marketplace and Settings over the `sidebarBackground` token.
-- `features/note/NoteScreen`: native title and ⋯ toolbar menu; `NotePropertiesBlock` shows the
-  properties above the editor (first 4 rows, "Show all", collapsible per session, hidden while
-  editing); tapping a row opens the `properties` sheet on that property's editor; while reading, one glass `NoteBottomMenu` button
+- `features/note/NoteScreen`: native title and ⋯ toolbar menu; The note page follows the database row
+  page: a large tap-to-rename title (`NoteTitle`), then `NotePropertiesBlock` (always visible, first 4
+  rows, "Show all", collapsible), then the editor; tapping a row opens the `properties` sheet on that property's editor; while reading, one glass `NoteBottomMenu` button
   (Find or create a note, New note, Open tabs); while editing, the glass `KeyboardToolbar` above the
   keyboard (Heading, Bold, Italic, Task, List, Link, More menu, Hide keyboard) sends command ids from
   `@cortex/editor/markdown-format-commands` plus `mobile.insert-divider`, `mobile.insert-tag`,
   `mobile.insert-wikilink`, `mobile.slash` through the `command` message. Nothing about properties is
-  rendered inside the WebView. The WebView never scrolls: `html`/`body` are fixed height and
+  rendered inside the WebView. Bottom chrome floats over the editor through `workspaceChannel.setChrome`; the editor rectangle is
+  clipped at the keyboard top and native → web `bottomInset` pads the content; `flush` writes pending
+  edits; dragging the scroller dismisses the keyboard. The WebView never scrolls: `html`/`body` are fixed height and
   `.cm-scroller` is the only scroller; the shell sets `--markdown-content-gutter: 16px` so blocks
   align with text.
 - Protocol additions: native → web `find` (request answered with `{ current, total }`) and `command`

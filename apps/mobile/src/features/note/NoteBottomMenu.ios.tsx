@@ -20,7 +20,10 @@ export function NoteBottomMenu({ groups }: NoteBottomMenuProps) {
 	const { colors, scheme } = useMobileColors()
 	const insets = useSafeAreaInsets()
 	return (
-		<View style={[styles.row, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+		<View
+			pointerEvents="box-none"
+			style={[styles.row, { paddingBottom: Math.max(insets.bottom, 12) }]}
+		>
 			<Host colorScheme={scheme} matchContents>
 				<Menu
 					label={

@@ -8,7 +8,7 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react"
-import { StyleSheet, View } from "react-native"
+import { type LayoutChangeEvent, StyleSheet, View } from "react-native"
 import WorkspaceWebView from "@/features/workspace/WorkspaceWebView"
 import { workspaceChannel } from "@/features/workspace/workspaceChannel"
 import type { WorkspaceViewHandle } from "@/features/workspace/workspaceProtocol"
@@ -33,16 +33,29 @@ const WorkspaceWebViewFrame = memo(function WorkspaceWebViewFrame({
 	return <WorkspaceWebView dom={domProps} ref={viewRef} send={workspaceChannel.receive} />
 })
 
+function reportChromeHeight(event: LayoutChangeEvent): void {
+	workspaceChannel.setBottomInset(event.nativeEvent.layout.height)
+}
+
 /** The one persistent workspace WebView, laid over the focused note's placeholder rectangle. */
 export function WorkspaceHost() {
 	const viewRef = useRef<WorkspaceViewHandle>(null)
 	const containerRef = useRef<View>(null)
 	const [origin, setOrigin] = useState({ x: 0, y: 0 })
-	const { rect, visible } = useSyncExternalStore(
+	const { owner, rect, visible } = useSyncExternalStore(
 		workspaceChannel.subscribeLayout,
 		workspaceChannel.getLayout,
 	)
+	const chrome = useSyncExternalStore(workspaceChannel.subscribeChrome, workspaceChannel.getChrome)
 	const shown = visible && rect !== null
+	const frame = rect
+		? {
+				height: rect.height,
+				left: rect.x - origin.x,
+				top: rect.y - origin.y,
+				width: rect.width,
+			}
+		: null
 
 	const measureOrigin = useCallback(() => {
 		containerRef.current?.measureInWindow((x, y) => {
@@ -66,26 +79,25 @@ export function WorkspaceHost() {
 		>
 			<View
 				pointerEvents={shown ? "auto" : "none"}
-				style={[
-					rect
-						? {
-								height: rect.height,
-								left: rect.x - origin.x,
-								top: rect.y - origin.y,
-								width: rect.width,
-							}
-						: StyleSheet.absoluteFill,
-					styles.layer,
-					!shown && styles.hidden,
-				]}
+				style={[frame ?? StyleSheet.absoluteFill, styles.layer, !shown && styles.hidden]}
 			>
 				<WorkspaceWebViewFrame viewRef={viewRef} />
 			</View>
+			{shown && frame && chrome.owner === owner && chrome.node ? (
+				<View pointerEvents="box-none" style={[frame, styles.layer, styles.chromeFrame]}>
+					<View onLayout={reportChromeHeight} pointerEvents="box-none">
+						{chrome.node}
+					</View>
+				</View>
+			) : null}
 		</View>
 	)
 }
 
 const styles = StyleSheet.create({
+	chromeFrame: {
+		justifyContent: "flex-end",
+	},
 	hidden: {
 		opacity: 0,
 	},
