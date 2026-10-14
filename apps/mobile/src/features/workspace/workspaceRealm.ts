@@ -48,6 +48,8 @@ export interface WorkspaceEditorHandlers {
 type ForwardedMethod<Domain extends ForwardedPlatformDomain> =
 	(typeof forwardedPlatformMethods)[Domain][number]
 
+const PLUGIN_LOAD_DEFER_MS = 3000
+
 export function createWorkspaceRealm() {
 	const requests = createWorkspaceRequests()
 	const stateListeners = new Set<() => void>()
@@ -302,6 +304,28 @@ export function createWorkspaceRealm() {
 	const host = createPluginHost(services)
 	host.registerBundledPlugins(bundledPlugins)
 
+	let editorReady = false
+	let pluginLoadDeferred = false
+	let pluginLoadTimer: ReturnType<typeof setTimeout> | null = null
+
+	function markEditorReady(): void {
+		if (pluginLoadTimer) clearTimeout(pluginLoadTimer)
+		pluginLoadTimer = null
+		editorReady = true
+		if (!pluginLoadDeferred) return
+		pluginLoadDeferred = false
+		queuePluginLoad(loadVaultPlugins)
+	}
+
+	function scheduleVaultPluginLoad(): void {
+		if (editorReady) {
+			queuePluginLoad(loadVaultPlugins)
+			return
+		}
+		pluginLoadDeferred = true
+		pluginLoadTimer ??= setTimeout(markEditorReady, PLUGIN_LOAD_DEFER_MS)
+	}
+
 	function queuePluginLoad(load: () => Promise<void>): void {
 		pluginLoading = pluginLoading
 			.then(load)
@@ -326,11 +350,12 @@ export function createWorkspaceRealm() {
 		const accessChanged = state.allowCommunityPlugins !== pluginAllowCommunity
 		pluginVaultPath = state.vaultPath
 		pluginAllowCommunity = state.allowCommunityPlugins
-		if (vaultChanged) queuePluginLoad(loadVaultPlugins)
-		else if (accessChanged) queuePluginLoad(() => host.syncCommunityAccess())
+		if (vaultChanged) scheduleVaultPluginLoad()
+		else if (accessChanged && !pluginLoadDeferred) queuePluginLoad(() => host.syncCommunityAccess())
 	}
 
 	return {
+		markEditorReady,
 		connect(
 			nextSender: (message: WorkspaceOutboundMessage) => void,
 			handlers: WorkspaceEditorHandlers,

@@ -5,6 +5,7 @@ import { EditorView, evictEditorDocument } from "@cortex/editor/editor-view"
 import { readonlyExtension } from "@cortex/editor/extensions"
 import { reconfigureMarkdownKeymap } from "@cortex/editor/keymap"
 import { resolveNoteAssetPath } from "@cortex/editor/note-assets"
+import { loadEditorRuntime } from "@cortex/editor/runtime"
 import {
 	searchHighlightExtension,
 	setSearchHighlight,
@@ -76,6 +77,7 @@ const MOBILE_INSERT_DIVIDER_COMMAND = "mobile.insert-divider"
 const MOBILE_INSERT_TAG_COMMAND = "mobile.insert-tag"
 const MOBILE_INSERT_WIKILINK_COMMAND = "mobile.insert-wikilink"
 const MOBILE_INSERT_TEXT_COMMAND = "mobile.insert-text"
+const PLACEHOLDER_CHARACTERS = 6000
 
 const realm = createWorkspaceRealm()
 const collabMirror = createCollabMirror((message) => realm.sendCollab(message))
@@ -184,6 +186,8 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 	const [assetVersion, setAssetVersion] = useState(0)
 	const [commitError, setCommitError] = useState<string | null>(null)
 	const [bottomInset, setBottomInset] = useState(0)
+	const [viewReady, setViewReady] = useState(false)
+	const firstOpenAtRef = useRef<number | null>(null)
 	const bottomInsetRef = useRef(0)
 	const [assetCache] = useState(() => new Map<string, string>())
 	const [assetLoads] = useState(() => new Set<string>())
@@ -279,7 +283,14 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 	}
 
 	function handleViewReady(view: EditorRuntimeView) {
+		if (!viewRef.current && firstOpenAtRef.current !== null) {
+			console.info(
+				`[editor] first paint ${Math.round(performance.now() - firstOpenAtRef.current)} ms`,
+			)
+		}
 		viewRef.current = view
+		setViewReady(true)
+		realm.markEditorReady()
 		setMobileEditorCommandView(view)
 		setEditorViewRef(view as never)
 		const current = documentRef.current
@@ -329,6 +340,7 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 			}
 		}
 
+		void loadEditorRuntime()
 		registerMobileEditorCommands()
 		sendRef
 			.current({ type: "editorCommands", commands: listMobileEditorCommands() })
@@ -352,6 +364,9 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 					if (current && current.filePath !== next.filePath) {
 						void flushPendingCommitRef.current()
 						setSlashCommandState(null)
+					}
+					if (!viewRef.current && firstOpenAtRef.current === null) {
+						firstOpenAtRef.current = performance.now()
 					}
 					documentRef.current = next
 					setActiveDocument(next)
@@ -485,6 +500,11 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 			) : null}
 			{commitError ? <div className="mobile-code-mirror-commit-error">{commitError}</div> : null}
 			<div className="mobile-code-mirror-shell">
+				{viewReady ? null : (
+					<pre className="mobile-code-mirror-placeholder">
+						{activeDocument.body.slice(0, PLACEHOLDER_CHARACTERS)}
+					</pre>
+				)}
 				<EditorView
 					codeBlockEmbeds={MOBILE_CODE_BLOCK_EMBEDS}
 					collab={collabBinding}

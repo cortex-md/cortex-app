@@ -23,7 +23,7 @@ import { useMobileColors } from "@/hooks/useMobileColors"
 
 type StackNavigation = NativeStackNavigationProp<Record<string, object | undefined>>
 
-const TRANSITION_FALLBACK_MS = 400
+const TRANSITION_FALLBACK_MS = 250
 const IS_IOS = Platform.OS === "ios"
 
 function keyboardTopFrom(event: KeyboardEvent): number | null {

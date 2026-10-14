@@ -51,6 +51,22 @@ body,
 	position: relative;
 }
 
+.mobile-code-mirror-placeholder {
+	box-sizing: border-box;
+	color: var(--text-primary);
+	font-family: var(--font-editor);
+	font-size: var(--font-size-editor, 16px);
+	inset: 0;
+	line-height: var(--line-height-editor, 1.6);
+	margin: 0;
+	overflow: hidden;
+	padding: 8px var(--markdown-content-gutter);
+	pointer-events: none;
+	position: absolute;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
 .mobile-code-mirror-root .editor-view {
 	background: var(--bg-primary);
 	color: var(--text-primary);
