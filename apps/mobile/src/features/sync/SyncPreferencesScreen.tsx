@@ -5,12 +5,7 @@ import { Alert } from "react-native"
 
 import { FormRow, FormSection, FormToggle, NativeForm } from "@/components/ui/Form"
 import { FormTextField } from "@/features/sync/FormControls"
-import {
-	inferExcludeKind,
-	resolveExcludedPaths,
-	setExcludedPath,
-} from "@/features/sync/syncAdapter"
-import type { ExcludedPathEntry } from "@/features/sync/syncTypes"
+import { resolveExcludedPaths, setExcludedPath } from "@/features/sync/syncAdapter"
 
 type AppStateKey = Exclude<keyof SyncPreferences, "excludedPaths" | "ignoreImages">
 
@@ -26,16 +21,13 @@ const APP_STATE_ROWS: { key: AppStateKey; title: string; subtitle?: string }[] =
 export function SyncPreferencesScreen() {
 	const preferences = useSyncStore((state) => state.syncPreferences)
 	const updateSyncPreference = useSyncStore((state) => state.updateSyncPreference)
-	const [excludes, setExcludes] = useState<ExcludedPathEntry[]>(() =>
-		resolveExcludedPaths(preferences.excludedPaths),
-	)
+	const excludes = resolveExcludedPaths(preferences.excludedPaths)
 	const [draft, setDraft] = useState("")
 	const [fieldKey, setFieldKey] = useState(0)
 
 	const addExclude = () => {
 		const value = draft.trim()
 		if (!value || excludes.some((entry) => entry.value === value)) return
-		setExcludes([...excludes, { value, kind: inferExcludeKind(value) }])
 		setDraft("")
 		setFieldKey((key) => key + 1)
 		void setExcludedPath(value, true)
@@ -46,7 +38,6 @@ export function SyncPreferencesScreen() {
 			{ style: "cancel", text: "Cancel" },
 			{
 				onPress: () => {
-					setExcludes((current) => current.filter((entry) => entry.value !== value))
 					void setExcludedPath(value, false)
 				},
 				style: "destructive",

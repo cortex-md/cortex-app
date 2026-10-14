@@ -6,6 +6,7 @@ import { FormRow, FormSection, NativeForm } from "@/components/ui/Form"
 import { TextPromptDialog } from "@/components/ui/TextPromptDialog"
 import { toast } from "@/features/feedback/useToast"
 import { openSettings, openTemplateEditor } from "@/features/navigation/routes"
+import { DailyNotesSection } from "@/features/templates/DailyNotesSection"
 import {
 	getTemplateBodyFilePath,
 	toNoteEntry,
@@ -95,6 +96,7 @@ export function TemplatesSettingsScreen() {
 						))}
 					</FormSection>
 				) : null}
+				<DailyNotesSection templates={local} />
 				<FormSection>
 					<FormRow
 						chevron

@@ -147,9 +147,9 @@ export async function copySyncLog(items: readonly SyncLogItem[]): Promise<void> 
 }
 
 export function inferExcludeKind(value: string): ExcludedPathEntry["kind"] {
-	if (value.includes("*")) return "Pattern"
-	if (/\.md$/i.test(value)) return "File"
-	return "Folder"
+	const normalized = value.replace(/^!/, "")
+	if (/[*?[\]]/.test(normalized)) return "Pattern"
+	return normalized.endsWith("/") ? "Folder" : "File"
 }
 
 export function resolveExcludedPaths(excludedPaths: readonly string[]): ExcludedPathEntry[] {
