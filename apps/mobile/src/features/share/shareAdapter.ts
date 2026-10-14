@@ -7,16 +7,9 @@ import {
 	useVaultStore,
 } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
+import { getBaseName } from "@cortex/platform/utils"
 import type { DatabaseRow, DatabaseView } from "@cortex/properties/database"
 
-import {
-	FIXTURE_OWNER,
-	FIXTURE_SITE,
-	fixturePreviewRows,
-	fixtureShareGroups,
-	fixtureShareSubject,
-	slugify,
-} from "@/features/share/shareFixtures"
 import type {
 	ShareGroup,
 	SharePreviewRow,
@@ -75,14 +68,26 @@ function toPreviewRow(row: DatabaseRow): SharePreviewRow {
 }
 
 function ownerName(): string {
-	return useAuthStore.getState().user?.displayName || FIXTURE_OWNER
+	const user = useAuthStore.getState().user
+	return user?.displayName || user?.email || "You"
 }
 
 export function loadShareSubject(folderPath: string | undefined): ShareSubject {
-	// stub: without a loaded database the "Projects" fixture stands in for the listing
 	const store = useDatabaseStore.getState()
 	const entry = folderPath ? store.databases[folderPath] : undefined
-	if (!entry) return { ...fixtureShareSubject, ownerName: ownerName() }
+	if (!entry) {
+		return {
+			description: "",
+			folderPath: folderPath ?? null,
+			name: folderPath ? getBaseName(folderPath) : "Database",
+			ownerName: ownerName(),
+			previewRows: [],
+			propertyCount: 0,
+			rowTemplateNames: [],
+			sampleCount: 0,
+			viewNames: [],
+		}
+	}
 	const rows = Object.values(store.rowsByFolder[entry.folderPath]?.rows ?? {}).sort(
 		(left, right) => right.mtime - left.mtime,
 	)
@@ -93,22 +98,19 @@ export function loadShareSubject(folderPath: string | undefined): ShareSubject {
 		folderPath: entry.folderPath,
 		name: entry.name,
 		ownerName: ownerName(),
-		previewRows: previewRows.length > 0 ? previewRows : fixturePreviewRows,
+		previewRows,
 		propertyCount: collectPropertyKeys(
 			entry.config.views,
 			templates.flatMap((template) => Object.keys(template.properties ?? {})),
 		),
 		rowTemplateNames: templates.map((template) => template.name),
-		sampleCount: Math.min(SAMPLE_LIMIT, rows.length) || SAMPLE_LIMIT,
+		sampleCount: Math.min(SAMPLE_LIMIT, rows.length),
 		viewNames: entry.config.views.map(viewLabel),
 	}
 }
 
 export function loadShareGroups(vaultName: string): ShareGroup[] {
-	// stub: team groups come from the fixture until the vault is linked to a sync server
-	const remoteVaultId = getLinkedRemoteVaultId()
 	const { groups, members } = useMembersStore.getState()
-	if (!remoteVaultId || groups.length === 0) return fixtureShareGroups(vaultName)
 	return [
 		...groups.map((group) => ({
 			id: group.id,
@@ -119,42 +121,24 @@ export function loadShareGroups(vaultName: string): ShareGroup[] {
 	]
 }
 
-function fixtureOutcome(input: ShareTemplateInput, groupName: string | null): ShareTemplateOutcome {
-	return {
-		audience: input.audience,
-		groupName,
-		link: input.audience === "team" ? null : `${FIXTURE_SITE}/t/${slugify(input.name)}`,
-		name: input.name,
-		stub: true,
-	}
-}
-
 export async function publishTemplate(
 	input: ShareTemplateInput,
 	groupName: string | null,
 ): Promise<ShareTemplateOutcome> {
-	// stub: the share API is unavailable on mobile, so publishing resolves to a fixture link
 	const vault = useVaultStore.getState().vault
-	const canPublish =
-		Boolean(vault && input.subject.folderPath && getPlatform().templateShares) &&
-		getLinkedRemoteVaultId() !== null
-	if (!vault || !input.subject.folderPath || !canPublish) return fixtureOutcome(input, groupName)
-	try {
-		const info = await shareDatabaseTemplate(vault, input.subject.folderPath, input.name, {
-			audience: input.audience,
-			description: input.description,
-			groupId: input.groupId,
-			includeSamples: input.includeSamples,
-		})
-		return {
-			audience: info.audience,
-			groupName: info.groupName ?? groupName,
-			link: info.link,
-			name: info.name,
-			stub: false,
-		}
-	} catch {
-		return fixtureOutcome(input, groupName)
+	if (!vault || !input.subject.folderPath) throw new Error("Choose a database to share.")
+	if (getLinkedRemoteVaultId() === null) throw new Error("Link this vault to share templates.")
+	const info = await shareDatabaseTemplate(vault, input.subject.folderPath, input.name, {
+		audience: input.audience,
+		description: input.description,
+		groupId: input.groupId,
+		includeSamples: input.includeSamples,
+	})
+	return {
+		audience: info.audience,
+		groupName: info.groupName ?? groupName,
+		link: info.link,
+		name: info.name,
 	}
 }
 

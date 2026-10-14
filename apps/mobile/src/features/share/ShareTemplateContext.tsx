@@ -9,7 +9,6 @@ import {
 	loadShareSubject,
 	publishTemplate,
 } from "@/features/share/shareAdapter"
-import { FIXTURE_LISTING_NAME } from "@/features/share/shareFixtures"
 import type {
 	ShareAudience,
 	ShareGroup,
@@ -48,7 +47,7 @@ function useShareTemplateController() {
 	const groups = useMemo<ShareGroup[]>(() => loadShareGroups(vaultName), [vaultName])
 	const [audience, setAudience] = useState<ShareAudience>("market")
 	const [groupId, setGroupId] = useState<string | null>(() => groups[0]?.id ?? null)
-	const [name, setName] = useState(() => (subject.folderPath ? subject.name : FIXTURE_LISTING_NAME))
+	const [name, setName] = useState(subject.name)
 	const [description, setDescription] = useState(subject.description)
 	const [includeRowTemplates, setIncludeRowTemplates] = useState(true)
 	const [includeSamples, setIncludeSamples] = useState(false)

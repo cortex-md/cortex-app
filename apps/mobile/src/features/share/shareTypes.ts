@@ -41,5 +41,4 @@ export interface ShareTemplateOutcome {
 	groupName: string | null
 	link: string | null
 	name: string
-	stub: boolean
 }
