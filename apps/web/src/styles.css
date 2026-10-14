@@ -74,8 +74,6 @@
 	--color-site-glass: var(--site-glass);
 	--color-site-panel: var(--site-panel);
 	--color-site-hover: var(--site-hover);
-	--color-site-cta: var(--site-cta);
-	--color-site-cta-hover: var(--site-cta-hover);
 	--color-site-footer: var(--site-footer);
 	--color-fill-quiet: var(--fill-quiet);
 	--color-fill-quiet-strong: var(--fill-quiet-strong);
@@ -254,8 +252,6 @@
 		--site-panel: #ffffff;
 		--site-panel-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(24, 18, 8, 0.12);
 		--site-hover: rgba(28, 25, 23, 0.05);
-		--site-cta: #303342;
-		--site-cta-hover: #1f222c;
 		--site-focus: rgba(225, 29, 72, 0.4);
 		--site-footer: #0f0f0f;
 		--background: var(--bg-primary);
@@ -343,8 +339,6 @@
 			inset 0 1px rgba(255, 255, 255, 0.045), 0 0 0 1px rgba(0, 0, 0, 0.76),
 			0 18px 42px rgba(0, 0, 0, 0.32);
 		--site-hover: rgba(255, 255, 255, 0.06);
-		--site-cta: #e7e5e4;
-		--site-cta-hover: #ffffff;
 	}
 
 	html {

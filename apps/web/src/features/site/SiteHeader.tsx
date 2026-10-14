@@ -307,7 +307,7 @@ function DownloadLink({ className, surface }: { className?: string; surface: "he
 	return (
 		<a
 			className={cn(
-				"inline-flex h-8 items-center justify-center rounded-lg bg-site-cta px-4 text-[13px] leading-none font-medium text-bg-primary shadow-[0_1px_2px_rgba(17,19,26,0.14)] transition-[background-color,scale] duration-150 ease-out hover:bg-site-cta-hover active:scale-[0.96] motion-reduce:active:scale-100",
+				"inline-flex h-8 items-center justify-center rounded-lg bg-brand px-4 text-[13px] leading-none font-medium text-primary-foreground shadow-[var(--shadow-primary,0_1px_2px_rgba(0,0,0,0.18))] transition-[background-color,scale] duration-150 ease-out hover:bg-brand-hover active:scale-[0.96] motion-reduce:active:scale-100",
 				focusRing,
 				className,
 			)}
