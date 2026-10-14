@@ -78,9 +78,10 @@ export default definePlugin({
 The bundle's `manifest.id` must match `manifest.json`. The command appears in the palette, hotkey
 settings, and Vim command line as soon as the plugin is enabled; `run` executes only when invoked.
 
-## Build and Link
+## Develop in a Vault
 
-After `bun run build`, copy or symlink the plugin into the active vault:
+`cortex dev --vault <vault>` builds the plugin and copies it into the active vault, then rebuilds on
+every change:
 
 ```text
 <vault>/.cortex/plugins/hello-cortex/
@@ -88,4 +89,8 @@ After `bun run build`, copy or symlink the plugin into the active vault:
   dist/index.js
 ```
 
-Enable it in Settings > Plugins. Editing files inside the folder triggers a hot reload.
+Enable it in Settings > Plugins. Every file written inside the folder triggers a hot reload. Copy
+the files instead of symlinking the folder: the hot-reload watcher does not follow symlinks.
+
+`cortex create hello-cortex --plugin` scaffolds this layout with `src/index.ts` importing
+`manifest.json`, so the bundle and the manifest never disagree on `id`, `version` or `permissions`.

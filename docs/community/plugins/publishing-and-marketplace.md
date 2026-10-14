@@ -45,6 +45,22 @@ Install and update use a staging directory. The previous plugin directory is pre
 staged plugin is promoted, the plugin host reloads, and the new plugin registration is visible. If
 anything fails, Cortex removes staging and restores the previous plugin best effort.
 
+## Publishing with the CLI
+
+```bash
+cortex check          # build, load the bundle like Cortex does, run the registry checks
+cortex release patch  # bump manifest.json/package.json, commit, tag v<version>, push
+cortex submit         # first release only: open the registry pull request
+```
+
+The scaffolded release workflow runs `cortex pack` on the tag and uploads `manifest.json` (with
+`capabilities` mirrored from `permissions` for the catalog), the bundle and `styles.css` as
+individual assets. The release tag must be `v<manifest.version>` with a plain `MAJOR.MINOR.PATCH`
+version, because update detection compares the tag with the installed `manifest.json`.
+
+Registry entries carry no version: once listed, every new release reaches users automatically.
+Submit again only when the name, description, author or cover image change.
+
 ## Release Checklist
 
 1. Build a single plugin bundle.

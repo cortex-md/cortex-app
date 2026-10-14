@@ -11,7 +11,8 @@ warm-notes/
   dark.css
 ```
 
-Place or symlink it into the active vault:
+Install it into the active vault with `cortex dev --vault <vault>` (or copy the folder; the
+hot-reload watcher does not follow symlinks):
 
 ```text
 <vault>/.cortex/themes/warm-notes/

@@ -7,7 +7,8 @@ contributions. Cortex registers the contributions without running plugin code, r
 
 ## Install Location
 
-During development, place or symlink a plugin directory here:
+During development, `cortex dev --vault <vault>` copies the build here (symlinks are not watched
+for hot reload):
 
 ```text
 <vault>/.cortex/plugins/<plugin-id>/

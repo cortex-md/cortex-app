@@ -570,10 +570,13 @@ window URL. Settings browse actions must close Settings or ask the main window t
 instead of opening a hidden workspace tab inside the Settings window.
 
 Community plugins and themes are vault-scoped. The desktop app loads plugins from
-`<vault>/.cortex/plugins` and themes from `<vault>/.cortex/themes`; the CLI should link development
-plugins/themes into those vault directories with `--vault`, `CORTEX_VAULT`, or vault ancestor
-detection. Marketplace release assets must include `manifest.json` plus the installable bundle/CSS
-assets as individual GitHub Release assets, not only a ZIP archive.
+`<vault>/.cortex/plugins` and themes from `<vault>/.cortex/themes`; `cortex dev` (cortex-md/cli)
+copies development builds into those vault directories (resolved from `--vault`, `CORTEX_VAULT`,
+vault ancestor detection, or the last vault used) and marks them with a `.cortex-dev` file.
+Marketplace release assets must include `manifest.json` plus the installable bundle/CSS assets as
+individual GitHub Release assets, not only a ZIP archive. The CLI mirrors this contract in its
+`internal/rules` package and `plugin/inspect.cjs` loader; update both when `PLUGIN_PERMISSIONS`, the
+community loader, or the theme manifest schema change.
 Plugins that need temporary read-only Markdown notes, such as onboarding or plugin changelogs,
 should call `ctx.workspace.openMarkdownTab(...)` with the `workspace:tabs` permission. Desktop renders the
 content as an ephemeral workspace tab and must not write it to the vault, `noteCache`, or
@@ -650,9 +653,10 @@ re-exports the same functions for UI state and menu affordances.
 - `FileSystem.startWatching` supports multiple watcher IDs plus `includeHidden` and
   `followSymlinks` options; keep the main vault watcher hidden-path-safe, and use dedicated hidden
   watchers for community plugin/theme hot reload.
-- `list_dir` follows symlink metadata so vault-scoped CLI links are discoverable as plugin/theme
-  directories. CLI dev/link writes `.reload-<id>` marker files in the hidden plugin/theme directory
-  to trigger immediate desktop rediscovery.
+- `list_dir` follows symlink metadata, but the hot-reload watcher (`fs.watch`) does not follow
+  symlinks: development builds must be copied into `<vault>/.cortex/plugins/<id>` or
+  `<vault>/.cortex/themes/<id>`. Any file written inside `<id>/` (except `settings.json` and
+  `data/**`) reloads plugins; any event under `.cortex/themes` reloads themes.
 
 ### Workspace Persistence
 - Tracks open tabs, pane splits, and positions
