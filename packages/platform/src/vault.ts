@@ -245,6 +245,23 @@ export function sanitizeVaultFolderName(name: string): string {
 	)
 }
 
+export interface FreeVaultFolderDeps {
+	join(parent: string, name: string): string
+	exists(path: string): Promise<boolean>
+}
+
+export async function findFreeVaultFolderName(
+	parent: string,
+	name: string,
+	{ join, exists }: FreeVaultFolderDeps,
+): Promise<string> {
+	const base = sanitizeVaultFolderName(name)
+	for (let attempt = 1; ; attempt += 1) {
+		const candidate = join(parent, attempt === 1 ? base : `${base} ${attempt}`)
+		if (!(await exists(candidate))) return candidate
+	}
+}
+
 export function removeRegistryEntry(
 	entries: readonly VaultRegistryEntry[],
 	uuid: string,

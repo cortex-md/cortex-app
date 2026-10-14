@@ -73,6 +73,7 @@ export type {
 	CollabPeer,
 	CollabWelcome,
 } from "./interfaces/Collab"
+export type { Argon2idOptions, CryptoPrimitives, X25519KeyPairBytes } from "./interfaces/Crypto"
 export type { Device, DeviceInfo } from "./interfaces/Device"
 export type { DeviceEntry, Devices } from "./interfaces/Devices"
 export type {
