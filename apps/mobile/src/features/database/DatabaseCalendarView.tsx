@@ -7,6 +7,7 @@ import { SymbolIcon } from "@/components/ui/Symbol"
 import { GroupedList, GroupedRow, GroupedSectionHeader } from "@/components/ui/GroupedList"
 import { formatMonthTitle, MiniCalendar } from "@/components/ui/MiniCalendar"
 import { OptionPill, rowOwnerName, rowStatusOption } from "@/features/database/DatabaseCells"
+import { DatabaseRowMenu } from "@/features/database/DatabaseRowMenu"
 import { firstName, formatDayHeading } from "@/features/database/databaseFormat"
 import type { DatabaseViewModel } from "@/features/database/useDatabaseView"
 import { useMobileColors } from "@/hooks/useMobileColors"
@@ -28,12 +29,17 @@ function CalendarRow({
 	const option = rowStatusOption(row, model)
 	const owner = showOwner ? rowOwnerName(row, model) : null
 	return (
-		<GroupedRow
-			onPress={() => onOpenRow(row)}
-			subtitle={owner ? firstName(owner) : undefined}
-			title={row.title}
-			trailing={option ? <OptionPill option={option} /> : undefined}
-		/>
+		<DatabaseRowMenu onOpenRow={onOpenRow} row={row}>
+			{(handlers) => (
+				<GroupedRow
+					onLongPress={handlers.onLongPress}
+					onPress={handlers.onPress}
+					subtitle={owner ? firstName(owner) : undefined}
+					title={row.title}
+					trailing={option ? <OptionPill option={option} /> : undefined}
+				/>
+			)}
+		</DatabaseRowMenu>
 	)
 }
 

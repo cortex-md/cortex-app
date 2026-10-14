@@ -22,6 +22,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-n
 
 import { Avatar } from "@/components/ui/Avatar"
 import { EmptyState } from "@/components/ui/EmptyState"
+import { HeaderIconButton } from "@/components/ui/HeaderIconButton"
 import type { MenuGroup } from "@/components/ui/menuTypes"
 import { NativeMenu } from "@/components/ui/NativeMenu"
 import { SymbolIcon, type SymbolName } from "@/components/ui/Symbol"
@@ -40,7 +41,7 @@ import { StatusPicker } from "@/features/database/StatusPicker"
 import { type DatabaseViewModel, useDatabaseView } from "@/features/database/useDatabaseView"
 import { useRowNote } from "@/features/database/useRowNote"
 import { toast } from "@/features/feedback/useToast"
-import { openNote, presentSheet } from "@/features/navigation/routes"
+import { dismissSheet, openNote, presentSheet } from "@/features/navigation/routes"
 import { useHideTabBar } from "@/features/navigation/tabBarVisibility"
 import { useMobileColors } from "@/hooks/useMobileColors"
 import { triggerSelectionHaptic } from "@/utils/haptics"
@@ -247,8 +248,48 @@ function RowPager({
 	)
 }
 
+const OPEN_ICON: SymbolName = { md: "open_in_new", sf: "arrow.up.right.square" }
+const CLOSE_ICON: SymbolName = { md: "close", sf: "xmark" }
+
+function openFromSheet(filePath: string): void {
+	dismissSheet()
+	openNote(filePath)
+}
+
+function SheetHeaderAndroid({
+	filePath,
+	moreGroups,
+}: {
+	filePath: string
+	moreGroups: MenuGroup[]
+}) {
+	return (
+		<View style={styles.headerActions}>
+			<HeaderIconButton
+				accessibilityLabel="Open note"
+				icon={OPEN_ICON}
+				onPress={() => openFromSheet(filePath)}
+			/>
+			<NativeMenu
+				accessibilityLabel="Note actions"
+				groups={moreGroups}
+				icon={{ md: "more_vert", sf: "ellipsis" }}
+			/>
+		</View>
+	)
+}
+
 export function DatabaseRowScreen() {
 	useHideTabBar()
+	return <DatabaseRowContent sheet={false} />
+}
+
+export function DatabaseRowSheet() {
+	useHideTabBar()
+	return <DatabaseRowContent sheet />
+}
+
+function DatabaseRowContent({ sheet }: { sheet: boolean }) {
 	const params = useLocalSearchParams<{
 		filePath?: string | string[]
 		folderPath?: string | string[]
@@ -317,12 +358,16 @@ export function DatabaseRowScreen() {
 
 	const moreGroups: MenuGroup[] = [
 		[
-			{
-				icon: { md: "edit_note", sf: "square.and.pencil" },
-				key: "open",
-				label: "Open in editor",
-				onPress: () => openNote(filePath),
-			},
+			...(sheet
+				? []
+				: [
+						{
+							icon: { md: "edit_note", sf: "square.and.pencil" } as const,
+							key: "open",
+							label: "Open in editor",
+							onPress: () => openNote(filePath),
+						},
+					]),
 			{
 				icon: { md: "tune", sf: "slider.horizontal.3" },
 				key: "properties",
@@ -341,15 +386,17 @@ export function DatabaseRowScreen() {
 	return (
 		<>
 			<ScrollView
-				contentContainerStyle={styles.content}
+				contentContainerStyle={[styles.content, sheet ? styles.sheetContent : null]}
 				contentInsetAdjustmentBehavior="automatic"
 				style={{ backgroundColor: colors.background }}
 			>
 				{row ? (
 					<>
-						<Text accessibilityRole="header" style={[styles.h1, { color: colors.label }]}>
-							{title}
-						</Text>
+						{sheet ? null : (
+							<Text accessibilityRole="header" style={[styles.h1, { color: colors.label }]}>
+								{title}
+							</Text>
+						)}
 						{primary.length > 0 || extra.length > 0 ? (
 							<View style={[styles.propsBox, { borderColor: colors.border }]}>
 								{primary.map((definition) => (
@@ -421,20 +468,44 @@ export function DatabaseRowScreen() {
 			</ScrollView>
 			<Stack.Screen
 				options={{
+					headerLeft:
+						sheet && !IS_IOS
+							? () => (
+									<HeaderIconButton
+										accessibilityLabel="Close"
+										icon={CLOSE_ICON}
+										onPress={dismissSheet}
+									/>
+								)
+							: undefined,
 					headerRight: IS_IOS
 						? undefined
-						: () => (
-								<NativeMenu
-									accessibilityLabel="Note actions"
-									groups={moreGroups}
-									icon={{ md: "more_vert", sf: "ellipsis" }}
-								/>
-							),
-					title: databaseName,
+						: sheet
+							? () => <SheetHeaderAndroid filePath={filePath} moreGroups={moreGroups} />
+							: () => (
+									<NativeMenu
+										accessibilityLabel="Note actions"
+										groups={moreGroups}
+										icon={{ md: "more_vert", sf: "ellipsis" }}
+									/>
+								),
+					title: sheet ? title : databaseName,
 				}}
 			/>
+			{IS_IOS && sheet ? (
+				<Stack.Toolbar placement="left">
+					<Stack.Toolbar.Button accessibilityLabel="Close" icon="xmark" onPress={dismissSheet} />
+				</Stack.Toolbar>
+			) : null}
 			{IS_IOS ? (
 				<Stack.Toolbar placement="right">
+					{sheet ? (
+						<Stack.Toolbar.Button
+							accessibilityLabel="Open note"
+							icon={OPEN_ICON.sf}
+							onPress={() => openFromSheet(filePath)}
+						/>
+					) : null}
 					<Stack.Toolbar.Menu accessibilityLabel="Note actions" icon="ellipsis" title={title}>
 						{moreGroups.flat().map((item) => (
 							<Stack.Toolbar.MenuAction icon={item.icon?.sf} key={item.key} onPress={item.onPress}>
@@ -444,7 +515,7 @@ export function DatabaseRowScreen() {
 					</Stack.Toolbar.Menu>
 				</Stack.Toolbar>
 			) : null}
-			{row && ordered.length > 0 ? (
+			{row && ordered.length > 0 && !sheet ? (
 				<RowPager
 					filePath={filePath}
 					index={Math.max(index, 0)}
@@ -512,6 +583,10 @@ const styles = StyleSheet.create({
 	content: {
 		paddingBottom: 140,
 		paddingHorizontal: 20,
+	},
+	headerActions: {
+		alignItems: "center",
+		flexDirection: "row",
 	},
 	footer: {
 		fontSize: 13,
@@ -583,6 +658,10 @@ const styles = StyleSheet.create({
 		borderWidth: StyleSheet.hairlineWidth,
 		paddingHorizontal: 4,
 		paddingVertical: 2,
+	},
+	sheetContent: {
+		paddingBottom: 40,
+		paddingTop: 8,
 	},
 	tag: {
 		borderRadius: 999,

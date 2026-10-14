@@ -70,6 +70,7 @@ export function AppGate() {
 					options={fullScreenOrSheetOptions("large", NESTED_STACK)}
 				/>
 				<Stack.Screen name="db-view-options" options={formSheetOptions("medium")} />
+				<Stack.Screen name="database-row-sheet" options={fullScreenOrSheetOptions("medium")} />
 				<Stack.Screen name="db-new" options={fullScreenFormOptions()} />
 				<Stack.Screen name="tabs" options={fullScreenFormOptions()} />
 			</Stack>

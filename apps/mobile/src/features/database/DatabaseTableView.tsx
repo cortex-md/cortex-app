@@ -20,6 +20,7 @@ import { SymbolIcon } from "@/components/ui/Symbol"
 import { Avatar } from "@/components/ui/Avatar"
 import { DatabaseCellValue, OptionPill } from "@/features/database/DatabaseCells"
 import { columnWidth, firstName, resolvePersonName } from "@/features/database/databaseFormat"
+import { DatabaseRowMenu } from "@/features/database/DatabaseRowMenu"
 import type { DatabaseViewModel } from "@/features/database/useDatabaseView"
 import { useMobileColors } from "@/hooks/useMobileColors"
 import { triggerSelectionHaptic } from "@/utils/haptics"
@@ -189,38 +190,46 @@ export function DatabaseTableView({
 											? colors.accentSubtle
 											: colors.background
 										return (
-											<Pressable
-												accessibilityRole="button"
-												android_ripple={{ color: colors.hover }}
-												key={row.path}
-												onPress={() => onOpenRow(row)}
-												style={({ pressed }) => [
-													styles.row,
-													{
-														backgroundColor: pressed && IS_IOS ? colors.hover : rowBackground,
-														borderBottomColor: colors.separator,
-													},
-												]}
-											>
-												<Animated.View
-													style={[styles.nameCell, sticky, { backgroundColor: rowBackground }]}
-												>
-													<Text
-														numberOfLines={1}
-														style={[styles.nameText, { color: colors.label }]}
+											<DatabaseRowMenu key={row.path} onOpenRow={onOpenRow} row={row}>
+												{(handlers) => (
+													<Pressable
+														accessibilityRole="button"
+														android_ripple={{ color: colors.hover }}
+														onLongPress={handlers.onLongPress}
+														onPress={handlers.onPress}
+														style={[
+															styles.row,
+															{
+																backgroundColor: rowBackground,
+																borderBottomColor: colors.separator,
+															},
+														]}
 													>
-														{row.title}
-													</Text>
-												</Animated.View>
-												{columns.map((definition, index) => (
-													<View
-														key={definition.key}
-														style={[styles.cell, { width: widths[index] }]}
-													>
-														<DatabaseCellValue definition={definition} model={model} row={row} />
-													</View>
-												))}
-											</Pressable>
+														<Animated.View
+															style={[styles.nameCell, sticky, { backgroundColor: rowBackground }]}
+														>
+															<Text
+																numberOfLines={1}
+																style={[styles.nameText, { color: colors.label }]}
+															>
+																{row.title}
+															</Text>
+														</Animated.View>
+														{columns.map((definition, index) => (
+															<View
+																key={definition.key}
+																style={[styles.cell, { width: widths[index] }]}
+															>
+																<DatabaseCellValue
+																	definition={definition}
+																	model={model}
+																	row={row}
+																/>
+															</View>
+														))}
+													</Pressable>
+												)}
+											</DatabaseRowMenu>
 										)
 									})}
 							<Animated.View style={[sticky, stickyWidth]}>

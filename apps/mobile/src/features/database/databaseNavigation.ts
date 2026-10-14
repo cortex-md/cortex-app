@@ -3,8 +3,10 @@ import { type Href, router } from "expo-router"
 import type { ViewOptionsTab } from "@/features/database/databaseFormat"
 import { presentSheet } from "@/features/navigation/routes"
 
+const ROW_SHEET_PATH: string = "/database-row-sheet"
+
 export function openDatabaseRow(folderPath: string, filePath: string, viewId?: string): void {
-	router.push({ params: { filePath, folderPath, viewId }, pathname: "/database-row" } as Href)
+	router.push({ params: { filePath, folderPath, viewId }, pathname: ROW_SHEET_PATH } as Href)
 }
 
 export function openDatabaseViewOptions(

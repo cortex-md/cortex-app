@@ -8,6 +8,7 @@ import {
 	rowOwnerName,
 	rowStatusOption,
 } from "@/features/database/DatabaseCells"
+import { DatabaseRowMenu } from "@/features/database/DatabaseRowMenu"
 import type { DatabaseViewModel } from "@/features/database/useDatabaseView"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
@@ -31,36 +32,42 @@ export function DatabaseGalleryView({
 				const option = rowStatusOption(row, model)
 				const owner = rowOwnerName(row, model)
 				return (
-					<Pressable
-						accessibilityRole="button"
-						android_ripple={{ color: colors.hover }}
-						key={row.path}
-						onPress={() => onOpenRow(row)}
-						style={({ pressed }) => [
-							styles.card,
-							{
-								backgroundColor: highlighted.has(row.path) ? colors.accentSubtle : colors.cell,
-								borderColor: colors.borderSubtle,
-								opacity: pressed ? 0.75 : 1,
-							},
-						]}
-					>
-						<View style={[styles.cover, { backgroundColor: colors.secondaryBackground }]}>
-							<Text numberOfLines={5} style={[styles.coverText, { color: colors.secondaryLabel }]}>
-								{row.excerpt || row.preview}
-							</Text>
-						</View>
-						<View style={styles.body}>
-							<Text numberOfLines={2} style={[styles.title, { color: colors.label }]}>
-								{row.title}
-							</Text>
-							<View style={styles.meta}>
-								{option ? <OptionPill option={option} /> : null}
-								{owner ? <PersonLabel name={owner} showName={false} size={18} /> : null}
-								<RowDue model={model} row={row} small />
-							</View>
-						</View>
-					</Pressable>
+					<DatabaseRowMenu key={row.path} onOpenRow={onOpenRow} row={row}>
+						{(handlers) => (
+							<Pressable
+								accessibilityRole="button"
+								android_ripple={{ color: colors.hover }}
+								onLongPress={handlers.onLongPress}
+								onPress={handlers.onPress}
+								style={[
+									styles.card,
+									{
+										backgroundColor: highlighted.has(row.path) ? colors.accentSubtle : colors.cell,
+										borderColor: colors.borderSubtle,
+									},
+								]}
+							>
+								<View style={[styles.cover, { backgroundColor: colors.secondaryBackground }]}>
+									<Text
+										numberOfLines={5}
+										style={[styles.coverText, { color: colors.secondaryLabel }]}
+									>
+										{row.excerpt || row.preview}
+									</Text>
+								</View>
+								<View style={styles.body}>
+									<Text numberOfLines={2} style={[styles.title, { color: colors.label }]}>
+										{row.title}
+									</Text>
+									<View style={styles.meta}>
+										{option ? <OptionPill option={option} /> : null}
+										{owner ? <PersonLabel name={owner} showName={false} size={18} /> : null}
+										<RowDue model={model} row={row} small />
+									</View>
+								</View>
+							</Pressable>
+						)}
+					</DatabaseRowMenu>
 				)
 			})}
 		</View>

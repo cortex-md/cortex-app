@@ -4,6 +4,7 @@ import {
 	cycleDatabaseViewSort,
 	getDatabaseQueryContext,
 	getErrorMessage,
+	removeDatabaseView,
 	retainDatabase,
 	selectDatabaseByFolder,
 	selectDatabaseRows,
@@ -154,13 +155,10 @@ export function useDatabaseView(folderPath: string, requestedViewId?: string, se
 		[activeView, folderPath],
 	)
 
-	const selectViewType = useCallback(
+	const selectView = useCallback((id: string) => setViewId(id), [])
+
+	const addView = useCallback(
 		(type: DatabaseViewType) => {
-			const existing = config?.views.find((view) => view.type === type)
-			if (existing) {
-				setViewId(existing.id)
-				return
-			}
 			const created = addDatabaseView(folderPath, type, activeView)
 			if (!created) return
 			if (type === "calendar" && roles.dateKey) {
@@ -168,7 +166,35 @@ export function useDatabaseView(folderPath: string, requestedViewId?: string, se
 			}
 			setViewId(created.id)
 		},
-		[activeView, config, folderPath, roles.dateKey],
+		[activeView, folderPath, roles.dateKey],
+	)
+
+	const renameView = useCallback(
+		(view: DatabaseView, name: string) =>
+			updateDatabaseView(folderPath, view, (current) => ({ ...current, name })),
+		[folderPath],
+	)
+
+	const duplicateView = useCallback(
+		(view: DatabaseView) => {
+			const created = addDatabaseView(folderPath, view.type, view)
+			if (!created) return
+			updateDatabaseView(folderPath, created, (next) => ({
+				...view,
+				id: next.id,
+				name: `${view.name} copy`,
+			}))
+			setViewId(created.id)
+		},
+		[folderPath],
+	)
+
+	const removeView = useCallback(
+		(view: DatabaseView) => {
+			removeDatabaseView(folderPath, view.id)
+			if (view.id === activeView?.id) setViewId(undefined)
+		},
+		[activeView?.id, folderPath],
 	)
 
 	const cycleSort = useCallback(
@@ -193,21 +219,25 @@ export function useDatabaseView(folderPath: string, requestedViewId?: string, se
 
 	return {
 		activeView,
+		addView,
 		authorConfig: identity.authorConfig,
 		columns,
 		config,
 		createRow,
 		cycleSort,
+		duplicateView,
 		entry,
 		folderPath,
 		loading: !registryReady || (Boolean(entry) && rowsStatus === "loading" && rows.length === 0),
 		queryContext,
 		registryReady,
+		removeView,
+		renameView,
 		resolved,
 		result,
 		roles,
 		rows,
-		selectViewType,
+		selectView,
 		updateView,
 	}
 }

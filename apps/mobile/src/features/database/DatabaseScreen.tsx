@@ -3,7 +3,6 @@ import {
 	type DatabaseFilter,
 	type DatabaseGroup,
 	type DatabaseRow,
-	type DatabaseViewType,
 	getDatabaseRowTitle,
 } from "@cortex/properties/database"
 import { Stack, useLocalSearchParams } from "expo-router"
@@ -14,7 +13,6 @@ import { EmptyState } from "@/components/ui/EmptyState"
 import { FilterChip } from "@/components/ui/FilterChip"
 import type { MenuGroup, MenuItem } from "@/components/ui/menuTypes"
 import { NativeMenu } from "@/components/ui/NativeMenu"
-import { SegmentedControl } from "@/components/ui/SegmentedControl"
 import { SymbolIcon } from "@/components/ui/Symbol"
 import {
 	type DatabaseRowTemplateChoice,
@@ -24,7 +22,6 @@ import { DatabaseBoardView } from "@/features/database/DatabaseBoardView"
 import { DatabaseCalendarView } from "@/features/database/DatabaseCalendarView"
 import { DatabaseFabMenu } from "@/features/database/DatabaseFabMenu"
 import {
-	DATABASE_VIEW_OPTIONS,
 	describeFilter,
 	groupTokenLabel,
 	noteCountLabel,
@@ -43,6 +40,7 @@ import {
 	type DatabaseCollectionProps,
 	DatabaseTableView,
 } from "@/features/database/DatabaseTableView"
+import { DatabaseViewBar } from "@/features/database/DatabaseViewBar"
 import { type DatabaseViewModel, useDatabaseView } from "@/features/database/useDatabaseView"
 import { showToast } from "@/features/feedback/toastStore"
 import { presentSheet } from "@/features/navigation/routes"
@@ -246,7 +244,6 @@ export function DatabaseScreen() {
 	const model = useDatabaseView(folderPath, readParam(params.view), search)
 	const name = model.entry?.name ?? getBaseName(folderPath)
 	const viewId = model.activeView?.id
-	const viewType = model.activeView?.type ?? "table"
 	const templates = useMemo(() => listDatabaseRowTemplates(model.config), [model.config])
 
 	const openRow = (row: DatabaseRow) => openDatabaseRow(folderPath, row.path, viewId)
@@ -291,16 +288,7 @@ export function DatabaseScreen() {
 				</View>
 				{model.entry ? (
 					<>
-						<SegmentedControl
-							accessibilityLabel="Views"
-							onChange={(type: DatabaseViewType) => {
-								triggerSelectionHaptic()
-								model.selectViewType(type)
-							}}
-							options={DATABASE_VIEW_OPTIONS}
-							style={styles.segmented}
-							value={viewType}
-						/>
+						<DatabaseViewBar model={model} />
 						<ViewTokens folderPath={folderPath} model={model} />
 						<DatabaseCollection
 							collapsed={collapsed}
@@ -374,9 +362,6 @@ const styles = StyleSheet.create({
 	},
 	loading: {
 		marginTop: 40,
-	},
-	segmented: {
-		marginHorizontal: 16,
 	},
 	tokens: {
 		gap: 8,

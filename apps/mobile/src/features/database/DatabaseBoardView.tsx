@@ -2,6 +2,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-n
 
 import { SymbolIcon } from "@/components/ui/Symbol"
 import { PersonLabel, RowDue, rowOwnerName } from "@/features/database/DatabaseCells"
+import { DatabaseRowMenu } from "@/features/database/DatabaseRowMenu"
 import {
 	type DatabaseCollectionProps,
 	GroupLabel,
@@ -46,28 +47,33 @@ export function DatabaseBoardView({
 					{group.rows.map((row) => {
 						const owner = rowOwnerName(row, model)
 						return (
-							<Pressable
-								accessibilityRole="button"
-								android_ripple={{ color: colors.hover }}
-								key={row.path}
-								onPress={() => onOpenRow(row)}
-								style={({ pressed }) => [
-									styles.card,
-									{
-										backgroundColor: highlighted.has(row.path) ? colors.accentSubtle : colors.cell,
-										borderColor: colors.borderSubtle,
-										opacity: pressed ? 0.7 : 1,
-									},
-								]}
-							>
-								<Text numberOfLines={3} style={[styles.cardTitle, { color: colors.label }]}>
-									{row.title}
-								</Text>
-								<View style={styles.meta}>
-									{owner ? <PersonLabel name={owner} showName={false} size={18} /> : null}
-									<RowDue model={model} row={row} small />
-								</View>
-							</Pressable>
+							<DatabaseRowMenu key={row.path} onOpenRow={onOpenRow} row={row}>
+								{(handlers) => (
+									<Pressable
+										accessibilityRole="button"
+										android_ripple={{ color: colors.hover }}
+										onLongPress={handlers.onLongPress}
+										onPress={handlers.onPress}
+										style={[
+											styles.card,
+											{
+												backgroundColor: highlighted.has(row.path)
+													? colors.accentSubtle
+													: colors.cell,
+												borderColor: colors.borderSubtle,
+											},
+										]}
+									>
+										<Text numberOfLines={3} style={[styles.cardTitle, { color: colors.label }]}>
+											{row.title}
+										</Text>
+										<View style={styles.meta}>
+											{owner ? <PersonLabel name={owner} showName={false} size={18} /> : null}
+											<RowDue model={model} row={row} small />
+										</View>
+									</Pressable>
+								)}
+							</DatabaseRowMenu>
 						)
 					})}
 					<Pressable
