@@ -29,7 +29,14 @@
 			"expo-status-bar",
 			"expo-web-browser",
 			"expo-sqlite",
-			"expo-sharing"
+			"expo-sharing",
+			[
+				"expo-image-picker",
+				{
+					"photosPermission": "Cortex inserts the photos you choose into your notes.",
+					"cameraPermission": "Cortex inserts the photos you take into your notes."
+				}
+			]
 		],
 		"experiments": {
 			"typedRoutes": true,

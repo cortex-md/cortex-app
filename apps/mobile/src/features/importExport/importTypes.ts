@@ -17,8 +17,6 @@ export interface ImportSourceFile {
 	kind: ImportFileKind
 	extensionLabel: string
 	csvRowCount: number
-	stub: boolean
-	stubContent?: string
 }
 
 export interface ImportDestination {
@@ -58,7 +56,6 @@ export interface InspectedFolder {
 	bookmarks: number
 	totalFiles: number
 	importableFiles: ImportSourceFile[]
-	stub: boolean
 }
 
 export interface ObsidianFindingRow {

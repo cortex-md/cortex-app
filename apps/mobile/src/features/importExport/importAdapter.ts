@@ -8,7 +8,6 @@ import {
 } from "@cortex/core"
 import {
 	analyzeObsidianVault,
-	csvRecordsToMarkdownTable,
 	getImporterDialogFilters,
 	htmlToMarkdown,
 	importFiles,
@@ -24,17 +23,6 @@ import { type FileEntry, getPlatform } from "@cortex/platform"
 import { getBaseName, getParentPath, joinPath } from "@cortex/platform/utils"
 import { Platform } from "react-native"
 
-import {
-	FIXTURE_OBSIDIAN_STEP,
-	FIXTURE_OBSIDIAN_TICK_MS,
-	FIXTURE_PDF_PAGES,
-	fixtureCsvDatabasePreview,
-	fixtureCsvTablePreview,
-	fixtureImportFiles,
-	fixtureObsidianFolder,
-	fixtureObsidianOutcome,
-	isStubPath,
-} from "@/features/importExport/importFixtures"
 import {
 	destinationPath,
 	extensionLabel,
@@ -64,7 +52,6 @@ function requireVault() {
 }
 
 async function readSource(file: ImportSourceFile): Promise<string> {
-	if (file.stubContent !== undefined) return file.stubContent
 	return getPlatform().fs.readFile(file.path)
 }
 
@@ -86,21 +73,15 @@ async function toSourceFile(path: string): Promise<ImportSourceFile> {
 		kind,
 		name,
 		path,
-		stub: false,
 	}
 }
 
 export async function pickImportFiles(): Promise<ImportSourceFile[]> {
-	// stub: native multi-file picking rejects on mobile; fixture files stand in until it exists
-	try {
-		const paths = await getPlatform().dialog.pickFiles({
-			filters: getImporterDialogFilters(),
-			title: "Import files",
-		})
-		return Promise.all(paths.map(toSourceFile))
-	} catch {
-		return fixtureImportFiles
-	}
+	const paths = await getPlatform().dialog.pickFiles({
+		filters: getImporterDialogFilters(),
+		title: "Import files",
+	})
+	return Promise.all(paths.map(toSourceFile))
 }
 
 async function walkFolder(root: string): Promise<FileEntry[]> {
@@ -190,21 +171,15 @@ export async function inspectFolder(path: string): Promise<InspectedFolder> {
 		name: getBaseName(path),
 		notes,
 		path,
-		stub: false,
 		templates: extras.templates,
 		totalFiles: entries.length,
 	}
 }
 
 export async function pickImportFolder(): Promise<InspectedFolder | null> {
-	// stub: when the native folder picker is unavailable the fixture Obsidian vault stands in
-	try {
-		const path = await getPlatform().dialog.pickFolder({ title: "Choose a folder" })
-		if (!path) return null
-		return await inspectFolder(path)
-	} catch {
-		return fixtureObsidianFolder
-	}
+	const path = await getPlatform().dialog.pickFolder({ title: "Choose a folder" })
+	if (!path) return null
+	return await inspectFolder(path)
 }
 
 function formatCell(value: string): string {
@@ -227,7 +202,6 @@ export async function previewImportFile(
 		}
 	}
 	if (file.kind === "csv") {
-		if (file.stub) return csvMode === "table" ? fixtureCsvTablePreview : fixtureCsvDatabasePreview
 		const records = parseCsvRecords(await readSource(file))
 		const [header = [], ...rows] = records
 		if (csvMode === "table") {
@@ -249,14 +223,17 @@ export async function previewImportFile(
 	if (file.kind === "html") {
 		return { kind: "html", markdown: htmlToMarkdown(await readSource(file)), title }
 	}
-	// stub: PDF text extraction rejects on mobile, so the fixture pages stand in
 	try {
 		const documentImport = getPlatform().documentImport
 		if (!documentImport) throw new Error("PDF text extraction is unavailable.")
 		const extraction = await documentImport.extractPdfText({ path: file.path })
 		return { kind: "pdf", pages: extraction.pages.map((page) => page.text), title }
 	} catch {
-		return { kind: "pdf", pages: FIXTURE_PDF_PAGES, title }
+		return {
+			kind: "unsupported",
+			message: "Reading text from PDFs isn’t available on this device yet.",
+			title: file.name,
+		}
 	}
 }
 
@@ -310,15 +287,6 @@ async function importCsvDatabase(
 	return { notes, path: folderPath }
 }
 
-async function stubMarkdown(file: ImportSourceFile): Promise<string> {
-	// stub: fixture files carry their content inline instead of living on disk
-	const title = fileStem(file.name)
-	if (file.kind === "csv")
-		return `# ${title}\n\n${csvRecordsToMarkdownTable(parseCsvRecords(await readSource(file)))}\n`
-	if (file.kind === "html") return htmlToMarkdown(await readSource(file))
-	return `# ${title}\n\n${FIXTURE_PDF_PAGES.join("\n\n")}\n`
-}
-
 export async function runFileImport(
 	plans: readonly PlannedImportFile[],
 	destination: ImportDestination,
@@ -341,15 +309,6 @@ export async function runFileImport(
 				createdPaths.push(created.path)
 				notes += created.notes
 				rows.push({ label: `${plan.targetName}/`, ok: true })
-				continue
-			}
-			if (plan.file.stub) {
-				const path = await useVaultStore
-					.getState()
-					.createFileWithContent(folder, plan.targetName, await stubMarkdown(plan.file))
-				createdPaths.push(path)
-				notes += 1
-				rows.push({ label: getBaseName(path), ok: true })
 				continue
 			}
 			const result = await importFiles({
@@ -455,49 +414,9 @@ async function writeReportNote(
 	}
 }
 
-function wait(ms: number, signal: AbortSignal): Promise<void> {
-	return new Promise((resolve) => {
-		const timer = setTimeout(resolve, ms)
-		signal.addEventListener("abort", () => {
-			clearTimeout(timer)
-			resolve()
-		})
-	})
-}
-
-async function runFixtureObsidian(
-	options: ObsidianRunOptions,
-	destinationLabel: string,
-): Promise<ObsidianOutcome> {
-	// stub: the fixture vault simulates copy progress instead of touching the filesystem
-	const total = options.folder.totalFiles
-	let done = 0
-	if (options.mode === "copy") {
-		while (done < total && !options.signal.aborted) {
-			await wait(FIXTURE_OBSIDIAN_TICK_MS, options.signal)
-			if (options.signal.aborted) break
-			done = Math.min(total, done + FIXTURE_OBSIDIAN_STEP)
-			options.onProgress({ completed: done, total })
-		}
-	}
-	const cancelled = options.mode === "copy" && done < total
-	return {
-		...fixtureObsidianOutcome,
-		attachments: cancelled
-			? Math.max(0, done - fixtureObsidianOutcome.notes)
-			: fixtureObsidianOutcome.attachments,
-		cancelled,
-		destinationLabel,
-		mode: options.mode,
-		notes: cancelled ? Math.min(done, fixtureObsidianOutcome.notes) : fixtureObsidianOutcome.notes,
-		settingsApplied: options.mode === "open" || options.applySettings,
-	}
-}
-
 export async function runObsidianImport(options: ObsidianRunOptions): Promise<ObsidianOutcome> {
 	const folderName = options.destinationFolder.trim()
 	const destinationLabel = folderName || "vault root"
-	if (isStubPath(options.folder.path)) return runFixtureObsidian(options, destinationLabel)
 	if (options.mode === "open") {
 		await registerVaultFolder(options.folder.path, { name: options.folder.name })
 		await openVaultSession(options.folder.path)
