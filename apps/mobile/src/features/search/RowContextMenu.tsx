@@ -3,6 +3,8 @@ import type { SFSymbol } from "expo-symbols"
 import type { ReactElement } from "react"
 import { Platform } from "react-native"
 
+import { withFlatTriggerStyle } from "@/components/ui/flatTriggerStyle"
+
 export interface RowMenuAction {
 	key: string
 	label: string
@@ -60,7 +62,7 @@ export function RowContextMenu({
 				onPress()
 			}}
 		>
-			<Link.Trigger>{children(undefined)}</Link.Trigger>
+			<Link.Trigger>{withFlatTriggerStyle(children(undefined))}</Link.Trigger>
 			<Link.Menu>
 				{entries.map((entry) =>
 					isSubmenu(entry) ? (

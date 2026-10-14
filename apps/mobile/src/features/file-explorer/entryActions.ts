@@ -26,6 +26,8 @@ import {
 	type TextPromptRequest,
 } from "@/features/file-explorer/textPromptStore"
 import { getVaultDisplayName } from "@/features/file-explorer/vaultDisplayName"
+import { retargetNoteRoutes } from "@/features/navigation/routes"
+import { workspaceChannel } from "@/features/workspace/workspaceChannel"
 import { triggerDeleteHaptic, triggerSelectionHaptic } from "@/utils/haptics"
 
 const IS_IOS = Platform.OS === "ios"
@@ -102,6 +104,20 @@ export function promptNewFolder(parentPath: string): void {
 	})
 }
 
+export async function renameVaultEntry(path: string, fileName: string): Promise<string> {
+	await workspaceChannel.flush().catch(() => {})
+	const nextPath = await useVaultStore.getState().renameFile(path, fileName)
+	retargetNoteRoutes(path, nextPath)
+	return nextPath
+}
+
+async function moveVaultEntry(path: string, targetParentPath: string): Promise<string> {
+	await workspaceChannel.flush().catch(() => {})
+	const nextPath = await useVaultStore.getState().moveFile(path, targetParentPath)
+	retargetNoteRoutes(path, nextPath)
+	return nextPath
+}
+
 export function renameEntry(entry: FileEntry): void {
 	const kind = getEntryNameKind(entry)
 	promptText({
@@ -109,7 +125,7 @@ export function renameEntry(entry: FileEntry): void {
 		initialValue: getEditableEntryName(entry),
 		placeholder: entry.isDir ? "Folder name" : "Note title",
 		submit: async (value) => {
-			await useVaultStore.getState().renameFile(entry.path, toEntryFileName(kind, value))
+			await renameVaultEntry(entry.path, toEntryFileName(kind, value))
 		},
 		title: entry.isDir ? "Rename folder" : "Rename note",
 		validate: (value) => validateEntryName(kind, value),
@@ -119,7 +135,7 @@ export function renameEntry(entry: FileEntry): void {
 async function moveEntryTo(entry: FileEntry, destination: MoveDestination): Promise<void> {
 	triggerSelectionHaptic()
 	try {
-		await useVaultStore.getState().moveFile(entry.path, destination.path)
+		await moveVaultEntry(entry.path, destination.path)
 		toast(`Moved to ${destination.label}`)
 	} catch (error) {
 		toast(getErrorMessage(error))

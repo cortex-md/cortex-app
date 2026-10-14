@@ -1,8 +1,8 @@
 import { createFileTreeViewModel, useDatabaseStore, useVaultStore } from "@cortex/core"
 import { useMemo } from "react"
 
-import { openMobileNote } from "@/bootstrap/appCommands"
 import { useEntryMenuGroups } from "@/features/file-explorer/useEntryMenuGroups"
+import { openNote } from "@/features/navigation/routes"
 import type { SidebarUi } from "@/features/sidebar/sidebarUiState"
 import { triggerSelectionHaptic } from "@/utils/haptics"
 
@@ -22,7 +22,7 @@ export function useFileExplorerActions({ closeSidebar, dispatchUi, uiState }: Si
 	const entryMenuGroups = useEntryMenuGroups(closeSidebar)
 
 	function handleOpenNote(filePath: string) {
-		openMobileNote(filePath)
+		openNote(filePath, { reuseActive: true })
 		closeSidebar()
 	}
 

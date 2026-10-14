@@ -1,7 +1,7 @@
-import { type Tab, useEditorStore, useVaultStore, useWorkspaceStore } from "@cortex/core"
+import { type Tab, useVaultStore, useWorkspaceStore } from "@cortex/core"
 import { getParentPath, toVaultRelativePath } from "@cortex/platform/utils"
 import { Stack } from "expo-router"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native"
 
 import { EmptyState } from "@/components/ui/EmptyState"
@@ -11,9 +11,9 @@ import { NativeMenu } from "@/components/ui/NativeMenu"
 import { SymbolIcon } from "@/components/ui/Symbol"
 import {
 	dismissSheet,
-	openNote,
-	openPluginViewRoute,
 	presentSheet,
+	showActiveTab,
+	syncNoteWithActiveTab,
 } from "@/features/navigation/routes"
 import { NOTE_MENU_ICON, NOTE_MENU_LABEL } from "@/features/note/noteMenu"
 import { useMobileColors } from "@/hooks/useMobileColors"
@@ -102,7 +102,6 @@ export function TabsScreen() {
 	const closeTab = useWorkspaceStore((state) => state.closeTab)
 	const closeOtherTabs = useWorkspaceStore((state) => state.closeOtherTabs)
 	const activateTab = useWorkspaceStore((state) => state.activateTab)
-	const activeFilePath = useEditorStore((state) => state.activeFilePath)
 	const vaultPath = useVaultStore((state) => state.vault?.path ?? null)
 	const [query, setQuery] = useState("")
 	const tabs = pane?.tabs ?? EMPTY_TABS
@@ -125,14 +124,12 @@ export function TabsScreen() {
 		],
 	]
 
+	useEffect(() => syncNoteWithActiveTab, [])
+
 	function openTab(tab: Tab) {
 		activateTab(tab.id, activePaneId)
 		dismissSheet()
-		if (tab.tabType === "view" && tab.viewId) {
-			openPluginViewRoute(tab.viewId)
-			return
-		}
-		if (tab.filePath && tab.filePath !== activeFilePath) openNote(tab.filePath)
+		showActiveTab()
 	}
 
 	function newTab() {

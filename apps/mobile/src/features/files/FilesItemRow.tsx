@@ -38,7 +38,7 @@ function NoteItem({ item }: { item: Extract<FilesItem, { kind: "note" }> }) {
 					source: "menu",
 				})
 			}}
-			onPress={() => openNote(item.entry.path)}
+			onPress={() => openNote(item.entry.path, { reuseActive: true })}
 			title={item.title}
 		/>
 	)

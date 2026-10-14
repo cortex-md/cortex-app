@@ -129,7 +129,13 @@ async function moveProviderEntry(
 		entry.delete()
 		return
 	}
-	parentDirectory.createFile(name, getProviderMimeType(name)).write(await entry.bytes())
+	const bytes = await entry.bytes()
+	const target = parentDirectory.createFile(name, getProviderMimeType(name))
+	target.write(bytes)
+	if (target.size !== bytes.byteLength) {
+		target.delete()
+		throw new Error(`Could not copy ${entry.name} to ${name}`)
+	}
 	entry.delete()
 }
 

@@ -1,25 +1,6 @@
 import { Link } from "expo-router"
-import { cloneElement, type ReactElement } from "react"
-import {
-	type PressableStateCallbackType,
-	type StyleProp,
-	StyleSheet,
-	type ViewStyle,
-} from "react-native"
-
+import { withFlatTriggerStyle } from "@/components/ui/flatTriggerStyle"
 import type { EntryContextMenuProps } from "@/features/file-explorer/entryContextMenuTypes"
-
-type TriggerStyle =
-	| StyleProp<ViewStyle>
-	| ((state: PressableStateCallbackType) => StyleProp<ViewStyle>)
-
-function withFlatStyle(element: ReactElement) {
-	const { style } = element.props as { style?: TriggerStyle }
-	const resolved = typeof style === "function" ? style({ hovered: false, pressed: false }) : style
-	return cloneElement(element as ReactElement<{ style?: ViewStyle }>, {
-		style: StyleSheet.flatten(resolved),
-	})
-}
 
 export function EntryContextMenu({
 	children,
@@ -38,7 +19,7 @@ export function EntryContextMenu({
 				onPress()
 			}}
 		>
-			<Link.Trigger>{withFlatStyle(children({}))}</Link.Trigger>
+			<Link.Trigger>{withFlatTriggerStyle(children({}))}</Link.Trigger>
 			<Link.Menu title={header}>
 				{groups.map((group, index) => (
 					<Link.Menu inline key={group[0]?.key ?? index}>
