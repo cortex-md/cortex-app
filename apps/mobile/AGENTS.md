@@ -173,10 +173,10 @@ stores, note sessions, and draws plugin UI from a mirror.
   before native service/platform calls and commands, on document switch, on hide, and on blur; the cursor
   is sent only with a flush. Same-revision `openDocument` never replaces the editor content.
 - `NoteEditorScreen` is a placeholder: it keeps `openNoteDocumentSession`, registers the session with
-  the channel, the title, `PluginStatusMenu`, and `KeyboardAvoidingView`. While focused and after its
+  the channel, the title and `KeyboardAvoidingView`. While focused and after its
   (or an ancestor stack's) `transitionEnd`, it sends `openDocument` and shows the editor over its
   `measureInWindow` rectangle (re-measured on layout, e.g. keyboard). If `transitionEnd` has not
-  arrived 400 ms after focus or `transitionStart`, it shows the editor anyway. Blur and
+  arrived 250 ms after focus or `transitionStart`, it shows the editor anyway. Blur and
   `transitionStart` hide it. `WorkspaceHost` measures its own container with `measureInWindow` and
   positions the WebView by the difference, so it does not assume the container sits at the window
   origin.
@@ -193,11 +193,21 @@ stores, note sessions, and draws plugin UI from a mirror.
   registers those commands (`features/editor/editorCommands.ts`); do not keep a second mobile-only
   command or toolbar catalog.
 - `features/editor/styles.d.ts` declares CSS side-effect imports for TypeScript 6.
+- Startup: the WebView calls `loadEditorRuntime()` as soon as it connects, so CodeMirror is parsed
+  before the first `openDocument`. Code languages load on demand (`@cortex/editor` `languagePacks.ts`);
+  never add a language back to the eager runtime. Until the first `onViewReady` the shell shows the
+  note body in `.mobile-code-mirror-placeholder`, and vault plugins load only after that (or after
+  3 s) so they never compete with the first paint. `[editor] first paint N ms` is logged once.
 
 ## Development Scripts
 
-- From the repository root, use `bun run dev:mobile` to start Expo. Platform entry points live in
-  this package: `bun run --cwd apps/mobile ios` and `bun run --cwd apps/mobile android`.
+- The app needs a development build (`expo-dev-client`): native crypto, bookmarks and PDF text live
+  in `modules/cortex-native`, which Expo Go does not have. Build with
+  `bun run --cwd apps/mobile ios -- --device` / `bun run --cwd apps/mobile android` (`expo run:*`,
+  prebuild on demand; `ios/` and `android/` are generated and ignored), then `bun run dev:mobile`.
+  `app.config.ts` turns on Android cleartext traffic unless `APP_VARIANT=production`; iOS allows local
+  networking (`NSAllowsLocalNetworking`) for self-hosted sync on the LAN.
+- Expo Go still runs the app with JS fallbacks, but it is not the reference for sync performance.
 - Use `bun run check:mobile` for the deterministic mobile gate: Expo lint plus TypeScript.
 - Use `bun run doctor:mobile` after React-facing mobile changes. Use `bun run doctor:mobile:full`
   only for intentional broader cleanup.
@@ -270,11 +280,18 @@ stores, note sessions, and draws plugin UI from a mirror.
   workers) behind the same `Platform["sync"]` contract as desktop. `platform/syncRuntime.ts` is the
   mobile `SyncRuntime`: `expo-sqlite` (sync DB in `Documents/Cortex/sync/<rootId>.db`, never inside the
   vault), the logical fs helpers (direct `file://` access for internal roots), POSIX paths over
-  logical paths, and `platform/syncCrypto.ts` (`@noble/ciphers`, `@noble/curves`, `fflate`).
-  Argon2id is too slow for Hermes (no JIT): `platform/kdfBridge.ts` runs it in a hidden 1×1
-  `"use dom"` WebView (`features/crypto/KdfWebView`, mounted once by `KdfHost` in `app/_layout.tsx`
-  so it exists during onboarding) and falls back to `@noble/hashes` in Hermes only when the WebView
-  is not ready within 4 s. `serverApi.ts` calls `configureSyncRuntime` and wires
+  logical paths, and `platform/syncCrypto.ts`.
+- `platform/syncCrypto.ts` uses `CortexNative` when present: iOS CryptoKit (AES-GCM, X25519, SHA-256,
+  HKDF) plus the vendored PHC reference Argon2 (`modules/cortex-native/ios/argon2`, CC0, built with
+  `ARGON2_NO_THREADS`), Android `javax.crypto` + BouncyCastle (`bcprov-jdk18on`, Argon2id v1.3 and
+  X25519). Argon2id is an `AsyncFunction` (off the JS thread); the rest are synchronous JSI functions.
+  Outputs must stay byte-identical to node `argon2`/noble (raw 32-byte Argon2id, empty-salt HKDF).
+  Without the module (Expo Go) it falls back to noble + `fflate`, and Argon2id runs in a hidden 1×1
+  `"use dom"` WebView (`platform/kdfBridge.ts`, `features/crypto/KdfHost` in `app/_layout.tsx`) with a
+  Hermes fallback after 4 s; `KdfHost` renders nothing when native crypto exists.
+- `mobileSyncFs` writes, renames and deletes emit `emitSyntheticWatchEvent` (`platform/watcher.ts`)
+  to every active `startWatching` ancestor, because the iOS watcher is not recursive and Android
+  provider roots have none. These events never go through `syncSignals.ts`. `serverApi.ts` calls `configureSyncRuntime` and wires
   `accountKeyCrypto` and invite keys like desktop. App writes notify the engine through
   `syncSignals.ts`; going to the background stops the engine and coming back restarts it.
 - `platform/collab.ts` runs core `createCollabTransport` in-process (React Native WebSocket). The
@@ -332,16 +349,19 @@ stores, note sessions, and draws plugin UI from a mirror.
   (`useMobileCommunityStyles()`), the scoped `styles.css` of enabled community plugins.
 - Surfaces: `workspace.openView` (a WebView `serviceCall`) and drawer "Plugins"
   rows (`sidebarItems` filtered to `sidebar-left` views, `features/sidebar/PluginSidebarRows`, emoji or Lucide icons via `PluginContributionIcon`) call `openPluginView`, which
-  pushes `app/(notes)/plugin-view` (`PluginViewScreen`, title from the registered view).
-  `selectVisibleStatusBarItems` feeds the note header `Stack.Toolbar` menu (`PluginStatusMenu`);
-  `selectContextMenuItems(state, "file", ...)` appends plugin actions to the entry context menu;
-  `PluginModalHost` (mounted once in `AppGate`) presents `modalInstances` as page sheets with
-  controlled state (`mobilePluginHost.updateModalState`/`closeModal`, forwarded to the host).
+  pushes `app/(tabs)/(files,today,bookmarks,tags,search)/plugin-view` (`PluginViewScreen`, title from
+  the registered view). `selectVisibleStatusBarItems` feeds the note ⋯ menu;
+  `selectContextMenuItems(state, "file", ...)` appends plugin actions to the entry context menu and
+  `"editor"` items to the keyboard toolbar More menu. `PluginModalHost` (mounted once in `AppGate`)
+  pushes the `plugin-modal` sheet (`PluginModalScreen`, native title and Done) for each new
+  `modalInstances` entry; dismissing the sheet calls `closeModal`, and a modal closed by the plugin
+  dismisses its sheet. Remote views report state changes to the controlled owner
+  (`updateModalState`).
 - Native plugin contributions are proxies: commands run through the WebView host and views are remote
   (`RegisteredView.remote`), rendered by the same `PluginView`.
 - Settings lists plugins in a "Plugins" section (`features/settings/PluginsSettingsScreen.tsx`):
   `enablePlugin`/`disablePlugin` followed by `saveEnabledPlugins`, like desktop. Rows with a
-  settings page push `app/(settings)/plugin-settings`, where `PluginSettingsForm` renders
+  settings page push `app/settings/plugin-settings`, where `PluginSettingsForm` renders
   `resolvePluginSettingFields` with `@expo/ui` rows and writes through `setPluginSetting`
   (text and number fields commit on end editing).
 
@@ -379,7 +399,7 @@ stores, note sessions, and draws plugin UI from a mirror.
 - Install never enables a plugin; uninstall confirms through `dialog.showConfirm`. Plugin installed state
   reads `usePluginStore`; themes are the real registry entries, installed when `findThemeFamily` matches
   a loaded family (`useThemeFamilies()`), and "Use theme" writes `appearance.theme = family.name`.
-  Templates come from `marketplaceAdapter.ts` fixtures.
+  Templates come from the registry (`marketplaceAdapter.ts` over the marketplace store).
 
 ## Settings and Theme
 
@@ -454,7 +474,17 @@ stores, note sessions, and draws plugin UI from a mirror.
 - `features/history/` owns Version history (local snapshots plus the 20 newest server versions,
   downloaded with concurrency 4) and Deleted notes (server trash via `listDeletedFiles`, body
   downloaded on open, restore through `restoreDeletedFile`). Conflicts are keyed by vault-relative
-  path like core; `NoteConflictBanner` opens the conflict screen.
+  path like core.
+- Sync status lives in the `sync` sheet (`features/sync/SyncSheet.tsx`): status, Sync now, Conflicts,
+  Version history of the active note, Sync logs, Deleted notes and Sync settings. It opens from the Files
+  root toolbar button (badge with the conflict count; `Stack.Toolbar.Badge` on iOS,
+  `HeaderIconButton badge` on Android), the drawer "Sync" row and the note ⋯ menu.
+- Conflicts: `startSyncAlerts()` (`features/sync/syncAlerts.ts`, started by `useMobileRuntime`) runs core
+  `startNativeNotifications()`, opens the conflict screen from a `sync-conflict:` notification and
+  reloads conflicts (`loadConflicts`) whenever the engine goes live, so both sides survive restarts.
+  `NoteConflictBanner` renders `ConflictBannerView.{ios,android}` (SwiftUI glass card / Compose `Card`)
+  with Keep mine, Keep theirs and Compare. The `conflict` screen has a Changes | Mine | Theirs segmented
+  control and Keep mine / Keep both and edit / Keep theirs. Resolutions are awaited and report errors.
 - `features/collab/collabAdapter.ts` maps members, presence (`useMembersStore.presence`), invites
   (including guests limited to one note through a path grant) and note links
   (`useNoteSharesStore`, bundle built by `noteShareBundle.ts` without DOMParser).
@@ -481,14 +511,15 @@ stores, note sessions, and draws plugin UI from a mirror.
 - `features/templates/` owns New from template (`app/from-template/` stack: list + `preview`),
   Insert template (`app/insert-template.tsx`), the template editor (`template-editor`, Preview | Source
   in the toolbar, "New note settings" pushes `template-settings`) and Settings → Templates.
-- Data comes from `useTemplateStore` and `@cortex/templates`; `templatesAdapter.ts` (`// stub:`) seeds
-  team and marketplace template fixtures.
+- Data comes from `useTemplateStore` and `@cortex/templates`; `templatesAdapter.ts` reads the real team
+  and marketplace templates.
 - `features/importExport/` owns Import (`app/import/` stack: source, Obsidian, progress, review,
   preview, result) and Settings → Import & export; `features/share/` owns Share as template
   (`app/share-template/`). Shared native form fields live in `importExport/FormFields.*` and header
   buttons in `importExport/HeaderActions.tsx` (`useCloseSheetStack()` closes a nested sheet).
-- `features/conflict/` owns the `conflict` screen (Keep local / Keep remote in the toolbar,
-  `conflictAdapter.ts` stubs, diff from core `buildDiffRows`).
+- `features/conflict/` owns the `conflict` screen and the note banner (see Sync, History and
+  Recovery); `conflictAdapter.ts` resolves through `useSyncStore.resolveConflict`, diff from core
+  `buildDiffRows`.
 
 ## Files, Note Chrome and Properties
 
@@ -527,4 +558,4 @@ stores, note sessions, and draws plugin UI from a mirror.
   snapshot, `@cortex/properties/database`). Never filter, sort or group rows in screens.
 - Table, board, calendar and gallery views stay React Native; headers, toolbars, search and menus are
   native. The status chooser is a SwiftUI `ConfirmationDialog` on iOS and a Compose `AlertDialog` on
-  Android. `databaseAdapter.ts` (`// stub:`) supplies fixture row templates and team presets.
+  Android. `databaseAdapter.ts` maps the real row templates (`config.templates`) and shared presets.

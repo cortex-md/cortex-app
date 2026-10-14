@@ -110,3 +110,18 @@ Só o que depende de você. Cada item traz o contexto e a recomendação.
   - o processo main ocupa 476 MB de RSS, mas só 56 MB de heap JS e 64 MB de memória externa, ou seja, o grosso é memória nativa do processo Browser;
   - **recomendação:** investigar o main com Instruments (Allocations / VM Tracker) em 50 mil notas. Suspeitos: o `fs.watch` recursivo, o cache do `node:sqlite` e buffers de IPC;
   - na renderer, ver se o índice de busca e o cache de notas ficam vivos em duplicidade com o worker.
+
+## 11. Fechamento do mobile: validar o dev build
+
+Feito sem Xcode nem Android SDK nesta máquina. O código nativo foi validado por vetores (Swift/CryptoKit e o Argon2 em C compilados com `swiftc`/`clang`; BouncyCastle no JVM), mas o app nativo ainda não foi compilado.
+
+- **Bundle id:** `app.cortex.mobile` (iOS e Android) foi escolhido por mim, no padrão do desktop (`app.cortex.desktop`). Troque antes de publicar se preferir outro.
+- **Build:** `bun run --cwd apps/mobile ios -- --device` e `bun run --cwd apps/mobile android`. Precisa de Xcode (assinatura com seu time) e Android SDK.
+- **Conferir no aparelho:**
+  1. cadastro e login terminam em menos de 1 s (log `[kdf]` não deve aparecer; ele só aparece no fallback do Expo Go);
+  2. criar conta no celular e entrar no desktop, e o contrário;
+  3. baixar um vault: as notas aparecem em Files e no drawer sem reiniciar;
+  4. conflito (editar a mesma nota offline nos dois lados): notificação, badge no botão de sync, banner na nota, Keep mine / Keep theirs / Keep both;
+  5. `[editor] first paint N ms` no console ao abrir a primeira nota, antes e depois de uma build release;
+  6. plugin com modal (estado preservado) e item de menu `editor` no More do teclado.
+- **Não feito:** pré-aquecer a WebView do editor antes de abrir o vault e carregar o `yjs` sob demanda; dependem de medir no aparelho primeiro.
