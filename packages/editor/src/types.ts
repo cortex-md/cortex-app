@@ -1,14 +1,6 @@
 import type * as CodeMirrorAutocomplete from "@codemirror/autocomplete"
 import type * as CodeMirrorCommands from "@codemirror/commands"
-import type * as CodeMirrorLangCss from "@codemirror/lang-css"
-import type * as CodeMirrorLangHtml from "@codemirror/lang-html"
-import type * as CodeMirrorLangJavascript from "@codemirror/lang-javascript"
-import type * as CodeMirrorLangJson from "@codemirror/lang-json"
 import type * as CodeMirrorLangMarkdown from "@codemirror/lang-markdown"
-import type * as CodeMirrorLangPython from "@codemirror/lang-python"
-import type * as CodeMirrorLangRust from "@codemirror/lang-rust"
-import type * as CodeMirrorLangSql from "@codemirror/lang-sql"
-import type * as CodeMirrorLangYaml from "@codemirror/lang-yaml"
 import type * as CodeMirrorLanguage from "@codemirror/language"
 import type * as CodeMirrorSearch from "@codemirror/search"
 import type {
@@ -88,15 +80,7 @@ export type EditorRuntimeBlockWrapperSet = RangeSet<BlockWrapper>
 export interface EditorRuntimeModules {
 	autocomplete: typeof CodeMirrorAutocomplete
 	commands: typeof CodeMirrorCommands
-	langCss: typeof CodeMirrorLangCss
-	langHtml: typeof CodeMirrorLangHtml
-	langJavascript: typeof CodeMirrorLangJavascript
-	langJson: typeof CodeMirrorLangJson
 	langMarkdown: typeof CodeMirrorLangMarkdown
-	langPython: typeof CodeMirrorLangPython
-	langRust: typeof CodeMirrorLangRust
-	langSql: typeof CodeMirrorLangSql
-	langYaml: typeof CodeMirrorLangYaml
 	language: typeof CodeMirrorLanguage
 	search: typeof CodeMirrorSearch
 	state: typeof import("@codemirror/state")

@@ -6,6 +6,7 @@ import {
 	pluginFoldingExtension,
 } from "./folding"
 import { buildHighlightStyle } from "./highlight"
+import { codeLanguagePacks } from "./languagePacks"
 import { livePreviewExtension } from "./livePreview"
 import { defaultMarkdownKeymapExtension, type MarkdownCommandExecutor } from "./markdownKeymap"
 import { loadEditorRuntime } from "./runtime"
@@ -28,47 +29,9 @@ import { vimCommandExtension } from "./vimCommands"
 
 function createCodeLanguages(runtime: EditorRuntimeModules) {
 	const { LanguageDescription } = runtime.language
-	return [
-		LanguageDescription.of({
-			name: "JavaScript",
-			alias: ["js"],
-			load: async () => runtime.langJavascript.javascript(),
-		}),
-		LanguageDescription.of({
-			name: "TypeScript",
-			alias: ["ts"],
-			load: async () => runtime.langJavascript.javascript({ typescript: true }),
-		}),
-		LanguageDescription.of({
-			name: "JSX",
-			alias: ["jsx"],
-			load: async () => runtime.langJavascript.javascript({ jsx: true }),
-		}),
-		LanguageDescription.of({
-			name: "TSX",
-			alias: ["tsx"],
-			load: async () => runtime.langJavascript.javascript({ jsx: true, typescript: true }),
-		}),
-		LanguageDescription.of({
-			name: "Python",
-			alias: ["py"],
-			load: async () => runtime.langPython.python(),
-		}),
-		LanguageDescription.of({
-			name: "Rust",
-			alias: ["rs"],
-			load: async () => runtime.langRust.rust(),
-		}),
-		LanguageDescription.of({ name: "HTML", load: async () => runtime.langHtml.html() }),
-		LanguageDescription.of({ name: "CSS", load: async () => runtime.langCss.css() }),
-		LanguageDescription.of({ name: "JSON", load: async () => runtime.langJson.json() }),
-		LanguageDescription.of({
-			name: "YAML",
-			alias: ["yml"],
-			load: async () => runtime.langYaml.yaml(),
-		}),
-		LanguageDescription.of({ name: "SQL", load: async () => runtime.langSql.sql() }),
-	]
+	return codeLanguagePacks.map((pack) =>
+		LanguageDescription.of({ name: pack.name, alias: pack.alias, load: pack.load }),
+	)
 }
 
 export const DEFAULT_EDITOR_CONFIG: EditorConfig = {
