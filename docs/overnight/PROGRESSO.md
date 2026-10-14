@@ -5,7 +5,7 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 ## Estado atual
 
 - Início: 2026-10-13 23:25 (-03).
-- Item em andamento: 7. Lembretes de tarefa.
+- Item em andamento: 8. Pontuais.
 
 ## Status por item
 
@@ -17,8 +17,8 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 | 4. Arquivos nativos | feito (PDF depende do item 8) | cf544e8, ef54b4b, e1e9f14 | `dialog.pickFile/pickFiles` com `expo-document-picker` (os arquivos vão para `Documents/Cortex/.picked`, que é app storage); importação sem fixtures (arquivos, CSV, HTML e Obsidian pelo seletor de pasta). Exportação grava o arquivo de verdade (HTML, CSV, PDF via `expo-print`) e abre o share sheet com o MIME/UTI certo. Imagem: item "Image" da toolbar abre a galeria; colar imagem no editor funciona via `saveImage` na bridge (base64). A pasta da imagem segue `editor.imageStorageLocation`, como no desktop. |
 | 5. APIs de compartilhamento | feito (validar no device) | e1fffcd, 35dee7a, 6846184, 4508189, e0b8530 + grupos | Os serviços já existiam em `@cortex/sync-api`, e o servidor (`../sync`, Go) já tem os endpoints; faltava ligar no mobile. Links públicos de nota (bundle com imagens embutidas, sem DOMParser), convites, papéis, remoção, convidado restrito a uma nota (grant no caminho), grupos (criar e apagar), templates de equipe (`refreshTeamTemplates`), marketplace de templates (`listMarketTemplates` e `openPublicTemplate`), publicar template de database, abrir `cortex://s/…`, `cortex://invite/…` e `cortex://t/…`. |
 | 6. Colaboração em tempo real | feito (validar no device) | e6116d7 | Transporte do core (`createCollabTransport`) no lado React Native, com o WebSocket do RN. A sessão Yjs do core roda no React Native e a WebView tem um Y.Doc espelho ligado ao CodeMirror (`collab` do `EditorView`). Pela bridge passam só updates incrementais, agrupados em 16 ms com `Y.mergeUpdates`; o cursor vai como campo `cursor` do awareness e os estados dos pares vão codificados. Reconexão e offline ficam com a sessão do `@cortex/collab`. |
-| 7. Lembretes | em andamento | | |
-| 8. Pontuais | pendente | | |
+| 7. Lembretes | feito (validar no device) | 3481b7f, 97bd347 | `platform.notifications` com `expo-notifications`: permissão, envio imediato, `schedule(scope, …)` com diff (cancela só o que mudou), categorias com as ações do core, canal Android "reminders", ativação, inclusive em cold start. Opção `tasks` no `startAppRuntime` do core: o mobile liga o `startTasksRuntime` sem a indexação eager; o índice de tarefas é montado 4 s depois de abrir o vault. |
+| 8. Pontuais | em andamento | | |
 | Fase 2: API | pendente | | |
 | Fase 2: desktop | pendente | | |
 
@@ -56,6 +56,9 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 - **Collab no mobile:** enquanto o espelho está ligado, a WebView não faz commit do texto, porque a persistência do collab grava pelo `noteCache.writeLive`. Isso evita aplicar a mesma edição duas vezes (diff mais Yjs). As transações vindas da bridge entram como origem rastreada do UndoManager, então a persistência as trata como edição local.
 - `yjs` e `y-protocols` foram adicionados ao mobile nas mesmas versões fixas do `@cortex/collab` (uma única cópia no `node_modules/.bun`), para não quebrar o `instanceof` do Yjs.
 
+- **Sobras do item 1 resolvidas** (`46a2117`, database): o "Add vault" remoto usa as chaves E2E reais (senha da conta, recovery key, pedido de chave ao admin, senha legada) e o progresso vem de `initialSyncProgress`. Saíram as fixtures de templates de linha de database e de presets de equipe.
+- **Lembretes no iOS:** o limite de 64 notificações pendentes vira 60 agendadas, sempre as mais próximas. O core replaneja a cada 30 min e a cada mudança de tarefa.
+
 ## Próximo passo exato
 
-Item 7: instalar `expo-notifications`, implementar `platform/notifications.ts` (permissão, envio e agendamento) e ver como o desktop agenda lembretes (`apps/desktop/electron/services/taskReminderActions.ts`, `packages/core` reminders/`nativeNotifications`, capability `notifications:schedule`); reagendar quando as tarefas mudam.
+Item 8: (a) assinatura: abstração de compra em `features/billing` (provedor `web-checkout` real via `subscription` do sync-api e interface para IAP), sem product IDs; (b) módulo Expo local `modules/cortex-bookmarks` (Swift: security-scoped bookmarks; Kotlin: persistable URI permission) e uso em `platform/vaultRoots.ts`; (c) watcher Android; (d) extrator de texto de PDF (PDFKit no iOS no mesmo módulo, Android: decidir).
