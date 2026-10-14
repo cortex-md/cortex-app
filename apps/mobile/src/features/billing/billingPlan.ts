@@ -11,7 +11,7 @@ export interface HostedSyncPlan {
 	purchaseNote: string
 }
 
-export const FIXTURE_HOSTED_SYNC_PLAN: HostedSyncPlan = {
+export const HOSTED_SYNC_PLAN: HostedSyncPlan = {
 	name: "Hosted Sync",
 	eyebrow: "Cortex Sync",
 	headline: "Sync when you want it. The files stay yours.",
@@ -21,17 +21,10 @@ export const FIXTURE_HOSTED_SYNC_PLAN: HostedSyncPlan = {
 	tagline: "Hosted sync for the workspace you already own.",
 	cta: "Upgrade hosted Sync",
 	selfHostingNote: "Self-hosting remains available. The paid plan is for hosted Cortex Sync.",
-	purchaseNote: "[Purchase path on iOS: App Store in-app purchase or web checkout]",
+	purchaseNote: "Checkout opens on cortex.md. Your plan updates here as soon as you come back.",
 }
-
-export const FIXTURE_ENTITLED = true
 
 export interface AccountSummary {
 	displayName: string
 	email: string
-}
-
-export const FIXTURE_ACCOUNT: AccountSummary = {
-	displayName: "Ana Moreira",
-	email: "ana@example.com",
 }

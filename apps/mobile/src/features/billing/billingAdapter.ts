@@ -1,25 +1,22 @@
 import {
-	BILLING_URL,
 	requiresCloudEntitlement,
 	resolveSyncServerUrl,
 	useAuthStore,
 	useRemoteVaultStore,
 	useSubscriptionStore,
 } from "@cortex/core"
-import { getPlatform } from "@cortex/platform"
+import { useEffect } from "react"
 
 import {
 	type AccountSummary,
-	FIXTURE_ACCOUNT,
-	FIXTURE_ENTITLED,
-	FIXTURE_HOSTED_SYNC_PLAN,
+	HOSTED_SYNC_PLAN,
 	type HostedSyncPlan,
-} from "@/features/billing/billingFixtures"
+} from "@/features/billing/billingPlan"
+import { type PurchaseResult, selectPurchaseProvider } from "@/features/billing/purchaseProvider"
 
 export function useAccountSummary(): AccountSummary {
-	// stub: the fixture account stands in while nobody is signed in on this device
 	const user = useAuthStore((state) => state.user)
-	if (!user) return FIXTURE_ACCOUNT
+	if (!user) return { displayName: "Not signed in", email: "Sign in to sync" }
 	return { displayName: user.displayName ?? user.email, email: user.email }
 }
 
@@ -30,25 +27,30 @@ export interface HostedSyncEntitlement {
 }
 
 export function getHostedSyncPlan(): HostedSyncPlan {
-	// stub: plan copy and pricing come from the fixture until billing is wired on mobile
-	return FIXTURE_HOSTED_SYNC_PLAN
+	return HOSTED_SYNC_PLAN
 }
 
 export function useHostedSyncEntitlement(): HostedSyncEntitlement {
-	// stub: falls back to the fixture entitlement when the server status has not been fetched
 	const syncConfig = useRemoteVaultStore((state) => state.syncConfig)
 	const statusByServer = useSubscriptionStore((state) => state.statusByServer)
+	const authenticated = useAuthStore((state) => state.authenticated)
 	const serverUrl = resolveSyncServerUrl(syncConfig)
 	const cached = statusByServer[serverUrl]?.status
-	const entitled = cached ? cached.entitled : FIXTURE_ENTITLED
+	useEffect(() => {
+		if (!authenticated || cached) return
+		void useSubscriptionStore
+			.getState()
+			.refreshStatus(serverUrl)
+			.catch(() => undefined)
+	}, [authenticated, cached, serverUrl])
+	const entitled = cached?.entitled ?? false
 	return {
 		entitled,
 		locked: requiresCloudEntitlement(syncConfig) && !entitled,
-		planLabel: entitled ? FIXTURE_HOSTED_SYNC_PLAN.name : "Free",
+		planLabel: entitled ? HOSTED_SYNC_PLAN.name : "Free",
 	}
 }
 
-export async function openUpgradeCheckout(): Promise<void> {
-	// stub: purchase path (App Store IAP / Play Billing / web checkout) is not implemented; opens the billing page
-	await getPlatform().app.openExternalUrl(BILLING_URL)
+export function openUpgradeCheckout(): Promise<PurchaseResult> {
+	return selectPurchaseProvider().purchase("hosted-sync")
 }
