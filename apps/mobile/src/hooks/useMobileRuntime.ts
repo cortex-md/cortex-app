@@ -13,6 +13,7 @@ import { AppState } from "react-native"
 
 import { startMobileThemeSync } from "@/features/themes/themeSync"
 import { startReminderIndexing } from "@/features/today/reminderIndexing"
+import { startExternalVaultRefresh } from "@/features/vault/externalVaultRefresh"
 import { cleanErrorMessage } from "@/features/vault/vaultErrors"
 import { getMobileVaultAccess } from "@/platform/vaultAccess"
 
@@ -40,6 +41,7 @@ export function useMobileRuntime(): MobileRuntimeState {
 		})
 		const stopSyncLifecycle = startSyncLifecycle()
 		const stopReminderIndexing = startReminderIndexing()
+		const stopExternalVaultRefresh = startExternalVaultRefresh()
 		const stopThemeSync = startMobileThemeSync()
 		const appStateSubscription = AppState.addEventListener("change", (appState) => {
 			if (appState === "background" || appState === "inactive") void flushPendingWrites()
@@ -61,6 +63,7 @@ export function useMobileRuntime(): MobileRuntimeState {
 			stopThemeSync()
 			stopSyncLifecycle()
 			stopReminderIndexing()
+			stopExternalVaultRefresh()
 			stopAppRuntime()
 		}
 	}, [])

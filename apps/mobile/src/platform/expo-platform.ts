@@ -7,6 +7,7 @@ import { clipboardApi } from "./clipboard"
 import { collabApi } from "./collab"
 import { deviceApi } from "./device"
 import { dialogApi } from "./dialog"
+import { documentImportApi } from "./documentImport"
 import { fsApi } from "./fs"
 import { httpApi } from "./http"
 import { keychainApi } from "./keychain"
@@ -15,7 +16,6 @@ import { serverApi } from "./serverApi"
 import { sharesApi, templateSharesApi } from "./shares"
 import { storageApi } from "./storage"
 import { syncApi } from "./sync"
-import { unsupportedPhase1 } from "./unsupported"
 import { vaultApi } from "./vault"
 import { windowApi } from "./window"
 
@@ -36,9 +36,7 @@ export const expoPlatform: Platform = {
 	device: deviceApi,
 	devices: serverApi.devices,
 	dialog: dialogApi,
-	documentImport: {
-		extractPdfText: () => unsupportedPhase1("documentImport.extractPdfText"),
-	},
+	documentImport: documentImportApi,
 	font: {
 		listSystemFonts: async () => [],
 	},

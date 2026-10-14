@@ -2,7 +2,7 @@ import type { NativePlatform } from "@cortex/platform"
 import { getBaseName, joinPath, VAULT_CONFIG_DIR, VAULT_FILES } from "@cortex/platform/utils"
 import { readOrCreateVaultId, sanitizeVaultFolderName } from "@cortex/platform/vault"
 import { Directory, File, Paths } from "expo-file-system"
-
+import { CortexNative } from "../../modules/cortex-native"
 import {
 	appDirectoryName,
 	getVaultRootMapPath,
@@ -32,6 +32,7 @@ export interface MobileVaultRootRecord {
 	platform: NativePlatform
 	location?: MobileVaultRootLocation
 	documentPath?: string
+	bookmark?: string
 }
 
 const internalVaultsDirectoryName = "Vaults"
@@ -86,8 +87,34 @@ function isInternalRoot(record: MobileVaultRootRecord): boolean {
 	return record.location === "internal" && typeof record.documentPath === "string"
 }
 
+function persistAccess(directoryUri: string): string | undefined {
+	if (!CortexNative) return undefined
+	try {
+		CortexNative.takePersistablePermission(directoryUri)
+		return CortexNative.createBookmark(directoryUri) ?? undefined
+	} catch {
+		return undefined
+	}
+}
+
+function restoreExternalAccess(record: MobileVaultRootRecord): MobileVaultRootRecord {
+	if (!CortexNative || !record.bookmark) return record
+	try {
+		const resolved = CortexNative.resolveBookmark(record.bookmark)
+		if (!resolved) return record
+		const directoryUri = normalizeUri(resolved.uri)
+		return {
+			...record,
+			directoryUri,
+			bookmark: resolved.stale ? (persistAccess(directoryUri) ?? record.bookmark) : record.bookmark,
+		}
+	} catch {
+		return record
+	}
+}
+
 function hydrateRoot(record: MobileVaultRootRecord): MobileVaultRootRecord {
-	if (!isInternalRoot(record)) return { ...record, location: "external" }
+	if (!isInternalRoot(record)) return restoreExternalAccess({ ...record, location: "external" })
 	return {
 		...record,
 		directoryUri: normalizeUri(resolveDocumentDirectory(record.documentPath ?? "").uri),
@@ -254,6 +281,10 @@ async function saveRoot(
 		uuid: "pending",
 		...(documentPath === null ? {} : { documentPath }),
 	}
+	if (location === "external") {
+		const bookmark = persistAccess(directoryUri)
+		if (bookmark) base.bookmark = bookmark
+	}
 	if (documentPath !== null) base.displayPath = getBaseName(documentPath) || "Vault"
 
 	let uuid: string
@@ -288,6 +319,9 @@ export async function registerPickedDirectory(directory: Directory): Promise<str
 	if (existingRoot) {
 		existingRoot.lastAuthorizedAt = Date.now()
 		existingRoot.platform = getNativePlatform()
+		if (!isInternalRoot(existingRoot)) {
+			existingRoot.bookmark = persistAccess(directoryUri) ?? existingRoot.bookmark
+		}
 		await writeMobileVaultRoots(roots)
 		return existingRoot.logicalPath
 	}
