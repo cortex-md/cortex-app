@@ -7,12 +7,20 @@ import type {
 	ScheduledNotificationRequest,
 } from "@cortex/platform"
 import * as Notifications from "expo-notifications"
-import { Linking } from "react-native"
+import { Linking, Platform as ReactNativePlatform } from "react-native"
 
 const MAX_PENDING = 60
 const SCOPE_KEY = "cortexScope"
 const ID_KEY = "cortexId"
 const PAYLOAD_KEY = "cortexPayload"
+const REMINDER_CHANNEL_ID = "reminders"
+
+if (ReactNativePlatform.OS === "android") {
+	void Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
+		name: "Task reminders",
+		importance: Notifications.AndroidImportance.HIGH,
+	})
+}
 
 Notifications.setNotificationHandler({
 	handleNotification: async () => ({

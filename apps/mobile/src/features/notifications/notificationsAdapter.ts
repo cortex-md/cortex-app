@@ -3,12 +3,11 @@ import { useSyncExternalStore } from "react"
 import { Linking } from "react-native"
 
 import {
-	exactAlarmsFixture,
 	type NotificationChannel,
-	notificationChannels,
 	type NotificationPermissionState,
-	testReminderFixture,
-} from "@/features/notifications/notificationsFixtures"
+	REMINDER_CHANNEL,
+	TEST_REMINDER,
+} from "@/features/notifications/notificationTypes"
 
 const listeners = new Set<() => void>()
 let permission: NotificationPermissionState = "prompt"
@@ -35,31 +34,27 @@ function setPermission(next: NotificationPermissionState): void {
 }
 
 export async function loadNotificationPermission(): Promise<NotificationPermissionState> {
-	// stub: the Expo platform adapter reports "unsupported" until expo-notifications is wired
 	const state = await getPlatform().notifications.getPermission()
 	if (state === "granted" || state === "denied") setPermission(state)
 	return permission
 }
 
 export async function requestNotificationPermission(): Promise<NotificationPermissionState> {
-	// stub: replace with expo-notifications requestPermissionsAsync once native builds exist
 	const state = await getPlatform().notifications.requestPermission()
-	setPermission(state === "denied" ? "denied" : "granted")
+	setPermission(state === "granted" || state === "denied" ? state : "prompt")
 	return permission
 }
 
 export async function sendTestReminder(): Promise<boolean> {
-	// stub: the real path schedules testReminderFixture through getPlatform().notifications.send
 	const result = await getPlatform().notifications.send({
-		title: testReminderFixture.title,
-		body: testReminderFixture.body,
+		title: TEST_REMINDER.title,
+		body: TEST_REMINDER.body,
 		source: "core",
 	})
-	return result.delivered || permission === "granted"
+	return result.delivered
 }
 
 export async function openSystemNotificationSettings(): Promise<void> {
-	// stub: iOS deep links to Settings → Cortex → Notifications; Android to the channel list
 	const platformSettings = getPlatform().notifications.openSystemSettings
 	if (platformSettings) {
 		await platformSettings()
@@ -69,13 +64,11 @@ export async function openSystemNotificationSettings(): Promise<void> {
 }
 
 export function listNotificationChannels(): NotificationChannel[] {
-	// stub: Android channels come from the notification module once it exists
-	return notificationChannels
+	return [REMINDER_CHANNEL]
 }
 
 export function getExactAlarmsState(): { allowed: boolean; subtitle: string } {
-	// stub: read AlarmManager.canScheduleExactAlarms through a native module
-	return exactAlarmsFixture
+	return { allowed: true, subtitle: "Android decides exact timing in system settings" }
 }
 
 export function useNotificationPermission(): NotificationPermissionState {
