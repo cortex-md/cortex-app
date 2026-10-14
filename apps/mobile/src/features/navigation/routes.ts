@@ -6,6 +6,7 @@ import { useCallback } from "react"
 
 export type SettingsPage =
 	| "general"
+	| "password"
 	| "vaults"
 	| "appearance"
 	| "editor"

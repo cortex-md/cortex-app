@@ -15,6 +15,7 @@ export default function SettingsLayout() {
 			<Stack.Screen name="notifications" options={{ title: "Notifications" }} />
 			<Stack.Screen name="import-export" options={{ title: "Import & Export" }} />
 			<Stack.Screen name="general" options={{ title: "General" }} />
+			<Stack.Screen name="password" options={{ title: "Change password" }} />
 			<Stack.Screen name="vaults" options={{ title: "Vaults" }} />
 			<Stack.Screen name="appearance" options={{ title: "Appearance" }} />
 			<Stack.Screen name="editor" options={{ title: "Editor" }} />

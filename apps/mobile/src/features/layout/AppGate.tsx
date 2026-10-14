@@ -57,6 +57,7 @@ export function AppGate() {
 				<Stack.Screen name="comments" options={formSheetOptions([0.65, 1])} />
 				<Stack.Screen name="people" options={formSheetOptions("large")} />
 				<Stack.Screen name="quick-add" options={formSheetOptions("medium")} />
+				<Stack.Screen name="reset-password" options={formSheetOptions("large")} />
 				<Stack.Screen name="export" options={formSheetOptions("medium")} />
 				<Stack.Screen name="task" options={fullScreenOrSheetOptions("large")} />
 				<Stack.Screen
