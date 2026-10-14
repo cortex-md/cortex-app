@@ -8,9 +8,17 @@
 		"scheme": "cortex",
 		"userInterfaceStyle": "automatic",
 		"ios": {
-			"icon": "./assets/expo.icon"
+			"icon": "./assets/expo.icon",
+			"bundleIdentifier": "app.cortex.mobile",
+			"infoPlist": {
+				"NSAppTransportSecurity": {
+					"NSAllowsLocalNetworking": true
+				},
+				"NSLocalNetworkUsageDescription": "Cortex connects to the sync server you run on your local network."
+			}
 		},
 		"android": {
+			"package": "app.cortex.mobile",
 			"adaptiveIcon": {
 				"backgroundColor": "#E6F4FE",
 				"foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -35,6 +43,17 @@
 				{
 					"photosPermission": "Cortex inserts the photos you choose into your notes.",
 					"cameraPermission": "Cortex inserts the photos you take into your notes."
+				}
+			],
+			[
+				"expo-build-properties",
+				{
+					"ios": {
+						"deploymentTarget": "16.4"
+					},
+					"android": {
+						"minSdkVersion": 24
+					}
 				}
 			]
 		],
