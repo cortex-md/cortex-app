@@ -57,6 +57,9 @@
 			"path": "../../packages/sync-api"
 		},
 		{
+			"path": "../../packages/sync-engine"
+		},
+		{
 			"path": "../../packages/theme"
 		},
 		{

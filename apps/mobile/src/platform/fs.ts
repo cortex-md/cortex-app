@@ -31,6 +31,7 @@ import {
 	resolveLogicalFile,
 	routeStoragePath,
 } from "./pathResolver"
+import { notifyLocalFileChange } from "./syncSignals"
 import {
 	findEntry,
 	findMobileVaultRootByPath,
@@ -46,7 +47,7 @@ function getProviderMimeType(path: string): string {
 	return path.toLowerCase().endsWith(".md") ? "text/markdown" : "application/octet-stream"
 }
 
-async function writeLogicalFile(path: string, content: FileContent): Promise<File> {
+export async function writeLogicalFile(path: string, content: FileContent): Promise<File> {
 	const { file } = await resolveLogicalFile(path, {
 		create: true,
 		mimeType: getProviderMimeType(path),
@@ -75,6 +76,7 @@ export async function readTextFile(path: string): Promise<string> {
 
 export async function writeTextFile(path: string, content: string): Promise<void> {
 	await writeFileHandle(path, content, "fs.writeFile")
+	notifyLocalFileChange(path)
 }
 
 export async function readOptionalTextFile(path: string): Promise<string | null> {
@@ -148,7 +150,11 @@ function createDestinationEntry(
 	return isDir ? new Directory(parentDirectory, name) : new File(parentDirectory, name)
 }
 
-async function renameFile(oldPath: string, newPath: string): Promise<void> {
+export async function renameFile(
+	oldPath: string,
+	newPath: string,
+	options?: { overwrite?: boolean },
+): Promise<void> {
 	const source = await resolveEntry(oldPath)
 	const supportedOldPath = assertSupportedPath(oldPath, "fs.renameFile")
 	const supportedNewPath = assertSupportedPath(newPath, "fs.renameFile")
@@ -166,7 +172,8 @@ async function renameFile(oldPath: string, newPath: string): Promise<void> {
 			await findMobileVaultRootByPath(supportedNewPath),
 		)
 		if (destinationEntry && supportedOldPath !== supportedNewPath) {
-			throw new Error("Destination already exists")
+			if (!options?.overwrite) throw new Error("Destination already exists")
+			destinationEntry.delete()
 		}
 
 		if (source.entry.uri.startsWith("content://")) {
@@ -237,6 +244,7 @@ export const fsApi = {
 		routeStoragePath(path, "fs.atomicWriteFile", {
 			vault: async (logicalPath) => {
 				await writeLogicalFile(logicalPath, content)
+				notifyLocalFileChange(logicalPath)
 			},
 			appStorage: (appStoragePath) => atomicWriteAppStorageFile(appStoragePath, content),
 		}),
@@ -245,6 +253,7 @@ export const fsApi = {
 		const entry = await resolveEntry(path)
 		if (entry.logicalPath) forgetActualUri(entry.logicalPath)
 		entry.entry.delete()
+		notifyLocalFileChange(path, true)
 	},
 	downloadAndExtract,
 	downloadFile: async (url, destPath) => {
@@ -276,13 +285,19 @@ export const fsApi = {
 		const file = await resolveExistingFile(path, "fs.readFileSnapshot")
 		return snapshotFromContent(await file.text(), getEntryMetadata(file))
 	},
-	renameFile,
+	renameFile: async (oldPath, newPath) => {
+		await renameFile(oldPath, newPath)
+		notifyLocalFileChange(oldPath, true)
+		notifyLocalFileChange(newPath)
+	},
 	writeBinaryFile: async (path, data) => {
 		await writeFileHandle(path, data, "fs.writeBinaryFile")
+		notifyLocalFileChange(path)
 	},
 	writeFile: writeTextFile,
 	writeFileSnapshot: async (path, content): Promise<FileSnapshot> => {
 		const file = await writeFileHandle(path, content, "fs.writeFile")
+		notifyLocalFileChange(path)
 		return snapshotFromContent(content, getEntryMetadata(file))
 	},
 	...watcherApi,

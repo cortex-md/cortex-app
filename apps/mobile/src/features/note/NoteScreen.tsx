@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { useCollabNoteSession } from "@/features/collab/collabAdapter"
 import { PresenceRow } from "@/features/collab/PresenceRow"
+import { NoteConflictBanner } from "@/features/conflict/NoteConflictBanner"
 import { NoteEditorScreen } from "@/features/editor/NoteEditorScreen"
 import { toast } from "@/features/feedback/useToast"
 import { openNote, presentSheet, useActiveNoteTab } from "@/features/navigation/routes"
@@ -191,6 +192,7 @@ export function NoteScreen() {
 							onEditingChange={setTitleEditing}
 							title={title}
 						/>
+						<NoteConflictBanner filePath={filePath} vaultPath={vaultPath} />
 						{session.live ? <PresenceRow session={session} /> : null}
 						<NotePropertiesBlock definitions={propertyDefinitions} properties={properties} />
 					</>

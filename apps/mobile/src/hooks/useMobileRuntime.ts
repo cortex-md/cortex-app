@@ -4,6 +4,7 @@ import {
 	getErrorMessage,
 	openLastVault,
 	startAppRuntime,
+	startSyncLifecycle,
 	useVaultStore,
 } from "@cortex/core"
 import { useHotkeysStore } from "@cortex/hotkeys"
@@ -35,6 +36,7 @@ export function useMobileRuntime(): MobileRuntimeState {
 			indexing: "lazy",
 			onVaultOpened: (vault) => void useHotkeysStore.getState().loadOverrides(vault.path),
 		})
+		const stopSyncLifecycle = startSyncLifecycle()
 		const stopThemeSync = startMobileThemeSync()
 		const appStateSubscription = AppState.addEventListener("change", (appState) => {
 			if (appState === "background" || appState === "inactive") void flushPendingWrites()
@@ -54,6 +56,7 @@ export function useMobileRuntime(): MobileRuntimeState {
 			canceled = true
 			appStateSubscription.remove()
 			stopThemeSync()
+			stopSyncLifecycle()
 			stopAppRuntime()
 		}
 	}, [])

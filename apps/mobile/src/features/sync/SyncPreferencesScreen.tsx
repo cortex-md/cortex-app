@@ -10,7 +10,7 @@ import {
 	resolveExcludedPaths,
 	setExcludedPath,
 } from "@/features/sync/syncAdapter"
-import type { ExcludedPathEntry } from "@/features/sync/syncFixtures"
+import type { ExcludedPathEntry } from "@/features/sync/syncTypes"
 
 type AppStateKey = Exclude<keyof SyncPreferences, "excludedPaths" | "ignoreImages">
 

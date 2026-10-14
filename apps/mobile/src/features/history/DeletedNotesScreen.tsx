@@ -4,8 +4,8 @@ import { SectionList, StyleSheet, Text } from "react-native"
 
 import { EmptyState } from "@/components/ui/EmptyState"
 import {
+	deletedMomentLabel,
 	groupDeletedNotes,
-	retentionLabel,
 	useDeletedNotes,
 } from "@/features/history/deletedNotesAdapter"
 import { InsetListRow, InsetSectionHeader } from "@/features/history/InsetListRow"
@@ -14,7 +14,7 @@ import { useMobileColors } from "@/hooks/useMobileColors"
 
 export function DeletedNotesScreen() {
 	const { colors } = useMobileColors()
-	const notes = useDeletedNotes()
+	const { error, loading, notes } = useDeletedNotes()
 	const [query, setQuery] = useState("")
 	const normalized = query.trim().toLowerCase()
 	const visible = normalized
@@ -41,7 +41,11 @@ export function DeletedNotesScreen() {
 				ListEmptyComponent={
 					<EmptyState
 						icon={{ sf: "trash", md: "delete" }}
-						title={notes.length === 0 ? "No deleted notes" : "No matching notes"}
+						title={
+							loading
+								? "Loading deleted notes…"
+								: (error ?? (notes.length === 0 ? "No deleted notes" : "No matching notes"))
+						}
 					/>
 				}
 				renderItem={({ index, item, section }) => (
@@ -53,13 +57,8 @@ export function DeletedNotesScreen() {
 						subtitle={item.folder}
 						title={item.title}
 						trailing={
-							<Text
-								style={[
-									styles.retention,
-									{ color: item.expiresSoon ? colors.warningText : colors.secondaryLabel },
-								]}
-							>
-								{retentionLabel(item)}
+							<Text style={[styles.retention, { color: colors.secondaryLabel }]}>
+								{deletedMomentLabel(item)}
 							</Text>
 						}
 					/>

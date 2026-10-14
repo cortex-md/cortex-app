@@ -1,12 +1,11 @@
 import {
-	CLOUD_SERVER_LABEL,
 	createSyncEnvironmentSecretKey,
 	formatLastSyncedAt,
 	getSyncServerLabel,
 	SELF_HOSTED_ENVIRONMENT_FIELDS,
-	serializeSelfHostedEnvironment,
 	type SyncLogEntry,
 	type SyncLogItem,
+	serializeSelfHostedEnvironment,
 	useRemoteVaultStore,
 	useSyncLogStore,
 	useSyncStore,
@@ -16,18 +15,13 @@ import { getPlatform } from "@cortex/platform"
 import { Share } from "react-native"
 
 import {
-	createFixtureSyncLogEntries,
 	CURRENT_DEVICE_NAME,
 	type ExcludedPathEntry,
-	FIXTURE_EXCLUDED_PATHS,
-	FIXTURE_REMOTE_VAULT_OPTIONS,
-	FIXTURE_REMOTE_VAULTS,
-	FIXTURE_SYNC_DEVICES,
 	type LinkedRemoteVault,
-	NEW_REMOTE_VAULT_OPTION_ID,
+	NEW_REMOTE_VAULT_OPTION,
 	type RemoteVaultLinkOption,
 	type SyncDevice,
-} from "@/features/sync/syncFixtures"
+} from "@/features/sync/syncTypes"
 
 export interface SyncMenuHeader {
 	lastSynced: string
@@ -35,15 +29,13 @@ export interface SyncMenuHeader {
 }
 
 export function getSyncMenuHeader(): SyncMenuHeader {
-	// stub: the hosted sync server label comes from the remote vault config once sync runs on mobile
 	return {
 		lastSynced: formatLastSyncedAt(useSyncStore.getState().lastSyncedAt),
-		server: CLOUD_SERVER_LABEL,
+		server: getSyncServerLabel(useRemoteVaultStore.getState().syncConfig),
 	}
 }
 
 export async function syncNow(): Promise<void> {
-	// stub: the remote sync engine is not available on mobile yet; restart the local sync lifecycle
 	const sync = useSyncStore.getState()
 	if (sync.engineState === "idle") return
 	await sync.restartSync()
@@ -68,17 +60,14 @@ export function resolveLinkedRemoteVault(
 	linkedVaultId: string | null,
 	config: SyncConfig,
 ): LinkedRemoteVault | null {
-	// stub: fixture remote vaults stand in for the account's vaults until the sync API runs on mobile
 	if (!linkedVaultId) return null
 	const remote = remoteVaults.find((vault) => vault.id === linkedVaultId)
 	if (remote) return toLinkedRemoteVault(remote, config)
-	const fixture = FIXTURE_REMOTE_VAULTS.find((vault) => vault.id === linkedVaultId)
-	if (fixture) return { ...fixture, serverLabel: getSyncServerLabel(config) }
 	return {
 		id: linkedVaultId,
-		name: linkedVaultId.replace(/^remote-/, "").replace(/-/g, " "),
+		name: "Remote vault",
 		serverLabel: getSyncServerLabel(config),
-		role: "Owner",
+		role: "Member",
 		memberCount: 1,
 	}
 }
@@ -87,20 +76,6 @@ export function getRemoteVaultLinkOptions(
 	remoteVaults: readonly RemoteVaultInfo[],
 	linkedVaultId: string | null,
 ): RemoteVaultLinkOption[] {
-	// stub: fixture remote vaults stand in for the account's vaults until the sync API runs on mobile
-	if (remoteVaults.length === 0) {
-		return FIXTURE_REMOTE_VAULT_OPTIONS.map((option) =>
-			option.id === linkedVaultId
-				? {
-						...option,
-						taken: true,
-						description: `${option.description.split(" · linked")[0]} · linked to this vault`,
-					}
-				: option.id === "remote-work" && linkedVaultId
-					? { ...option, taken: false, description: "4 members · Owner" }
-					: option,
-		)
-	}
 	const options = remoteVaults.map((remote): RemoteVaultLinkOption => {
 		const members = remote.memberCount ?? 1
 		const taken = remote.id === linkedVaultId
@@ -114,37 +89,10 @@ export function getRemoteVaultLinkOptions(
 			isNew: false,
 		}
 	})
-	const newOption = FIXTURE_REMOTE_VAULT_OPTIONS.find(
-		(option) => option.id === NEW_REMOTE_VAULT_OPTION_ID,
-	)
-	return newOption ? [...options, newOption] : options
-}
-
-export async function linkRemoteVault(
-	vaultPath: string,
-	option: RemoteVaultLinkOption,
-	newName: string,
-): Promise<string> {
-	// stub: the encryption password and upload are not sent anywhere; only the local link is written
-	const store = useRemoteVaultStore.getState()
-	let remoteVaultId = option.id
-	if (option.isNew) {
-		const trimmed = newName.trim() || "Notes"
-		const hasRealVaults = store.remoteVaults.length > 0
-		if (hasRealVaults) {
-			const created = await store.createRemoteVault(trimmed, null)
-			remoteVaultId = created.id
-		} else {
-			remoteVaultId = `remote-${trimmed.toLowerCase().replace(/\s+/g, "-")}`
-		}
-	}
-	await store.linkVault(vaultPath, remoteVaultId)
-	await store.setSyncEnabled(vaultPath, true)
-	return remoteVaultId
+	return [...options, NEW_REMOTE_VAULT_OPTION]
 }
 
 export async function unlinkRemoteVault(vaultPath: string): Promise<void> {
-	// stub: the remote copy is left untouched; only the local link is removed
 	await useRemoteVaultStore.getState().unlinkVault(vaultPath)
 }
 
@@ -152,28 +100,26 @@ export function listSyncDevices(
 	deviceEntries: readonly DeviceEntry[],
 	lastSyncedAt: number | null,
 ): SyncDevice[] {
-	// stub: fixture devices stand in for the account's devices until the sync API runs on mobile
-	const active = deviceEntries.filter((device) => !device.revoked)
-	if (active.length === 0) return FIXTURE_SYNC_DEVICES
-	return active.map((device) => ({
-		id: device.id,
-		name: device.deviceName || CURRENT_DEVICE_NAME,
-		lastSyncedLabel: device.isCurrent
-			? formatLastSyncedAt(lastSyncedAt)
-			: device.lastSeenAt
-				? formatLastSyncedAt(Date.parse(device.lastSeenAt))
-				: "Not synced yet",
-		isCurrent: Boolean(device.isCurrent),
-	}))
+	return deviceEntries
+		.filter((device) => !device.revoked)
+		.map((device) => ({
+			id: device.id,
+			name: device.deviceName || CURRENT_DEVICE_NAME,
+			lastSyncedLabel: device.isCurrent
+				? formatLastSyncedAt(lastSyncedAt)
+				: device.lastSeenAt
+					? formatLastSyncedAt(Date.parse(device.lastSeenAt))
+					: "Not synced yet",
+			isCurrent: Boolean(device.isCurrent),
+		}))
 }
 
 export function countSyncedNotes(files: readonly FileEntry[]): number {
 	return files.filter((entry) => !entry.isDir && /\.md$/i.test(entry.name)).length
 }
 
-export function getSyncLogEntries(entries: readonly SyncLogEntry[], now: number): SyncLogEntry[] {
-	// stub: fixture log entries stand in while the sync engine does not run on mobile
-	return entries.length > 0 ? [...entries] : createFixtureSyncLogEntries(now)
+export function getSyncLogEntries(entries: readonly SyncLogEntry[]): SyncLogEntry[] {
+	return [...entries]
 }
 
 export function clearSyncLog(): void {
@@ -207,8 +153,6 @@ export function inferExcludeKind(value: string): ExcludedPathEntry["kind"] {
 }
 
 export function resolveExcludedPaths(excludedPaths: readonly string[]): ExcludedPathEntry[] {
-	// stub: the fixture seed shows the editor until the vault has its own excludes
-	if (excludedPaths.length === 0) return FIXTURE_EXCLUDED_PATHS
 	return excludedPaths.map((value) => ({ value, kind: inferExcludeKind(value) }))
 }
 

@@ -103,7 +103,7 @@ export function SyncLogsScreen() {
 	const [cleared, setCleared] = useState(false)
 	const [now] = useState(() => Date.now())
 
-	const items = cleared ? [] : buildSyncLogItems(getSyncLogEntries(entries, now))
+	const items = cleared ? [] : buildSyncLogItems(getSyncLogEntries(entries))
 	const normalizedQuery = query.trim().toLowerCase()
 	const filtered = items.filter(
 		(item) =>

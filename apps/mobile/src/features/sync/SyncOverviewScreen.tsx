@@ -13,7 +13,7 @@ import { useEffect, useState } from "react"
 import { FormRow, FormSection, FormToggle, NativeForm } from "@/components/ui/Form"
 import { openSettings, openVersionHistory } from "@/features/navigation/routes"
 import { listSyncDevices, resolveLinkedRemoteVault, syncNow } from "@/features/sync/syncAdapter"
-import { DEVICE_LABEL } from "@/features/sync/syncFixtures"
+import { DEVICE_LABEL } from "@/features/sync/syncTypes"
 
 const SYNC_NOW_FEEDBACK_MS = 1400
 
@@ -32,6 +32,11 @@ export function SyncOverviewScreen() {
 	const deviceEntries = useDevicesStore((state) => state.deviceEntries)
 	const activeFilePath = useEditorStore((state) => state.activeFilePath)
 	const [syncingNow, setSyncingNow] = useState(false)
+
+	useEffect(() => {
+		void useDevicesStore.getState().fetchDevices()
+		void useRemoteVaultStore.getState().fetchRemoteVaults()
+	}, [])
 
 	useEffect(() => {
 		if (!syncingNow) return

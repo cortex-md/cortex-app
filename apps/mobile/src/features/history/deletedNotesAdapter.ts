@@ -1,23 +1,15 @@
-import { historyDayLabel, useVaultStore } from "@cortex/core"
+import { historyDayLabel, useRemoteVaultStore, useSyncStore, useVaultStore } from "@cortex/core"
+import type { DeletedFileInfo } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
-import { joinPath } from "@cortex/platform/utils"
-import { useSyncExternalStore } from "react"
-
-import { FIXTURE_DELETED_NOTES, type FixtureDeletedNote } from "@/features/history/historyFixtures"
-
-const MINUTE_MS = 60_000
-const RETENTION_WARNING_DAYS = 7
+import { getBaseName, getParentPath } from "@cortex/platform/utils"
+import { useEffect, useState, useSyncExternalStore } from "react"
 
 export interface DeletedNote {
 	id: string
 	title: string
 	folder: string
 	deletedAt: number
-	who: string
-	device: string
-	daysLeft: number
-	expiresSoon: boolean
-	body: string
+	version: number
 }
 
 export interface DeletedNoteGroup {
@@ -25,11 +17,17 @@ export interface DeletedNoteGroup {
 	notes: DeletedNote[]
 }
 
-const createdAt = Date.now()
-const listeners = new Set<() => void>()
-let restoredIds: ReadonlySet<string> = new Set()
+interface DeletedNotesState {
+	notes: DeletedNote[]
+	loading: boolean
+	error: string | null
+}
 
-function notify(): void {
+const listeners = new Set<() => void>()
+let state: DeletedNotesState = { notes: [], loading: false, error: null }
+
+function setState(next: Partial<DeletedNotesState>): void {
+	state = { ...state, ...next }
 	for (const listener of listeners) listener()
 }
 
@@ -40,34 +38,77 @@ function subscribe(listener: () => void): () => void {
 	}
 }
 
-function getRestoredIds(): ReadonlySet<string> {
-	return restoredIds
+function getState(): DeletedNotesState {
+	return state
 }
 
-function toDeletedNote(fixture: FixtureDeletedNote): DeletedNote {
+function linkedTarget(): { vaultId: string; vaultPath: string } | null {
+	const vaultPath = useVaultStore.getState().vault?.path
+	const vaultId = useRemoteVaultStore.getState().linkedVaultId
+	return vaultPath && vaultId ? { vaultId, vaultPath } : null
+}
+
+function toDeletedNote(file: DeletedFileInfo): DeletedNote {
+	const folder = getParentPath(file.filePath)
 	return {
-		id: fixture.id,
-		title: fixture.title,
-		folder: fixture.folder,
-		deletedAt: createdAt - fixture.deletedMinutesAgo * MINUTE_MS,
-		who: fixture.who,
-		device: fixture.device,
-		daysLeft: fixture.daysLeft,
-		expiresSoon: fixture.daysLeft <= RETENTION_WARNING_DAYS,
-		body: fixture.body,
+		id: file.filePath,
+		title: getBaseName(file.filePath).replace(/\.md$/i, ""),
+		folder: folder || (useVaultStore.getState().vault?.name ?? "Vault"),
+		deletedAt: file.deletedAt ? Date.parse(file.deletedAt) : 0,
+		version: file.version,
 	}
 }
 
-const DELETED_NOTES = FIXTURE_DELETED_NOTES.map(toDeletedNote)
+export async function loadDeletedNotes(): Promise<void> {
+	const target = linkedTarget()
+	if (!target) {
+		setState({ notes: [], loading: false, error: "Link this vault to see deleted notes." })
+		return
+	}
+	setState({ loading: true, error: null })
+	try {
+		const files = await useSyncStore.getState().listDeletedFiles(target.vaultId, target.vaultPath)
+		const notes = files
+			.filter((file) => /\.md$/i.test(file.filePath))
+			.map(toDeletedNote)
+			.sort((left, right) => right.deletedAt - left.deletedAt)
+		setState({ notes, loading: false })
+	} catch (error) {
+		setState({ loading: false, error: error instanceof Error ? error.message : String(error) })
+	}
+}
 
-export function useDeletedNotes(): DeletedNote[] {
-	// stub: the remote trash comes from the sync server; fixtures stand in until it runs on mobile
-	const restored = useSyncExternalStore(subscribe, getRestoredIds, getRestoredIds)
-	return DELETED_NOTES.filter((note) => !restored.has(note.id))
+export function useDeletedNotes(): DeletedNotesState {
+	useEffect(() => {
+		void loadDeletedNotes()
+	}, [])
+	return useSyncExternalStore(subscribe, getState, getState)
 }
 
 export function findDeletedNote(id: string | null): DeletedNote | null {
-	return DELETED_NOTES.find((note) => note.id === id) ?? null
+	return state.notes.find((note) => note.id === id) ?? null
+}
+
+export function useDeletedNoteBody(note: DeletedNote | null): string | null {
+	const [body, setBody] = useState<{ id: string; text: string } | null>(null)
+	useEffect(() => {
+		const target = linkedTarget()
+		if (!note || !target) return
+		let canceled = false
+		void useSyncStore
+			.getState()
+			.downloadVersion(target.vaultId, target.vaultPath, note.id, String(note.version))
+			.then((text) => {
+				if (!canceled) setBody({ id: note.id, text })
+			})
+			.catch(() => {
+				if (!canceled) setBody({ id: note.id, text: "" })
+			})
+		return () => {
+			canceled = true
+		}
+	}, [note])
+	return body && note && body.id === note.id ? body.text : null
 }
 
 export function groupDeletedNotes(notes: readonly DeletedNote[]): DeletedNoteGroup[] {
@@ -80,11 +121,6 @@ export function groupDeletedNotes(notes: readonly DeletedNote[]): DeletedNoteGro
 		else groups.push({ label, notes: [note] })
 	}
 	return groups
-}
-
-export function retentionLabel(note: DeletedNote): string {
-	const days = `${note.daysLeft} ${note.daysLeft === 1 ? "day" : "days"}`
-	return note.expiresSoon ? `Removed in ${days}` : `${days} left`
 }
 
 export function deletedMomentLabel(note: DeletedNote): string {
@@ -101,26 +137,13 @@ export function deletedMomentLabel(note: DeletedNote): string {
 	return `${label} at ${time}`
 }
 
-async function writeRestoredNote(note: DeletedNote): Promise<string> {
-	const vaultStore = useVaultStore.getState()
-	const vaultPath = vaultStore.vault?.path
-	if (!vaultPath) throw new Error("Open a vault to restore notes.")
-	const folderPath = joinPath(vaultPath, note.folder)
-	try {
-		return await vaultStore.createFileWithContent(folderPath, note.title, note.body)
-	} catch {
-		return vaultStore.createFileWithContent(vaultPath, note.title, note.body)
-	}
+export async function restoreDeletedNote(note: DeletedNote): Promise<void> {
+	const target = linkedTarget()
+	if (!target) throw new Error("Link this vault to restore notes.")
+	await useSyncStore.getState().restoreDeletedFile(target.vaultId, target.vaultPath, note.id)
+	setState({ notes: state.notes.filter((candidate) => candidate.id !== note.id) })
 }
 
-export async function restoreDeletedNote(note: DeletedNote): Promise<string> {
-	// stub: the remote trash is a fixture; the note is recreated locally from its last synced text
-	const filePath = await writeRestoredNote(note)
-	restoredIds = new Set([...restoredIds, note.id])
-	notify()
-	return filePath
-}
-
-export async function copyDeletedNoteText(note: DeletedNote): Promise<void> {
-	await getPlatform().clipboard.writeText(note.body)
+export async function copyDeletedNoteText(text: string): Promise<void> {
+	await getPlatform().clipboard.writeText(text)
 }

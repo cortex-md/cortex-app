@@ -6,6 +6,7 @@ import {
 	useVaultStore,
 } from "@cortex/core"
 import { type Href, router, Stack } from "expo-router"
+import { useEffect } from "react"
 import { Alert } from "react-native"
 
 import { FormRow, FormSection, FormToggle, NativeForm } from "@/components/ui/Form"
@@ -14,7 +15,7 @@ import {
 	resolveLinkedRemoteVault,
 	unlinkRemoteVault,
 } from "@/features/sync/syncAdapter"
-import { DEVICE_LABEL } from "@/features/sync/syncFixtures"
+import { DEVICE_LABEL } from "@/features/sync/syncTypes"
 
 export const LINK_VAULT_CHOOSE_HREF = "/settings/sync/choose" as Href
 
@@ -26,6 +27,11 @@ export function LinkVaultScreen() {
 	const setSyncEnabled = useRemoteVaultStore((state) => state.setSyncEnabled)
 	const lastSyncedAt = useSyncStore((state) => state.lastSyncedAt)
 	const deviceEntries = useDevicesStore((state) => state.deviceEntries)
+
+	useEffect(() => {
+		void useDevicesStore.getState().fetchDevices()
+		void useRemoteVaultStore.getState().fetchRemoteVaults()
+	}, [])
 
 	const linked = resolveLinkedRemoteVault(remoteVaults, linkedVaultId, syncConfig)
 	const enabled = syncConfig.enabled

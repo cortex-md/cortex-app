@@ -13,7 +13,7 @@ const deviceIdStore: DeviceIdStore = {
 
 let cachedDeviceId: string | null = null
 
-function getDeviceId(): string {
+export function getDeviceId(): string {
 	cachedDeviceId ??= getOrCreateDeviceId(deviceIdStore, () => crypto.randomUUID())
 	return cachedDeviceId
 }

@@ -12,7 +12,7 @@ import {
 	deletedMomentLabel,
 	findDeletedNote,
 	restoreDeletedNote,
-	retentionLabel,
+	useDeletedNoteBody,
 } from "@/features/history/deletedNotesAdapter"
 import { readParam } from "@/features/history/useVersionHistory"
 import { useMobileColors } from "@/hooks/useMobileColors"
@@ -24,6 +24,7 @@ export function DeletedNoteDetailScreen() {
 	const themeTokens = useMobileEditorThemeTokens()
 	const params = useLocalSearchParams<{ id?: string | string[] }>()
 	const note = findDeletedNote(readParam(params.id))
+	const body = useDeletedNoteBody(note)
 
 	if (!note) {
 		return (
@@ -38,7 +39,8 @@ export function DeletedNoteDetailScreen() {
 	}
 
 	const handleCopy = () => {
-		void copyDeletedNoteText(note).then(() => toast("Copied the text"))
+		if (body === null) return
+		void copyDeletedNoteText(body).then(() => toast("Copied the text"))
 	}
 
 	const handleRestore = () => {
@@ -83,19 +85,11 @@ export function DeletedNoteDetailScreen() {
 				style={{ backgroundColor: colors.groupedBackground }}
 			>
 				<Text style={[styles.meta, { color: colors.secondaryLabel }]}>
-					{`Deleted ${deletedMomentLabel(note)} by ${note.who} · ${note.folder}`}
-				</Text>
-				<Text
-					style={[
-						styles.meta,
-						{ color: note.expiresSoon ? colors.warningText : colors.secondaryLabel },
-					]}
-				>
-					{retentionLabel(note)}
+					{`Deleted ${deletedMomentLabel(note)} · ${note.folder}`}
 				</Text>
 				<View style={[styles.preview, { backgroundColor: colors.cell }]}>
 					<MarkdownBlock
-						content={note.body}
+						content={body ?? "Loading…"}
 						dom={{
 							matchContents: true,
 							scrollEnabled: false,
