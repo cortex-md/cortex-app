@@ -1,17 +1,19 @@
-name: Feature request
-description: Suggest an improvement or new capability.
-title: "[Feature]: "
-labels: ["enhancement"]
+name: Suggest an idea
+description: Propose a feature or an improvement. Others vote on it with a thumbs up.
+title: "[Idea]: "
+labels: ["enhancement", "needs-triage"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for suggesting an improvement. Please focus on the user workflow or developer problem.
+        Before opening a new idea, [search the open ideas](https://github.com/cortex-md/cortex-app/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement+sort%3Areactions-%2B1-desc). If it already exists, vote with a 👍 reaction on the issue instead of commenting "+1".
+
+        The most voted ideas are the first to be considered for the [public roadmap](https://cortex-md.tech/roadmap).
   - type: textarea
     id: problem
     attributes:
       label: Problem
-      description: What workflow, limitation, or user need should this solve?
+      description: What workflow, limitation, or need should this solve? The first paragraph is shown on the roadmap if the idea is picked up.
     validations:
       required: true
   - type: textarea
@@ -19,6 +21,22 @@ body:
     attributes:
       label: Proposed solution
       description: What would you like Cortex to do?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Editor and writing
+        - Organize (tags, properties, databases)
+        - Search and navigation
+        - Sync and account
+        - Mobile
+        - Plugins and themes
+        - CLI
+        - Website and docs
+        - Other
     validations:
       required: true
   - type: textarea

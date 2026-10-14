@@ -1,12 +1,14 @@
 name: Bug report
 description: Report something that is broken or behaving unexpectedly.
 title: "[Bug]: "
-labels: ["bug"]
+labels: ["bug", "needs-triage"]
 body:
   - type: markdown
     attributes:
       value: |
         Thanks for reporting a bug. Please include enough detail for someone else to reproduce it.
+
+        If the same bug is already reported, add a 👍 reaction and any new detail to that issue instead. Security problems must not be reported here; use the private vulnerability report linked on the new issue page.
   - type: textarea
     id: summary
     attributes:
@@ -33,11 +35,41 @@ body:
         3. See...
     validations:
       required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Editor and writing
+        - Organize (tags, properties, databases)
+        - Search and navigation
+        - Sync and account
+        - Mobile
+        - Plugins and themes
+        - CLI
+        - Website and docs
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      multiple: true
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - iOS
+        - Android
+        - Website
+    validations:
+      required: true
   - type: input
     id: os
     attributes:
-      label: Operating system
-      placeholder: macOS 15, Windows 11, Ubuntu 24.04
+      label: Operating system version
+      placeholder: macOS 15, Windows 11, Ubuntu 24.04, iOS 18
   - type: input
     id: app-version
     attributes:
@@ -47,4 +79,5 @@ body:
     id: logs
     attributes:
       label: Logs, screenshots, or extra context
-      description: Drag screenshots here or paste relevant logs.
+      description: Drag screenshots here or paste relevant logs. Remove note contents you do not want to make public.
+      render: text
