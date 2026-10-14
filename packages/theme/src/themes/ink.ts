@@ -211,9 +211,21 @@ export const inkTheme: Theme = {
 			statusbarBorder: slate[600],
 			scrollbarThumb: slate[600],
 			scrollbarHover: slate[500],
-			shadowRaised: "0 1px 3px rgba(0,0,0,0.28)",
+			shadowRaised:
+				"inset 0 0 0 1px rgba(255,255,255,0.07), 0 1px 2px rgba(0,0,0,0.4), 0 3px 8px -3px rgba(0,0,0,0.4)",
 			shadowFloating: "0 10px 15px rgba(0,0,0,0.35)",
 			shadowOverlay: "0 20px 25px rgba(0,0,0,0.4)",
+			shadowFloatingPill:
+				"inset 0 0 0 1px rgba(255,255,255,0.08), 0 10px 24px -8px rgba(0,0,0,0.6)",
+			shadowPrimary: "0 1px 2px rgba(0,0,0,0.4)",
+		},
+		controls: {
+			surfaceRaised: "#333333",
+			surfaceRaisedHover: "#3a3a3a",
+			hairline: "rgba(255,255,255,0.12)",
+			fillQuiet: "rgba(255,255,255,0.06)",
+			fillQuietStrong: "rgba(255,255,255,0.1)",
+			fillSelected: "rgba(255,255,255,0.08)",
 		},
 		tag: {
 			bg: slate[600],

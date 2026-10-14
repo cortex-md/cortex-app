@@ -62,7 +62,7 @@ function Calendar({
 					defaultClassNames.dropdowns,
 				),
 				dropdown_root: cn(
-					"relative rounded-[6px] border border-input bg-background/80 has-focus:border-ring has-focus:ring-2 has-focus:ring-ring/40",
+					"relative rounded-full border border-input bg-background/80 has-focus:border-ring has-focus:ring-2 has-focus:ring-ring/40",
 					defaultClassNames.dropdown_root,
 				),
 				dropdown: cn("absolute inset-0 bg-popover opacity-0", defaultClassNames.dropdown),
@@ -158,7 +158,7 @@ function CalendarDayButton({
 		<Button
 			ref={setDayButtonRef}
 			variant="ghost"
-			size="icon"
+			size="icon-sm"
 			data-day={day.date.toLocaleDateString()}
 			data-selected-single={
 				modifiers.selected &&

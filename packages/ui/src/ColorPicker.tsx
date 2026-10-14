@@ -92,7 +92,7 @@ export function ColorPicker({
 						type="color"
 						value={fallbackColor}
 						onChange={(event) => onChange(event.target.value)}
-						className="color-picker-input size-7 rounded-[6px] border border-input bg-transparent p-0"
+						className="color-picker-input size-7 rounded-full border border-input bg-transparent p-0"
 						aria-label={customLabel}
 					/>
 					<span className="color-picker-hex min-w-[64px] font-mono text-[11px] text-muted-foreground">

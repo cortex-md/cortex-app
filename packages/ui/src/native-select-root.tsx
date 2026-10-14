@@ -1,6 +1,6 @@
 import { ChevronDownIcon } from "lucide-react"
 import type * as React from "react"
-import { nativeFocusRing, nativeGlassSurface } from "./lib/native-styles"
+import { nativeControlFocusRing, nativeRaisedHover, nativeRaisedSurface } from "./lib/native-styles"
 import { cn } from "./lib/utils"
 
 function NativeSelect({
@@ -17,9 +17,10 @@ function NativeSelect({
 				data-slot="native-select"
 				data-size={size}
 				className={cn(
-					"h-9 w-full min-w-0 appearance-none rounded-[var(--control-pill-radius,999px)] px-3 py-2 pr-9 text-[var(--control-font-size,13px)] leading-[var(--control-line-height,16px)] outline-none transition-[background-color,border-color,color,box-shadow] selection:bg-brand selection:text-text-on-accent placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed data-[size=sm]:h-6 data-[size=sm]:rounded-[var(--control-radius,6px)] data-[size=sm]:py-1",
-					nativeGlassSurface,
-					nativeFocusRing,
+					"h-[var(--button-height-md,36px)] w-full min-w-0 cursor-default appearance-none rounded-[var(--control-pill-radius,999px)] border-0 px-3.5 py-0 pr-9 text-[length:var(--control-font-size,14px)] leading-[var(--control-line-height,18px)] text-text-primary outline-none transition-[background-color,color,box-shadow] duration-[120ms] ease-out selection:bg-brand selection:text-text-on-accent placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed data-[size=sm]:h-[var(--button-height-xs,28px)] data-[size=sm]:px-3 data-[size=sm]:pr-8 data-[size=sm]:text-[13.5px]",
+					nativeRaisedSurface,
+					nativeRaisedHover,
+					nativeControlFocusRing,
 					"aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
 					className,
 				)}

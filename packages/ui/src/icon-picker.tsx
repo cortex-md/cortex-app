@@ -143,7 +143,7 @@ function IconPicker({
 		<Popover open={open ?? isOpen} onOpenChange={handleOpenChange} modal={modal}>
 			<PopoverTrigger ref={ref} asChild {...props}>
 				{children || (
-					<Button variant="outline">
+					<Button size="sm" variant="outline">
 						{value || selectedIcon ? (
 							<>
 								<Icon name={(value || selectedIcon)!} /> {value || selectedIcon}

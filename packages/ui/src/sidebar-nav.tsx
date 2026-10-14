@@ -57,7 +57,7 @@ function SidebarNavGroup({
 		>
 			<div
 				data-slot="sidebar-group-label"
-				className="flex h-7 shrink-0 items-center rounded-[6px] px-2 text-[11px] font-medium text-sidebar-foreground/70 group-data-[platform=macos]/sidebar-wrapper:h-6 group-data-[platform=macos]/sidebar-wrapper:text-sidebar-foreground/55 group-data-[platform=windows]/sidebar-wrapper:text-sidebar-foreground/65"
+				className="flex h-7 shrink-0 items-center px-2.5 text-[12px] font-medium text-sidebar-foreground/70 group-data-[platform=macos]/sidebar-wrapper:h-6 group-data-[platform=macos]/sidebar-wrapper:text-sidebar-foreground/55 group-data-[platform=windows]/sidebar-wrapper:text-sidebar-foreground/65"
 			>
 				{label}
 			</div>
@@ -85,7 +85,7 @@ function SidebarNavItem({
 				data-active={isActive}
 				aria-current={isActive ? "page" : undefined}
 				className={cn(
-					"relative flex h-7 w-full items-center gap-2 overflow-hidden rounded-[6px] px-2 py-0 text-left text-[13px] ring-sidebar-ring outline-hidden transition-[background-color,color] before:absolute before:top-1 before:bottom-1 before:left-0 before:w-0.5 before:rounded-full before:bg-transparent hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 data-[active=true]:bg-sidebar-accent/65 data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground group-data-[platform=macos]/sidebar-wrapper:hover:bg-sidebar-accent/50 group-data-[platform=windows]/sidebar-wrapper:rounded-[4px] group-data-[platform=windows]/sidebar-wrapper:data-[active=true]:pl-2.5 group-data-[platform=windows]/sidebar-wrapper:data-[active=true]:before:bg-brand [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+					"relative flex h-[var(--row-height,36px)] w-full cursor-default items-center gap-2.5 overflow-hidden rounded-[var(--row-radius,10px)] px-2.5 py-0 text-left text-[14px] leading-[18px] text-text-primary outline-hidden transition-[background-color,color] duration-[120ms] ease-out before:absolute before:top-1 before:bottom-1 before:left-0 before:w-0.5 before:rounded-full before:bg-transparent hover:bg-[var(--fill-quiet,color-mix(in_srgb,var(--text-primary)_5.5%,transparent))] focus-visible:shadow-[0_0_0_2px_color-mix(in_srgb,var(--border-focus)_55%,transparent)] active:bg-[var(--fill-quiet-strong,color-mix(in_srgb,var(--text-primary)_9%,transparent))] disabled:pointer-events-none disabled:opacity-45 data-[active=true]:bg-[var(--fill-selected,color-mix(in_srgb,var(--text-primary)_7%,transparent))] data-[active=true]:font-medium data-[active=true]:text-text-primary [&>svg]:text-text-muted data-[active=true]:[&>svg]:text-text-primary group-data-[platform=windows]/sidebar-wrapper:data-[active=true]:pl-2.5 group-data-[platform=windows]/sidebar-wrapper:data-[active=true]:before:bg-brand [&>span:last-child]:truncate [&>svg]:size-[18px] [&>svg]:shrink-0",
 					className,
 				)}
 				{...props}

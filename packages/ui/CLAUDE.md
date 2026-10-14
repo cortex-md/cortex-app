@@ -95,8 +95,12 @@ Variable collections: `Cortex/Primitives`, `Cortex/Semantic Light`, `Cortex/Sema
 | `Alert` (`112:3438`) | `AlertDialog` |
 
 Native-feel rules for this package:
-- `Button` defaults to the prominent accent action: 28px high, pill-shaped, and backed by
-  `brand`/`brand-hover`. Use `secondary`, `outline`, or `ghost` for neutral actions.
+- `Button` (Buttons v2, Comfort scale) defaults to the flat accent pill: 36px high, `brand` with
+  `shadow-primary`, no border or inset highlight. Sizes are `xs` 28 · `sm` 32 · `default` 36 ·
+  `lg` 44; `icon-xs` / `icon-sm` / `icon` / `icon-lg` are circles of the same heights. One
+  `default` per surface; `secondary` (`surface-raised` + `shadow-raised`) is the neutral action,
+  `ghost` is dense chrome, `outline` a third action, `destructive-soft` opens a confirmation and
+  solid `destructive` only confirms it.
 - `Switch` defaults to the 54×24 macOS content-area size. Its thumb grows horizontally while
   pressed and returns through the same transition after a quick click. The default thumb is a
   32×20 capsule with 2px vertical clearance; `size="sm"` is the compact 32×18 track.
@@ -104,13 +108,22 @@ Native-feel rules for this package:
 - Search fields with icons use `InputGroup variant="search"`, `InputGroupAddon`, and
   `InputGroupInput`. Feature code must not recreate icon positioning, capsule material, or focus
   treatment.
-- `Input` and `InputGroup` use solid `input-bg` and `input-border` surfaces. Their default 32px
-  text-field size is for forms and Settings; use `size="sm"` for the 24px Apple compact field.
-- Use 6px radius for text fields and compact controls; use full pills only for search, pop-up, segmented controls, and switches.
-- Use 13px control typography with 16px line height for compact macOS controls.
+- `Input` and `InputGroup` use solid `input-bg` and `input-border` surfaces. Their default 36px
+  text-field size is for forms and Settings; use `size="sm"` for the 28px compact field. Search
+  fields are 40px (36px at `sm`).
+- Text fields and menu items keep the 6px `control-radius`; every clickable control is a pill or a
+  circle, and list rows that act as buttons use `row-radius` (10px) at `row-height` (36px).
+- Use 14px control typography with an 18px line height (13.5px at `sm`, 12.5px at `xs`).
+- Controls never carry borders, inset highlights or backdrop blur; elevation is `shadow-raised`.
+  `nativeGlassSurface` stays on popover and sheet surfaces only.
 - Prefer transparent or token-backed material surfaces that the app layer can place over real vibrancy.
 - Treat `Switch` as the thumb/track control. `Toggle` is the pressed-button primitive and should not inherit switch sizing or thumb behavior.
-- Use the user's accent tokens for selected control state: `brand`, `brand-hover`, `brand-subtle`, `brand-text`, and `text-text-on-accent`. Do not hardcode Apple green/blue, and do not use `primary` when the semantic meaning is "current accent".
+- Hover, pressed, toggled-on and selected states are neutral: `fill-quiet` for hover,
+  `fill-quiet-strong` for pressed/open/on and focused menu items, `fill-selected` for selected rows.
+  The accent is reserved for the primary action, focus, links and content markers (active tags,
+  status pills, mentions). Do not hardcode Apple green/blue.
+- `ButtonGroup` joins icon buttons in one raised capsule, `Chip` names a vault, person or filter
+  (`pressed` is inverse, never the accent), and `Toolbar` is the floating capsule for toggles.
 - Neutral UI uses `background`, `foreground`, `muted`, and `border`. Semantic feedback uses
   `status-error-*`, `status-success-*`, and `status-warning-*`; solid fills use the corresponding
   `on-solid` foreground. Settings composition may use `settings-group-*`.

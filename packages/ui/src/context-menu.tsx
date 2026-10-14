@@ -9,6 +9,8 @@ import {
 	nativeMenuItemDestructive,
 	nativeMenuItemFocus,
 	nativeMenuItemIcon,
+	nativeMenuLabel,
+	nativeMenuShortcut,
 	nativePopupContentMotion,
 	nativePopupSurface,
 } from "./lib/native-styles"
@@ -191,10 +193,7 @@ function ContextMenuLabel({
 		<ContextMenuPrimitive.Label
 			data-slot="context-menu-label"
 			data-inset={inset}
-			className={cn(
-				"px-2 py-1.5 text-[var(--control-font-size,13px)] font-medium text-foreground data-[inset]:pl-8",
-				className,
-			)}
+			className={cn(nativeMenuLabel, "text-muted-foreground data-[inset]:pl-8", className)}
 			{...props}
 		/>
 	)
@@ -217,7 +216,7 @@ function ContextMenuShortcut({ className, ...props }: React.ComponentProps<"span
 	return (
 		<span
 			data-slot="context-menu-shortcut"
-			className={cn("ml-auto text-xs tracking-widest text-muted-foreground", className)}
+			className={cn(nativeMenuShortcut, className)}
 			{...props}
 		/>
 	)

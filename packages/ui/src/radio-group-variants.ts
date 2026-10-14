@@ -5,7 +5,7 @@ const radioGroupItemVariants = cva(
 )
 
 const radioCardVariants = cva(
-	"group/radio-card flex w-full items-center gap-3 rounded-[10px] border-0 bg-transparent px-3 py-2.5 text-left text-foreground outline-none transition-[background-color,opacity] duration-100 hover:bg-bg-hover focus-visible:ring-2 focus-visible:ring-ring/40 data-[state=checked]:bg-brand-subtle data-[disabled]:opacity-50 data-[disabled]:hover:bg-transparent",
+	"group/radio-card flex w-full items-center gap-3 rounded-[10px] border-0 bg-transparent px-3 py-2.5 text-left text-foreground outline-none transition-[background-color,opacity] duration-100 hover:bg-[var(--fill-quiet,color-mix(in_srgb,var(--text-primary)_5.5%,transparent))] focus-visible:ring-2 focus-visible:ring-ring/40 data-[state=checked]:bg-[var(--fill-selected,color-mix(in_srgb,var(--text-primary)_7%,transparent))] data-[disabled]:opacity-50 data-[disabled]:hover:bg-transparent",
 	{
 		variants: {
 			size: {

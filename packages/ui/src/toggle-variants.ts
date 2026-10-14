@@ -1,23 +1,36 @@
 import { cva } from "class-variance-authority"
-import { nativeFocusRing } from "./lib/native-styles"
+import {
+	nativeQuietHover,
+	nativeRaisedHover,
+	nativeRaisedSurface,
+	nativeToggleFocusRing,
+} from "./lib/native-styles"
 
 const toggleVariants = cva(
 	[
-		"inline-flex items-center justify-center gap-2 rounded-[6px] text-[13px] font-medium leading-4 whitespace-nowrap outline-none transition-[background-color,border-color,color,opacity]",
-		nativeFocusRing,
-		"hover:bg-muted/70 hover:text-foreground disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=on]:bg-brand-subtle data-[state=on]:text-brand-text dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+		"inline-flex cursor-default items-center justify-center gap-1.5 rounded-[var(--control-pill-radius,999px)] border-0 text-[14px] font-medium leading-[18px] whitespace-nowrap text-text-secondary outline-none transition-[background-color,color,box-shadow] duration-[120ms] ease-out has-[>svg:only-child]:px-0",
+		nativeToggleFocusRing,
+		"disabled:pointer-events-none disabled:opacity-45 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-[18px]",
 	],
 	{
 		variants: {
 			variant: {
-				default: "bg-transparent",
-				outline:
-					"border border-border/70 bg-background/70 hover:bg-brand-subtle hover:text-brand-text",
+				default: [
+					"bg-transparent",
+					nativeQuietHover,
+					"data-[state=on]:bg-[var(--fill-quiet-strong,color-mix(in_srgb,var(--text-primary)_9%,transparent))] data-[state=on]:text-text-primary",
+				],
+				outline: [
+					"px-3.5 text-text-primary",
+					nativeRaisedSurface,
+					nativeRaisedHover,
+					"data-[state=on]:bg-text-primary data-[state=on]:text-bg-primary data-[state=on]:shadow-none",
+				],
 			},
 			size: {
-				default: "h-7 min-w-7 px-2",
-				sm: "h-6 min-w-6 px-1.5",
-				lg: "h-10 min-w-10 px-2.5",
+				default: "h-[var(--button-height-sm,32px)] min-w-[var(--button-height-sm,32px)] px-2.5",
+				sm: "h-[var(--button-height-xs,28px)] min-w-[var(--button-height-xs,28px)] px-2 text-[13.5px] [&_svg:not([class*='size-'])]:size-4",
+				lg: "h-[var(--button-height-lg,44px)] min-w-[var(--button-height-lg,44px)] px-3.5",
 			},
 		},
 		defaultVariants: {

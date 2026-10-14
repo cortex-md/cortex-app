@@ -1,36 +1,48 @@
 import { cva } from "class-variance-authority"
-import { nativeAccentText, nativeFocusRing } from "./lib/native-styles"
+import {
+	nativeControlFocusRing,
+	nativeHairlineRing,
+	nativeQuietHover,
+	nativeRaisedHover,
+	nativeRaisedSurface,
+} from "./lib/native-styles"
 
 const buttonVariants = cva(
 	[
-		"inline-flex shrink-0 items-center justify-center gap-1.5 rounded-[var(--control-pill-radius,999px)] text-[var(--control-font-size,13px)] font-normal leading-[var(--control-line-height,16px)] tracking-[-0.01em] whitespace-nowrap outline-none transition-[transform,background-color,border-color,color,box-shadow,opacity,filter] duration-150 ease-out",
-		nativeFocusRing,
-		"disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
-		"active:scale-[0.97] active:brightness-[0.97] [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+		"inline-flex shrink-0 cursor-default items-center justify-center gap-1.5 rounded-[var(--control-pill-radius,999px)] border-0 text-[length:var(--control-font-size,14px)] font-medium leading-[var(--control-line-height,18px)] tracking-[-0.006em] whitespace-nowrap no-underline outline-none transition-[transform,background-color,color,box-shadow] duration-[120ms] ease-out",
+		nativeControlFocusRing,
+		"disabled:pointer-events-none disabled:opacity-45 aria-disabled:pointer-events-none aria-disabled:opacity-45",
+		"active:scale-[0.97] motion-reduce:active:scale-100 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-[18px]",
 	],
 	{
 		variants: {
 			variant: {
 				default:
-					"border border-white/20 bg-brand text-primary-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_1px_2px_rgba(0,0,0,0.14)] hover:bg-brand-hover",
+					"bg-brand text-primary-foreground shadow-[var(--shadow-primary,0_1px_2px_rgba(0,0,0,0.18))] hover:bg-brand-hover",
 				destructive:
-					"border border-status-error-border bg-destructive text-status-error-on-solid shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_2px_rgba(0,0,0,0.14)] hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
-				outline:
-					"border border-border/60 bg-background/65 text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-xl hover:bg-accent/70 hover:text-accent-foreground dark:border-white/10 dark:bg-input/25 dark:hover:bg-input/45",
-				secondary:
-					"border border-border/40 bg-secondary/75 text-secondary-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-xl hover:bg-secondary",
-				ghost: "hover:bg-accent/70 hover:text-accent-foreground dark:hover:bg-accent/50",
-				link: [nativeAccentText, "underline-offset-4 hover:underline"],
+					"bg-status-error text-status-error-on-solid shadow-none hover:bg-[color-mix(in_srgb,var(--status-error)_88%,var(--text-primary))]",
+				"destructive-soft":
+					"bg-transparent text-status-error-foreground hover:bg-status-error-background",
+				outline: ["bg-transparent text-text-primary", nativeHairlineRing, nativeQuietHover],
+				secondary: ["text-text-primary", nativeRaisedSurface, nativeRaisedHover],
+				ghost: [
+					"bg-transparent text-text-secondary",
+					nativeQuietHover,
+					"active:bg-[var(--fill-quiet-strong,color-mix(in_srgb,var(--text-primary)_9%,transparent))] active:text-text-primary aria-expanded:bg-[var(--fill-quiet-strong,color-mix(in_srgb,var(--text-primary)_9%,transparent))] aria-expanded:text-text-primary aria-pressed:bg-[var(--fill-quiet-strong,color-mix(in_srgb,var(--text-primary)_9%,transparent))] aria-pressed:text-text-primary data-[state=open]:bg-[var(--fill-quiet-strong,color-mix(in_srgb,var(--text-primary)_9%,transparent))] data-[state=open]:text-text-primary",
+				],
+				link: "h-auto! rounded-[4px] p-0! text-brand-text underline-offset-[3px] hover:underline active:scale-100",
 			},
 			size: {
-				default: "h-[var(--button-height-md,var(--control-height-md,28px))] px-3 has-[>svg]:px-2.5",
-				xs: "h-6 gap-1 px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
-				sm: "h-8 px-3.5 has-[>svg]:px-3",
-				lg: "h-10 px-5 text-[15px] has-[>svg]:px-4",
-				icon: "size-7",
-				"icon-xs": "size-6 [&_svg:not([class*='size-'])]:size-3",
-				"icon-sm": "size-8",
-				"icon-lg": "size-10",
+				default: "h-[var(--button-height-md,36px)] px-4 has-[>svg:first-child]:pl-3",
+				xs: "h-[var(--button-height-xs,28px)] gap-[5px] px-[11px] text-[12.5px] has-[>svg:first-child]:pl-2 [&_svg:not([class*='size-'])]:size-3.5",
+				sm: "h-[var(--button-height-sm,32px)] px-3.5 text-[13.5px] has-[>svg:first-child]:pl-2.5 [&_svg:not([class*='size-'])]:size-4",
+				lg: "h-[var(--button-height-lg,44px)] px-[22px] text-[15px] has-[>svg:first-child]:pl-[17px] [&_svg:not([class*='size-'])]:size-5",
+				"icon-xs":
+					"size-[var(--button-height-xs,28px)] p-0 [&_svg:not([class*='size-'])]:size-[15px]",
+				"icon-sm":
+					"size-[var(--button-height-sm,32px)] p-0 [&_svg:not([class*='size-'])]:size-[17px]",
+				icon: "size-[var(--button-height-md,36px)] p-0 [&_svg:not([class*='size-'])]:size-[18px]",
+				"icon-lg": "size-[var(--button-height-lg,44px)] p-0 [&_svg:not([class*='size-'])]:size-5",
 			},
 		},
 		defaultVariants: {

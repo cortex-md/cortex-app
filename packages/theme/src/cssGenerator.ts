@@ -158,6 +158,17 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
 	vars["--shadow-raised"] = t.component.shadowRaised
 	vars["--shadow-floating"] = t.component.shadowFloating
 	vars["--shadow-overlay"] = t.component.shadowOverlay
+	if (t.component.shadowFloatingPill)
+		vars["--shadow-floating-pill"] = t.component.shadowFloatingPill
+	if (t.component.shadowPrimary) vars["--shadow-primary"] = t.component.shadowPrimary
+	if (t.controls) {
+		vars["--surface-raised"] = t.controls.surfaceRaised
+		vars["--surface-raised-hover"] = t.controls.surfaceRaisedHover
+		vars["--hairline"] = t.controls.hairline
+		vars["--fill-quiet"] = t.controls.fillQuiet
+		vars["--fill-quiet-strong"] = t.controls.fillQuietStrong
+		vars["--fill-selected"] = t.controls.fillSelected
+	}
 
 	vars["--background"] = t.semantic.bg.primary
 	vars["--foreground"] = t.semantic.text.primary

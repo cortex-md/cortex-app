@@ -3,7 +3,11 @@
 ## Color Contract
 
 - Use `background`, `foreground`, `muted`, and `border` for neutral UI.
-- Use `brand` only for accent actions, selection, and focus.
+- Use `brand` only for the primary action, focus, links, and content markers. Hover, pressed,
+  toggled-on and selected states use the neutral `fill-quiet`, `fill-quiet-strong` and
+  `fill-selected` tokens; neutral controls sit on `surface-raised` with `shadow-raised`.
+- New colour and size tokens are read through `var(--token, fallback)` in class strings so apps
+  without the desktop token block (for example `apps/web`) still render correctly.
 - Use `status-error-*`, `status-success-*`, and `status-warning-*` for feedback.
 - Use `settings-group-*` only for Settings composition surfaces.
 - Never hardcode white or Tailwind red, green, or yellow for semantic text and controls. Solid

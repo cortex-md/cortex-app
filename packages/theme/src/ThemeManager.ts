@@ -95,14 +95,14 @@ export class ThemeManager {
 			name: family.darkTheme,
 			displayName: `${family.displayName} Dark`,
 			isDark: true,
-			tokens: inkTheme.tokens,
+			tokens: { ...inkTheme.tokens, controls: undefined },
 		})
 
 		this.themes.set(family.lightTheme, {
 			name: family.lightTheme,
 			displayName: `${family.displayName} Light`,
 			isDark: false,
-			tokens: paperTheme.tokens,
+			tokens: { ...paperTheme.tokens, controls: undefined },
 		})
 
 		for (const listener of this.listeners) listener(this.activeTheme)

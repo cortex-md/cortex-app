@@ -4,6 +4,7 @@ import { XIcon } from "lucide-react"
 import { Dialog as SheetPrimitive } from "radix-ui"
 import type * as React from "react"
 
+import { buttonVariants } from "./button-variants"
 import { nativeGlassSurface } from "./lib/native-styles"
 import { cn } from "./lib/utils"
 
@@ -102,7 +103,12 @@ function SheetContent({
 			>
 				{children}
 				{showCloseButton && (
-					<SheetPrimitive.Close className="absolute top-4 right-4 rounded-[6px] opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-secondary">
+					<SheetPrimitive.Close
+						className={cn(
+							buttonVariants({ variant: "ghost", size: "icon-sm" }),
+							"absolute top-3 right-3",
+						)}
+					>
 						<XIcon className="size-4" />
 						<span className="sr-only">Close</span>
 					</SheetPrimitive.Close>

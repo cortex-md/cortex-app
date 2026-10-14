@@ -163,6 +163,16 @@ export interface ThemeTokens {
 		shadowRaised: string
 		shadowFloating: string
 		shadowOverlay: string
+		shadowFloatingPill?: string
+		shadowPrimary?: string
+	}
+	controls?: {
+		surfaceRaised: string
+		surfaceRaisedHover: string
+		hairline: string
+		fillQuiet: string
+		fillQuietStrong: string
+		fillSelected: string
 	}
 	tag: {
 		bg: string

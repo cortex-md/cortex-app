@@ -54,7 +54,6 @@ function IconPickerCategoryNav({
 				<Button
 					key={category.name}
 					variant="outline"
-					size="sm"
 					className="text-xs"
 					onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
 						event.stopPropagation()

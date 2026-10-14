@@ -75,7 +75,7 @@ export function FolderPicker({
 		dropdownOpen && (filteredOptions.length > 0 || customValueAvailable || Boolean(trimmedSearch))
 
 	const optionClassName =
-		"flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-[13px] hover:bg-accent/70"
+		"flex min-h-[34px] w-full cursor-default items-center gap-2.5 rounded-[var(--popup-item-radius,6px)] px-2.5 py-[7px] text-left text-[14px] leading-[18px] hover:bg-[var(--fill-quiet-strong,color-mix(in_srgb,var(--text-primary)_9%,transparent))]"
 
 	return (
 		<Popover open={dropdownVisible} onOpenChange={(open) => !open && setDropdownOpen(false)}>

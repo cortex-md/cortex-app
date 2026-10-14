@@ -211,9 +211,21 @@ export const paperTheme: Theme = {
 			statusbarBorder: stone[200],
 			scrollbarThumb: stone[300],
 			scrollbarHover: stone[400],
-			shadowRaised: "0 1px 3px rgba(17,19,26,0.08), 0 1px 2px rgba(17,19,26,0.06)",
+			shadowRaised:
+				"0 0 0 1px rgba(28,25,23,0.06), 0 1px 2px rgba(28,25,23,0.07), 0 3px 8px -3px rgba(28,25,23,0.08)",
 			shadowFloating: "0 10px 15px rgba(17,19,26,0.08), 0 4px 6px rgba(17,19,26,0.05)",
 			shadowOverlay: "0 20px 25px rgba(17,19,26,0.08), 0 10px 10px rgba(17,19,26,0.04)",
+			shadowFloatingPill:
+				"0 0 0 1px rgba(28,25,23,0.05), 0 2px 4px rgba(28,25,23,0.05), 0 10px 24px -8px rgba(28,25,23,0.18)",
+			shadowPrimary: "0 1px 2px rgba(190,18,60,0.18)",
+		},
+		controls: {
+			surfaceRaised: "#ffffff",
+			surfaceRaisedHover: "#faf9f8",
+			hairline: "rgba(28,25,23,0.1)",
+			fillQuiet: "rgba(28,25,23,0.05)",
+			fillQuietStrong: "rgba(28,25,23,0.085)",
+			fillSelected: "rgba(28,25,23,0.065)",
 		},
 		tag: {
 			bg: stone[150],

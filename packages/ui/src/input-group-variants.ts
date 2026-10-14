@@ -9,8 +9,8 @@ const inputGroupVariants = cva(
 	{
 		variants: {
 			variant: {
-				default: "rounded-[6px]",
-				search: "gap-1.5 rounded-full",
+				default: "rounded-[var(--control-radius,6px)]",
+				search: "gap-2 rounded-full",
 			},
 			size: {
 				sm: "",
@@ -18,10 +18,10 @@ const inputGroupVariants = cva(
 			},
 		},
 		compoundVariants: [
-			{ variant: "default", size: "sm", className: "h-6" },
-			{ variant: "default", size: "default", className: "h-8" },
-			{ variant: "search", size: "sm", className: "h-8 px-2.5" },
-			{ variant: "search", size: "default", className: "h-9 px-3" },
+			{ variant: "default", size: "sm", className: "h-[var(--control-height-sm,28px)]" },
+			{ variant: "default", size: "default", className: "h-[var(--input-height-md,36px)]" },
+			{ variant: "search", size: "sm", className: "h-9 px-3" },
+			{ variant: "search", size: "default", className: "h-10 px-3.5" },
 		],
 		defaultVariants: {
 			variant: "default",
@@ -31,7 +31,7 @@ const inputGroupVariants = cva(
 )
 
 const inputGroupAddonVariants = cva(
-	"flex h-auto cursor-text items-center justify-center gap-1.5 py-1 text-[13px] font-medium text-muted-foreground select-none group-data-[disabled=true]/input-group:opacity-50 group-data-[variant=search]/input-group:px-0 [&>kbd]:rounded-[calc(var(--radius)-5px)] [&>svg:not([class*='size-'])]:size-4",
+	"flex h-auto cursor-text items-center justify-center gap-1.5 py-1 text-[14px] font-medium text-muted-foreground select-none group-data-[disabled=true]/input-group:opacity-50 group-data-[variant=search]/input-group:px-0 [&>kbd]:rounded-[calc(var(--radius)-5px)] [&>svg:not([class*='size-'])]:size-4 group-data-[variant=search]/input-group:[&>svg:not([class*='size-'])]:size-[17px]",
 	{
 		variants: {
 			align: {
@@ -51,13 +51,13 @@ const inputGroupAddonVariants = cva(
 	},
 )
 
-const inputGroupButtonVariants = cva("flex items-center gap-2 text-sm shadow-none", {
+const inputGroupButtonVariants = cva("shadow-none", {
 	variants: {
 		size: {
-			xs: "h-6 gap-1 rounded-[6px] px-2 has-[>svg]:px-2 [&>svg:not([class*='size-'])]:size-3.5",
-			sm: "h-8 gap-1.5 rounded-[6px] px-2.5 has-[>svg]:px-2.5",
-			"icon-xs": "size-6 rounded-[6px] p-0 has-[>svg]:p-0",
-			"icon-sm": "size-8 p-0 has-[>svg]:p-0",
+			xs: "",
+			sm: "",
+			"icon-xs": "",
+			"icon-sm": "",
 		},
 	},
 	defaultVariants: {

@@ -5,13 +5,15 @@ import { Select as SelectPrimitive } from "radix-ui"
 import type * as React from "react"
 
 import {
-	nativeFocusRing,
-	nativeGlassSurface,
+	nativeControlFocusRing,
 	nativeMenuItemBase,
 	nativeMenuItemFocus,
 	nativeMenuItemIcon,
+	nativeMenuLabel,
 	nativePopupContentMotion,
 	nativePopupSurface,
+	nativeRaisedHover,
+	nativeRaisedSurface,
 } from "./lib/native-styles"
 import { cn } from "./lib/utils"
 
@@ -40,9 +42,10 @@ function SelectTrigger({
 			data-slot="select-trigger"
 			data-size={size}
 			className={cn(
-				"flex w-fit items-center justify-between gap-2 rounded-full px-3 py-2 text-[13px] leading-4 whitespace-nowrap outline-none transition-[background-color,border-color,color,box-shadow] disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[placeholder]:text-muted-foreground data-[size=default]:h-9 data-[size=sm]:h-6 data-[size=sm]:rounded-[6px] data-[size=sm]:py-1 dark:aria-invalid:ring-destructive/40 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 [&_svg:not([class*='text-'])]:text-muted-foreground",
-				nativeGlassSurface,
-				nativeFocusRing,
+				"flex w-fit cursor-default items-center justify-between gap-2 rounded-full border-0 px-3.5 py-0 text-[14px] leading-[18px] whitespace-nowrap text-text-primary outline-none transition-[background-color,color,box-shadow] duration-[120ms] ease-out disabled:cursor-not-allowed disabled:opacity-45 aria-invalid:ring-2 aria-invalid:ring-destructive/30 data-[placeholder]:text-muted-foreground data-[size=default]:h-[var(--button-height-md,36px)] data-[size=sm]:h-[var(--button-height-xs,28px)] data-[size=sm]:px-3 data-[size=sm]:text-[13.5px] *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 [&_svg:not([class*='text-'])]:text-muted-foreground",
+				nativeRaisedSurface,
+				nativeRaisedHover,
+				nativeControlFocusRing,
 				className,
 			)}
 			{...props}
@@ -99,7 +102,7 @@ function SelectLabel({ className, ...props }: React.ComponentProps<typeof Select
 	return (
 		<SelectPrimitive.Label
 			data-slot="select-label"
-			className={cn("px-2 py-1.5 text-xs text-muted-foreground", className)}
+			className={cn(nativeMenuLabel, "text-muted-foreground", className)}
 			{...props}
 		/>
 	)
