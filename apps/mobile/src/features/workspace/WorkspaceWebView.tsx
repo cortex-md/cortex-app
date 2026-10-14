@@ -30,16 +30,16 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react"
-
-import { MOBILE_CODE_BLOCK_EMBEDS } from "@/features/editor/embeds/mobileCodeBlockEmbeds"
 import {
 	executeMobileEditorMarkdownCommand,
 	getMobileEditorFormatBindings,
+	listMobileEditorCommands,
 	mobileEditorSlashCommandItems,
 	registerMobileEditorCommands,
 	runMobileEditorCommand,
 	setMobileEditorCommandView,
 } from "@/features/editor/editorCommands"
+import { MOBILE_CODE_BLOCK_EMBEDS } from "@/features/editor/embeds/mobileCodeBlockEmbeds"
 import type {
 	WorkspaceCursor,
 	WorkspaceDocument,
@@ -303,6 +303,9 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 		}
 
 		registerMobileEditorCommands()
+		sendRef
+			.current({ type: "editorCommands", commands: listMobileEditorCommands() })
+			.catch((error: unknown) => console.error("[Workspace bridge send failed]", error))
 		const disconnect = realm.connect(
 			(message) => {
 				sendRef.current(message).catch((error: unknown) => {

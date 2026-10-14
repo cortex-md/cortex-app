@@ -77,8 +77,16 @@ export type WorkspaceInboundMessage =
 	| WorkspaceReply
 
 /** Workspace WebView → native, through the `send` async prop. Requests carry an `id`. */
+export interface EditorCommandSummary {
+	id: string
+	label: string
+	category: string
+	aliases?: string[]
+}
+
 export type WorkspaceOutboundMessage =
 	| { type: "ready" }
+	| { type: "editorCommands"; commands: EditorCommandSummary[] }
 	| { type: "plugin"; message: PluginHostMessage }
 	| { type: "commit"; id: number; filePath: string; body: string; revision: number }
 	| { type: "cursor"; cursor: WorkspaceCursor }

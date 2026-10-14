@@ -1,4 +1,4 @@
-import { executeCommand } from "@cortex/commands"
+import { type CommandEntry, executeCommand, registerCommands } from "@cortex/commands"
 import {
 	createCoreServices,
 	type NoteDocumentSession,
@@ -14,6 +14,7 @@ import { openPluginView } from "@/features/plugins/openPluginView"
 import {
 	answerWorkspaceRequest,
 	createWorkspaceRequests,
+	type EditorCommandSummary,
 	isForwardedPlatformMethod,
 	type WorkspaceDocument,
 	type WorkspaceFindResult,
@@ -156,10 +157,27 @@ async function runServiceCall(id: number, call: WorkspaceServiceCall): Promise<u
 	}
 }
 
+let unregisterEditorCommands: (() => void) | null = null
+
+function registerEditorCommandProxies(commands: readonly EditorCommandSummary[]): void {
+	unregisterEditorCommands?.()
+	const entries: CommandEntry[] = commands.map((command) => ({
+		id: command.id,
+		label: command.label,
+		category: command.category,
+		aliases: command.aliases,
+		execute: () => sendCommand(command.id),
+	}))
+	unregisterEditorCommands = registerCommands(entries)
+}
+
 async function receive(message: WorkspaceOutboundMessage): Promise<void> {
 	switch (message.type) {
 		case "ready":
 			handleReady()
+			return
+		case "editorCommands":
+			registerEditorCommandProxies(message.commands)
 			return
 		case "plugin":
 			pluginUiMirror.receive(message.message)
