@@ -19,6 +19,7 @@ import type { BookmarkEntry, BookmarkToggleResult } from "@cortex.md/api"
 
 import {
 	answerWorkspaceRequest,
+	type CollabBridgeMessage,
 	createWorkspaceRequests,
 	type ForwardedPlatformDomain,
 	forwardedPlatformMethods,
@@ -41,6 +42,7 @@ export interface WorkspaceEditorHandlers {
 	getFilePath(): string | null
 	runCommand(commandId: string, payload: JsonValue | undefined): void
 	find(query: string, direction: "next" | "prev" | undefined): Promise<WorkspaceFindResult>
+	collab(message: CollabBridgeMessage): void
 }
 
 type ForwardedMethod<Domain extends ForwardedPlatformDomain> =
@@ -375,6 +377,9 @@ export function createWorkspaceRealm() {
 				case "command":
 					editor?.runCommand(message.commandId, message.payload)
 					return
+				case "collab":
+					editor?.collab(message.message)
+					return
 				case "find":
 					answerWorkspaceRequest(
 						message.id,
@@ -398,6 +403,9 @@ export function createWorkspaceRealm() {
 		},
 		saveImage(filePath: string, mimeType: string, base64: string): Promise<string | null> {
 			return callService<string | null>({ kind: "saveImage", filePath, mimeType, base64 })
+		},
+		sendCollab(message: CollabBridgeMessage): void {
+			send({ type: "collab", message })
 		},
 		reportCursor(cursor: WorkspaceCursor): void {
 			send({ type: "cursor", cursor })

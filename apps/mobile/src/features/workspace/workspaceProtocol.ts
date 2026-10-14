@@ -64,8 +64,28 @@ export interface WorkspaceFindResult {
 export type WorkspaceReply = { type: "reply"; id: number; value?: unknown; error?: string }
 
 /** Native → workspace WebView, through the `receive` imperative handle. */
+export interface CollabCursorState {
+	anchor: unknown
+	head: unknown
+}
+
+export type CollabBridgeMessage =
+	| {
+			kind: "attach"
+			filePath: string
+			update: string
+			peers: string | null
+			canWrite: boolean
+			user: { name: string; color: string; colorLight: string }
+	  }
+	| { kind: "update"; filePath: string; update: string }
+	| { kind: "peers"; filePath: string; update: string }
+	| { kind: "cursor"; filePath: string; cursor: CollabCursorState | null }
+	| { kind: "detach"; filePath: string }
+
 export type WorkspaceInboundMessage =
 	| { type: "plugin"; message: PluginUiMessage }
+	| { type: "collab"; message: CollabBridgeMessage }
 	| { type: "state"; patch: Partial<WorkspaceState> }
 	| { type: "openDocument"; document: WorkspaceDocument }
 	| { type: "closeDocument"; id: number; filePath: string }
@@ -88,6 +108,7 @@ export interface EditorCommandSummary {
 export type WorkspaceOutboundMessage =
 	| { type: "ready" }
 	| { type: "editorCommands"; commands: EditorCommandSummary[] }
+	| { type: "collab"; message: CollabBridgeMessage }
 	| { type: "plugin"; message: PluginHostMessage }
 	| { type: "commit"; id: number; filePath: string; body: string; revision: number }
 	| { type: "cursor"; cursor: WorkspaceCursor }

@@ -1,4 +1,9 @@
-import type { EffectiveAccess, Platform, SyncPreferences } from "@cortex/platform"
+import type {
+	CollabFileSyncRole,
+	EffectiveAccess,
+	Platform,
+	SyncPreferences,
+} from "@cortex/platform"
 import { isPathOrDescendant } from "@cortex/platform/utils"
 import type { AccountIdentity } from "@cortex/sync-api"
 import {
@@ -31,6 +36,7 @@ let access: EffectiveAccess | null = null
 let preferences: SyncPreferences | null = null
 let activeStart: StartCommand | null = null
 let suspended = false
+const collabRoles = new Map<string, CollabFileSyncRole>()
 
 function on<T>(event: SyncEvents[0], listener: (payload: T) => void): () => void {
 	let set = listeners.get(event)
@@ -108,6 +114,12 @@ AppState.addEventListener("change", (state: AppStateStatus) => {
 	}
 })
 
+export function setCollabFileRole(path: string, role: CollabFileSyncRole | null): void {
+	if (role) collabRoles.set(path, role)
+	else if (!collabRoles.delete(path)) return
+	engine.dispatch({ type: "setCollabRole", path, role })
+}
+
 export const syncApi = {
 	checkVaultEncryption: serverApi.checkVaultEncryption,
 	createVaultKey: async (vaultId) =>
@@ -170,12 +182,14 @@ export const syncApi = {
 		activeStart = { type: "start", vaultId, vaultPath, serverUrl, requiresEntitlement, userId }
 		suspended = false
 		if (preferences) engine.dispatch({ type: "updateSyncPreferences", preferences })
+		for (const [path, role] of collabRoles) engine.dispatch({ type: "setCollabRole", path, role })
 		engine.dispatch(activeStart)
 	},
 	stop: async () => {
 		activeStart = null
 		access = null
 		suspended = false
+		collabRoles.clear()
 		engine.dispatch({ type: "stop" })
 	},
 	trustMemberKey: async (vaultId, userId, fingerprint) => {

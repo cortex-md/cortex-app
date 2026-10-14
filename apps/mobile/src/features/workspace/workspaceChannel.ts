@@ -12,8 +12,10 @@ import type { ReactNode, RefObject } from "react"
 import { openMobileNote } from "@/bootstrap/appCommands"
 import { saveNoteImage } from "@/features/note/noteImageFiles"
 import { openPluginView } from "@/features/plugins/openPluginView"
+import { receiveCollabBridgeMessage } from "@/features/workspace/collabBridge"
 import {
 	answerWorkspaceRequest,
+	type CollabBridgeMessage,
 	createWorkspaceRequests,
 	type EditorCommandSummary,
 	isForwardedPlatformMethod,
@@ -78,7 +80,9 @@ function post(message: WorkspaceInboundMessage): void {
 		handle.receive(message)
 		return
 	}
-	if (message.type === "plugin" || message.type === "closeDocument") queue.push(message)
+	if (message.type === "plugin" || message.type === "closeDocument" || message.type === "collab") {
+		queue.push(message)
+	}
 }
 
 function stopWatchers(): void {
@@ -189,6 +193,9 @@ async function receive(message: WorkspaceOutboundMessage): Promise<void> {
 		case "editorCommands":
 			registerEditorCommandProxies(message.commands)
 			return
+		case "collab":
+			receiveCollabBridgeMessage(message.message)
+			return
 		case "plugin":
 			pluginUiMirror.receive(message.message)
 			return
@@ -225,6 +232,10 @@ async function receive(message: WorkspaceOutboundMessage): Promise<void> {
 		case "reply":
 			requests.settle(message)
 	}
+}
+
+function sendCollab(message: CollabBridgeMessage): void {
+	post({ type: "collab", message })
 }
 
 function sendCommand(commandId: string, payload?: JsonValue): void {
@@ -332,6 +343,7 @@ export const workspaceChannel = {
 	setBottomInset,
 	flush,
 	sendCommand,
+	sendCollab,
 	find,
 	getLayout: () => layout,
 	subscribeLayout(listener: () => void) {

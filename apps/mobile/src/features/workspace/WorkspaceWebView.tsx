@@ -41,6 +41,7 @@ import {
 	setMobileEditorCommandView,
 } from "@/features/editor/editorCommands"
 import { MOBILE_CODE_BLOCK_EMBEDS } from "@/features/editor/embeds/mobileCodeBlockEmbeds"
+import { createCollabMirror } from "@/features/workspace/collabMirror"
 import type {
 	WorkspaceCursor,
 	WorkspaceDocument,
@@ -77,6 +78,7 @@ const MOBILE_INSERT_WIKILINK_COMMAND = "mobile.insert-wikilink"
 const MOBILE_INSERT_TEXT_COMMAND = "mobile.insert-text"
 
 const realm = createWorkspaceRealm()
+const collabMirror = createCollabMirror((message) => realm.sendCollab(message))
 
 function blobToBase64(blob: Blob): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -193,8 +195,12 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 	const pendingCursorRef = useRef<WorkspaceCursor | null>(null)
 	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	const flushPendingCommitRef = useRef<() => Promise<void>>(async () => {})
+	const collabState = useSyncExternalStore(collabMirror.subscribe, collabMirror.getState)
+	const collabBinding =
+		collabState && collabState.filePath === activeDocument?.filePath ? collabState.binding : null
 	const editorConfig = workspace?.editorConfig
-	const readOnly = editorConfig?.readOnly ?? false
+	const readOnly =
+		(editorConfig?.readOnly ?? false) || (collabBinding !== null && !collabState?.canWrite)
 	const slashCommandsEnabled = editorConfig?.slashCommands ?? false
 	const readOnlyRef = useRef(readOnly)
 	const slashCommandsEnabledRef = useRef(slashCommandsEnabled)
@@ -237,6 +243,7 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 	function handleChange(body: string) {
 		const current = documentRef.current
 		if (readOnlyRef.current || !current) return
+		if (collabMirror.getState()?.filePath === current.filePath) return
 		setCommitError(null)
 		pendingCommitRef.current = { filePath: current.filePath, body, revision: current.revision }
 		if (timerRef.current) clearTimeout(timerRef.current)
@@ -403,6 +410,9 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 							runMobileEditorCommand(commandId, view, "api")
 					}
 				},
+				collab(message) {
+					collabMirror.receive(message)
+				},
 				async find(query, direction): Promise<WorkspaceFindResult> {
 					const view = viewRef.current
 					if (!view) return { current: 0, total: 0 }
@@ -477,6 +487,7 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 			<div className="mobile-code-mirror-shell">
 				<EditorView
 					codeBlockEmbeds={MOBILE_CODE_BLOCK_EMBEDS}
+					collab={collabBinding}
 					commandExecutor={executeMobileEditorMarkdownCommand}
 					content={activeDocument.body}
 					documentKey={activeDocument.filePath}

@@ -39,6 +39,7 @@ import { presentPropertyRoute } from "@/features/properties/propertyRoutes"
 import { useNoteProperties } from "@/features/properties/useNoteProperties"
 import { visiblePropertyDefinitions } from "@/features/properties/visibleProperties"
 import { presentInsertTemplate } from "@/features/templates/insertTemplate"
+import { useNoteCollabBridge } from "@/features/workspace/collabBridge"
 import { workspaceChannel } from "@/features/workspace/workspaceChannel"
 import { useMobileColors } from "@/hooks/useMobileColors"
 import { triggerSelectionHaptic } from "@/utils/haptics"
@@ -144,6 +145,7 @@ export function NoteScreen() {
 	const keyboardVisible = useKeyboardVisible()
 	const find = useFindInNote()
 	const session = useCollabNoteSession(filePath)
+	useNoteCollabBridge(filePath, true, workspaceChannel.sendCollab)
 	const properties = useNoteProperties(filePath, { trackUsage: false })
 	const propertyDefinitions = visiblePropertyDefinitions(properties)
 	const [dialog, setDialog] = useState<NoteDialog>("none")
