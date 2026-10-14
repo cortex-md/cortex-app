@@ -53,6 +53,7 @@ export type WorkspaceServiceCall =
 	| { kind: "bookmark"; action: "add" | "remove" | "toggle"; path: string; force?: boolean }
 	| { kind: "watch"; path: string; options?: WatchOptions }
 	| { kind: "unwatch"; watchId: number }
+	| { kind: "saveImage"; filePath: string; mimeType: string; base64: string }
 
 export interface WorkspaceFindResult {
 	current: number

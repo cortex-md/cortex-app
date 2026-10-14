@@ -10,6 +10,7 @@ import { createPluginUiMirror, type JsonValue } from "@cortex/plugin-host-core"
 import type { ReactNode, RefObject } from "react"
 
 import { openMobileNote } from "@/bootstrap/appCommands"
+import { saveNoteImage } from "@/features/note/noteImageFiles"
 import { openPluginView } from "@/features/plugins/openPluginView"
 import {
 	answerWorkspaceRequest,
@@ -154,7 +155,16 @@ async function runServiceCall(id: number, call: WorkspaceServiceCall): Promise<u
 			watchers.get(call.watchId)?.()
 			watchers.delete(call.watchId)
 			return null
+		case "saveImage":
+			return saveNoteImage(call.filePath, decodeBase64(call.base64), call.mimeType)
 	}
+}
+
+function decodeBase64(value: string): Uint8Array {
+	const binary = atob(value)
+	const bytes = new Uint8Array(binary.length)
+	for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index)
+	return bytes
 }
 
 let unregisterEditorCommands: (() => void) | null = null

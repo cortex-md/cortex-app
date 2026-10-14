@@ -1,5 +1,6 @@
 "use dom"
 
+import { clipboardImageExtension } from "@cortex/editor/clipboard"
 import { EditorView, evictEditorDocument } from "@cortex/editor/editor-view"
 import { readonlyExtension } from "@cortex/editor/extensions"
 import { reconfigureMarkdownKeymap } from "@cortex/editor/keymap"
@@ -76,6 +77,18 @@ const MOBILE_INSERT_WIKILINK_COMMAND = "mobile.insert-wikilink"
 const MOBILE_INSERT_TEXT_COMMAND = "mobile.insert-text"
 
 const realm = createWorkspaceRealm()
+
+function blobToBase64(blob: Blob): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader()
+		reader.onload = () => {
+			const result = typeof reader.result === "string" ? reader.result : ""
+			resolve(result.slice(result.indexOf(",") + 1))
+		}
+		reader.onerror = () => reject(reader.error ?? new Error("Could not read the pasted image"))
+		reader.readAsDataURL(blob)
+	})
+}
 
 function insertAtSelection(view: EditorRuntimeView, before: string, after = ""): void {
 	const range = view.state.selection.main
@@ -196,6 +209,12 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 
 	const [extraExtensions] = useState<EditorExtensionFactory[]>(() => [
 		createFrontmatterExtension({ initialError: null, initialMeta: {} }),
+		(runtime) =>
+			clipboardImageExtension(async (image) => {
+				const current = documentRef.current
+				if (readOnlyRef.current || !current) return null
+				return realm.saveImage(current.filePath, image.type, await blobToBase64(image))
+			})(runtime),
 		(runtime) =>
 			runtime.view.EditorView.scrollMargins.of(() => ({
 				bottom: bottomInsetRef.current + SCROLL_MARGIN,

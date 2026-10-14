@@ -396,6 +396,9 @@ export function createWorkspaceRealm() {
 		commit(filePath: string, body: string, revision: number): Promise<void> {
 			return requestNative((id) => ({ type: "commit", id, filePath, body, revision }))
 		},
+		saveImage(filePath: string, mimeType: string, base64: string): Promise<string | null> {
+			return callService<string | null>({ kind: "saveImage", filePath, mimeType, base64 })
+		},
 		reportCursor(cursor: WorkspaceCursor): void {
 			send({ type: "cursor", cursor })
 		},
