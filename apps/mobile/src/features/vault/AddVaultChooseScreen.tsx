@@ -1,12 +1,13 @@
 import { useState } from "react"
 
 import { FormRow, FormSection, NativeForm } from "@/components/ui/Form"
+import { RequireAccount } from "@/features/account/RequireAccount"
 import { toast } from "@/features/feedback/useToast"
-import { pickVaultFolder } from "@/features/vault/addVaultActions"
 import { AddVaultCancelButton } from "@/features/vault/AddVaultCancelButton"
+import { AddVaultRemoteScreen } from "@/features/vault/AddVaultRemoteScreen"
+import { pickVaultFolder } from "@/features/vault/addVaultActions"
 import { useAddVault } from "@/features/vault/addVaultContext"
 import { pushAddVaultStep, useCloseAddVault } from "@/features/vault/addVaultNavigation"
-import { AddVaultRemoteScreen } from "@/features/vault/AddVaultRemoteScreen"
 import { DEVICE_LABEL } from "@/features/vault/useVaultListItems"
 import { useVaultSwitcher } from "@/features/vault/useVaultSwitcher"
 
@@ -16,7 +17,13 @@ export function AddVaultChooseScreen() {
 	const { openVault } = useVaultSwitcher()
 	const [startsWithDownload] = useState(state.path === "download")
 
-	if (startsWithDownload) return <AddVaultRemoteScreen first />
+	if (startsWithDownload) {
+		return (
+			<RequireAccount>
+				<AddVaultRemoteScreen first />
+			</RequireAccount>
+		)
+	}
 
 	function create() {
 		patch({ entry: null, folder: null, mode: null, name: "", path: "create", remoteId: null })

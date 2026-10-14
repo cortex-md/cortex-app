@@ -1,6 +1,5 @@
 import {
 	buildRemoteVaultOptions,
-	CLOUD_SERVER_LABEL,
 	describeRemoteVault,
 	NEW_REMOTE,
 	type RemoteVaultOption,
@@ -8,30 +7,17 @@ import {
 import { Stack } from "expo-router"
 
 import { FormRow, FormSection, NativeForm } from "@/components/ui/Form"
+import { accountServerLabel, useAccountServer } from "@/features/account/accountServer"
 import { useHostedSyncEntitlement } from "@/features/billing/billingAdapter"
 import { openSettings } from "@/features/navigation/routes"
-import {
-	FormButton,
-	FormCheckRow,
-	FormPicker,
-	FormTextField,
-} from "@/features/onboarding/FormControls"
-import { finishLocalVault } from "@/features/vault/addVaultActions"
+import { FormButton, FormCheckRow, FormTextField } from "@/features/onboarding/FormControls"
 import { AddVaultCancelButton } from "@/features/vault/AddVaultCancelButton"
+import { finishLocalVault } from "@/features/vault/addVaultActions"
 import { useAddVault } from "@/features/vault/addVaultContext"
 import { pushAddVaultStep, useCloseAddVault } from "@/features/vault/addVaultNavigation"
 import { isNewRemote, localVaultName } from "@/features/vault/addVaultState"
 import { DEVICE_LABEL, useVaultListItems } from "@/features/vault/useVaultListItems"
-import {
-	getSelfHostedServerLabel,
-	type RemoteServerKind,
-	useRemoteVaultChoices,
-} from "@/features/vault/vaultSyncAdapter"
-
-const serverOptions: { label: string; value: RemoteServerKind }[] = [
-	{ label: CLOUD_SERVER_LABEL, value: "cloud" },
-	{ label: "Self-hosted", value: "selfHosted" },
-]
+import { useRemoteVaultChoices } from "@/features/vault/vaultSyncAdapter"
 
 function describeOption(option: RemoteVaultOption): string {
 	if (option.takenBy) return `Already on this ${DEVICE_LABEL} as “${option.takenBy.entry.name}”`
@@ -43,10 +29,11 @@ export function AddVaultRemoteScreen({ first = false }: { first?: boolean }) {
 	const close = useCloseAddVault()
 	const { locked: planLocked } = useHostedSyncEntitlement()
 	const { items } = useVaultListItems()
-	const choices = useRemoteVaultChoices(state.server)
+	const server = useAccountServer()
+	const choices = useRemoteVaultChoices()
 	const isDownload = state.path === "download"
-	const locked = planLocked && state.server === "cloud"
-	const serverName = state.server === "cloud" ? CLOUD_SERVER_LABEL : getSelfHostedServerLabel()
+	const locked = planLocked && !server.selfHosted
+	const serverName = accountServerLabel(server)
 	const options = buildRemoteVaultOptions(choices, items, DEVICE_LABEL)
 	const isNew = isNewRemote(state)
 	const name = localVaultName(state)
@@ -60,17 +47,8 @@ export function AddVaultRemoteScreen({ first = false }: { first?: boolean }) {
 			<Stack.Screen options={{ title: isDownload ? "Get a vault" : "Remote vault" }} />
 			{first ? <AddVaultCancelButton /> : null}
 			<NativeForm>
-				<FormSection>
-					<FormPicker
-						icon={{ md: "dns", sf: "server.rack" }}
-						label="Server"
-						onChange={(server) => patch({ remoteId: null, server })}
-						options={serverOptions}
-						value={state.server}
-					/>
-				</FormSection>
 				{locked ? (
-					<FormSection footer={`Syncing with ${CLOUD_SERVER_LABEL} needs Hosted Sync.`}>
+					<FormSection footer={`Syncing with ${serverName} needs Hosted Sync.`}>
 						<FormRow
 							chevron
 							icon={{ md: "workspace_premium", sf: "star" }}

@@ -104,7 +104,7 @@ export function SyncOverviewScreen() {
 				/>
 				<FormRow
 					chevron
-					onPress={() => openSettings("sync/self-hosted")}
+					onPress={() => openSettings("account")}
 					title="Server"
 					value={serverLabel}
 				/>

@@ -58,6 +58,7 @@ export function AppGate() {
 				<Stack.Screen name="people" options={formSheetOptions("large")} />
 				<Stack.Screen name="quick-add" options={formSheetOptions("medium")} />
 				<Stack.Screen name="reset-password" options={formSheetOptions("large")} />
+				<Stack.Screen name="sign-in" options={formSheetOptions("large")} />
 				<Stack.Screen name="shared-note" options={formSheetOptions("large")} />
 				<Stack.Screen name="invite" options={formSheetOptions("medium")} />
 				<Stack.Screen name="public-template" options={formSheetOptions("medium")} />

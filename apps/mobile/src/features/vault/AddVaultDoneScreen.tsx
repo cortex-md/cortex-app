@@ -1,7 +1,7 @@
-import { CLOUD_SERVER_LABEL } from "@cortex/core"
 import { Stack } from "expo-router"
 
 import { FormRow, FormSection, NativeForm } from "@/components/ui/Form"
+import { accountServerLabel, useAccountServer } from "@/features/account/accountServer"
 import { toast } from "@/features/feedback/useToast"
 import { FormButton } from "@/features/onboarding/FormControls"
 import { useAddVault } from "@/features/vault/addVaultContext"
@@ -9,7 +9,7 @@ import { useCloseAddVault } from "@/features/vault/addVaultNavigation"
 import { localVaultName } from "@/features/vault/addVaultState"
 import { DEVICE_LABEL } from "@/features/vault/useVaultListItems"
 import { useVaultSwitcher } from "@/features/vault/useVaultSwitcher"
-import { getSelfHostedServerLabel, useDownloadProgress } from "@/features/vault/vaultSyncAdapter"
+import { useDownloadProgress } from "@/features/vault/vaultSyncAdapter"
 
 export function AddVaultDoneScreen() {
 	const { state } = useAddVault()
@@ -19,7 +19,7 @@ export function AddVaultDoneScreen() {
 	const progress = useDownloadProgress(isDownload)
 	const name = state.entry?.name ?? (localVaultName(state) || state.remoteName)
 	const synced = state.mode !== "keep"
-	const serverName = state.server === "cloud" ? CLOUD_SERVER_LABEL : getSelfHostedServerLabel()
+	const serverName = accountServerLabel(useAccountServer())
 
 	async function open() {
 		const entry = state.entry

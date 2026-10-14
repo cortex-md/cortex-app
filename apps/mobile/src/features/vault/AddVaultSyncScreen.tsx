@@ -1,7 +1,9 @@
 import { Stack } from "expo-router"
 
 import { FormSection, NativeForm } from "@/components/ui/Form"
+import { useSignedIn } from "@/features/account/RequireAccount"
 import { useHostedSyncEntitlement } from "@/features/billing/billingAdapter"
+import { presentSheet } from "@/features/navigation/routes"
 import { FormButton, FormCheckRow } from "@/features/onboarding/FormControls"
 import { finishLocalVault } from "@/features/vault/addVaultActions"
 import { useAddVault } from "@/features/vault/addVaultContext"
@@ -12,6 +14,7 @@ import { DEVICE_LABEL } from "@/features/vault/useVaultListItems"
 export function AddVaultSyncScreen() {
 	const { patch, state } = useAddVault()
 	const { locked } = useHostedSyncEntitlement()
+	const signedIn = useSignedIn()
 	const name = localVaultName(state)
 
 	async function finish() {
@@ -33,14 +36,21 @@ export function AddVaultSyncScreen() {
 						checked={state.mode === "sync"}
 						onPress={() => patch({ mode: "sync" })}
 						subtitle={
-							locked ? "Needs a plan or your own server" : "Link it to a vault in your account"
+							!signedIn
+								? "Sign in to link it to your account"
+								: locked
+									? "Needs a plan or your own server"
+									: "Link it to a vault in your account"
 						}
 						title="Sync it"
 					/>
 				</FormSection>
 				<FormSection>
 					{state.mode === "sync" ? (
-						<FormButton label="Next" onPress={() => pushAddVaultStep("remote")} />
+						<FormButton
+							label={signedIn ? "Next" : "Sign in"}
+							onPress={() => (signedIn ? pushAddVaultStep("remote") : presentSheet("sign-in"))}
+						/>
 					) : (
 						<FormButton
 							disabled={state.mode === null || state.busy}

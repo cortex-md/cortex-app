@@ -2,7 +2,6 @@ import { type AddVaultPath, NEW_REMOTE } from "@cortex/core"
 import type { VaultRegistryEntry } from "@cortex/platform"
 
 import { DEFAULT_VAULT_COLOR } from "@/features/onboarding/vaultAppearance"
-import type { RemoteServerKind } from "@/features/vault/vaultSyncAdapter"
 
 export interface PickedVaultFolder {
 	path: string
@@ -15,7 +14,6 @@ export interface AddVaultState {
 	color: string
 	folder: PickedVaultFolder | null
 	mode: "keep" | "sync" | null
-	server: RemoteServerKind
 	remoteId: string | null
 	remoteName: string
 	newRemoteName: string
@@ -43,7 +41,6 @@ export function createAddVaultState(
 		path,
 		remoteId: remoteVaultId,
 		remoteName: "",
-		server: "cloud",
 	}
 }
 

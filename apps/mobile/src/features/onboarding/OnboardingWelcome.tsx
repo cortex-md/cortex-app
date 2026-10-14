@@ -1,3 +1,4 @@
+import { useAuthStore } from "@cortex/core"
 import type { VaultRegistryEntry } from "@cortex/platform"
 
 import { FormRow, FormSection, NativeForm } from "@/components/ui/Form"
@@ -35,6 +36,7 @@ export function OnboardingWelcome({
 	recentVaults: readonly VaultRegistryEntry[]
 }) {
 	const hasRecents = recentVaults.length > 0
+	const user = useAuthStore((state) => (state.authenticated ? state.user : null))
 	return (
 		<NativeForm>
 			<FormSection>
@@ -43,8 +45,15 @@ export function OnboardingWelcome({
 			<FormSection footer={hasRecents ? undefined : (notice ?? undefined)}>
 				<FormButton disabled={busy} label="Create new vault" onPress={onCreate} />
 				<FormButton disabled={busy} label="Open folder" onPress={onOpen} variant="secondary" />
-				<FormButton disabled={busy} label="Sign in" onPress={onSignIn} variant="plain" />
+				{user ? null : (
+					<FormButton disabled={busy} label="Sign in" onPress={onSignIn} variant="plain" />
+				)}
 			</FormSection>
+			{user ? (
+				<FormSection footer="Create or open a vault, then link it in Settings → Sync.">
+					<FormRow subtitle={user.email} title={`Signed in as ${user.displayName ?? user.email}`} />
+				</FormSection>
+			) : null}
 			{hasRecents ? (
 				<FormSection footer={notice ?? undefined} title="Recent vaults">
 					{recentVaults.slice(0, 8).map((entry) => {

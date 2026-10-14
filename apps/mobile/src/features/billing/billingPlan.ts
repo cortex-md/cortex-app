@@ -23,8 +23,3 @@ export const HOSTED_SYNC_PLAN: HostedSyncPlan = {
 	selfHostingNote: "Self-hosting remains available. The paid plan is for hosted Cortex Sync.",
 	purchaseNote: "Checkout opens on cortex.md. Your plan updates here as soon as you come back.",
 }
-
-export interface AccountSummary {
-	displayName: string
-	email: string
-}

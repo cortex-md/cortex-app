@@ -66,12 +66,6 @@ export const SYNC_SETTINGS_LINKS: SettingsLink[] = [
 		page: "sync/prefs",
 	},
 	{ key: "members", title: "Members", icon: { sf: "person.2", md: "group" }, page: "sync/members" },
-	{
-		key: "self-hosted",
-		title: "Self-hosted",
-		icon: { sf: "server.rack", md: "dns" },
-		page: "sync/self-hosted",
-	},
 ]
 
 export const EXTENSION_SETTINGS_LINKS: SettingsLink[] = [

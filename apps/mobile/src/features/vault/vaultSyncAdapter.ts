@@ -1,27 +1,22 @@
-import { useAccountStore, useRemoteVaultStore, useSyncStore, useVaultStore } from "@cortex/core"
+import {
+	resolveSyncServerUrl,
+	useAccountStore,
+	useRemoteVaultStore,
+	useSyncStore,
+	useVaultStore,
+} from "@cortex/core"
 import type { RemoteVaultInfo, VaultRegistryEntry } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
 import { useEffect } from "react"
 import { Alert } from "react-native"
 
-export type RemoteServerKind = "cloud" | "selfHosted"
-
-const EMPTY_VAULTS: RemoteVaultInfo[] = []
-
-export function useRemoteVaultChoices(server: RemoteServerKind): RemoteVaultInfo[] {
+export function useRemoteVaultChoices(): RemoteVaultInfo[] {
 	const remoteVaults = useRemoteVaultStore((state) => state.remoteVaults)
-	const selfHosted = useRemoteVaultStore((state) => state.syncConfig.selfHosted)
-	const storeMatches = (server === "selfHosted") === selfHosted
+	const serverUrl = useRemoteVaultStore((state) => resolveSyncServerUrl(state.syncConfig))
 	useEffect(() => {
-		if (storeMatches) void useRemoteVaultStore.getState().fetchRemoteVaults()
-	}, [storeMatches])
-	return storeMatches ? remoteVaults : EMPTY_VAULTS
-}
-
-export function getSelfHostedServerLabel(): string {
-	const { serverUrl, selfHosted } = useRemoteVaultStore.getState().syncConfig
-	if (selfHosted && serverUrl) return serverUrl.replace(/^https?:\/\//u, "")
-	return "your server"
+		if (serverUrl) void useRemoteVaultStore.getState().fetchRemoteVaults()
+	}, [serverUrl])
+	return remoteVaults
 }
 
 function showRecoveryKey(recoveryKey: string): void {

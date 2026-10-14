@@ -1,18 +1,14 @@
 import {
-	createSyncEnvironmentSecretKey,
 	formatLastSyncedAt,
 	getSyncServerLabel,
-	SELF_HOSTED_ENVIRONMENT_FIELDS,
 	type SyncLogEntry,
 	type SyncLogItem,
-	serializeSelfHostedEnvironment,
 	useRemoteVaultStore,
 	useSyncLogStore,
 	useSyncStore,
 } from "@cortex/core"
 import type { DeviceEntry, FileEntry, RemoteVaultInfo, SyncConfig } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
-import { Share } from "react-native"
 
 import {
 	CURRENT_DEVICE_NAME,
@@ -158,50 +154,4 @@ export function resolveExcludedPaths(excludedPaths: readonly string[]): Excluded
 
 export async function setExcludedPath(relativePath: string, excluded: boolean): Promise<void> {
 	await useSyncStore.getState().toggleExcludedPath(relativePath, excluded)
-}
-
-export async function loadSelfHostedSecrets(vaultId: string): Promise<Record<string, string>> {
-	const keychain = getPlatform().keychain
-	const secretFields = SELF_HOSTED_ENVIRONMENT_FIELDS.filter((field) => field.secret)
-	const values = await Promise.all(
-		secretFields.map((field) => keychain.get(createSyncEnvironmentSecretKey(vaultId, field.key))),
-	)
-	const secrets: Record<string, string> = {}
-	secretFields.forEach((field, index) => {
-		const value = values[index]
-		if (value) secrets[field.key] = value
-	})
-	return secrets
-}
-
-export async function saveSelfHostedSecret(
-	vaultId: string,
-	fieldKey: string,
-	value: string,
-): Promise<void> {
-	const keychain = getPlatform().keychain
-	const key = createSyncEnvironmentSecretKey(vaultId, fieldKey)
-	if (value.trim()) await keychain.set(key, value)
-	else await keychain.delete(key)
-}
-
-export function buildEnvironmentFile(
-	values: Record<string, string>,
-	secrets: Record<string, string>,
-): string {
-	return serializeSelfHostedEnvironment(values, secrets)
-}
-
-export async function copyEnvironmentFile(
-	values: Record<string, string>,
-	secrets: Record<string, string>,
-): Promise<void> {
-	await getPlatform().clipboard.writeText(buildEnvironmentFile(values, secrets))
-}
-
-export async function exportEnvironmentFile(
-	values: Record<string, string>,
-	secrets: Record<string, string>,
-): Promise<void> {
-	await Share.share({ message: buildEnvironmentFile(values, secrets), title: ".env" })
 }

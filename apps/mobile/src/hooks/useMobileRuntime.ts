@@ -11,6 +11,7 @@ import { useHotkeysStore } from "@cortex/hotkeys"
 import { useEffect, useState } from "react"
 import { AppState } from "react-native"
 
+import { startAccountServerSync } from "@/features/account/accountServer"
 import { startMobileThemeSync } from "@/features/themes/themeSync"
 import { startReminderIndexing } from "@/features/today/reminderIndexing"
 import { startExternalVaultRefresh } from "@/features/vault/externalVaultRefresh"
@@ -40,6 +41,7 @@ export function useMobileRuntime(): MobileRuntimeState {
 			onVaultOpened: (vault) => void useHotkeysStore.getState().loadOverrides(vault.path),
 		})
 		const stopSyncLifecycle = startSyncLifecycle()
+		const stopAccountServerSync = startAccountServerSync()
 		const stopReminderIndexing = startReminderIndexing()
 		const stopExternalVaultRefresh = startExternalVaultRefresh()
 		const stopThemeSync = startMobileThemeSync()
@@ -61,6 +63,7 @@ export function useMobileRuntime(): MobileRuntimeState {
 			canceled = true
 			appStateSubscription.remove()
 			stopThemeSync()
+			stopAccountServerSync()
 			stopSyncLifecycle()
 			stopReminderIndexing()
 			stopExternalVaultRefresh()

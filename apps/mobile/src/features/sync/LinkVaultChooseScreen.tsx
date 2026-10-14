@@ -12,7 +12,6 @@ import { useEffect, useEffectEvent, useState, useSyncExternalStore } from "react
 
 import { FormRow, FormSection, NativeForm } from "@/components/ui/Form"
 import { toast } from "@/features/feedback/useToast"
-import { openSettings } from "@/features/navigation/routes"
 import { FormCheck, FormTextField } from "@/features/sync/FormControls"
 import { getRemoteVaultLinkOptions } from "@/features/sync/syncAdapter"
 import { NEW_REMOTE_VAULT_OPTION_ID } from "@/features/sync/syncTypes"
@@ -168,14 +167,6 @@ export function LinkVaultChooseScreen() {
 						onPress={() => void startLink()}
 						tint
 						title={picked?.isNew ? "Create and link" : "Link"}
-					/>
-				</FormSection>
-				<FormSection>
-					<FormRow
-						chevron
-						icon={{ sf: "server.rack", md: "dns" }}
-						onPress={() => openSettings("sync/self-hosted")}
-						title="Use a self-hosted server"
 					/>
 				</FormSection>
 			</NativeForm>

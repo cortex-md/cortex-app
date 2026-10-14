@@ -270,8 +270,11 @@ stores, note sessions, and draws plugin UI from a mirror.
   workers) behind the same `Platform["sync"]` contract as desktop. `platform/syncRuntime.ts` is the
   mobile `SyncRuntime`: `expo-sqlite` (sync DB in `Documents/Cortex/sync/<rootId>.db`, never inside the
   vault), the logical fs helpers (direct `file://` access for internal roots), POSIX paths over
-  logical paths, and `platform/syncCrypto.ts` (`@noble/ciphers`, `@noble/curves`, `@noble/hashes`
-  argon2id with `asyncTick`, `fflate`). `serverApi.ts` calls `configureSyncRuntime` and wires
+  logical paths, and `platform/syncCrypto.ts` (`@noble/ciphers`, `@noble/curves`, `fflate`).
+  Argon2id is too slow for Hermes (no JIT): `platform/kdfBridge.ts` runs it in a hidden 1×1
+  `"use dom"` WebView (`features/crypto/KdfWebView`, mounted once by `KdfHost` in `app/_layout.tsx`
+  so it exists during onboarding) and falls back to `@noble/hashes` in Hermes only when the WebView
+  is not ready within 4 s. `serverApi.ts` calls `configureSyncRuntime` and wires
   `accountKeyCrypto` and invite keys like desktop. App writes notify the engine through
   `syncSignals.ts`; going to the background stops the engine and coming back restarts it.
 - `platform/collab.ts` runs core `createCollabTransport` in-process (React Native WebSocket). The
@@ -423,14 +426,29 @@ stores, note sessions, and draws plugin UI from a mirror.
 
 ## Sync, History and Recovery
 
-- `features/sync/` owns Settings → Sync (`app/settings/sync/index|prefs|members|self-hosted|link|choose`,
+- The account owns the server. `features/account/accountServer.ts` keeps the chosen server
+  (Cortex Cloud or a self-hosted URL) in the keychain and, through `startAccountServerSync()` in
+  `useMobileRuntime`, writes it into the sync config of every vault that is not linked yet (and into
+  the in-memory config when no vault is open), so login, remote vault lists and new links all hit the
+  same server. Linked vaults keep the server they were linked with. There is no per-vault server page
+  and no `.env` generator on mobile.
+- `sign-in` (`features/account/SignInScreen.tsx`, `SignInForm`) chooses the server, checks
+  `<url>/ready` for self-hosted servers, then signs in or creates the account and shows the recovery
+  key. Onboarding has no stack, so it renders the same `SignInForm` in a page-sheet `Modal`.
+  `settings/account` (`AccountScreen`) is the account page: Sign in / Create account when signed out;
+  profile, server, Plan (Cortex Cloud only), Change password, New recovery key and Sign out when
+  signed in.
+- Everything that needs the server is wrapped in `RequireAccount` at the route (`settings/sync/*`,
+  `sync-logs`, `deleted-notes`, `deleted-note`, `plan`, `password`, `people`, `comments`,
+  `share-template`, `add-vault/remote`), and the Settings Sync section shows only "Sign in to sync"
+  while signed out. Local features never require an account.
+- `features/sync/` owns Settings → Sync (`app/settings/sync/index|prefs|members|link|choose`,
   `sync-logs`), each page one `NativeForm` with `FormControls.{ios,android}.tsx` (`FormTextField`,
   `FormMenu`, `FormCheck`). Screens read `useSyncStore`, `useRemoteVaultStore`, `useDevicesStore`,
   `useSyncLogStore` and core presentation helpers.
 - `syncAdapter.ts` maps core sync state for the screens. Linking a remote vault (`sync/choose`)
   runs core `createVaultKeyFlow` (key setup, recovery key, waiting for access, legacy vault
-  password) like desktop. Self-hosted secrets go to `getPlatform().keychain` under
-  `createSyncEnvironmentSecretKey`. No fixtures: empty states are real.
+  password) like desktop. No fixtures: empty states are real.
 - `features/members/membersAdapter.ts` reads and writes `useMembersStore` (invites, roles, removal,
   groups) for the linked vault.
 - `features/history/` owns Version history (local snapshots plus the 20 newest server versions,

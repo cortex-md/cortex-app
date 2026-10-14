@@ -1,4 +1,4 @@
-import { useRemoteVaultStore, useVaultStore } from "@cortex/core"
+import { useAuthStore, useRemoteVaultStore, useVaultStore } from "@cortex/core"
 import { useMarketplaceStore } from "@cortex/marketplace"
 import { useSettingsStore } from "@cortex/settings"
 import { Stack } from "expo-router"
@@ -7,8 +7,9 @@ import { Platform, SectionList, StyleSheet, Text, View } from "react-native"
 
 import { EmptyState } from "@/components/ui/EmptyState"
 import { SymbolIcon, type SymbolName } from "@/components/ui/Symbol"
-import { useAccountSummary, useHostedSyncEntitlement } from "@/features/billing/billingAdapter"
-import { openSettings, type SettingsPage } from "@/features/navigation/routes"
+import { accountServerLabel, useAccountServer } from "@/features/account/accountServer"
+import { useHostedSyncEntitlement } from "@/features/billing/billingAdapter"
+import { openSettings, presentSheet, type SettingsPage } from "@/features/navigation/routes"
 import { ListCell, ListSectionHeader, listCellStyles } from "@/features/search/ListCell"
 import { COLOR_SCHEME_LABELS } from "@/features/settings/appearanceOptions"
 import {
@@ -36,18 +37,9 @@ function useSettingsValues(): Record<string, string | undefined> {
 			marketplace: updates > 0 ? `${updates} update${updates === 1 ? "" : "s"}` : undefined,
 			members: linked?.memberCount ? String(linked.memberCount) : undefined,
 			overview: !linkedVaultId ? "Off" : syncConfig.enabled ? "On" : "Paused",
-			"self-hosted": syncConfig.selfHosted ? "On" : "Off",
 			vaults: vaultName,
 		}
-	}, [
-		availableUpdates,
-		colorscheme,
-		linkedVaultId,
-		remoteVaults,
-		syncConfig.enabled,
-		syncConfig.selfHosted,
-		vaultName,
-	])
+	}, [availableUpdates, colorscheme, linkedVaultId, remoteVaults, syncConfig.enabled, vaultName])
 }
 
 interface SettingsItem {
@@ -57,6 +49,8 @@ interface SettingsItem {
 	value?: string
 	icon?: SymbolName
 	page: SettingsPage
+	onPress?: () => void
+	tint?: boolean
 	account?: boolean
 }
 
@@ -105,7 +99,7 @@ function SettingsItemRow({
 		<ListCell
 			first={first}
 			last={last}
-			onPress={() => openSettings(item.page)}
+			onPress={item.onPress ?? (() => openSettings(item.page))}
 			separatorInset={item.icon && IS_IOS ? 68 : 16}
 		>
 			{item.icon ? (
@@ -121,7 +115,7 @@ function SettingsItemRow({
 					style={[
 						listCellStyles.title,
 						item.account ? styles.accountTitle : null,
-						{ color: colors.label },
+						{ color: item.tint ? colors.tint : colors.label },
 					]}
 				>
 					{item.title}
@@ -150,11 +144,28 @@ function SettingsItemRow({
 
 export function SettingsHomeScreen() {
 	const { colors } = useMobileColors()
-	const account = useAccountSummary()
+	const user = useAuthStore((state) => (state.authenticated ? state.user : null))
+	const server = useAccountServer()
 	const { planLabel } = useHostedSyncEntitlement()
 	const values = useSettingsValues()
+	const accountSubtitle = user
+		? `${user.email} · ${server.selfHosted ? accountServerLabel(server) : planLabel}`
+		: "Sync your vaults across devices"
+
 	const [query, setQuery] = useState("")
 	const normalized = query.trim().toLowerCase()
+	const signInItem: SettingsItem = {
+		key: "sign-in",
+		onPress: () => presentSheet("sign-in"),
+		page: "account",
+		tint: true,
+		title: "Sign in to sync",
+	}
+	const syncSection: SettingsSection[] = user
+		? linkSection("Sync", filterLinks(SYNC_SETTINGS_LINKS, normalized), values)
+		: normalized && !signInItem.title.toLowerCase().includes(normalized)
+			? []
+			: [{ data: [signInItem], key: "Sync", title: "Sync" }]
 
 	const sections: SettingsSection[] = [
 		...(normalized
@@ -166,16 +177,16 @@ export function SettingsHomeScreen() {
 								account: true,
 								icon: { md: "account_circle", sf: "person.crop.circle.fill" },
 								key: "account",
-								page: "general",
-								subtitle: `${account.email} · ${planLabel}`,
-								title: account.displayName,
+								page: "account",
+								subtitle: accountSubtitle,
+								title: user ? (user.displayName ?? user.email) : "Account",
 							} satisfies SettingsItem,
 						],
 						key: "account",
 					},
 				]),
 		...linkSection("Cortex", filterLinks(CORTEX_SETTINGS_LINKS, normalized), values),
-		...linkSection("Sync", filterLinks(SYNC_SETTINGS_LINKS, normalized), values),
+		...syncSection,
 		...linkSection("Extensions", filterLinks(EXTENSION_SETTINGS_LINKS, normalized), values),
 	]
 

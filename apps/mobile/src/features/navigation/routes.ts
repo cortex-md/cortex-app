@@ -5,6 +5,7 @@ import { store } from "expo-router/build/global-state/router-store"
 import { useCallback } from "react"
 
 export type SettingsPage =
+	| "account"
 	| "general"
 	| "password"
 	| "vaults"
@@ -23,7 +24,6 @@ export type SettingsPage =
 	| "sync"
 	| "sync/prefs"
 	| "sync/members"
-	| "sync/self-hosted"
 	| "sync/link"
 	| "sync-logs"
 	| "deleted-notes"
@@ -48,6 +48,7 @@ export type SheetName =
 	| "tabs"
 	| "rename"
 	| "new-folder"
+	| "sign-in"
 
 type Params = Record<string, string | number | undefined>
 
