@@ -5,6 +5,7 @@ import { StyleSheet } from "react-native"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
 
 import { initializeMobileHost } from "@/bootstrap/mobileHost"
+import { KdfHost } from "@/features/crypto/KdfHost"
 import { AppGate } from "@/features/layout/AppGate"
 import { useMobileColors } from "@/hooks/useMobileColors"
 import { useSettingsColorScheme } from "@/hooks/useSettingsColorScheme"
@@ -21,6 +22,7 @@ export default function RootLayout() {
 		<ThemeProvider value={navigationTheme}>
 			<GestureHandlerRootView style={[styles.root, { backgroundColor: colors.background }]}>
 				<AppGate />
+				<KdfHost />
 				<StatusBar style={scheme === "dark" ? "light" : "dark"} />
 			</GestureHandlerRootView>
 		</ThemeProvider>

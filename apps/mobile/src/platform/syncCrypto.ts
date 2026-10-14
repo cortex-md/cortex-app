@@ -1,14 +1,14 @@
 import type { CryptoPrimitives } from "@cortex/platform"
 import { gcm } from "@noble/ciphers/aes.js"
 import { x25519 } from "@noble/curves/ed25519"
-import { argon2idAsync } from "@noble/hashes/argon2"
 import { hkdf } from "@noble/hashes/hkdf"
 import { sha256 } from "@noble/hashes/sha2"
 import * as ExpoCrypto from "expo-crypto"
 import { gunzipSync, gzipSync } from "fflate"
 
+import { deriveArgon2id } from "./kdfBridge"
+
 const GCM_TAG_LENGTH = 16
-const ARGON2_YIELD_MS = 16
 
 function randomBytes(length: number): Uint8Array {
 	return ExpoCrypto.getRandomValues(new Uint8Array(length))
@@ -36,13 +36,7 @@ export const mobileCrypto: CryptoPrimitives = {
 	x25519SharedSecret: (privateKey, publicKey) => x25519.getSharedSecret(privateKey, publicKey),
 	sha256: (data) => sha256(data),
 	argon2id: (password, { salt, memoryCost, timeCost, parallelism, hashLength }) =>
-		argon2idAsync(password, salt, {
-			m: memoryCost,
-			t: timeCost,
-			p: parallelism,
-			dkLen: hashLength,
-			asyncTick: ARGON2_YIELD_MS,
-		}),
+		deriveArgon2id(password, salt, { hashLength, memoryCost, parallelism, timeCost }),
 	gzip: async (data) => gzipSync(data),
 	gunzip: async (data) => gunzipSync(data),
 }
