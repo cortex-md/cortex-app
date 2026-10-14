@@ -29,6 +29,43 @@ export {
 } from "./collab/collabRuntime"
 export { useCollabNote, useCollabNoteState } from "./collab/useCollabNote"
 export {
+	type InviteDeepLink,
+	parseInviteDeepLink,
+	startInviteDeepLinks,
+} from "./deepLinks/inviteDeepLink"
+export {
+	parseResetPasswordDeepLink,
+	type ResetPasswordTarget,
+	startResetPasswordDeepLinks,
+} from "./deepLinks/resetPasswordDeepLink"
+export {
+	parseSharedNoteDeepLink,
+	type SharedNoteDeepLink,
+	startSharedNoteDeepLinks,
+} from "./deepLinks/sharedNoteDeepLink"
+export {
+	parseTemplateDeepLink,
+	startTemplateDeepLinks,
+	TEMPLATE_LINK_ENTRY_PREFIX,
+} from "./deepLinks/templateDeepLink"
+export {
+	buildSyncActorNames,
+	computeVersionDeltas,
+	type SyncActorNames,
+	VERSION_PREFETCH_CONCURRENCY,
+	VERSION_PREFETCH_LIMIT,
+} from "./history/historyActors"
+export {
+	buildEntries as buildHistoryEntries,
+	CURRENT_ENTRY as CURRENT_HISTORY_ENTRY,
+	compareEntries as compareHistoryEntries,
+	copyName as historyVersionCopyName,
+	type DeviceFilter as HistoryDeviceFilter,
+	type HistoryEntry,
+	matchesDeviceFilter as matchesHistoryDeviceFilter,
+} from "./history/historyEntries"
+export { groupByDay, historyDayLabel, parseTimestamp } from "./history/historyTime"
+export {
 	captureLocalVersion,
 	LOCAL_HISTORY_SIZE_CAP_BYTES,
 	type LocalVersion,
@@ -59,12 +96,15 @@ export {
 	PLUGIN_MARKDOWN_NOTE_VIEW_ID,
 } from "./pluginHostServices"
 export {
+	buildRemoteVaultOptions,
 	createVaultFolder,
+	describeRemoteVault,
 	getDefaultVaultLocation,
 	leaveRemoteVault,
 	linkVaultFolder,
 	loadVaultListItems,
 	type RegisterVaultFolderOptions,
+	type RemoteVaultOption,
 	registerVaultFolder,
 	resolveVaultColor,
 	resolveVaultListStatus,
@@ -73,6 +113,25 @@ export {
 	type VaultListItem,
 	type VaultListStatus,
 } from "./runtime/addVault"
+export {
+	ADD_VAULT_FIRST_STEP,
+	ADD_VAULT_STEP_LABELS,
+	type AddVaultDraft,
+	type AddVaultFlow,
+	type AddVaultFlowDeps,
+	type AddVaultNames,
+	type AddVaultOpenOptions,
+	type AddVaultPath,
+	type AddVaultStep,
+	type AddVaultTarget,
+	addVaultStepsFor,
+	createAddVaultDraft,
+	createAddVaultFlow,
+	NEW_REMOTE,
+	type PickedFolderInfo,
+	resolveAddVaultNames,
+	type SyncMode,
+} from "./runtime/addVaultFlow"
 export {
 	type AppRuntimeOptions,
 	canStartSync,
@@ -110,11 +169,28 @@ export {
 	updateDatabaseCell,
 	updateDatabaseConfig,
 } from "./runtime/databaseActions"
+export { createDatabaseCommandEntries, DATABASE_COMMAND_IDS } from "./runtime/databaseCommands"
 export {
 	applyDatabaseRowContent,
 	isDatabaseRetained,
 	retainDatabase,
 } from "./runtime/databaseRuntime"
+export {
+	addDatabaseView,
+	createDatabaseRowInView,
+	cycleDatabaseViewSort,
+	removeDatabaseView,
+	renameDatabaseFolder,
+	renameDatabaseRowNote,
+	reorderDatabaseRowTitles,
+	updateDatabaseView,
+} from "./runtime/databaseViewActions"
+export {
+	DATABASE_VIEW_ID,
+	type DatabaseViewState,
+	openDatabaseView,
+	readDatabaseViewState,
+} from "./runtime/databaseWorkspace"
 export {
 	confirmDeleteEntry,
 	createFileCommandEntries,
@@ -127,6 +203,13 @@ export {
 	getFileEntryActions,
 } from "./runtime/fileActions"
 export {
+	closeNewDatabaseTab,
+	NEW_DATABASE_VIEW_ID,
+	type NewDatabaseViewState,
+	openNewDatabaseView,
+	readNewDatabaseViewState,
+} from "./runtime/newDatabaseWorkspace"
+export {
 	type NoteDocumentSession,
 	type NoteDocumentSessionOptions,
 	type NoteDocumentSnapshot,
@@ -137,6 +220,34 @@ export {
 	initializeCoreProperties,
 	type PropertiesRuntimeOptions,
 } from "./runtime/propertiesRuntime"
+export {
+	type SubscribeAppActive,
+	startAuthSession,
+	startTeamTemplatesRefresh,
+	startVaultOverviewRefresh,
+	teamTemplatesRefreshKey,
+} from "./runtime/sessionRefresh"
+export {
+	addTaskFromQuickAdd,
+	describeSidebarTaskTime,
+	describeTaskReminder,
+	getTaskSource,
+	isInboxTask,
+	openTaskInNote,
+	openTodayView,
+	readTodayViewState,
+	revertTaskEditSafely,
+	TODAY_VIEW_ID,
+	type TodayTab,
+	type TodayViewState,
+	toggleTaskInNote,
+	toggleTaskWithUndo,
+} from "./runtime/taskActions"
+export {
+	applyTaskNotificationToContent,
+	resolveTaskNotificationTarget,
+	type TaskNotificationTarget,
+} from "./runtime/taskNotificationActions"
 export { planVaultReminders } from "./runtime/tasksRuntime"
 export {
 	addPublicNoteTemplate,
@@ -156,6 +267,26 @@ export {
 	type TemplateSharingState,
 	useTemplateSharingStore,
 } from "./runtime/templateSharing"
+export {
+	getTemplateSlashItems,
+	TEMPLATE_SLASH_PREFIX,
+	type TemplateSlashItem,
+} from "./runtime/templateSlashItems"
+export {
+	formatVaultPath,
+	getVaultDisplayPath,
+	getVaultInitial,
+	getVaultStatusTitles,
+} from "./runtime/vaultDisplay"
+export {
+	deleteImpact,
+	forgetImpact,
+	type ImpactCell,
+	type ImpactTone,
+	leaveImpact,
+	unlinkImpact,
+	type VaultImpact,
+} from "./runtime/vaultImpacts"
 export {
 	type CreateVaultFromFolderOptions,
 	consumePendingOnboardingNote,
@@ -348,6 +479,7 @@ export {
 	findInheritedRestriction,
 	normalizeAccessPath,
 } from "./sync/access"
+export { type BuildSharedNoteBundle, startLiveNoteShares } from "./sync/liveNoteShares"
 export {
 	buildSyncLogItems,
 	describeSyncLogEntry,
@@ -359,6 +491,7 @@ export {
 	type SyncLogPresentation,
 	type SyncLogTone,
 } from "./sync/logPresentation"
+export { type CoreNotification, sendCoreNotification } from "./sync/nativeNotifications"
 export {
 	formatNoteEditedAt,
 	type LoadNoteSyncAttributionOptions,
@@ -366,6 +499,16 @@ export {
 	type NoteSyncAttribution,
 	resolveNoteSyncAttribution,
 } from "./sync/noteAttribution"
+export {
+	ATTACHMENT_BUDGET_BYTES,
+	buildSharedNoteBundle,
+	candidatePaths as sharedNoteImageCandidatePaths,
+	imageType as sharedNoteImageType,
+	isExternalSource as isSharedNoteExternalSource,
+	readImage as readSharedNoteImage,
+	type SharedNoteBundleDeps,
+	toBase64 as sharedNoteBytesToBase64,
+} from "./sync/noteShareBundle"
 export {
 	formatLastSyncedAt,
 	resolveSyncIndicatorStatus,
@@ -387,13 +530,34 @@ export {
 } from "./sync/selfHostedEnvironment"
 export {
 	BILLING_URL,
+	CLOUD_SERVER_LABEL,
 	DEFAULT_CLOUD_SYNC_SERVER_URL,
 	DEFAULT_SELF_HOSTED_SYNC_SERVER_URL,
 	DEFAULT_SYNC_SERVER_URL,
+	describeServerUrl,
+	getSyncServerLabel,
 	normalizeServerUrl,
 	requiresCloudEntitlement,
 	resolveSyncServerUrl,
 } from "./sync/serverConfig"
+export { inlineAttachments, rewriteAttachmentLinks, SHARED_NOTE_VIEW_ID } from "./sync/sharedNote"
+export {
+	fromBase64 as sharedNoteBase64ToBytes,
+	type SharedNoteNaming,
+	saveSharedNoteCopy,
+} from "./sync/sharedNoteCopy"
+export { startNativeNotifications } from "./sync/syncNotifications"
+export {
+	createVaultKeyDraft,
+	type EncryptionStep,
+	VAULT_KEY_POLL_MS,
+	type VaultKeyDraft,
+} from "./sync/vaultKeyDraft"
+export {
+	createVaultKeyFlow,
+	type VaultKeyFlow,
+	type VaultKeyFlowOptions,
+} from "./sync/vaultKeyFlow"
 export type {
 	SyncPluginEntry,
 	SyncPluginsManifest,

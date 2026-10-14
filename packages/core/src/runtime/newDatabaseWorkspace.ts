@@ -1,7 +1,10 @@
-import { useVaultStore, useWorkspaceStore } from "@cortex/core"
 import type { DatabasePreset } from "@cortex/properties/database"
+import { useVaultStore } from "../stores/vaultStore"
+import { useWorkspaceStore } from "../stores/workspaceStore"
 
-export const NEW_DATABASE_VIEW_ID = "new-database"
+import { NEW_DATABASE_VIEW_ID } from "./databaseViewIds"
+
+export { NEW_DATABASE_VIEW_ID }
 
 export interface NewDatabaseViewState {
 	parentPath: string | null

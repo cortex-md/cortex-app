@@ -1,5 +1,6 @@
 import {
 	getPlatform,
+	type RemoteVaultInfo,
 	type SyncConfig,
 	type SyncPreferences,
 	type VaultRegistryEntry,
@@ -12,6 +13,7 @@ import { useSubscriptionStore } from "../stores/subscriptionStore"
 import { useVaultStore } from "../stores/vaultStore"
 import { requiresCloudEntitlement, resolveSyncServerUrl } from "../sync/serverConfig"
 import { readSyncConfig, unlinkRemoteVault, updateSyncConfig } from "../sync/syncConfig"
+import { getVaultDisplayPath } from "./vaultDisplay"
 
 export const VAULT_COLORS = [
 	"#fb7185",
@@ -151,4 +153,38 @@ export async function leaveRemoteVault(remoteVaultId: string): Promise<void> {
 	if (!userId) throw new Error("Sign in to leave this vault.")
 	await getPlatform().members.removeMember(remoteVaultId, userId)
 	await useRemoteVaultStore.getState().fetchRemoteVaults()
+}
+
+export interface RemoteVaultOption {
+	remote: RemoteVaultInfo
+	description: string
+	takenBy: VaultListItem | null
+}
+
+function capitalize(value: string): string {
+	return value ? value[0]?.toUpperCase() + value.slice(1) : value
+}
+
+export function describeRemoteVault(remote: RemoteVaultInfo): string {
+	const members = remote.memberCount ?? 1
+	const memberLabel = members === 1 ? "only you" : `${members} members`
+	if (remote.role === "owner") return members === 1 ? "Yours · only you" : `Yours · ${memberLabel}`
+	return `Shared with you · ${capitalize(remote.role)} · ${memberLabel}`
+}
+
+export function buildRemoteVaultOptions(
+	remoteVaults: readonly RemoteVaultInfo[],
+	localItems: readonly VaultListItem[],
+	deviceLabel: string,
+): RemoteVaultOption[] {
+	return remoteVaults.map((remote) => {
+		const takenBy = localItems.find((item) => item.remoteVaultId === remote.id) ?? null
+		return {
+			remote,
+			takenBy,
+			description: takenBy
+				? `Already on this ${deviceLabel} at ${getVaultDisplayPath(takenBy.entry)}`
+				: describeRemoteVault(remote),
+		}
+	})
 }

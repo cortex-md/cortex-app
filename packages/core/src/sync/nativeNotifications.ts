@@ -1,6 +1,6 @@
 import { getPlatform, type NativeNotificationRequest } from "@cortex/platform"
 
-type CoreNotification = Omit<NativeNotificationRequest, "source">
+export type CoreNotification = Omit<NativeNotificationRequest, "source">
 
 export async function sendCoreNotification(notification: CoreNotification): Promise<boolean> {
 	const platform = getPlatform()

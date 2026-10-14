@@ -1,4 +1,12 @@
 export {
+	exportNoteFromDialog,
+	type ImportExportError,
+	type ImportExportHost,
+	type ImportExportSource,
+	importFilesFromDialog,
+	noteExportFormats,
+} from "./actions"
+export {
 	builtInExporters,
 	builtInImporters,
 	csvExporter,
@@ -25,6 +33,15 @@ export {
 	type ObsidianImportResult,
 	type ObsidianProgress,
 } from "./obsidian/vault"
+export {
+	getUniqueFolderName,
+	importObsidianVaultFromDialog,
+	type ObsidianImportHost,
+	type ObsidianImportTarget,
+	type ObsidianRunOptions,
+	type ObsidianRunSummary,
+	runObsidianImport,
+} from "./obsidianActions"
 export { reserveUniquePath, sanitizeFileStem } from "./path"
 export {
 	type Exporter,

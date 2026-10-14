@@ -1,4 +1,4 @@
-import type { TemplateDefinition } from "@cortex/core"
+import type { TemplateDefinition } from "./index"
 
 export interface TemplateGroup {
 	id: "recent" | "vault" | "team"

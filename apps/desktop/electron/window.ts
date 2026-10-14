@@ -94,7 +94,7 @@ function sharedWindowOptions(preloadPath: string): BrowserWindowConstructorOptio
 		backgroundColor: windowBackgroundColor(effectsEnabled),
 		...(detectPlatform() === "macos" && {
 			titleBarStyle: "hiddenInset",
-			trafficLightPosition: { x: 14, y: 12 },
+			trafficLightPosition: { x: 14, y: 16 },
 			vibrancy: effectsEnabled ? "sidebar" : undefined,
 			visualEffectState: "followWindow",
 		}),

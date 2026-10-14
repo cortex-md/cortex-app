@@ -38,6 +38,16 @@ export {
 	setFrontmatterValue,
 } from "./frontmatter"
 export {
+	createEmptyNotePropertiesSnapshot,
+	type NotePropertiesPanelInput,
+	type NotePropertiesRefreshHandlers,
+	refreshNotePropertiesSnapshot,
+	schemaWithDuplicatedProperty,
+	schemaWithoutProperty,
+	schemaWithRegisteredProperty,
+	schemaWithUpdatedProperty,
+} from "./notePropertiesPanel"
+export {
 	getPropertyMap,
 	loadNotePropertiesSnapshot,
 	removeProperty,
@@ -66,6 +76,7 @@ export {
 	prepareDuplicatedNote,
 	prepareNoteForSave,
 } from "./system"
+export { mergeMissingNoteProperties, removeNoteProperties } from "./templateProperties"
 export type {
 	BuiltInPropertyType,
 	CreatePropertyDefinitionInput,
@@ -124,6 +135,13 @@ export {
 	supportsMultipleValues,
 	togglePropertyValue,
 } from "./values"
+export {
+	EMPTY_VAULT_SCHEMA,
+	getVaultSchemaSnapshot,
+	setVaultSchemaSnapshot,
+	subscribeVaultSchemaSnapshot,
+	upsertVaultSchemaDefinition,
+} from "./vaultSchemaSnapshot"
 export {
 	getHiddenPropertyDefinitions,
 	getVisiblePropertyDefinitions,

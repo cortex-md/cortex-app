@@ -6,7 +6,11 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./bookmark-paths": "./src/utils/bookmarkPaths.ts",
-		"./frontmatter": "./src/utils/frontmatter.ts"
+		"./frontmatter": "./src/utils/frontmatter.ts",
+		"./members": "./src/sync/members.ts",
+		"./database-view-ids": "./src/runtime/databaseViewIds.ts",
+		"./collab-transport": "./src/collab/collabTransport.ts",
+		"./task-notification-actions": "./src/runtime/taskNotificationActions.ts"
 	},
 	"dependencies": {
 		"@cortex/collab": "workspace:*",
@@ -16,6 +20,7 @@
 		"@cortex/properties": "workspace:*",
 		"@cortex/search": "workspace:*",
 		"@cortex/settings": "workspace:*",
+		"@cortex/sync-api": "workspace:*",
 		"@cortex/tasks": "workspace:*",
 		"@cortex/templates": "workspace:*",
 		"immer": "^10.1.1",

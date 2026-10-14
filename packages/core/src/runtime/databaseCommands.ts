@@ -1,14 +1,10 @@
-import type { CommandEntry, CommandExecutionContext } from "@cortex/commands"
-import {
-	convertFolderToDatabase,
-	getBaseName,
-	removeDatabase,
-	reportAppError,
-	useDatabaseStore,
-	useVaultStore,
-} from "@cortex/core"
+import type { CommandEntry, CommandExecutionContext, CommandIcon } from "@cortex/commands"
 import { getPlatform } from "@cortex/platform"
-import { Table2Icon } from "lucide-react"
+import { getBaseName } from "@cortex/platform/utils"
+import { useDatabaseStore } from "../stores/databaseStore"
+import { useVaultStore } from "../stores/vaultStore"
+import { reportAppError } from "../utils/reportAppError"
+import { convertFolderToDatabase, removeDatabase } from "./databaseActions"
 import { openDatabaseView } from "./databaseWorkspace"
 import { openNewDatabaseView } from "./newDatabaseWorkspace"
 
@@ -64,7 +60,11 @@ async function confirmRemoveDatabase(folderPath: string): Promise<void> {
 	}
 }
 
-export function createDatabaseCommandEntries(): CommandEntry[] {
+export function createDatabaseCommandEntries({
+	icon: Table2Icon,
+}: {
+	icon?: CommandIcon
+} = {}): CommandEntry[] {
 	return [
 		{
 			id: DATABASE_COMMAND_IDS.create,

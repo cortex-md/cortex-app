@@ -1,4 +1,4 @@
-import type { AccessRule, PathGrant } from "@cortex/platform"
+import type { AccessRule, PathGrant, VaultMember } from "@cortex/platform"
 
 export interface RoleInfo {
 	label: string
@@ -69,4 +69,20 @@ export function buildUserGrantRules(
 				: otherEntries,
 		}
 	})
+}
+
+export const ADMIN_ROLES: ReadonlySet<string> = new Set(["owner", "admin"])
+
+export function isVaultAdminRole(role: string | null | undefined): boolean {
+	return role !== null && role !== undefined && ADMIN_ROLES.has(role)
+}
+
+export function memberDisplayName(member: Pick<VaultMember, "displayName" | "email">): string {
+	return member.displayName.trim() || member.email
+}
+
+export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+export function messageOf(error: unknown): string {
+	return error instanceof Error ? error.message : String(error)
 }

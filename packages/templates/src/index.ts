@@ -747,3 +747,5 @@ export function readNoteTemplateBundle(
 		return null
 	}
 }
+
+export { getTeamLabel, getTemplateGroups, isTeamTemplate, type TemplateGroup } from "./groups"

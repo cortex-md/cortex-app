@@ -4,10 +4,10 @@ import { dirname, join } from "node:path"
 import type { FileEntry, VaultMetadata } from "@cortex/platform"
 import { getVaultFilePath, normalizePath, VAULT_FILES } from "@cortex/platform/utils"
 import {
+	findFreeVaultFolderName,
 	isHiddenVaultPath,
 	readOrCreateVaultId,
 	resolveVaultName,
-	sanitizeVaultFolderName,
 	type VaultTextIo,
 } from "@cortex/platform/vault"
 import { app } from "electron"
@@ -44,15 +44,14 @@ function defaultVaultLocation(): string {
 }
 
 async function nextFreeFolder(parent: string, name: string): Promise<string> {
-	const base = sanitizeVaultFolderName(name)
-	for (let attempt = 1; ; attempt += 1) {
-		const candidate = join(parent, attempt === 1 ? base : `${base} ${attempt}`)
-		const exists = await fs.stat(candidate).then(
-			() => true,
-			() => false,
-		)
-		if (!exists) return candidate
-	}
+	return await findFreeVaultFolderName(parent, name, {
+		join,
+		exists: (candidate) =>
+			fs.stat(candidate).then(
+				() => true,
+				() => false,
+			),
+	})
 }
 
 async function scanDirectory(dir: string, isRoot: boolean): Promise<FileEntry[]> {

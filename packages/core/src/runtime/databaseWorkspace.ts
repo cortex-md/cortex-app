@@ -1,6 +1,10 @@
-import { getBaseName, useVaultStore, useWorkspaceStore } from "@cortex/core"
+import { getBaseName } from "@cortex/platform/utils"
+import { useVaultStore } from "../stores/vaultStore"
+import { useWorkspaceStore } from "../stores/workspaceStore"
 
-export const DATABASE_VIEW_ID = "database"
+import { DATABASE_VIEW_ID } from "./databaseViewIds"
+
+export { DATABASE_VIEW_ID }
 
 export interface DatabaseViewState {
 	filePath: string

@@ -29,3 +29,17 @@ export function resolveSyncServerUrl(config: Pick<SyncConfig, "selfHosted" | "se
 export function requiresCloudEntitlement(config: Pick<SyncConfig, "selfHosted">): boolean {
 	return !config.selfHosted
 }
+
+export const CLOUD_SERVER_LABEL = "Cortex Cloud"
+
+export function describeServerUrl(serverUrl: string): string {
+	try {
+		return new URL(serverUrl).host || "Self-hosted"
+	} catch {
+		return "Self-hosted"
+	}
+}
+
+export function getSyncServerLabel(config: Pick<SyncConfig, "selfHosted" | "serverUrl">): string {
+	return config.selfHosted ? describeServerUrl(resolveSyncServerUrl(config)) : CLOUD_SERVER_LABEL
+}
