@@ -66,6 +66,8 @@ beforeEach(() => {
 		loadingEntryId: null,
 		installError: null,
 		availableUpdates: { "test-plugin": "1.1.0" },
+		blocked: [],
+		blocklistAvailable: true,
 	})
 	setMarketplaceCallbacks({
 		getPluginsDir: () => "/vault/.cortex/plugins",

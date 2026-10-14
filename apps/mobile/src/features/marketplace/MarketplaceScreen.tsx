@@ -296,7 +296,7 @@ export function MarketplaceScreen() {
 				if (isVerifiedEntry(verified, activeTab, entry.id)) metaParts.push("Verified")
 				if (itemStats)
 					metaParts.push(
-						`${formatCount(itemStats.votes)} 👍`,
+						`${formatCount(itemStats.votes)} ▲`,
 						`${formatCount(itemStats.downloads)} ↓`,
 					)
 				return {

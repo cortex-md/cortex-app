@@ -1,4 +1,5 @@
 import { getPlatform } from "@cortex/platform"
+import { absolutizeReadmeUrls, parseRegistryEntries } from "./catalogData"
 import { registryFileUrl } from "./registryConfig"
 import type { GitHubRelease, MarketplaceManifestMetadata, RegistryEntry } from "./types"
 
@@ -21,7 +22,7 @@ export async function fetchPluginRegistry(): Promise<RegistryEntry[]> {
 	if (cachedPlugins) return cachedPlugins
 	const response = await getPlatform().http.fetch(registryFileUrl("main", "plugins.json"))
 	if (!response.ok) throw new Error(`Failed to fetch plugin registry: ${response.status}`)
-	cachedPlugins = (await response.json()) as RegistryEntry[]
+	cachedPlugins = parseRegistryEntries(await response.json())
 	return cachedPlugins
 }
 
@@ -29,7 +30,7 @@ export async function fetchThemeRegistry(): Promise<RegistryEntry[]> {
 	if (cachedThemes) return cachedThemes
 	const response = await getPlatform().http.fetch(registryFileUrl("main", "themes.json"))
 	if (!response.ok) throw new Error(`Failed to fetch theme registry: ${response.status}`)
-	cachedThemes = (await response.json()) as RegistryEntry[]
+	cachedThemes = parseRegistryEntries(await response.json())
 	return cachedThemes
 }
 
@@ -50,18 +51,26 @@ export async function fetchLatestRelease(repo: string): Promise<GitHubRelease> {
 	return (await response.json()) as GitHubRelease
 }
 
-async function fetchGitHubRaw(repo: string, filename: string): Promise<Response | null> {
+const readmeBranches = ["main", "master"] as const
+
+async function fetchGitHubRaw(
+	repo: string,
+	filename: string,
+): Promise<{ response: Response; branch: string } | null> {
 	const responses = await Promise.all(
-		["main", "master"].map((branch) =>
+		readmeBranches.map((branch) =>
 			getPlatform().http.fetch(`https://raw.githubusercontent.com/${repo}/${branch}/${filename}`),
 		),
 	)
-	return responses.find((response) => response.ok) ?? null
+	const index = responses.findIndex((response) => response.ok)
+	const response = responses[index]
+	const branch = readmeBranches[index]
+	return response && branch ? { response, branch } : null
 }
 
 export async function fetchReadme(repo: string): Promise<string> {
-	const response = await fetchGitHubRaw(repo, "README.md")
-	if (response) return response.text()
+	const found = await fetchGitHubRaw(repo, "README.md")
+	if (found) return absolutizeReadmeUrls(await found.response.text(), repo, found.branch)
 	throw new Error(`README not found for ${repo}`)
 }
 
@@ -143,10 +152,10 @@ export async function fetchManifestMetadata(repo: string): Promise<MarketplaceMa
 		return releaseManifest.metadata
 	}
 
-	const response = await fetchGitHubRaw(repo, "manifest.json")
-	if (response) {
+	const found = await fetchGitHubRaw(repo, "manifest.json")
+	if (found) {
 		try {
-			const metadata = parseManifestMetadata(await response.json())
+			const metadata = parseManifestMetadata(await found.response.json())
 			cachedManifestMetadata[repo] = metadata
 			return metadata
 		} catch {

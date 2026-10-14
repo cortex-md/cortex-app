@@ -37,11 +37,11 @@ export async function fetchVerifiedEntries(): Promise<VerifiedEntry[]> {
 	return parsed
 }
 
-export async function fetchBlockedEntries(): Promise<BlockedEntry[]> {
+export async function fetchBlockedEntries(): Promise<BlockedEntry[] | null> {
 	const cached = blockedCache
 	if (cached && isFresh(cached)) return cached.value
 	const parsed = parseBlockedEntries(await fetchJson(registryFileUrl("main", "blocked.json")))
-	if (!parsed) return cached?.value ?? []
+	if (!parsed) return cached?.value ?? null
 	blockedCache = { value: parsed, fetchedAt: Date.now() }
 	return parsed
 }
