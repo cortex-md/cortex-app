@@ -4,6 +4,7 @@ import { StyleSheet, View } from "react-native"
 
 import KdfWebView from "@/features/crypto/KdfWebView"
 import { attachKdfView, receiveKdfMessage } from "@/platform/kdfBridge"
+import { hasNativeCrypto } from "@/platform/syncCrypto"
 
 const domProps: DOMProps = {
 	containerStyle: { height: 1, width: 1 },
@@ -12,6 +13,7 @@ const domProps: DOMProps = {
 }
 
 export const KdfHost = memo(function KdfHost() {
+	if (hasNativeCrypto) return null
 	return (
 		<View pointerEvents="none" style={styles.host}>
 			<KdfWebView dom={domProps} ref={attachKdfView} send={receiveKdfMessage} />

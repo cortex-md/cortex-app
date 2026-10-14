@@ -46,6 +46,42 @@ public class CortexNativeModule: Module {
       return (0..<document.pageCount).map { document.page(at: $0)?.string ?? "" }
     }
 
+    Function("aes256GcmSeal") { (key: Data, nonce: Data, plaintext: Data) -> Data in
+      try CortexCrypto.aesGcmSeal(key: key, nonce: nonce, plaintext: plaintext)
+    }
+
+    Function("aes256GcmOpen") { (key: Data, nonce: Data, ciphertext: Data, tag: Data) -> Data in
+      try CortexCrypto.aesGcmOpen(key: key, nonce: nonce, ciphertext: ciphertext, tag: tag)
+    }
+
+    Function("hkdfSha256") { (ikm: Data, salt: Data, info: String, length: Int) -> Data in
+      CortexCrypto.hkdfSha256(ikm: ikm, salt: salt, info: info, length: length)
+    }
+
+    Function("x25519PublicKey") { (privateKey: Data) -> Data in
+      try CortexCrypto.x25519PublicKey(privateKey: privateKey)
+    }
+
+    Function("x25519SharedSecret") { (privateKey: Data, publicKey: Data) -> Data in
+      try CortexCrypto.x25519SharedSecret(privateKey: privateKey, publicKey: publicKey)
+    }
+
+    Function("sha256") { (data: Data) -> Data in
+      CortexCrypto.sha256(data: data)
+    }
+
+    AsyncFunction("argon2id") {
+      (password: String, salt: Data, memoryCost: Int, timeCost: Int, parallelism: Int, hashLength: Int) -> Data in
+      try CortexCrypto.argon2id(
+        password: password,
+        salt: salt,
+        memoryCost: memoryCost,
+        timeCost: timeCost,
+        parallelism: parallelism,
+        hashLength: hashLength
+      )
+    }
+
     OnDestroy {
       for url in self.accessedUrls.values {
         url.stopAccessingSecurityScopedResource()

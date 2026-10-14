@@ -16,4 +16,5 @@ android {
 
 dependencies {
   implementation 'com.tom-roush:pdfbox-android:2.0.27.0'
+  implementation 'org.bouncycastle:bcprov-jdk18on:1.78.1'
 }

@@ -28,6 +28,34 @@ class CortexNativeModule : Module() {
       }
     }
 
+    Function("aes256GcmSeal") { key: ByteArray, nonce: ByteArray, plaintext: ByteArray ->
+      CortexCrypto.aesGcmSeal(key, nonce, plaintext)
+    }
+
+    Function("aes256GcmOpen") { key: ByteArray, nonce: ByteArray, ciphertext: ByteArray, tag: ByteArray ->
+      CortexCrypto.aesGcmOpen(key, nonce, ciphertext, tag)
+    }
+
+    Function("hkdfSha256") { ikm: ByteArray, salt: ByteArray, info: String, length: Int ->
+      CortexCrypto.hkdfSha256(ikm, salt, info, length)
+    }
+
+    Function("x25519PublicKey") { privateKey: ByteArray ->
+      CortexCrypto.x25519PublicKey(privateKey)
+    }
+
+    Function("x25519SharedSecret") { privateKey: ByteArray, publicKey: ByteArray ->
+      CortexCrypto.x25519SharedSecret(privateKey, publicKey)
+    }
+
+    Function("sha256") { data: ByteArray ->
+      CortexCrypto.sha256(data)
+    }
+
+    AsyncFunction("argon2id") { password: String, salt: ByteArray, memoryCost: Int, timeCost: Int, parallelism: Int, hashLength: Int ->
+      CortexCrypto.argon2id(password, salt, memoryCost, timeCost, parallelism, hashLength)
+    }
+
     AsyncFunction("extractPdfText") { uri: String ->
       val context = appContext.reactContext
         ?: throw CodedException("ERR_NO_CONTEXT", "The app is not ready to read PDFs.", null)

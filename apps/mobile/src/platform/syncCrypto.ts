@@ -6,6 +6,7 @@ import { sha256 } from "@noble/hashes/sha2"
 import * as ExpoCrypto from "expo-crypto"
 import { gunzipSync, gzipSync } from "fflate"
 
+import { CortexNative } from "../../modules/cortex-native"
 import { deriveArgon2id } from "./kdfBridge"
 
 const GCM_TAG_LENGTH = 16
@@ -14,7 +15,9 @@ function randomBytes(length: number): Uint8Array {
 	return ExpoCrypto.getRandomValues(new Uint8Array(length))
 }
 
-export const mobileCrypto: CryptoPrimitives = {
+type NativeCrypto = NonNullable<typeof CortexNative>
+
+const jsCrypto: CryptoPrimitives = {
 	randomBytes,
 	aes256GcmEncrypt: (key, nonce, plaintext) => {
 		const sealed = gcm(key, nonce).encrypt(plaintext)
@@ -40,3 +43,32 @@ export const mobileCrypto: CryptoPrimitives = {
 	gzip: async (data) => gzipSync(data),
 	gunzip: async (data) => gunzipSync(data),
 }
+
+function createNativeCrypto(native: NativeCrypto): CryptoPrimitives {
+	return {
+		...jsCrypto,
+		aes256GcmEncrypt: (key, nonce, plaintext) => {
+			const sealed = native.aes256GcmSeal(key, nonce, plaintext)
+			const split = sealed.length - GCM_TAG_LENGTH
+			return { ciphertext: sealed.subarray(0, split), tag: sealed.subarray(split) }
+		},
+		aes256GcmDecrypt: (key, nonce, ciphertext, tag) =>
+			native.aes256GcmOpen(key, nonce, ciphertext, tag),
+		hkdfSha256: (ikm, salt, info, length) => native.hkdfSha256(ikm, salt, info, length),
+		x25519GenerateKeyPair: () => {
+			const privateKey = randomBytes(32)
+			return { privateKey, publicKey: native.x25519PublicKey(privateKey) }
+		},
+		x25519PublicKey: (privateKey) => native.x25519PublicKey(privateKey),
+		x25519SharedSecret: (privateKey, publicKey) => native.x25519SharedSecret(privateKey, publicKey),
+		sha256: (data) => native.sha256(data),
+		argon2id: (password, { salt, memoryCost, timeCost, parallelism, hashLength }) =>
+			native.argon2id(password, salt, memoryCost, timeCost, parallelism, hashLength),
+	}
+}
+
+export const hasNativeCrypto = CortexNative !== null
+
+export const mobileCrypto: CryptoPrimitives = CortexNative
+	? createNativeCrypto(CortexNative)
+	: jsCrypto
