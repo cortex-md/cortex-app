@@ -10,7 +10,7 @@ import { useFileExplorerActions } from "@/features/file-explorer/useFileExplorer
 import { useVaultDisplayName } from "@/features/file-explorer/vaultDisplayName"
 import { openDatabase, openSettings, presentSheet } from "@/features/navigation/routes"
 import { useTodayBadge } from "@/features/navigation/useTodayBadge"
-import { PluginSidebarSection } from "@/features/sidebar/PluginSidebarSection"
+import { PluginSidebarRows } from "@/features/sidebar/PluginSidebarRows"
 import { SidebarRow, SidebarSectionHeader } from "@/features/sidebar/SidebarRows"
 import { SidebarTreeRow } from "@/features/sidebar/SidebarTreeRow"
 import { initialSidebarUiState, sidebarUiReducer } from "@/features/sidebar/sidebarUiState"
@@ -86,7 +86,6 @@ export function SidebarContent({ closeSidebar }: { closeSidebar: () => void }) {
 			<FlatList
 				ListFooterComponent={
 					<View style={[styles.footer, { borderTopColor: colors.separator }]}>
-						<PluginSidebarSection closeSidebar={closeSidebar} />
 						<SidebarRow
 							icon={{ sf: "storefront", md: "storefront" }}
 							label="Marketplace"
@@ -110,6 +109,7 @@ export function SidebarContent({ closeSidebar }: { closeSidebar: () => void }) {
 							label="Today"
 							onPress={() => navigate(() => router.navigate("/(tabs)/(today)" as never))}
 						/>
+						<PluginSidebarRows navigate={navigate} />
 						{databaseEntries.length > 0 ? <SidebarSectionHeader label="Databases" /> : null}
 						{databaseEntries.map((entry) => (
 							<SidebarRow

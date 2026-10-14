@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { Platform, Pressable, StyleSheet, Text } from "react-native"
 
 import { Badge } from "@/components/ui/Badge"
@@ -11,12 +12,14 @@ export function SidebarRow({
 	badge,
 	icon,
 	label,
+	leading,
 	onPress,
 	trailing,
 }: {
 	badge?: string
-	icon: SymbolName
+	icon?: SymbolName
 	label: string
+	leading?: ReactNode
 	onPress: () => void
 	trailing?: string
 }) {
@@ -31,11 +34,14 @@ export function SidebarRow({
 				{ backgroundColor: pressed && IS_IOS ? colors.hover : "transparent" },
 			]}
 		>
-			<SymbolIcon
-				color={IS_IOS ? colors.tint : colors.secondaryLabel}
-				name={icon}
-				size={IS_IOS ? 20 : 24}
-			/>
+			{leading ??
+				(icon ? (
+					<SymbolIcon
+						color={IS_IOS ? colors.tint : colors.secondaryLabel}
+						name={icon}
+						size={IS_IOS ? 20 : 24}
+					/>
+				) : null)}
 			<Text numberOfLines={1} style={[styles.rowLabel, { color: colors.label }]}>
 				{label}
 			</Text>
