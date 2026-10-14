@@ -102,9 +102,16 @@ function toMenuItem(spec: CommandSpec, run: (commandId: string) => void) {
 	}
 }
 
+export interface KeyboardToolbarPluginItem {
+	key: string
+	label: string
+	onPress: () => void
+}
+
 export function buildKeyboardToolbar(
 	run: (commandId: string) => void,
 	onInsertTemplate: () => void,
+	pluginItems: KeyboardToolbarPluginItem[] = [],
 ): { actions: KeyboardToolbarAction[]; more: MenuGroup[] } {
 	const [slash, ...inserts] = insertCommands.map((spec) => toMenuItem(spec, run))
 	return {
@@ -122,6 +129,16 @@ export function buildKeyboardToolbar(
 				},
 				...inserts,
 			],
+			...(pluginItems.length > 0
+				? [
+						pluginItems.map((item) => ({
+							key: `plugin-${item.key}`,
+							label: item.label,
+							icon: { sf: "puzzlepiece.extension", md: "extension" } as const,
+							onPress: item.onPress,
+						})),
+					]
+				: []),
 		],
 	}
 }

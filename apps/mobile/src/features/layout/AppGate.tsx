@@ -60,6 +60,7 @@ export function AppGate() {
 				<Stack.Screen name="reset-password" options={formSheetOptions("large")} />
 				<Stack.Screen name="sign-in" options={formSheetOptions("large")} />
 				<Stack.Screen name="sync" options={formSheetOptions("medium")} />
+				<Stack.Screen name="plugin-modal" options={formSheetOptions("large")} />
 				<Stack.Screen name="shared-note" options={formSheetOptions("large")} />
 				<Stack.Screen name="invite" options={formSheetOptions("medium")} />
 				<Stack.Screen name="public-template" options={formSheetOptions("medium")} />

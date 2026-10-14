@@ -1,7 +1,5 @@
-import { getErrorMessage, useVaultStore } from "@cortex/core"
+import { getErrorMessage } from "@cortex/core"
 import { COMMUNITY_PLUGINS_WARNING } from "@cortex/marketplace"
-import { getPlatform } from "@cortex/platform"
-import { joinPath } from "@cortex/platform/utils"
 import {
 	type PluginRecord,
 	reportPluginOperationError,
@@ -20,8 +18,6 @@ import {
 	useCommunityPluginsAllowed,
 } from "@/features/plugins/communityPluginsAccess"
 
-const PLUGINS_DIR = ".cortex/plugins"
-
 async function setPluginEnabled(record: PluginRecord, enabled: boolean): Promise<void> {
 	const pluginId = record.manifest.id
 	try {
@@ -33,16 +29,7 @@ async function setPluginEnabled(record: PluginRecord, enabled: boolean): Promise
 		await mobilePluginHost.saveEnabledPlugins()
 	} catch (cause) {
 		reportPluginOperationError(enabled ? "enable" : "disable", pluginId, cause)
-	}
-}
-
-async function showPluginsFolder(): Promise<void> {
-	const vaultPath = useVaultStore.getState().vault?.path
-	if (!vaultPath) return
-	try {
-		await getPlatform().dialog.revealFolder(joinPath(vaultPath, PLUGINS_DIR))
-	} catch (error) {
-		toast(getErrorMessage(error))
+		toast(getErrorMessage(cause))
 	}
 }
 
@@ -87,9 +74,6 @@ export function PluginsSettingsScreen() {
 				/>
 				{community.map(pluginToggle)}
 				<FormRow chevron onPress={openMarketplace} title="Browse marketplace" />
-				{community.length === 0 ? (
-					<FormRow onPress={() => void showPluginsFolder()} tint title="Show plugins folder" />
-				) : null}
 			</FormSection>
 			{pages.length > 0 ? (
 				<FormSection title="Plugin settings">

@@ -6,6 +6,7 @@ import {
 	useWorkspaceStore,
 } from "@cortex/core"
 import { toVaultRelativePath } from "@cortex/platform/utils"
+import { selectContextMenuItems, usePluginStore } from "@cortex/plugin-host-core"
 import { Stack, useLocalSearchParams } from "expo-router"
 import { useEffect, useState } from "react"
 import { Keyboard, Platform, View } from "react-native"
@@ -100,6 +101,7 @@ function NoteBottomBar({
 	keyboardVisible: boolean
 }) {
 	const tabCount = useWorkspaceStore((state) => state.panes[state.activePaneId]?.tabs.length ?? 0)
+	const editorContextMenuItems = usePluginStore((state) => state.contextMenuItems)
 	const insets = useSafeAreaInsets()
 	if (find.open) {
 		if (!IS_IOS) return null
@@ -118,6 +120,10 @@ function NoteBottomBar({
 			() => {
 				if (filePath) presentInsertTemplate(filePath)
 			},
+			selectContextMenuItems({ contextMenuItems: editorContextMenuItems }, "editor", {
+				filePath,
+				location: "editor",
+			}).map((item) => ({ key: item.key, label: item.label, onPress: () => void item.run() })),
 		)
 		return <KeyboardToolbar {...toolbar} onHideKeyboard={hideKeyboard} />
 	}
