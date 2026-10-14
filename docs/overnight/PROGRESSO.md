@@ -19,8 +19,8 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 | 6. Colaboração em tempo real | feito (validar no device) | e6116d7 | Transporte do core (`createCollabTransport`) no lado React Native, com o WebSocket do RN. A sessão Yjs do core roda no React Native e a WebView tem um Y.Doc espelho ligado ao CodeMirror (`collab` do `EditorView`). Pela bridge passam só updates incrementais, agrupados em 16 ms com `Y.mergeUpdates`; o cursor vai como campo `cursor` do awareness e os estados dos pares vão codificados. Reconexão e offline ficam com a sessão do `@cortex/collab`. |
 | 7. Lembretes | feito (validar no device) | 3481b7f, 97bd347 | `platform.notifications` com `expo-notifications`: permissão, envio imediato, `schedule(scope, …)` com diff (cancela só o que mudou), categorias com as ações do core, canal Android "reminders", ativação, inclusive em cold start. Opção `tasks` no `startAppRuntime` do core: o mobile liga o `startTasksRuntime` sem a indexação eager; o índice de tarefas é montado 4 s depois de abrir o vault. |
 | 8. Pontuais | feito (dev build / validar no device) | dc6cf98, 075f66c, 56a71c3 | Assinatura: interface `PurchaseProvider` com `web-checkout` real (abre a cobrança no navegador do app e reconsulta o status ao voltar); IAP/Play só pela interface. Módulo Expo local `modules/cortex-native`: bookmarks security-scoped no iOS e permissão persistente no Android, mais extração de texto de PDF (PDFKit / PdfBox-Android). Android: refresh do vault SAF ao voltar ao app. |
-| Fase 2: API | em andamento | | |
-| Fase 2: desktop | pendente | | |
+| Fase 2: API | bloqueado (análise feita) | | Repositório `../sync` com trabalho não commitado de outra sessão e sem Docker para medir. A análise estática, priorizada, está em PENDENCIAS §9. |
+| Fase 2: desktop | em andamento | | Base em 50 mil notas (2026-10-14): Quick Finder p95 80 ms (meta 30), Settings 196 ms (100), database 10k abrir 347 ms (300), memória ociosa 1175 MB (800). Dentro da meta: startup 973 ms, troca de aba 16 ms, nota 5k linhas 71 ms, digitação 15 ms, busca 61 ms, filtro de database 54 ms. |
 
 ## Decisões
 

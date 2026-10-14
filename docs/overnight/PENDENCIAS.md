@@ -66,3 +66,28 @@ Só o que depende de você. Cada item traz o contexto e a recomendação.
   - editar desenhos;
   - escolher a pasta de destino ao baixar um template público.
 - **Recomendação:** desenhar no protótipo "Next" antes de implementar.
+
+## 9. API (`../sync`): melhorias encontradas, não aplicadas
+
+- **Contexto:** o servidor está em outro repositório, no branch `fix/phase-0-correctness`, com 264 arquivos alterados por outra sessão. O Docker não estava rodando, então não deu para medir antes e depois, como a Fase 2 exige. A análise foi estática. Por ordem de impacto:
+  1. **`GET /files/list` sem limite** quando o cliente não manda `limit`:
+     - `internal/file/http.go:430` usa `limit := 0`, que vira `math.MaxInt32` em `postgres/files.go:45`;
+     - correção: `limit <= 0` passa a ser `maxListPageSize`; os clientes já tratam `X-Next-Cursor`.
+  2. **Market e lista de templates com N+1:**
+     - uma busca de usuário e outra de vault por item (`internal/template/service.go:383-394`, `:516`, `:587`);
+     - o filtro roda depois do `LIMIT`, então a página pode vir curta;
+     - correção: `JOIN vaults ... allow_public_links` e `LEFT JOIN users` em `ListMarketTemplateShares` e `ListTemplateSharesByVault`, mais o índice `template_shares(audience, status, updated_at DESC, id)`.
+  3. **Índices redundantes** nas tabelas mais escritas, que só encarecem cada upload:
+     - `idx_file_snapshots_vault_path`, `idx_file_snapshots_vault_path_version`, `idx_file_deltas_vault_path`, `idx_sync_events_vault_id` e `idx_sync_events_vault_created` (migration `000001`);
+     - correção: uma migration nova que remove esses índices.
+  4. **Overview e lista de convites carregam todos os convites já enviados,** inclusive os aceitos (`internal/vault/invite.go:262`):
+     - correção: usar `ListPendingInvitesByVault`, que já existe e tem índice parcial.
+  5. **`/files/deltas` sem `LIMIT`,** com os bytes em base64 dentro do JSON:
+     - correção: paginação ou resposta multipart binária, como no batch download.
+  6. **Contrato de resposta:**
+     - o padrão dominante é array puro nas listas, objeto puro no item e `{error, code?, details?}` no erro;
+     - os deletes estão divididos entre `{"status":"ok"}` 200 e 204 sem corpo;
+     - só `/files/list` pagina, via `X-Next-Cursor`;
+     - correção compatível: padronizar delete em 204 (os clientes TS não leem o corpo) e mandar `X-Next-Cursor` em toda lista paginada (`/changes`, market).
+- **Já está bom:** compressão JSON (`chimw.Compress`), paginação por cursor em `/files/list`, overview sem N+1 (members, users e keys em lote), SSE com replay paginado, lista de vaults.
+- **Recomendação:** aplicar 1, 3 e 4 primeiro (mudanças pequenas e seguras), medindo com `make docker-up` e um vault seed antes e depois. Depois de commitar o branch atual, isso pode virar uma tarefa para mim ou para outra sessão.
