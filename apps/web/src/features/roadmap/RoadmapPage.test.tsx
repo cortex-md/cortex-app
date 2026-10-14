@@ -23,9 +23,12 @@ describe("RoadmapPage", () => {
 		expect(within(inProgress).getByText(/encrypted blob storage/i)).toBeTruthy()
 		expect(within(planned).getByText("Mobile apps")).toBeTruthy()
 		expect(within(planned).getByText("Public notes")).toBeTruthy()
-		expect(screen.getByRole("navigation", { name: "Site navigation" })).toBeTruthy()
-		expect(screen.getByRole("button", { name: /Resources/i })).toBeTruthy()
-		expect(screen.getByRole("link", { name: "Changelog" }).getAttribute("href")).toBe("/changelog")
-		expect(screen.getByRole("link", { name: "Roadmap" }).getAttribute("href")).toBe("/roadmap")
+		expect(
+			within(shipped).getAllByRole("link", { name: "Shipped in v0.1.0" })[0]?.getAttribute("href"),
+		).toBe("https://github.com/cortex-md/cortex-app/releases/tag/v0.1.0")
+		expect(screen.queryByText(/votes?/i)).toBeNull()
+		expect(screen.getByRole("link", { name: "Suggest an idea" }).getAttribute("href")).toBe(
+			"https://github.com/cortex-md/cortex-app/issues/new?template=feature_request.yml",
+		)
 	})
 })

@@ -3,8 +3,8 @@ export type SiteTheme = "light" | "dark"
 export const siteThemeStorageKey = "cortex-theme"
 
 const themeColors: Record<SiteTheme, string> = {
-	light: "#fbfbfc",
-	dark: "#10100d",
+	light: "#fcfcfb",
+	dark: "#1e1e1e",
 }
 
 export function isSiteTheme(value: unknown): value is SiteTheme {

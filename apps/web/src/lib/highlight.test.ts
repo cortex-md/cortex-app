@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest"
-import { pluginCode } from "../content/landing"
 import { highlightCode, highlightDocsCode } from "./highlight"
+
+const pluginCode = `import { definePlugin } from "@cortex.md/api"
+import { GITHUB_EMOJI_MAP } from "./emojiMap"
+
+export default definePlugin({
+  manifest: { id: "github-emoji", name: "GitHub Emoji", permissions: ["editor:write"] },
+  contributes: {
+    commands: [{
+      id: "insert-emoji",
+      label: "Insert Emoji",
+      run: (ctx) => ctx.editor.insertAtCursor(GITHUB_EMOJI_MAP.sparkles),
+    }],
+  },
+})`
 
 describe("highlightCode", () => {
 	it("generates Shiki HTML for the plugin snippet", async () => {

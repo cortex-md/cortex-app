@@ -1,66 +1,77 @@
 import { Button } from "@cortex/ui/button"
-import { ArrowRight } from "lucide-react"
-import { downloadPlatforms } from "../../../content/landing"
-import { trackLandingEvent } from "../../../lib/analytics"
-import { ProductMedia } from "../components/ProductMedia"
+import { homeHero } from "../../../content/landing"
+import { trackEvent } from "../../../lib/analytics"
+import { Painting } from "../../site/Painting"
+import { homeWrapClass } from "../components/HomeLayout"
+import { HeroWindow } from "../components/mocks/HeroWindow"
 
-function hasDownloadHref() {
-	return downloadPlatforms.some((platform) =>
-		platform.options.some((option) => "href" in option && Boolean(option.href)),
-	)
-}
+const heroEnterClass = "animate-home-in motion-reduce:animate-none"
 
 export function HeroSection() {
-	const hasDownload = hasDownloadHref()
-
 	return (
-		<section
-			className="mx-auto w-[min(1180px,calc(100%_-_64px))] pt-[140px] max-lg:w-[min(calc(100%_-_48px),940px)] max-md:w-[min(calc(100%_-_36px),720px)] max-md:pt-[124px] max-sm:w-[min(calc(100%_-_28px),520px)] max-sm:pt-[108px]"
-			aria-labelledby="hero-title"
-		>
-			<div className="grid grid-cols-[minmax(0,0.92fr)_minmax(280px,0.42fr)] items-end gap-10 max-lg:grid-cols-1">
-				<div>
-					<h1
-						className="m-0 max-w-[880px] text-balance text-[clamp(46px,6vw,76px)] leading-[1] font-semibold tracking-[-0.025em] max-sm:text-[clamp(34px,9.4vw,38px)] max-sm:leading-[1.04] max-sm:tracking-[-0.012em]"
-						id="hero-title"
-					>
-						A Markdown workspace for notes you actually own.
-					</h1>
-					<p className="mt-7 max-w-[710px] text-[clamp(18px,2vw,22px)] leading-[1.5] font-normal text-text-secondary max-sm:text-base">
-						Cortex is local-first, open source, and built on plain Markdown files, with optional
-						sync that keeps readable notes on your devices.
-					</p>
-					<div className="mt-8 flex flex-wrap items-center gap-3 max-sm:grid">
-						<Button
-							className="max-sm:w-full tracking-normal"
-							size="lg"
+		<section className="relative pt-[88px] text-center max-sm:pt-10" aria-labelledby="home-title">
+			<div className={homeWrapClass}>
+				<h1
+					id="home-title"
+					className={`text-[clamp(44px,7vw,88px)] leading-[0.98] font-semibold tracking-[-0.045em] max-sm:text-[44px] max-sm:leading-[1.02] max-sm:tracking-[-0.04em] ${heroEnterClass}`}
+				>
+					{homeHero.title}
+					<br />
+					<span className="text-text-muted">{homeHero.quiet}</span>
+				</h1>
+				<p
+					className={`mx-auto mt-6 max-w-[600px] text-[19px] leading-[1.55] text-text-secondary max-sm:text-[16.5px] ${heroEnterClass}`}
+					style={{ animationDelay: "0.08s" }}
+				>
+					{homeHero.description}
+				</p>
+				<div
+					className={`mt-9 flex flex-wrap justify-center gap-2.5 max-sm:flex-col max-sm:items-stretch max-sm:gap-2 ${heroEnterClass}`}
+					style={{ animationDelay: "0.16s" }}
+				>
+					<Button size="lg" asChild>
+						<a
+							href={homeHero.primaryCta.href}
 							onClick={() =>
-								trackLandingEvent({
-									name: "hero_primary_cta_clicked",
-									location: "hero",
-								})
+								trackEvent({ name: "hero_cta_clicked", page: "home", cta: "download" })
 							}
-							asChild
 						>
-							<a href="#downloads">
-								{hasDownload ? "Download Free" : "See availability"}
-								<ArrowRight aria-hidden="true" />
-							</a>
-						</Button>
-					</div>
+							{homeHero.primaryCta.label}
+						</a>
+					</Button>
+					<Button size="lg" variant="secondary" asChild>
+						<a
+							href={homeHero.secondaryCta.href}
+							onClick={() =>
+								trackEvent({ name: "hero_cta_clicked", page: "home", cta: "products" })
+							}
+						>
+							{homeHero.secondaryCta.label}
+						</a>
+					</Button>
 				</div>
-			</div>
-			<div className="mt-12 max-md:mt-10">
-				<ProductMedia
-					label="Cortex workspace"
-					description="Cortex desktop workspace with a custom dark theme applied."
-					alt="Cortex desktop workspace showing a custom dark theme over Markdown notes."
-					src="/media/cortex-community-theme.png"
-					webpSrc="/media/cortex-community-theme.webp"
-					width={1548}
-					height={983}
-					priority
-				/>
+				<p
+					className="mt-[18px] text-[13.5px] leading-none text-text-muted animate-home-fade motion-reduce:animate-none"
+					style={{ animationDelay: "0.24s" }}
+				>
+					{homeHero.availabilityPrefix}{" "}
+					<a
+						className="rounded-sm text-text-secondary underline-offset-2 outline-none hover:underline focus-visible:shadow-focus"
+						href={homeHero.availabilityLink.href}
+					>
+						{homeHero.availabilityLink.label}
+					</a>{" "}
+					{homeHero.availabilitySuffix}
+				</p>
+				<div className="relative isolate mx-auto mt-16 max-w-[1180px] overflow-hidden rounded-[28px] px-[72px] pt-[72px] shadow-[0_30px_80px_-40px_rgba(60,40,40,0.35)] max-sm:mt-10 max-sm:rounded-[22px] max-sm:pt-7 max-sm:pr-0 max-sm:pl-5">
+					<Painting
+						name="dawn"
+						position="center 70%"
+						priority
+						sizes="(max-width: 640px) 100vw, 1180px"
+					/>
+					<HeroWindow />
+				</div>
 			</div>
 		</section>
 	)

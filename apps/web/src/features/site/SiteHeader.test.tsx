@@ -2,8 +2,13 @@ import { render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { SiteHeader } from "./SiteHeader"
 
+vi.mock("@tanstack/react-router", () => ({
+	useRouterState: ({ select }: { select: (state: { location: { pathname: string } }) => string }) =>
+		select({ location: { pathname: "/sync" } }),
+}))
+
 describe("SiteHeader", () => {
-	it("shows Account when the server confirms an authenticated session", async () => {
+	it("shows Account with the email initial when the server confirms an authenticated session", async () => {
 		const sessionLoader = vi.fn().mockResolvedValue({
 			authenticated: true,
 			session: {
@@ -15,11 +20,12 @@ describe("SiteHeader", () => {
 
 		render(<SiteHeader sessionLoader={sessionLoader} />)
 
-		expect(screen.getByRole("link", { name: "Login" }).getAttribute("href")).toBe(
+		expect(screen.getByRole("link", { name: "Sign in" }).getAttribute("href")).toBe(
 			"/login?redirect=/account",
 		)
-		expect((await screen.findByRole("link", { name: "Account" })).getAttribute("href")).toBe(
-			"/account",
-		)
+		const account = await screen.findByRole("link", { name: /Account/ })
+		expect(account.getAttribute("href")).toBe("/account")
+		expect(account.textContent).toContain("W")
+		expect(screen.getByRole("link", { name: "Sync" }).getAttribute("aria-current")).toBe("page")
 	})
 })

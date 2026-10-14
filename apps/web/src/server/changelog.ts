@@ -37,11 +37,39 @@ const githubReleaseSchema = z.object({
 	published_at: z.string().nullable().optional(),
 	prerelease: z.boolean().optional(),
 	draft: z.boolean().optional(),
+	assets: z
+		.array(
+			z.object({
+				name: z.string(),
+				browser_download_url: z.string().url(),
+			}),
+		)
+		.optional(),
 })
 
 const githubReleasesSchema = z.array(githubReleaseSchema)
 
 export type GithubRelease = z.infer<typeof githubReleaseSchema>
+
+export type ReleaseNoteGroupKind = "new" | "fixed"
+
+export interface ReleaseNoteGroup {
+	kind: ReleaseNoteGroupKind
+	items: string[]
+}
+
+export interface ReleaseNotes {
+	intro: string[]
+	groups: ReleaseNoteGroup[]
+}
+
+export type ReleaseDownloadPlatform = "macos" | "windows" | "debian" | "linux"
+
+export interface ReleaseDownload {
+	platform: ReleaseDownloadPlatform
+	fileName: string
+	url: string
+}
 
 export interface ChangelogRelease {
 	tagName: string
@@ -52,6 +80,8 @@ export interface ChangelogRelease {
 	formattedDate: string
 	bodyMarkdown: string
 	bodyHtml: string
+	notes?: ReleaseNotes
+	downloads?: ReleaseDownload[]
 }
 
 export interface ChangelogResult {
@@ -264,6 +294,112 @@ export async function renderReleaseMarkdown(markdown: string) {
 	return toHtml(hast as Nodes)
 }
 
+type MarkdownNode = {
+	type: string
+	value?: string
+	depth?: number
+	children?: MarkdownNode[]
+}
+
+const newGroupLabels = /^(new|what'?s new|added|features?|highlights)$/iu
+const fixedGroupLabels = /^(fixed|fixes|bug ?fixes)$/iu
+const downloadLabels = /^downloads?$/iu
+
+function markdownText(node: MarkdownNode): string {
+	if (typeof node.value === "string") return node.value
+	return (node.children ?? []).map(markdownText).join("")
+}
+
+function normalizeNoteText(value: string) {
+	return value.replace(/\s+/gu, " ").trim()
+}
+
+function getMarkerLabel(value: string) {
+	return normalizeNoteText(value)
+		.replace(/[:：]$/u, "")
+		.trim()
+}
+
+function listItems(node: MarkdownNode) {
+	return (node.children ?? [])
+		.filter((child) => child.type === "listItem")
+		.map((child) => normalizeNoteText(markdownText(child)))
+		.filter(Boolean)
+}
+
+export function parseReleaseNotes(markdown: string, title = ""): ReleaseNotes {
+	const tree = unified().use(remarkParse).use(remarkGfm).parse(markdown) as MarkdownNode
+	const intro: string[] = []
+	const groups: ReleaseNoteGroup[] = []
+	let currentKind: ReleaseNoteGroupKind | null = null
+	let skipDepth: number | null = null
+	const comparableTitle = normalizeComparableTitle(title)
+
+	function addItems(kind: ReleaseNoteGroupKind, items: string[]) {
+		if (items.length === 0) return
+		const existing = groups.find((group) => group.kind === kind)
+		if (existing) existing.items.push(...items)
+		else groups.push({ kind, items })
+	}
+
+	for (const node of tree.children ?? []) {
+		if (node.type === "heading") {
+			const depth = node.depth ?? 1
+			if (skipDepth !== null && depth > skipDepth) continue
+			skipDepth = null
+			const label = getMarkerLabel(markdownText(node))
+			if (downloadLabels.test(label)) {
+				skipDepth = depth
+				currentKind = null
+			} else if (newGroupLabels.test(label)) currentKind = "new"
+			else if (fixedGroupLabels.test(label)) currentKind = "fixed"
+			else if (normalizeComparableTitle(label) !== comparableTitle) currentKind = null
+			continue
+		}
+
+		if (skipDepth !== null) continue
+
+		if (node.type === "paragraph") {
+			const text = normalizeNoteText(markdownText(node))
+			const label = getMarkerLabel(text)
+			if (newGroupLabels.test(label)) {
+				currentKind = "new"
+				continue
+			}
+			if (fixedGroupLabels.test(label)) {
+				currentKind = "fixed"
+				continue
+			}
+			if (text) intro.push(text.replace(/[:：]$/u, "."))
+			continue
+		}
+
+		if (node.type === "list") {
+			addItems(currentKind ?? "new", listItems(node))
+		}
+	}
+
+	return { intro, groups }
+}
+
+const downloadMatchers: Array<[ReleaseDownloadPlatform, RegExp]> = [
+	["macos", /\.dmg$/iu],
+	["windows", /\.msi$/iu],
+	["debian", /\.deb$/iu],
+	["linux", /\.appimage$/iu],
+]
+
+export function mapReleaseDownloads(assets: GithubRelease["assets"]): ReleaseDownload[] {
+	const downloads: ReleaseDownload[] = []
+	for (const [platform, pattern] of downloadMatchers) {
+		const asset = assets?.find((candidate) => pattern.test(candidate.name))
+		if (asset) {
+			downloads.push({ platform, fileName: asset.name, url: asset.browser_download_url })
+		}
+	}
+	return downloads
+}
+
 function formatReleaseDate(isoDate: string) {
 	return new Intl.DateTimeFormat("en", {
 		month: "short",
@@ -297,6 +433,8 @@ export async function mapGithubRelease(release: GithubRelease): Promise<Changelo
 		formattedDate: formatReleaseDate(publishedAt),
 		bodyMarkdown,
 		bodyHtml,
+		notes: parseReleaseNotes(bodyMarkdown, title),
+		downloads: mapReleaseDownloads(release.assets),
 	}
 }
 
@@ -359,7 +497,7 @@ export async function fetchChangelogReleases(
 	}
 }
 
-async function fetchCachedChangelogReleases() {
+export async function fetchCachedChangelogReleases() {
 	const now = Date.now()
 	if (cachedChangelog && cachedChangelog.expiresAt > now) {
 		return cachedChangelog.result

@@ -23,6 +23,7 @@ const activeOverview = {
 		available: true as const,
 		devices: [
 			{
+				id: "device-web",
 				name: "Cortex Web",
 				type: "web",
 				isCurrent: true,
@@ -31,6 +32,7 @@ const activeOverview = {
 				createdAt: "2026-06-01T10:00:00Z",
 			},
 			{
+				id: "device-old",
 				name: "Old laptop",
 				type: "desktop",
 				isCurrent: false,
@@ -77,34 +79,34 @@ describe("AccountPage", () => {
 		expect(screen.getByRole("heading", { name: /Taking you to sign in/i })).toBeTruthy()
 	})
 
-	it("renders an organized dashboard without exposing internal identifiers", async () => {
+	it("renders plan, vaults and devices without exposing internal identifiers", async () => {
 		const getOverview = vi.fn().mockResolvedValue(activeOverview)
 
 		const { container } = render(<AccountPage getOverview={getOverview} />)
 
 		expect(await screen.findByRole("heading", { level: 1, name: "Account" })).toBeTruthy()
-		expect(screen.getAllByText("writer@example.com").length).toBeGreaterThanOrEqual(1)
-		expect(screen.getByText("Plan")).toBeTruthy()
-		expect(screen.getAllByText("Vaults").length).toBeGreaterThanOrEqual(2)
-		expect(screen.getAllByText("Devices").length).toBeGreaterThanOrEqual(2)
-		expect(screen.getAllByText("Account").length).toBeGreaterThanOrEqual(2)
-		expect(screen.getAllByText("Active").length).toBeGreaterThanOrEqual(1)
-		expect(screen.getByText("Monthly")).toBeTruthy()
+		expect(screen.getByText("writer@example.com")).toBeTruthy()
+		expect(screen.getByText("Active")).toBeTruthy()
+		expect(screen.getByRole("heading", { name: "Hosted Sync" })).toBeTruthy()
+		expect(screen.getByText("Monthly · Renews Jul 1, 2026")).toBeTruthy()
+		expect(screen.queryByRole("link", { name: /Manage billing/i })).toBeNull()
+		expect(screen.getByRole("heading", { name: "Synced vaults" })).toBeTruthy()
+		expect(screen.getByRole("heading", { name: "Devices" })).toBeTruthy()
+		expect(screen.getByText("1 signed in")).toBeTruthy()
 		expect(screen.getByText("Cortex Web")).toBeTruthy()
 		expect(screen.getByText("This device")).toBeTruthy()
 		expect(screen.getByText("Old laptop")).toBeTruthy()
-		expect(screen.getByText("Revoked")).toBeTruthy()
+		expect(screen.getAllByText("Signed out").length).toBeGreaterThanOrEqual(1)
 		expect(screen.getByText("Writing")).toBeTruthy()
-		expect(screen.getByText("Personal notes")).toBeTruthy()
+		expect(screen.getByText(/Personal notes · 2 members/)).toBeTruthy()
 		expect(screen.getByText("Owner")).toBeTruthy()
 		expect(screen.getByText("Team")).toBeTruthy()
 		expect(screen.getByText("Editor")).toBeTruthy()
-		expect(container.textContent).not.toMatch(/user-123|device-123|vault-123|owner-123/i)
-		expect(container.textContent).not.toMatch(/user id|device id|vault id|owner id/i)
+		expect(container.textContent).not.toMatch(/user-123|device-web|device-old|vault-123/i)
 		expect(container.textContent).not.toMatch(/endpoint|POST \/|recurrences/i)
 	})
 
-	it("shows a single inactive plan state with an upgrade CTA", async () => {
+	it("shows the free plan state with a hosted Sync CTA", async () => {
 		const getOverview = vi.fn().mockResolvedValue({
 			...activeOverview,
 			subscription: {
@@ -123,14 +125,12 @@ describe("AccountPage", () => {
 
 		render(<AccountPage getOverview={getOverview} />)
 
-		expect(await screen.findByText("Inactive")).toBeTruthy()
-		expect(screen.getAllByText("Inactive")).toHaveLength(1)
-		expect(screen.getByRole("link", { name: /Upgrade hosted Sync/i }).getAttribute("href")).toBe(
+		expect(await screen.findByText("Free")).toBeTruthy()
+		expect(screen.getByText("Local vaults on every device")).toBeTruthy()
+		expect(screen.getByRole("link", { name: /Turn on hosted Sync/i }).getAttribute("href")).toBe(
 			"/billing",
 		)
-		expect(screen.queryByText(/No hosted plan/i)).toBeNull()
 	})
-
 	it("logs out through the server function and returns to login", async () => {
 		const getOverview = vi.fn().mockResolvedValue(activeOverview)
 		const logoutAction = vi.fn().mockResolvedValue({ ok: true })
@@ -165,8 +165,7 @@ describe("AccountPage", () => {
 		render(<AccountPage getOverview={getOverview} />)
 
 		expect((await screen.findAllByText("writer@example.com")).length).toBeGreaterThanOrEqual(1)
-		expect(screen.getAllByText("Unavailable").length).toBeGreaterThanOrEqual(1)
 		expect(screen.getByText("Devices are temporarily unavailable.")).toBeTruthy()
-		expect(screen.getByText("Vaults created or joined from Cortex will appear here.")).toBeTruthy()
+		expect(screen.getByText("No synced vaults yet")).toBeTruthy()
 	})
 })

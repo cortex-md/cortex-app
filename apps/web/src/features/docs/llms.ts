@@ -1,4 +1,5 @@
 import { siteConfig } from "../../config/site"
+import { llmsProductPages } from "../../content/docs"
 import type { DocPage } from "./registry"
 import { docs } from "./registry"
 
@@ -32,6 +33,12 @@ export function createLlmsIndex(origin = siteConfig.url) {
 		`${siteConfig.description} Cortex is local-first, open source, and stores knowledge in plain Markdown files.`,
 		"",
 		`Full docs corpus: ${getDocsUrl("/docs/llms.txt", origin)}`,
+		"",
+		"## Product",
+		"",
+		...llmsProductPages.map(
+			(page) => `- [${page.title}](${getDocsUrl(page.href, origin)}): ${page.description}`,
+		),
 		"",
 		"## Documentation",
 		"",

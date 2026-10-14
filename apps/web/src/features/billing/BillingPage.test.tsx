@@ -35,7 +35,7 @@ describe("BillingPage", () => {
 		expect(screen.queryByText(/Open this page from Cortex/i)).toBeNull()
 	})
 
-	it("creates a session checkout and redirects to AbacatePay", async () => {
+	it("creates a session checkout and redirects to Stripe", async () => {
 		setBillingLocation("/billing")
 		const redirectTo = vi.fn()
 		const createSessionCheckout = vi.fn().mockResolvedValue({
@@ -48,7 +48,7 @@ describe("BillingPage", () => {
 		await waitFor(() => {
 			expect(redirectTo).toHaveBeenCalledWith("https://pay.example.com/checkout/123")
 		})
-		expect(screen.getByRole("link", { name: /Continue to AbacatePay/i }).getAttribute("href")).toBe(
+		expect(screen.getByRole("link", { name: /Continue to Stripe/i }).getAttribute("href")).toBe(
 			"https://pay.example.com/checkout/123",
 		)
 	})
@@ -78,7 +78,7 @@ describe("BillingPage", () => {
 			expect(redirectTo).toHaveBeenCalledWith("/account")
 		})
 		expect(createSessionCheckout).toHaveBeenCalledTimes(1)
-		expect(screen.queryByRole("link", { name: /Continue to AbacatePay/i })).toBeNull()
+		expect(screen.queryByRole("link", { name: /Continue to Stripe/i })).toBeNull()
 		expect(screen.getByRole("heading", { name: /Opening your account/i })).toBeTruthy()
 	})
 

@@ -1,29 +1,81 @@
 import { createFileRoute, notFound } from "@tanstack/react-router"
-import { siteConfig } from "../config/site"
-import docsCss from "../features/docs/docs.css?url"
-import { MarketplaceItemPage } from "../features/marketplace/MarketplaceItemPage"
-import { createSeoHead } from "../seo/metadata"
+import { marketplaceKindLabels } from "../content/marketplace"
+import { MarketplaceUnavailable } from "../features/marketplace/MarketplaceBits"
+import { MarketplaceDetailPage } from "../features/marketplace/MarketplaceDetailPage"
+import { getItemHref } from "../features/marketplace/marketplaceModel"
+import { createSeoHead, noIndexRobots, pageTitle } from "../seo/metadata"
+import { breadcrumbSchema, jsonLdScripts, softwareApplicationSchema } from "../seo/structuredData"
+import { getMarketplaceItem } from "../server/marketplace"
+
+const kinds = new Set(["plugins", "themes", "templates"])
 
 export const Route = createFileRoute("/marketplace/$kind/$id")({
 	loader: async ({ params }) => {
-		if (params.kind !== "plugins" && params.kind !== "themes") throw notFound()
-		const { getMarketplaceItem } = await import("../server/marketplace")
-		const page = await getMarketplaceItem({ data: { kind: params.kind, id: params.id } })
-		if (!page) throw notFound()
-		return { page }
-	},
-	head: ({ loaderData, params }) => {
-		const seoHead = createSeoHead({
-			title: `${loaderData?.page.item.entry.name ?? "Marketplace"} — ${siteConfig.name}`,
-			description: loaderData?.page.item.entry.description ?? siteConfig.description,
-			path: `/marketplace/${params.kind}/${params.id}`,
+		if (!kinds.has(params.kind)) throw notFound()
+		const result = await getMarketplaceItem({
+			data: { kind: params.kind as "plugins" | "themes" | "templates", id: params.id },
 		})
-		return { ...seoHead, links: [...seoHead.links, { rel: "stylesheet", href: docsCss }] }
+		if (result.status === "notFound") throw notFound()
+		return { result }
+	},
+	staleTime: 60_000,
+	headers: ({ loaderData }) => ({
+		"Cache-Control":
+			loaderData?.result.status === "ok" && !loaderData.result.isStale
+				? "public, s-maxage=300, stale-while-revalidate=86400"
+				: "no-store",
+	}),
+	head: ({ loaderData, params }) => {
+		const path = `/marketplace/${params.kind}/${params.id}`
+		const result = loaderData?.result
+		if (!result || result.status !== "ok") {
+			return createSeoHead({ title: pageTitle("Marketplace"), path, robots: noIndexRobots })
+		}
+		const { item } = result
+		const kindLabel = marketplaceKindLabels[item.kind]
+		const description = item.description || `${kindLabel.singular} for Cortex by ${item.author}.`
+		return {
+			...createSeoHead({
+				title: pageTitle(`${item.name} · ${kindLabel.singular}`),
+				description,
+				path: getItemHref(item),
+				...(item.coverImageUrl
+					? { image: item.coverImageUrl, imageAlt: `${item.name} cover` }
+					: {}),
+			}),
+			scripts: jsonLdScripts(
+				softwareApplicationSchema({
+					name: item.name,
+					description,
+					path: getItemHref(item),
+					applicationCategory: "ProductivityApplication",
+					author: { name: item.author, ...(item.authorUrl ? { url: item.authorUrl } : {}) },
+					...(item.version ? { softwareVersion: item.version } : {}),
+					...(item.releasedAt ? { dateModified: item.releasedAt } : {}),
+					...(item.coverImageUrl ? { image: item.coverImageUrl } : {}),
+					isPartOf: true,
+				}),
+				breadcrumbSchema([
+					{ name: "Marketplace", path: "/marketplace" },
+					{ name: kindLabel.plural, path: `/marketplace/browse?kind=${item.kind}` },
+					{ name: item.name, path: getItemHref(item) },
+				]),
+			),
+		}
 	},
 	component: MarketplaceItemRoute,
 })
 
 function MarketplaceItemRoute() {
-	const { page } = Route.useLoaderData()
-	return <MarketplaceItemPage page={page} />
+	const { result } = Route.useLoaderData()
+
+	if (result.status !== "ok") {
+		return (
+			<div className="mx-auto w-[min(1180px,calc(100%-64px))] pt-16 max-sm:w-[calc(100%-40px)]">
+				<MarketplaceUnavailable />
+			</div>
+		)
+	}
+
+	return <MarketplaceDetailPage item={result.item} isStale={result.isStale} />
 }

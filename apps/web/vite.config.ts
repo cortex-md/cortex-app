@@ -17,7 +17,22 @@ const runtimeEnvKeys = [
 	"CORTEX_BILLING_COMPLETION_URL",
 	"CORTEX_REGISTRY_REPO",
 ] as const
-const dynamicPrerenderPaths = new Set(["/account", "/billing", "/changelog", "/login", "/signup"])
+const dynamicPrerenderPaths = new Set([
+	"/account",
+	"/billing",
+	"/billing/cancelled",
+	"/billing/success",
+	"/changelog",
+	"/login",
+	"/signup",
+	"/marketplace/browse",
+])
+const dynamicPrerenderPrefixes = [
+	"/invite/",
+	"/marketplace/plugins/",
+	"/marketplace/themes/",
+	"/marketplace/templates/",
+]
 
 function getPrerenderPathname(routePath: string) {
 	return routePath.split("?")[0]?.split("#")[0] ?? routePath
@@ -36,6 +51,14 @@ export default defineConfig(({ mode }) => {
 	return {
 		define: {
 			"import.meta.env.SITE_URL": JSON.stringify(siteUrl),
+			"import.meta.env.CLOUDFLARE_WEB_ANALYTICS_TOKEN": JSON.stringify(
+				environment.CLOUDFLARE_WEB_ANALYTICS_TOKEN ||
+					process.env.CLOUDFLARE_WEB_ANALYTICS_TOKEN ||
+					"",
+			),
+		},
+		ssr: {
+			noExternal: ["lucide-react"],
 		},
 		resolve: {
 			tsconfigPaths: true,
@@ -69,14 +92,17 @@ export default defineConfig(({ mode }) => {
 					enabled: true,
 					crawlLinks: true,
 					failOnError: true,
-					filter: ({ path }) =>
-						!path.includes("#") &&
-						!dynamicPrerenderPaths.has(getPrerenderPathname(path)) &&
-						!getPrerenderPathname(path).startsWith("/marketplace"),
+					filter: ({ path }) => {
+						const pathname = getPrerenderPathname(path)
+						return (
+							!path.includes("#") &&
+							!dynamicPrerenderPaths.has(pathname) &&
+							!dynamicPrerenderPrefixes.some((prefix) => pathname.startsWith(prefix))
+						)
+					},
 				},
 				sitemap: {
-					enabled: true,
-					host: siteUrl,
+					enabled: false,
 				},
 			}),
 			viteReact(),

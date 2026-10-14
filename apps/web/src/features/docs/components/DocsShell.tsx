@@ -1,4 +1,3 @@
-import { Button } from "@cortex/ui/button"
 import {
 	CommandDialog,
 	CommandEmpty,
@@ -7,6 +6,8 @@ import {
 	CommandItem,
 	CommandList,
 } from "@cortex/ui/command"
+import { Kbd } from "@cortex/ui/kbd"
+import { cn } from "@cortex/ui/lib/utils"
 import {
 	Sheet,
 	SheetContent,
@@ -15,9 +16,20 @@ import {
 	SheetTitle,
 	SheetTrigger,
 } from "@cortex/ui/sheet"
-import { Check, ChevronRight, Copy, FileText, Hash, Menu, Search } from "lucide-react"
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
-import { ThemeToggle } from "../../site/ThemeToggle"
+import {
+	BookOpen,
+	Check,
+	ChevronDown,
+	ChevronRight,
+	Copy,
+	FileText,
+	Hash,
+	Menu,
+	PencilLine,
+	Search,
+} from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { docsCopy, docsSourceBaseUrl } from "../../../content/docs"
 import { createDocLlmText } from "../llms"
 import type { DocPage, DocsNavigationGroup, DocsSearchEntry } from "../registry"
 import { docsSearchEntries } from "../registry"
@@ -31,25 +43,11 @@ interface DocsShellProps {
 interface DocsSidebarProps {
 	currentSlug: string
 	navigation: DocsNavigationGroup[]
+	onSearch: () => void
 }
 
-interface TocIndicator {
-	top: number
-	height: number
-	visible: boolean
-}
-
-function cn(...classes: Array<string | false | null | undefined>) {
-	return classes.filter(Boolean).join(" ")
-}
-
-function ShortcutKey({ children }: { children: ReactNode }) {
-	return (
-		<kbd className="pointer-events-none inline-flex h-5 min-w-5 items-center justify-center rounded-sm bg-bg-elevated px-1.5 font-sans text-[11px] leading-none font-medium text-text-muted select-none">
-			{children}
-		</kbd>
-	)
-}
+const focusRing = "outline-none focus-visible:shadow-focus"
+const wordsPerMinute = 220
 
 function navigateToHref(href: string) {
 	if (typeof window === "undefined") return
@@ -64,14 +62,18 @@ function navigateToHref(href: string) {
 	window.location.href = href
 }
 
-function DocsSearchCommand() {
-	const [open, setOpen] = useState(false)
-	const pageEntries = useMemo(() => docsSearchEntries.filter((entry) => entry.type === "page"), [])
-	const headingEntries = useMemo(
-		() => docsSearchEntries.filter((entry) => entry.type === "heading"),
-		[],
-	)
+function getReadingMinutes(page: DocPage) {
+	const words = page.content.split(/\s+/u).filter(Boolean).length
+	return Math.max(1, Math.round(words / wordsPerMinute))
+}
 
+function getAdjacentPages(page: DocPage, navigation: DocsNavigationGroup[]) {
+	const pages = navigation.flatMap((group) => group.pages)
+	const index = pages.findIndex((item) => item.slug === page.slug)
+	return { previous: pages[index - 1], next: pages[index + 1] }
+}
+
+function useDocsSearchShortcut(setOpen: (update: (open: boolean) => boolean) => void) {
 	useEffect(() => {
 		function handleKeyDown(event: KeyboardEvent) {
 			if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -82,7 +84,21 @@ function DocsSearchCommand() {
 
 		window.addEventListener("keydown", handleKeyDown)
 		return () => window.removeEventListener("keydown", handleKeyDown)
-	}, [])
+	}, [setOpen])
+}
+
+function DocsSearchDialog({
+	open,
+	onOpenChange,
+}: {
+	open: boolean
+	onOpenChange: (open: boolean) => void
+}) {
+	const pageEntries = useMemo(() => docsSearchEntries.filter((entry) => entry.type === "page"), [])
+	const headingEntries = useMemo(
+		() => docsSearchEntries.filter((entry) => entry.type === "heading"),
+		[],
+	)
 
 	function renderEntry(entry: DocsSearchEntry) {
 		const Icon = entry.type === "page" ? FileText : Hash
@@ -90,10 +106,10 @@ function DocsSearchCommand() {
 		return (
 			<CommandItem
 				key={entry.id}
-				className="cursor-pointer rounded-md px-3 py-2 text-text-primary data-[selected=true]:bg-accent-subtle data-[selected=true]:text-accent-text"
+				className="rounded-md px-3 py-2 text-text-primary data-[selected=true]:bg-brand-subtle data-[selected=true]:text-brand-text"
 				value={entry.searchText}
 				onSelect={() => {
-					setOpen(false)
+					onOpenChange(false)
 					navigateToHref(entry.href)
 				}}
 			>
@@ -110,96 +126,115 @@ function DocsSearchCommand() {
 	}
 
 	return (
-		<>
+		<CommandDialog
+			open={open}
+			onOpenChange={onOpenChange}
+			title={docsCopy.searchLabel}
+			description={docsCopy.searchDescription}
+			className="bg-bg-elevated p-0 text-text-primary shadow-panel"
+			commandProps={{ className: "bg-transparent text-text-primary" }}
+		>
+			<CommandInput
+				className="text-text-primary placeholder:text-text-muted"
+				placeholder={docsCopy.searchPlaceholder}
+			/>
+			<CommandList className="max-h-[420px] px-2 py-2">
+				<CommandEmpty>{docsCopy.searchEmpty}</CommandEmpty>
+				<CommandGroup heading="Pages">{pageEntries.map(renderEntry)}</CommandGroup>
+				<CommandGroup heading="Headings">{headingEntries.map(renderEntry)}</CommandGroup>
+			</CommandList>
+		</CommandDialog>
+	)
+}
+
+function SearchButton({ onSearch }: { onSearch: () => void }) {
+	return (
+		<button
+			type="button"
+			className={cn(
+				"flex h-[38px] w-full items-center gap-2 rounded-[10px] bg-bg-elevated pr-2 pl-3 text-left text-[14px] leading-none text-text-muted shadow-ring transition-colors hover:text-text-secondary",
+				focusRing,
+			)}
+			aria-label={docsCopy.searchLabel}
+			onClick={onSearch}
+		>
+			<Search className="size-4 shrink-0" aria-hidden="true" />
+			<span className="flex-1" aria-hidden="true">
+				{docsCopy.searchLabel}
+			</span>
+			<Kbd className="rounded-md bg-bg-elevated text-[11px] text-text-secondary shadow-[0_0_0_1px_var(--border),0_1px_0_var(--border)]">
+				⌘
+			</Kbd>
+			<Kbd className="rounded-md bg-bg-elevated text-[11px] text-text-secondary shadow-[0_0_0_1px_var(--border),0_1px_0_var(--border)]">
+				K
+			</Kbd>
+		</button>
+	)
+}
+
+function DocsNavGroup({ group, currentSlug }: { group: DocsNavigationGroup; currentSlug: string }) {
+	const containsCurrent = group.pages.some((item) => item.slug === currentSlug)
+	const [isOpen, setIsOpen] = useState(containsCurrent || group.pages.length <= 2)
+	const listId = `docs-group-${group.sectionOrder}`
+
+	return (
+		<div className="mt-5">
 			<button
 				type="button"
-				className="mx-auto flex h-9 w-full max-w-[420px] items-center gap-2 rounded-lg bg-bg-secondary px-3 text-left text-[14px] text-text-muted shadow-[0_0_0_1px_var(--border-subtle)] transition-[background-color,box-shadow,scale] duration-150 ease-out hover:bg-bg-elevated hover:text-text-secondary hover:shadow-[0_0_0_1px_var(--border)] focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none active:scale-[0.96]"
-				aria-label="Search docs"
-				onClick={() => setOpen(true)}
+				className={cn(
+					"flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[13px] leading-[18px] font-semibold text-text-primary",
+					focusRing,
+				)}
+				aria-expanded={isOpen}
+				aria-controls={listId}
+				onClick={() => setIsOpen((open) => !open)}
 			>
-				<Search className="size-4 shrink-0" aria-hidden="true" />
-				<span className="min-w-0 flex-1 truncate">Search docs...</span>
-				<span className="hidden shrink-0 items-center gap-1 sm:inline-flex">
-					<ShortcutKey>⌘</ShortcutKey>
-					<ShortcutKey>K</ShortcutKey>
-				</span>
-			</button>
-
-			<CommandDialog
-				open={open}
-				onOpenChange={setOpen}
-				title="Search docs"
-				description="Search Cortex documentation pages and headings."
-				className="docs-shell border-border-subtle bg-bg-elevated p-0 text-text-primary shadow-[0_18px_60px_rgba(0,0,0,0.18)]"
-				commandProps={{
-					className: "bg-transparent text-text-primary",
-				}}
-			>
-				<CommandInput
-					className="text-text-primary placeholder:text-text-muted"
-					placeholder="Search docs..."
+				{group.section}
+				<ChevronDown
+					className={cn(
+						"ml-auto size-3.5 text-text-muted transition-transform duration-150 ease-out motion-reduce:transition-none",
+						!isOpen && "-rotate-90",
+					)}
+					aria-hidden="true"
 				/>
-				<CommandList className="max-h-[420px] px-2 py-2">
-					<CommandEmpty>No docs found.</CommandEmpty>
-					<CommandGroup heading="Pages">{pageEntries.map(renderEntry)}</CommandGroup>
-					<CommandGroup heading="Headings">{headingEntries.map(renderEntry)}</CommandGroup>
-				</CommandList>
-			</CommandDialog>
-		</>
-	)
-}
-
-function DocsHomeLink() {
-	return (
-		<a
-			className="inline-grid size-10 shrink-0 place-items-center rounded-lg transition-[background-color,scale] duration-150 ease-out hover:bg-bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none active:scale-[0.96]"
-			href="/"
-			aria-label="Cortex home"
-		>
-			<img className="block rounded-lg" src="/icon-192.png" width={28} height={28} alt="" />
-		</a>
-	)
-}
-
-function DocsSidebar({ currentSlug, navigation }: DocsSidebarProps) {
-	return (
-		<div className="flex min-h-0 flex-1 flex-col">
-			<nav className="min-h-0 flex-1 overflow-y-auto pr-1" aria-label="Docs navigation">
-				<div className="grid gap-7">
-					{navigation.map((group) => (
-						<section key={group.section}>
-							<h2 className="mb-2 px-2 text-[12px] leading-4 font-semibold text-text-muted">
-								{group.section}
-							</h2>
-							<ul className="grid gap-0.5">
-								{group.pages.map((item) => {
-									const isActive = item.slug === currentSlug
-									return (
-										<li key={item.slug}>
-											<a
-												className={cn(
-													"flex min-h-9 items-center justify-between gap-3 rounded-lg px-2.5 py-2 text-[14px] leading-5 font-medium transition-[background-color,color] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none",
-													isActive
-														? "bg-accent-subtle text-accent-foreground"
-														: "text-text-secondary hover:bg-bg-secondary hover:text-text-primary",
-												)}
-												href={item.href}
-												aria-current={isActive ? "page" : undefined}
-											>
-												<span>{item.title}</span>
-												{isActive ? (
-													<ChevronRight className="size-4 shrink-0" aria-hidden="true" />
-												) : null}
-											</a>
-										</li>
-									)
-								})}
-							</ul>
-						</section>
-					))}
-				</div>
-			</nav>
+			</button>
+			<ul
+				id={listId}
+				hidden={!isOpen}
+				className="mt-0.5 ml-2 flex flex-col gap-px border-sep border-l pl-2.5"
+			>
+				{group.pages.map((item) => {
+					const isActive = item.slug === currentSlug
+					return (
+						<li key={item.slug}>
+							<a
+								className={cn(
+									"-ml-[11px] flex min-h-[30px] items-center gap-2 border-l border-transparent px-2.5 py-1 text-[14px] leading-[18px] text-text-secondary transition-colors hover:text-text-primary aria-[current=page]:border-brand aria-[current=page]:font-medium aria-[current=page]:text-brand-text max-[1000px]:min-h-10",
+									focusRing,
+								)}
+								href={item.href}
+								aria-current={isActive ? "page" : undefined}
+							>
+								{item.title}
+							</a>
+						</li>
+					)
+				})}
+			</ul>
 		</div>
+	)
+}
+
+function DocsSidebar({ currentSlug, navigation, onSearch }: DocsSidebarProps) {
+	return (
+		<>
+			<SearchButton onSearch={onSearch} />
+			<nav aria-label={docsCopy.navigationLabel}>
+				{navigation.map((group) => (
+					<DocsNavGroup key={group.section} group={group} currentSlug={currentSlug} />
+				))}
+			</nav>
+		</>
 	)
 }
 
@@ -228,7 +263,7 @@ function useActiveHeading(page: DocPage) {
 
 		function setHeadingFromScrollPosition() {
 			const current =
-				elements.filter((element) => element.getBoundingClientRect().top <= 92).at(-1) ??
+				elements.filter((element) => element.getBoundingClientRect().top <= 100).at(-1) ??
 				elements[0]
 			setActiveHeadingId(current?.id)
 		}
@@ -261,10 +296,7 @@ function useActiveHeading(page: DocPage) {
 
 				setHeadingFromScrollPosition()
 			},
-			{
-				rootMargin: "-88px 0px -65% 0px",
-				threshold: [0, 1],
-			},
+			{ rootMargin: "-96px 0px -65% 0px", threshold: [0, 1] },
 		)
 
 		for (const element of elements) observer.observe(element)
@@ -274,46 +306,42 @@ function useActiveHeading(page: DocPage) {
 	return activeHeadingId
 }
 
-function DocsCopyPageButton({ page }: { page: DocPage }) {
+function DocsPageActions({ page }: { page: DocPage }) {
 	const [copied, setCopied] = useState(false)
+	const actionClass = cn(
+		"inline-flex items-center gap-1.5 rounded-md py-1 text-[13px] leading-none text-text-secondary transition-colors hover:text-text-primary max-[1100px]:min-h-10",
+		focusRing,
+	)
 
 	async function handleCopy() {
 		const origin = typeof window === "undefined" ? undefined : window.location.origin
-		await navigator.clipboard.writeText(createDocLlmText(page, origin))
-		setCopied(true)
-		window.setTimeout(() => setCopied(false), 1800)
+		try {
+			await navigator.clipboard.writeText(createDocLlmText(page, origin))
+			setCopied(true)
+			window.setTimeout(() => setCopied(false), 1800)
+		} catch {
+			setCopied(false)
+		}
 	}
 
 	return (
-		<div className="grid gap-2">
-			<Button
-				className="h-9 justify-start gap-2 border-border-subtle bg-bg-elevated px-3 text-[13px] text-text-secondary shadow-[0_0_0_1px_var(--border-subtle)] transition-[background-color,color,scale] duration-150 ease-out hover:bg-bg-secondary hover:text-text-primary active:scale-[0.96]"
-				variant="outline"
-				size="sm"
-				type="button"
-				onClick={handleCopy}
-			>
+		<div className="mt-6 flex flex-col items-start gap-1.5 border-sep border-t pt-4">
+			<button type="button" className={actionClass} onClick={handleCopy}>
 				{copied ? (
-					<Check className="size-4 text-accent-text" aria-hidden="true" />
+					<Check className="size-3.5 text-brand-text" aria-hidden="true" />
 				) : (
-					<Copy className="size-4" aria-hidden="true" />
+					<Copy className="size-3.5" aria-hidden="true" />
 				)}
-				{copied ? "Copied" : "Copy page"}
-			</Button>
-			<div className="grid gap-0.5">
-				<a
-					className="inline-flex min-h-8 items-center rounded-md px-3 text-[12px] leading-4 text-text-muted transition-colors duration-150 ease-out hover:text-text-primary focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
-					href="/llms.txt"
-				>
-					LLMs index
-				</a>
-				<a
-					className="inline-flex min-h-8 items-center rounded-md px-3 text-[12px] leading-4 text-text-muted transition-colors duration-150 ease-out hover:text-text-primary focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
-					href="/docs/llms.txt"
-				>
-					Full docs corpus
-				</a>
-			</div>
+				{copied ? docsCopy.copied : docsCopy.copyPage}
+			</button>
+			<a className={actionClass} href="/llms.txt">
+				<FileText className="size-3.5" aria-hidden="true" />
+				{docsCopy.llmsIndex}
+			</a>
+			<a className={actionClass} href="/docs/llms.txt">
+				<BookOpen className="size-3.5" aria-hidden="true" />
+				{docsCopy.llmsCorpus}
+			</a>
 		</div>
 	)
 }
@@ -321,191 +349,193 @@ function DocsCopyPageButton({ page }: { page: DocPage }) {
 function DocsTableOfContents({
 	page,
 	activeHeadingId,
-	showCopy = false,
 }: {
 	page: DocPage
 	activeHeadingId: string | undefined
-	showCopy?: boolean
 }) {
-	const listRef = useRef<HTMLUListElement | null>(null)
-	const linkRefs = useRef(new Map<string, HTMLAnchorElement>())
-	const [indicator, setIndicator] = useState<TocIndicator>({
-		top: 0,
-		height: 0,
-		visible: false,
-	})
-
-	useEffect(() => {
-		const activeLink = activeHeadingId ? linkRefs.current.get(activeHeadingId) : undefined
-		if (!activeLink) {
-			setIndicator((current) => ({ ...current, visible: false }))
-			return undefined
-		}
-
-		const activeElement = activeLink
-
-		function syncIndicator() {
-			setIndicator({
-				top: activeElement.offsetTop,
-				height: activeElement.offsetHeight,
-				visible: true,
-			})
-		}
-
-		syncIndicator()
-		window.addEventListener("resize", syncIndicator)
-		return () => window.removeEventListener("resize", syncIndicator)
-	}, [activeHeadingId])
-
-	if (page.headings.length === 0) return null
-
 	return (
-		<div>
-			<nav aria-label="On this page">
-				<h2 className="mb-4 text-[12px] leading-4 font-semibold text-text-primary">On this page</h2>
-				<ul ref={listRef} className="relative grid gap-1 pl-3">
-					<span
-						className="docs-toc-indicator absolute left-0 w-px rounded-full bg-accent"
-						style={{
-							height: indicator.height,
-							opacity: indicator.visible ? 1 : 0,
-							transform: `translateY(${indicator.top}px)`,
-						}}
-						aria-hidden="true"
-					/>
-					{page.headings.map((heading) => {
-						const isActive = heading.id === activeHeadingId
-
-						return (
-							<li key={heading.id}>
-								<a
-									ref={(node) => {
-										if (node) linkRefs.current.set(heading.id, node)
-										else linkRefs.current.delete(heading.id)
-									}}
-									className={cn(
-										"block rounded-md py-0.5 text-[13px] leading-5 transition-colors duration-150 ease-out hover:text-text-primary focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none",
-										heading.depth === 3 && "pl-4",
-										isActive ? "text-accent-text" : "text-text-muted",
-									)}
-									href={`#${heading.id}`}
-									aria-current={isActive ? "location" : undefined}
-								>
-									{heading.text}
-								</a>
-							</li>
-						)
-					})}
-				</ul>
-			</nav>
-			{showCopy ? (
-				<div className="mt-6 border-border-subtle border-t pt-4">
-					<DocsCopyPageButton page={page} />
-				</div>
+		<>
+			{page.headings.length > 0 ? (
+				<nav aria-label={docsCopy.onThisPage}>
+					<h2 className="text-[12px] leading-4 font-semibold text-text-primary">
+						{docsCopy.onThisPage}
+					</h2>
+					<ul className="mt-2.5 flex flex-col gap-0.5 border-sep border-l">
+						{page.headings.map((heading) => {
+							const isActive = heading.id === activeHeadingId
+							return (
+								<li key={heading.id}>
+									<a
+										className={cn(
+											"-ml-px block border-l border-transparent py-[5px] pl-3 text-[13px] leading-[18px] text-text-muted transition-colors hover:text-text-primary aria-[current=location]:border-brand aria-[current=location]:text-brand-text",
+											heading.depth === 3 && "pl-6",
+											focusRing,
+										)}
+										href={`#${heading.id}`}
+										aria-current={isActive ? "location" : undefined}
+									>
+										{heading.text}
+									</a>
+								</li>
+							)
+						})}
+					</ul>
+				</nav>
 			) : null}
-		</div>
+			<DocsPageActions page={page} />
+		</>
 	)
 }
 
-function MobileDocsNav(props: DocsSidebarProps) {
+function MobileDocsNav({ currentSlug, navigation, onSearch }: DocsSidebarProps) {
+	const [open, setOpen] = useState(false)
+
 	return (
-		<Sheet>
-			<SheetTrigger asChild>
-				<Button
-					className="border-border-subtle bg-bg-elevated text-text-primary shadow-[0_1px_2px_rgba(0,0,0,0.06)] lg:hidden"
-					variant="outline"
-					size="sm"
-				>
-					<Menu className="size-4" aria-hidden="true" />
-					Docs
-				</Button>
+		<Sheet open={open} onOpenChange={setOpen}>
+			<SheetTrigger
+				className={cn(
+					"inline-flex h-10 items-center gap-2 rounded-full bg-bg-elevated px-4 text-[14px] leading-none font-medium text-text-primary shadow-ring",
+					focusRing,
+				)}
+			>
+				<Menu className="size-4" aria-hidden="true" />
+				{docsCopy.mobileNavigationLabel}
 			</SheetTrigger>
 			<SheetContent
-				className="docs-shell border-border bg-bg-primary/95 text-text-primary backdrop-blur-xl"
 				side="left"
+				className="w-[min(320px,86vw)] overflow-y-auto border-0 bg-site-panel p-0 text-text-primary shadow-panel backdrop-blur-none"
 			>
-				<SheetHeader>
-					<SheetTitle>Cortex Docs</SheetTitle>
-					<SheetDescription>Browse documentation topics.</SheetDescription>
+				<SheetHeader className="px-5 pt-5 pb-0">
+					<SheetTitle className="text-[17px] font-semibold">{docsCopy.rootCrumb}</SheetTitle>
+					<SheetDescription className="text-[13px] text-text-muted">
+						{docsCopy.mobileNavigationDescription}
+					</SheetDescription>
 				</SheetHeader>
-				<div className="min-h-0 flex-1 px-4 pb-5">
-					<DocsSidebar {...props} />
+				<div className="px-4 pt-3 pb-8">
+					<DocsSidebar
+						currentSlug={currentSlug}
+						navigation={navigation}
+						onSearch={() => {
+							setOpen(false)
+							onSearch()
+						}}
+					/>
 				</div>
 			</SheetContent>
 		</Sheet>
 	)
 }
 
-function MobileTableOfContents({
-	page,
-	activeHeadingId,
-}: {
-	page: DocPage
-	activeHeadingId: string | undefined
-}) {
-	if (page.headings.length === 0) return null
-
-	return (
-		<details className="mt-8 rounded-lg bg-bg-secondary p-3 shadow-[0_0_0_1px_var(--border-subtle)] xl:hidden">
-			<summary className="cursor-pointer text-[13px] leading-5 font-semibold text-text-primary">
-				On this page
-			</summary>
-			<div className="mt-3">
-				<DocsTableOfContents page={page} activeHeadingId={activeHeadingId} showCopy />
-			</div>
-		</details>
-	)
-}
-
 export function DocsShell({ page, navigation }: DocsShellProps) {
 	const activeHeadingId = useActiveHeading(page)
-	const sidebarProps = {
-		currentSlug: page.slug,
-		navigation,
-	}
+	const [searchOpen, setSearchOpen] = useState(false)
+	const openSearch = () => setSearchOpen(true)
+	const { previous, next } = getAdjacentPages(page, navigation)
+	const sidebarProps = { currentSlug: page.slug, navigation, onSearch: openSearch }
+
+	useDocsSearchShortcut(setSearchOpen)
 
 	return (
-		<div className="docs-shell min-h-screen bg-bg-primary text-text-primary">
-			<div className="sticky top-0 z-30 border-border-subtle border-b bg-bg-primary/90 backdrop-blur-xl">
-				<div className="mx-auto flex h-14 w-[min(100%,1440px)] items-center gap-3 px-4 md:px-6">
-					<div className="flex w-[132px] shrink-0 items-center gap-2 max-sm:w-[124px]">
-						<DocsHomeLink />
+		<div className="mx-auto grid w-[min(1360px,100%)] grid-cols-[264px_minmax(0,1fr)_224px] max-[1100px]:grid-cols-[240px_minmax(0,1fr)] max-[820px]:grid-cols-[minmax(0,1fr)]">
+			<aside className="sticky top-[68px] h-[calc(100dvh-68px)] self-start overflow-y-auto pt-6 pr-4 pb-10 pl-6 max-[820px]:hidden">
+				<DocsSidebar {...sidebarProps} />
+			</aside>
+
+			<div className="min-w-0 px-12 pt-8 pb-20 max-[820px]:px-5 max-[820px]:pt-6 max-[820px]:pb-16">
+				<article className="mx-auto max-w-[720px]">
+					<div className="mb-5 hidden max-[820px]:block">
 						<MobileDocsNav {...sidebarProps} />
 					</div>
-					<div className="min-w-0 flex-1">
-						<DocsSearchCommand />
+					<nav aria-label="Breadcrumb">
+						<ol className="flex flex-wrap items-center gap-1.5 text-[13px] leading-none text-text-muted">
+							<li>{docsCopy.rootCrumb}</li>
+							<li aria-hidden="true">
+								<ChevronRight className="size-3" />
+							</li>
+							<li>{page.section}</li>
+							<li aria-hidden="true">
+								<ChevronRight className="size-3" />
+							</li>
+							<li className="text-text-primary" aria-current="page">
+								{page.title}
+							</li>
+						</ol>
+					</nav>
+					<h1 className="mt-4 text-[clamp(36px,4.6vw,56px)] leading-[1.04] font-semibold tracking-[-0.035em] text-text-primary max-sm:text-[38px]">
+						{page.title}
+					</h1>
+					<p className="mt-3.5 max-w-[620px] text-[17px] leading-[1.6] text-text-secondary max-sm:text-[16.5px]">
+						{page.description}
+					</p>
+					<div className="mt-[18px] flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] leading-[1.4] text-text-muted">
+						<span>{docsCopy.minutesRead(getReadingMinutes(page))}</span>
+						<a
+							className={cn(
+								"inline-flex items-center gap-1 rounded-sm text-text-secondary hover:text-text-primary",
+								focusRing,
+							)}
+							href={`${docsSourceBaseUrl}/${page.slug}.mdx`}
+							target="_blank"
+							rel="noreferrer"
+						>
+							<PencilLine className="size-3.5" aria-hidden="true" />
+							{docsCopy.editOnGitHub}
+						</a>
 					</div>
-					<div className="flex w-[132px] shrink-0 justify-end max-sm:w-10">
-						<ThemeToggle />
+
+					<div className="mt-9">
+						<DocsMarkdown code={page.mdx} />
 					</div>
-				</div>
+
+					<nav
+						className="mt-12 grid grid-cols-2 gap-2.5 max-[820px]:grid-cols-1"
+						aria-label="Pagination"
+					>
+						{previous ? (
+							<a
+								className={cn(
+									"flex flex-col gap-1 rounded-[14px] px-[18px] py-4 shadow-ring hover:shadow-[0_0_0_1px_var(--accent-border)]",
+									focusRing,
+								)}
+								href={previous.href}
+							>
+								<small className="text-[12px] leading-none text-text-muted">
+									{docsCopy.previous}
+								</small>
+								<b className="text-[15px] leading-[1.3] font-semibold text-text-primary">
+									← {previous.title}
+								</b>
+							</a>
+						) : (
+							<span aria-hidden="true" className="max-[820px]:hidden" />
+						)}
+						{next ? (
+							<a
+								className={cn(
+									"flex flex-col gap-1 rounded-[14px] px-[18px] py-4 text-right shadow-ring hover:shadow-[0_0_0_1px_var(--accent-border)]",
+									focusRing,
+								)}
+								href={next.href}
+							>
+								<small className="text-[12px] leading-none text-text-muted">{docsCopy.next}</small>
+								<b className="text-[15px] leading-[1.3] font-semibold text-text-primary">
+									{next.title} →
+								</b>
+							</a>
+						) : null}
+					</nav>
+
+					<div className="mt-10 hidden max-[1100px]:block">
+						<DocsTableOfContents page={page} activeHeadingId={activeHeadingId} />
+					</div>
+				</article>
 			</div>
 
-			<div className="mx-auto grid w-[min(100%,1440px)] grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_240px]">
-				<aside className="sticky top-14 hidden h-[calc(100vh-56px)] border-border-subtle border-r p-5 lg:flex">
-					<DocsSidebar {...sidebarProps} />
-				</aside>
+			<aside className="sticky top-[68px] max-h-[calc(100dvh-68px)] self-start overflow-y-auto pt-8 pr-6 pb-10 pl-2 max-[1100px]:hidden">
+				<DocsTableOfContents page={page} activeHeadingId={activeHeadingId} />
+			</aside>
 
-				<main id="main-content" className="min-w-0 px-5 py-10 md:px-8 md:py-14">
-					<article className="mx-auto max-w-[var(--markdown-content-width)]">
-						<p className="mb-3 text-[13px] leading-5 font-medium text-text-muted">{page.section}</p>
-						<h1 className="text-balance text-[40px] leading-[1.05] font-semibold tracking-normal text-text-primary max-md:text-[34px]">
-							{page.title}
-						</h1>
-						<p className="mt-5 text-pretty text-[17px] leading-7 text-text-secondary">
-							{page.description}
-						</p>
-						<MobileTableOfContents page={page} activeHeadingId={activeHeadingId} />
-						<div className="mt-10">
-							<DocsMarkdown code={page.mdx} />
-						</div>
-					</article>
-				</main>
-
-				<aside className="sticky top-14 hidden h-[calc(100vh-56px)] px-6 py-9 xl:block">
-					<DocsTableOfContents page={page} activeHeadingId={activeHeadingId} showCopy />
-				</aside>
-			</div>
+			<DocsSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
 		</div>
 	)
 }

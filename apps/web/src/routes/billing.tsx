@@ -1,18 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { siteConfig } from "../config/site"
+import { billingCopy } from "../content/callback"
 import { BillingPage } from "../features/billing/BillingPage"
-import { createSeoHead, noIndexRobots } from "../seo/metadata"
-
-const billingDescription =
-	"Start a hosted Cortex Sync checkout through AbacatePay while keeping self-hosting available."
+import { createPrivateSeoHead, pageTitle } from "../seo/metadata"
 
 export const Route = createFileRoute("/billing")({
 	head: () =>
-		createSeoHead({
-			title: `Billing — ${siteConfig.name}`,
-			description: billingDescription,
+		createPrivateSeoHead({
+			title: pageTitle(billingCopy.seoTitle),
+			description: billingCopy.seoDescription,
 			path: "/billing",
-			robots: noIndexRobots,
 		}),
-	component: BillingPage,
+	component: BillingRoute,
 })
+
+function BillingRoute() {
+	return <BillingPage />
+}

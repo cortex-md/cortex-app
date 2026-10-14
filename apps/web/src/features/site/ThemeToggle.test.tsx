@@ -24,7 +24,7 @@ describe("ThemeToggle", () => {
 		window.localStorage.clear()
 		document.documentElement.removeAttribute("data-theme")
 		document.documentElement.style.colorScheme = ""
-		document.head.innerHTML = '<meta name="theme-color" content="#fbfbfc">'
+		document.head.innerHTML = '<meta name="theme-color" content="#fcfcfb">'
 		mockMatchMedia(false)
 	})
 
@@ -52,7 +52,7 @@ describe("ThemeToggle", () => {
 		expect(document.documentElement.style.colorScheme).toBe("dark")
 		expect(window.localStorage.getItem(siteThemeStorageKey)).toBe("dark")
 		expect(document.querySelector('meta[name="theme-color"]')?.getAttribute("content")).toBe(
-			"#10100d",
+			"#1e1e1e",
 		)
 	})
 })

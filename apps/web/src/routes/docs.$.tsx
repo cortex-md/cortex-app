@@ -1,8 +1,9 @@
 import { createFileRoute, notFound } from "@tanstack/react-router"
-import { siteConfig } from "../config/site"
+import { docsDescription } from "../content/docs"
 import { DocsShell } from "../features/docs/components/DocsShell"
 import { docsNavigation, getDocBySlug } from "../features/docs/registry"
-import { createSeoHead } from "../seo/metadata"
+import { createSeoHead, pageTitle } from "../seo/metadata"
+import { breadcrumbSchema, jsonLdScripts, techArticleSchema } from "../seo/structuredData"
 
 export const Route = createFileRoute("/docs/$")({
 	loader: ({ params }) => {
@@ -14,13 +15,37 @@ export const Route = createFileRoute("/docs/$")({
 			navigation: docsNavigation,
 		}
 	},
-	head: ({ loaderData }) =>
-		createSeoHead({
-			title: `${loaderData?.page.title ?? "Docs"} — ${siteConfig.name}`,
-			description: loaderData?.page.description ?? siteConfig.description,
-			path: loaderData?.page.href ?? "/docs",
+	head: ({ loaderData }) => {
+		const page = loaderData?.page
+		const seoHead = createSeoHead({
+			title: pageTitle(page?.title ?? "Docs"),
+			description: page?.description ?? docsDescription,
+			path: page?.href ?? "/docs",
 			type: "article",
-		}),
+		})
+
+		if (!page) return seoHead
+
+		const sectionHref =
+			docsNavigation.find((group) => group.section === page.section)?.pages[0]?.href ?? page.href
+
+		return {
+			...seoHead,
+			scripts: jsonLdScripts(
+				techArticleSchema({
+					title: page.title,
+					description: page.description,
+					path: page.href,
+					section: page.section,
+				}),
+				breadcrumbSchema([
+					{ name: "Docs", path: "/docs" },
+					{ name: page.section, path: sectionHref },
+					{ name: page.title, path: page.href },
+				]),
+			),
+		}
+	},
 	component: DocsPageRoute,
 })
 

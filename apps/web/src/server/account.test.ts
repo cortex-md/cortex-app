@@ -104,6 +104,7 @@ describe("getAccountOverviewFromAuthSession", () => {
 				available: true,
 				devices: [
 					{
+						id: "device-123",
 						name: "Cortex Web",
 						type: "web",
 						isCurrent: true,
@@ -126,7 +127,6 @@ describe("getAccountOverviewFromAuthSession", () => {
 				],
 			},
 		})
-		expect(JSON.stringify(result)).not.toContain("device-123")
 		expect(JSON.stringify(result)).not.toContain("user-123")
 		expect(JSON.stringify(result)).not.toContain("vault-123")
 		expect(fetcher).toHaveBeenCalledWith(
@@ -213,6 +213,7 @@ describe("getAccountOverviewFromAuthSession", () => {
 			}),
 		).toEqual([
 			{
+				id: "device-123",
 				name: "MacBook Pro",
 				type: "desktop",
 				isCurrent: true,

@@ -19,10 +19,21 @@ The development server runs at `http://localhost:3000`.
 SITE_URL=https://cortex-md.tech
 CORTEX_SYNC_URL=https://api.cortex-md.tech
 CORTEX_BILLING_RETURN_URL=https://cortex-md.tech/billing/cancelled
-CORTEX_BILLING_COMPLETION_URL=cortex://sync/checkout-complete
+CORTEX_BILLING_COMPLETION_URL=https://cortex-md.tech/billing/success
+CLOUDFLARE_WEB_ANALYTICS_TOKEN=
 ```
 
-`SITE_URL` defaults to `https://cortex-md.tech`.
+`SITE_URL` defaults to `https://cortex-md.tech`. Checkout started on the website returns to
+`<SITE_URL>/billing/success` unless `CORTEX_BILLING_COMPLETION_URL` is set; checkout started from the
+desktop app (the `/billing#token=…` handoff) keeps returning to `cortex://sync/checkout-complete`.
+
+## Analytics
+
+Vercel Web Analytics and Speed Insights are always mounted; their URLs pass through
+`redactAnalyticsUrl` so invite tokens and billing hashes never leave the browser. Custom events
+(`trackEvent` in `src/lib/analytics.ts`) only show up on Vercel Pro. Set
+`CLOUDFLARE_WEB_ANALYTICS_TOKEN` at build time to add the cookieless Cloudflare Web Analytics beacon;
+it is never rendered on `/account`, `/billing`, `/invite`, `/login` or `/signup`.
 
 ## Download Links
 

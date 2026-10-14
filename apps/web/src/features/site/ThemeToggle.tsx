@@ -40,7 +40,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
 	return (
 		<button
 			className={[
-				"relative inline-grid size-10 shrink-0 place-items-center rounded-lg text-text-secondary transition-[background-color,color,scale] duration-150 ease-out hover:bg-bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none active:scale-[0.96]",
+				"relative inline-grid size-9 shrink-0 place-items-center rounded-lg text-text-secondary outline-none transition-[background-color,color,scale] duration-150 ease-out hover:bg-site-hover hover:text-text-primary focus-visible:shadow-focus active:scale-[0.96] max-sm:size-10 motion-reduce:active:scale-100",
 				className,
 			]
 				.filter(Boolean)

@@ -25,7 +25,7 @@ describe("Sync runtime config", () => {
 
 		expect(getSiteBaseUrl(env)).toBe("http://localhost:3001")
 		expect(getBillingReturnUrl(env)).toBe("http://localhost:3001/billing/cancelled")
-		expect(getBillingCompletionUrl({})).toBe("cortex://sync/checkout-complete")
+		expect(getBillingCompletionUrl(env)).toBe("http://localhost:3001/billing/success")
 	})
 
 	it("accepts explicit billing callback URLs", () => {

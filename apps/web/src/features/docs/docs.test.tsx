@@ -39,16 +39,13 @@ describe("DocsShell", () => {
 		})
 	})
 
-	it("renders navigation, markdown content, cards, toc, and a centered command search", () => {
+	it("renders navigation, markdown content, cards, toc, and the sidebar command search", () => {
 		const page = getRequiredDoc("plugins/overview")
 
 		const { container } = render(<DocsShell page={page} navigation={docsNavigation} />)
 
 		expect(screen.getByRole("heading", { level: 1, name: "Community Plugins" })).toBeTruthy()
-		expect(screen.queryByRole("navigation", { name: "Site navigation" })).toBeNull()
-		expect(screen.queryByRole("button", { name: /Resources/i })).toBeNull()
-		expect(screen.getByRole("button", { name: /Switch to/i })).toBeTruthy()
-		expect(screen.getByRole("link", { name: "Cortex home" }).getAttribute("href")).toBe("/")
+		expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toBeTruthy()
 		expect(screen.getByRole("navigation", { name: "Docs navigation" })).toBeTruthy()
 		expect(screen.getAllByRole("navigation", { name: "On this page" }).length).toBeGreaterThan(0)
 		expect(
@@ -57,7 +54,7 @@ describe("DocsShell", () => {
 				.at(-1)
 				?.getAttribute("href"),
 		).toBe("/docs/developers/cli")
-		expect(screen.getByRole("button", { name: "Search docs" })).toBeTruthy()
+		expect(screen.getAllByRole("button", { name: "Search docs" }).length).toBeGreaterThan(0)
 		expect(screen.queryByPlaceholderText("Search docs...")).toBeNull()
 		expect(container.querySelector(".markdown-surface")).toBeTruthy()
 		expect(container.querySelector(".cortex-docs-shiki")).toBeTruthy()
@@ -112,7 +109,7 @@ describe("DocsShell", () => {
 		const page = getRequiredDoc("plugins/overview")
 		render(<DocsShell page={page} navigation={docsNavigation} />)
 
-		const copyButton = screen.getAllByRole("button", { name: "Copy page" })[0]
+		const copyButton = screen.getAllByRole("button", { name: "Copy page as Markdown" })[0]
 		if (!copyButton) throw new Error("Missing copy page button")
 		fireEvent.click(copyButton)
 

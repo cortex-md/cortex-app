@@ -22,7 +22,7 @@ describe("AuthPage", () => {
 
 		render(<AuthPage mode="login" />)
 
-		expect(screen.getByRole("heading", { name: "Sign in to Cortex" })).toBeTruthy()
+		expect(screen.getByRole("heading", { name: "Welcome back" })).toBeTruthy()
 		expect(screen.getByLabelText("Email")).toBeTruthy()
 		expect(screen.getByLabelText("Password")).toBeTruthy()
 		expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy()
@@ -39,7 +39,7 @@ describe("AuthPage", () => {
 
 		render(<AuthPage mode="signup" />)
 
-		expect(screen.getByRole("heading", { name: "Create your Cortex account" })).toBeTruthy()
+		expect(screen.getByRole("heading", { name: "Create your account" })).toBeTruthy()
 		expect(screen.getByLabelText("Name")).toBeTruthy()
 		expect(screen.getByLabelText("Email")).toBeTruthy()
 		expect(screen.getByLabelText("Password")).toBeTruthy()
