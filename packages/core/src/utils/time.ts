@@ -6,6 +6,21 @@ const MINUTE_MS = 60_000
 const HOUR_MS = 60 * MINUTE_MS
 const DAY_MS = 24 * HOUR_MS
 
+const dateFormatters = new Map<boolean, Intl.DateTimeFormat>()
+
+function formatShortDate(date: Date, withYear: boolean): string {
+	let formatter = dateFormatters.get(withYear)
+	if (!formatter) {
+		formatter = new Intl.DateTimeFormat(undefined, {
+			month: "short",
+			day: "numeric",
+			year: withYear ? "numeric" : undefined,
+		})
+		dateFormatters.set(withYear, formatter)
+	}
+	return formatter.format(date)
+}
+
 function isSameCalendarDay(a: Date, b: Date): boolean {
 	return (
 		a.getFullYear() === b.getFullYear() &&
@@ -34,12 +49,7 @@ export function formatRelativeTime(
 	}
 	const yesterday = new Date(now - DAY_MS)
 	if (isSameCalendarDay(date, yesterday)) return style === "short" ? "1d" : "yesterday"
-	const sameYear = date.getFullYear() === today.getFullYear()
-	return date.toLocaleDateString(undefined, {
-		month: "short",
-		day: "numeric",
-		year: sameYear ? undefined : "numeric",
-	})
+	return formatShortDate(date, date.getFullYear() !== today.getFullYear())
 }
 
 export function fileEntryMtimeToMs(mtime: number | undefined): number | null {
