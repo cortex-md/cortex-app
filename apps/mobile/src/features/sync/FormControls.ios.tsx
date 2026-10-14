@@ -13,13 +13,13 @@ import {
 	autocorrectionDisabled,
 	buttonStyle,
 	font,
-	foregroundStyle,
 	keyboardType,
 	onSubmit as onSubmitModifier,
 	textInputAutocapitalization,
 } from "@expo/ui/swift-ui/modifiers"
 import { Fragment } from "react"
 
+import { useFormTheme } from "@/components/ui/formTheme"
 import type {
 	FormCheckProps,
 	FormKeyboard,
@@ -47,6 +47,7 @@ export function FormTextField({
 	secure = false,
 }: FormTextFieldProps) {
 	const text = useNativeState(initialValue)
+	const theme = useFormTheme()
 	const plain = keyboard !== "default" || secure
 	const modifiers = [
 		textInputAutocapitalization(plain ? "never" : "sentences"),
@@ -57,6 +58,7 @@ export function FormTextField({
 			onSubmit?.()
 		}),
 		...(monospace ? [font({ design: "monospaced", size: 15 })] : []),
+		...(label ? [] : theme.row),
 	]
 	const handleChange = (value: string) => {
 		onChangeText?.(value)
@@ -85,25 +87,18 @@ export function FormTextField({
 	)
 	if (!label) return field
 	return (
-		<VStack alignment="leading" spacing={4}>
-			<Text
-				modifiers={[
-					font({ textStyle: "footnote" }),
-					foregroundStyle({ type: "hierarchical", style: "secondary" }),
-				]}
-			>
-				{label}
-			</Text>
+		<VStack alignment="leading" modifiers={theme.row} spacing={4}>
+			<Text modifiers={[font({ textStyle: "footnote" }), theme.secondary]}>{label}</Text>
 			{field}
 		</VStack>
 	)
 }
 
 export function FormMenu({ accessibilityLabel, groups, label }: FormMenuProps) {
-	const { colors } = useMobileColors()
+	const theme = useFormTheme()
 	return (
 		<Menu
-			label={<Text modifiers={[foregroundStyle(colors.tint)]}>{label}</Text>}
+			label={<Text modifiers={[theme.accent]}>{label}</Text>}
 			modifiers={[buttonStyle("borderless")]}
 			testID={accessibilityLabel}
 		>

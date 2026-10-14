@@ -16,6 +16,7 @@ import {
 	Shapes,
 } from "@expo/ui/jetpack-compose/modifiers"
 
+import { useComposeListItemColors, useComposeSwitchColors } from "@/components/ui/formColors"
 import type {
 	FormRowProps,
 	FormSectionProps,
@@ -68,17 +69,6 @@ export function FormSection({ children, footer, title }: FormSectionProps) {
 	)
 }
 
-function useRowColors() {
-	const { colors } = useMobileColors()
-	return {
-		containerColor: colors.cell,
-		contentColor: colors.label,
-		leadingContentColor: colors.secondaryLabel,
-		supportingContentColor: colors.secondaryLabel,
-		trailingContentColor: colors.secondaryLabel,
-	}
-}
-
 export function FormRow({
 	chevron = false,
 	destructive = false,
@@ -92,7 +82,7 @@ export function FormRow({
 	value,
 }: FormRowProps) {
 	const { colors } = useMobileColors()
-	const rowColors = useRowColors()
+	const rowColors = useComposeListItemColors(disabled)
 	const titleColor = destructive ? colors.destructiveText : tint ? colors.tint : colors.label
 	const supporting = subtitle ?? value
 	return (
@@ -101,7 +91,7 @@ export function FormRow({
 			modifiers={onPress && !disabled ? [clickable(onPress)] : undefined}
 		>
 			<ListItem.HeadlineContent>
-				<Text color={String(titleColor)}>{title}</Text>
+				<Text color={String(disabled ? colors.disabled : titleColor)}>{title}</Text>
 			</ListItem.HeadlineContent>
 			{supporting ? (
 				<ListItem.SupportingContent>
@@ -145,14 +135,15 @@ export function FormToggle({
 	value,
 }: FormToggleProps) {
 	const { colors } = useMobileColors()
-	const rowColors = useRowColors()
+	const rowColors = useComposeListItemColors(disabled)
+	const switchColors = useComposeSwitchColors()
 	return (
 		<ListItem
 			colors={rowColors}
 			modifiers={disabled ? undefined : [clickable(() => onValueChange(!value))]}
 		>
 			<ListItem.HeadlineContent>
-				<Text>{title}</Text>
+				<Text color={String(disabled ? colors.disabled : colors.label)}>{title}</Text>
 			</ListItem.HeadlineContent>
 			{subtitle ? (
 				<ListItem.SupportingContent>
@@ -167,7 +158,12 @@ export function FormToggle({
 				</ListItem.LeadingContent>
 			) : null}
 			<ListItem.TrailingContent>
-				<Switch enabled={!disabled} onCheckedChange={onValueChange} value={value} />
+				<Switch
+					colors={switchColors}
+					enabled={!disabled}
+					onCheckedChange={onValueChange}
+					value={value}
+				/>
 			</ListItem.TrailingContent>
 		</ListItem>
 	)

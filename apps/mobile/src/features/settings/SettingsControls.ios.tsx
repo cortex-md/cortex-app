@@ -12,7 +12,6 @@ import {
 	autocorrectionDisabled,
 	disabled as disabledModifier,
 	font,
-	foregroundStyle,
 	keyboardType,
 	labelsHidden,
 	pickerStyle,
@@ -22,14 +21,13 @@ import {
 } from "@expo/ui/swift-ui/modifiers"
 import { useRef } from "react"
 
+import { useFormTheme } from "@/components/ui/formTheme"
 import type {
 	SettingsOptionValue,
 	SettingsPickerProps,
 	SettingsSliderProps,
 	SettingsTextFieldProps,
 } from "@/features/settings/settingsControlTypes"
-
-const secondary = foregroundStyle({ type: "hierarchical", style: "secondary" })
 
 export function SettingsPicker<T extends SettingsOptionValue>({
 	disabled = false,
@@ -39,6 +37,7 @@ export function SettingsPicker<T extends SettingsOptionValue>({
 	title,
 	value,
 }: SettingsPickerProps<T>) {
+	const theme = useFormTheme()
 	return (
 		<Picker
 			label={title}
@@ -46,6 +45,7 @@ export function SettingsPicker<T extends SettingsOptionValue>({
 				pickerStyle(segmented ? "segmented" : "menu"),
 				...(segmented ? [labelsHidden()] : []),
 				disabledModifier(disabled),
+				...theme.row,
 			]}
 			onSelectionChange={(selection) => onChange(selection as T)}
 			selection={value}
@@ -68,18 +68,20 @@ export function SettingsSlider({
 	value,
 	valueLabel,
 }: SettingsSliderProps) {
+	const theme = useFormTheme()
 	return (
-		<VStack alignment="leading" spacing={8}>
+		<VStack alignment="leading" modifiers={theme.row} spacing={8}>
 			<HStack>
 				<Text>{title}</Text>
 				<Spacer />
-				{valueLabel ? <Text modifiers={[secondary]}>{valueLabel}</Text> : null}
+				{valueLabel ? <Text modifiers={[theme.secondary]}>{valueLabel}</Text> : null}
 			</HStack>
 			<Slider
 				max={max}
-				maximumValueLabel={<Text modifiers={[font({ size: 20 }), secondary]}>A</Text>}
+				modifiers={[theme.toggle]}
+				maximumValueLabel={<Text modifiers={[font({ size: 20 }), theme.secondary]}>A</Text>}
 				min={min}
-				minimumValueLabel={<Text modifiers={[font({ size: 13 }), secondary]}>A</Text>}
+				minimumValueLabel={<Text modifiers={[font({ size: 13 }), theme.secondary]}>A</Text>}
 				onValueChange={(next) => {
 					const rounded = Math.round(next / step) * step
 					if (rounded !== value) onChange(rounded)
@@ -101,11 +103,12 @@ export function SettingsTextField({
 }: SettingsTextFieldProps) {
 	const text = useNativeState(defaultValue)
 	const latest = useRef(defaultValue)
+	const theme = useFormTheme()
 	return (
-		<VStack alignment="leading" spacing={4}>
+		<VStack alignment="leading" modifiers={theme.row} spacing={4}>
 			<Text>{title}</Text>
 			{subtitle ? (
-				<Text modifiers={[font({ textStyle: "footnote" }), secondary]}>{subtitle}</Text>
+				<Text modifiers={[font({ textStyle: "footnote" }), theme.secondary]}>{subtitle}</Text>
 			) : null}
 			<TextField
 				modifiers={[

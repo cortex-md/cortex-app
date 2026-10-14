@@ -15,6 +15,12 @@ import {
 import { clickable, fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers"
 import { useRef, useState } from "react"
 
+import {
+	useComposeListItemColors,
+	useComposeSegmentedColors,
+	useComposeSliderColors,
+	useComposeTextFieldColors,
+} from "@/components/ui/formColors"
 import { SymbolIcon } from "@/components/ui/Symbol"
 import type {
 	SettingsOptionValue,
@@ -33,6 +39,8 @@ export function SettingsPicker<T extends SettingsOptionValue>({
 	value,
 }: SettingsPickerProps<T>) {
 	const { colors } = useMobileColors()
+	const rowColors = useComposeListItemColors(disabled)
+	const segmentedColors = useComposeSegmentedColors()
 	const [expanded, setExpanded] = useState(false)
 	const selectedLabel = options.find((option) => option.value === value)?.label ?? ""
 
@@ -43,14 +51,7 @@ export function SettingsPicker<T extends SettingsOptionValue>({
 					const selected = option.value === value
 					return (
 						<SegmentedButton
-							colors={{
-								activeBorderColor: colors.border,
-								activeContainerColor: colors.accentSubtle,
-								activeContentColor: colors.tint,
-								inactiveBorderColor: colors.border,
-								inactiveContainerColor: "transparent",
-								inactiveContentColor: colors.secondaryLabel,
-							}}
+							colors={segmentedColors}
 							key={String(option.value)}
 							onClick={() => {
 								if (!disabled) onChange(option.value)
@@ -69,12 +70,7 @@ export function SettingsPicker<T extends SettingsOptionValue>({
 
 	return (
 		<ListItem
-			colors={{
-				containerColor: colors.cell,
-				contentColor: disabled ? colors.disabled : colors.label,
-				supportingContentColor: colors.secondaryLabel,
-				trailingContentColor: colors.secondaryLabel,
-			}}
+			colors={rowColors}
 			modifiers={disabled ? undefined : [clickable(() => setExpanded(true))]}
 		>
 			<ListItem.HeadlineContent>
@@ -131,6 +127,7 @@ export function SettingsSlider({
 	valueLabel,
 }: SettingsSliderProps) {
 	const { colors } = useMobileColors()
+	const sliderColors = useComposeSliderColors()
 	return (
 		<Column modifiers={[fillMaxWidth()]} verticalArrangement={{ spacedBy: 4 }}>
 			<Row horizontalArrangement="spaceBetween" modifiers={[fillMaxWidth()]}>
@@ -138,6 +135,7 @@ export function SettingsSlider({
 				{valueLabel ? <Text color={colors.secondaryLabel}>{valueLabel}</Text> : null}
 			</Row>
 			<Slider
+				colors={sliderColors}
 				max={max}
 				min={min}
 				onValueChange={(next) => {
@@ -161,8 +159,10 @@ export function SettingsTextField({
 }: SettingsTextFieldProps) {
 	const text = useNativeState(defaultValue)
 	const latest = useRef(defaultValue)
+	const fieldColors = useComposeTextFieldColors()
 	return (
 		<TextField
+			colors={fieldColors}
 			keyboardActions={{ onDone: (next) => onCommit(next) }}
 			keyboardOptions={{
 				autoCorrectEnabled: false,

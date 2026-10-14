@@ -13,6 +13,7 @@ import { clickable, fillMaxWidth, padding } from "@expo/ui/jetpack-compose/modif
 import { useState } from "react"
 import { StyleSheet, View } from "react-native"
 
+import { useComposeListItemColors } from "@/components/ui/formColors"
 import { MobileTextField } from "@/components/ui/MobileTextField"
 import { SymbolIcon } from "@/components/ui/Symbol"
 import type {
@@ -23,17 +24,6 @@ import type {
 	FormTextFieldProps,
 } from "@/features/onboarding/formControlTypes"
 import { useMobileColors } from "@/hooks/useMobileColors"
-
-function useRowColors() {
-	const { colors } = useMobileColors()
-	return {
-		containerColor: colors.cell,
-		contentColor: colors.label,
-		leadingContentColor: colors.secondaryLabel,
-		supportingContentColor: colors.secondaryLabel,
-		trailingContentColor: colors.secondaryLabel,
-	}
-}
 
 export function FormTextField({
 	autoCapitalize = "sentences",
@@ -76,7 +66,7 @@ export function FormPicker<T extends string>({
 	value,
 }: FormPickerProps<T>) {
 	const { colors } = useMobileColors()
-	const rowColors = useRowColors()
+	const rowColors = useComposeListItemColors()
 	const [expanded, setExpanded] = useState(false)
 	const selected = options.find((option) => option.value === value)
 	return (
@@ -196,7 +186,7 @@ export function FormCheckRow({
 	value,
 }: FormCheckRowProps) {
 	const { colors } = useMobileColors()
-	const rowColors = useRowColors()
+	const rowColors = useComposeListItemColors()
 	const supporting = subtitle ?? value
 	return (
 		<ListItem colors={rowColors} modifiers={disabled ? undefined : [clickable(onPress)]}>

@@ -11,6 +11,7 @@ import {
 import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers"
 import { Fragment, useState } from "react"
 
+import { useComposeTextFieldColors } from "@/components/ui/formColors"
 import { SymbolIcon } from "@/components/ui/Symbol"
 import type {
 	FormCheckProps,
@@ -39,7 +40,7 @@ export function FormTextField({
 	placeholder,
 	secure = false,
 }: FormTextFieldProps) {
-	const { colors } = useMobileColors()
+	const fieldColors = useComposeTextFieldColors()
 	const value = useNativeState(initialValue)
 	const plain = keyboard !== "default" || secure
 	const submit = () => {
@@ -49,7 +50,7 @@ export function FormTextField({
 	return (
 		<TextField
 			autoFocus={autoFocus}
-			colors={{ focusedContainerColor: colors.cell, unfocusedContainerColor: colors.cell }}
+			colors={fieldColors}
 			keyboardActions={{ onDone: submit, onSend: submit }}
 			keyboardOptions={{
 				autoCorrectEnabled: !plain,

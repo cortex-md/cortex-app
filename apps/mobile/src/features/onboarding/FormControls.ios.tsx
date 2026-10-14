@@ -33,6 +33,7 @@ import {
 	tint,
 } from "@expo/ui/swift-ui/modifiers"
 
+import { useFormTheme } from "@/components/ui/formTheme"
 import type {
 	FormButtonProps,
 	FormCheckRowProps,
@@ -56,6 +57,7 @@ export function FormTextField({
 	secure = false,
 }: FormTextFieldProps) {
 	const text = useNativeState(defaultValue)
+	const theme = useFormTheme()
 	const modifiers = [
 		textInputAutocapitalization(autoCapitalize === "none" ? "never" : autoCapitalize),
 		autocorrectionDisabled(autoCapitalize === "none" || keyboard === "email"),
@@ -63,6 +65,7 @@ export function FormTextField({
 		...(keyboard === "email" ? [textContentType("emailAddress")] : []),
 		submitLabel(handleSubmit ? "done" : "return"),
 		...(handleSubmit ? [onSubmit(handleSubmit)] : []),
+		...theme.row,
 	]
 	if (secure) {
 		return (
@@ -93,10 +96,11 @@ export function FormPicker<T extends string>({
 	options,
 	value,
 }: FormPickerProps<T>) {
+	const theme = useFormTheme()
 	return (
 		<Picker
 			label={label}
-			modifiers={[pickerStyle("menu")]}
+			modifiers={[pickerStyle("menu"), ...theme.row]}
 			onSelectionChange={(selection) => onChange(selection as T)}
 			selection={value}
 			systemImage={icon?.sf}
@@ -140,6 +144,7 @@ export function FormButton({
 }
 
 export function FormHeader({ subtitle, title }: FormHeaderProps) {
+	const theme = useFormTheme()
 	return (
 		<VStack
 			alignment="leading"
@@ -150,12 +155,10 @@ export function FormHeader({ subtitle, title }: FormHeaderProps) {
 			]}
 			spacing={6}
 		>
-			<Text modifiers={[font({ textStyle: "largeTitle", weight: "bold" })]}>{title}</Text>
-			{subtitle ? (
-				<Text modifiers={[foregroundStyle({ type: "hierarchical", style: "secondary" })]}>
-					{subtitle}
-				</Text>
-			) : null}
+			<Text modifiers={[font({ textStyle: "largeTitle", weight: "bold" }), theme.label]}>
+				{title}
+			</Text>
+			{subtitle ? <Text modifiers={[theme.secondary]}>{subtitle}</Text> : null}
 		</VStack>
 	)
 }
@@ -171,31 +174,22 @@ export function FormCheckRow({
 	value,
 }: FormCheckRowProps) {
 	const { colors } = useMobileColors()
+	const theme = useFormTheme()
 	return (
-		<Button modifiers={[buttonStyle("plain"), disabledModifier(disabled)]} onPress={onPress}>
+		<Button
+			modifiers={[buttonStyle("plain"), disabledModifier(disabled), ...theme.row]}
+			onPress={onPress}
+		>
 			<HStack modifiers={[contentShape(shapes.rectangle())]} spacing={12}>
 				{icon ? <Image color={iconColor ?? colors.tint} systemName={icon.sf} /> : null}
 				<VStack alignment="leading" spacing={2}>
-					<Text modifiers={[foregroundStyle(disabled ? colors.secondaryLabel : colors.label)]}>
-						{title}
-					</Text>
+					<Text modifiers={[disabled ? theme.secondary : theme.label]}>{title}</Text>
 					{subtitle ? (
-						<Text
-							modifiers={[
-								font({ textStyle: "footnote" }),
-								foregroundStyle({ type: "hierarchical", style: "secondary" }),
-							]}
-						>
-							{subtitle}
-						</Text>
+						<Text modifiers={[font({ textStyle: "footnote" }), theme.secondary]}>{subtitle}</Text>
 					) : null}
 				</VStack>
 				<Spacer />
-				{value ? (
-					<Text modifiers={[foregroundStyle({ type: "hierarchical", style: "secondary" })]}>
-						{value}
-					</Text>
-				) : null}
+				{value ? <Text modifiers={[theme.secondary]}>{value}</Text> : null}
 				{checked ? (
 					<Image
 						color={colors.tint}

@@ -87,6 +87,7 @@ export function ChoiceRow<T extends string>({
 }
 
 export function DateRow({ icon, onChange, title, today, value }: DateRowProps) {
+	const { colors } = useMobileColors()
 	const [picking, setPicking] = useState(false)
 	return (
 		<>
@@ -105,6 +106,7 @@ export function DateRow({ icon, onChange, title, today, value }: DateRowProps) {
 			) : null}
 			{value && picking ? (
 				<DateTimePicker
+					color={colors.tintFill}
 					displayedComponents="date"
 					initialDate={value}
 					onDateSelected={(date) => {

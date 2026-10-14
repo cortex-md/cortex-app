@@ -14,6 +14,12 @@ import {
 import { clickable, fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers"
 import { useState } from "react"
 
+import {
+	useComposeListItemColors,
+	useComposeRadioColors,
+	useComposeSegmentedColors,
+	useComposeTextFieldColors,
+} from "@/components/ui/formColors"
 import { SymbolIcon } from "@/components/ui/Symbol"
 import type {
 	FormChoiceRowProps,
@@ -23,17 +29,6 @@ import type {
 	FormTextProps,
 } from "@/features/importExport/formFieldTypes"
 import { useMobileColors } from "@/hooks/useMobileColors"
-
-function useRowColors() {
-	const { colors } = useMobileColors()
-	return {
-		containerColor: colors.cell,
-		contentColor: colors.label,
-		leadingContentColor: colors.secondaryLabel,
-		supportingContentColor: colors.secondaryLabel,
-		trailingContentColor: colors.secondaryLabel,
-	}
-}
 
 export function FormTextField({
 	disabled = false,
@@ -45,8 +40,14 @@ export function FormTextField({
 	placeholder,
 }: FormTextFieldProps) {
 	const value = useNativeState(initialValue)
+	const fieldColors = useComposeTextFieldColors()
 	return (
 		<OutlinedTextField
+			colors={{
+				...fieldColors,
+				focusedContainerColor: "transparent",
+				unfocusedContainerColor: "transparent",
+			}}
 			enabled={!disabled}
 			keyboardOptions={
 				monospace
@@ -81,7 +82,8 @@ export function FormPicker<T extends string>({
 	value,
 }: FormPickerProps<T>) {
 	const { colors } = useMobileColors()
-	const rowColors = useRowColors()
+	const rowColors = useComposeListItemColors()
+	const segmentedColors = useComposeSegmentedColors()
 	const [expanded, setExpanded] = useState(false)
 	const selected = options.find((option) => option.value === value)
 
@@ -90,12 +92,15 @@ export function FormPicker<T extends string>({
 			<SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
 				{options.map((option) => (
 					<SegmentedButton
+						colors={segmentedColors}
 						key={option.value}
 						onClick={() => onChange(option.value)}
 						selected={option.value === value}
 					>
 						<SegmentedButton.Label>
-							<Text>{option.label}</Text>
+							<Text color={String(option.value === value ? colors.tint : colors.secondaryLabel)}>
+								{option.label}
+							</Text>
 						</SegmentedButton.Label>
 					</SegmentedButton>
 				))}
@@ -161,7 +166,8 @@ export function FormChoiceRow({
 	title,
 }: FormChoiceRowProps) {
 	const { colors } = useMobileColors()
-	const rowColors = useRowColors()
+	const rowColors = useComposeListItemColors(disabled)
+	const radioColors = useComposeRadioColors()
 	return (
 		<ListItem colors={rowColors} modifiers={disabled ? undefined : [clickable(onPress)]}>
 			<ListItem.HeadlineContent>
@@ -173,7 +179,12 @@ export function FormChoiceRow({
 				</ListItem.SupportingContent>
 			) : null}
 			<ListItem.LeadingContent>
-				<RadioButton enabled={!disabled} onClick={onPress} selected={selected} />
+				<RadioButton
+					colors={radioColors}
+					enabled={!disabled}
+					onClick={onPress}
+					selected={selected}
+				/>
 			</ListItem.LeadingContent>
 			{icon ? (
 				<ListItem.TrailingContent>
@@ -188,7 +199,7 @@ export function FormChoiceRow({
 
 export function FormProgress({ label, value }: FormProgressProps) {
 	const { colors } = useMobileColors()
-	const rowColors = useRowColors()
+	const rowColors = useComposeListItemColors()
 	return (
 		<ListItem colors={rowColors}>
 			<ListItem.HeadlineContent>

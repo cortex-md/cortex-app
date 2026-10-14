@@ -259,7 +259,6 @@ export function BookmarksScreen() {
 			/>
 			<Stack.SearchBar
 				autoCapitalize="none"
-				hideWhenScrolling={false}
 				onCancelButtonPress={() => setFilter("")}
 				onChangeText={(event) => setFilter(event.nativeEvent.text)}
 				placeholder="Filter bookmarks"

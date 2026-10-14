@@ -16,7 +16,6 @@ import {
 	contentShape,
 	disabled as disabledModifier,
 	font,
-	foregroundStyle,
 	lineLimit,
 	multilineTextAlignment,
 	pickerStyle,
@@ -24,9 +23,9 @@ import {
 	shapes,
 	tag,
 	textInputAutocapitalization,
-	tint,
 } from "@expo/ui/swift-ui/modifiers"
 
+import { useFormTheme } from "@/components/ui/formTheme"
 import type {
 	FormChoiceRowProps,
 	FormPickerProps,
@@ -35,8 +34,6 @@ import type {
 	FormTextProps,
 } from "@/features/importExport/formFieldTypes"
 import { useMobileColors } from "@/hooks/useMobileColors"
-
-const SECONDARY = foregroundStyle({ style: "secondary", type: "hierarchical" })
 
 export function FormTextField({
 	disabled = false,
@@ -48,6 +45,7 @@ export function FormTextField({
 	placeholder,
 }: FormTextFieldProps) {
 	const text = useNativeState(initialValue)
+	const theme = useFormTheme()
 	const modifiers = [
 		disabledModifier(disabled),
 		...(monospace
@@ -60,8 +58,8 @@ export function FormTextField({
 	]
 	if (multiline) {
 		return (
-			<VStack alignment="leading" spacing={6}>
-				<Text modifiers={[font({ textStyle: "footnote" }), SECONDARY]}>{label}</Text>
+			<VStack alignment="leading" modifiers={theme.row} spacing={6}>
+				<Text modifiers={[font({ textStyle: "footnote" }), theme.secondary]}>{label}</Text>
 				<TextField
 					axis="vertical"
 					modifiers={[...modifiers, lineLimit({ max: 6, min: 2 })]}
@@ -73,7 +71,7 @@ export function FormTextField({
 		)
 	}
 	return (
-		<HStack spacing={12}>
+		<HStack modifiers={theme.row} spacing={12}>
 			<Text>{label}</Text>
 			<TextField
 				modifiers={[...modifiers, multilineTextAlignment("trailing")]}
@@ -92,10 +90,11 @@ export function FormPicker<T extends string>({
 	segmented = false,
 	value,
 }: FormPickerProps<T>) {
+	const theme = useFormTheme()
 	return (
 		<Picker
 			label={label}
-			modifiers={[pickerStyle(segmented ? "segmented" : "menu")]}
+			modifiers={[pickerStyle(segmented ? "segmented" : "menu"), ...theme.row]}
 			onSelectionChange={(selection) => onChange(selection as T)}
 			selection={value}
 		>
@@ -117,14 +116,18 @@ export function FormChoiceRow({
 	title,
 }: FormChoiceRowProps) {
 	const { colors } = useMobileColors()
+	const theme = useFormTheme()
 	return (
-		<Button modifiers={[buttonStyle("plain"), disabledModifier(disabled)]} onPress={onPress}>
+		<Button
+			modifiers={[buttonStyle("plain"), disabledModifier(disabled), ...theme.row]}
+			onPress={onPress}
+		>
 			<HStack modifiers={[contentShape(shapes.rectangle())]} spacing={12}>
 				{icon ? <Image color={colors.tint} systemName={icon.sf} /> : null}
 				<VStack alignment="leading" spacing={2}>
-					<Text modifiers={[foregroundStyle(colors.label)]}>{title}</Text>
+					<Text modifiers={[disabled ? theme.secondary : theme.label]}>{title}</Text>
 					{subtitle ? (
-						<Text modifiers={[font({ textStyle: "footnote" }), SECONDARY]}>{subtitle}</Text>
+						<Text modifiers={[font({ textStyle: "footnote" }), theme.secondary]}>{subtitle}</Text>
 					) : null}
 				</VStack>
 				<Spacer />
@@ -141,22 +144,21 @@ export function FormChoiceRow({
 }
 
 export function FormProgress({ label, value }: FormProgressProps) {
-	const { colors } = useMobileColors()
+	const theme = useFormTheme()
 	return (
-		<VStack alignment="leading" spacing={8}>
-			<ProgressView
-				modifiers={[progressViewStyle("linear"), tint(colors.tintFill)]}
-				value={value}
-			/>
-			<Text modifiers={[font({ textStyle: "footnote" }), SECONDARY]}>{label}</Text>
+		<VStack alignment="leading" modifiers={theme.row} spacing={8}>
+			<ProgressView modifiers={[progressViewStyle("linear"), theme.toggle]} value={value} />
+			<Text modifiers={[font({ textStyle: "footnote" }), theme.secondary]}>{label}</Text>
 		</VStack>
 	)
 }
 
 export function FormText({ monospace = false, secondary = false, text }: FormTextProps) {
+	const theme = useFormTheme()
 	const modifiers = [
 		...(monospace ? [font({ design: "monospaced", textStyle: "footnote" })] : []),
-		...(secondary ? [SECONDARY] : []),
+		secondary ? theme.secondary : theme.label,
+		...theme.row,
 	]
 	return <Text modifiers={modifiers}>{text}</Text>
 }

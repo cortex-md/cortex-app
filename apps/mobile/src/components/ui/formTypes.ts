@@ -33,3 +33,14 @@ export interface FormToggleProps {
 	title: string
 	value: boolean
 }
+
+export type FormModifier = { $type: string }
+
+export interface FormTheme {
+	accent: FormModifier
+	label: FormModifier
+	row: FormModifier[]
+	secondary: FormModifier
+	tertiary: FormModifier
+	toggle: FormModifier
+}

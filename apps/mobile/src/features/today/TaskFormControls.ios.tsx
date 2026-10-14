@@ -10,6 +10,7 @@ import {
 } from "@expo/ui/swift-ui/modifiers"
 
 import { FormSection, FormToggle, NativeForm } from "@/components/ui/Form"
+import { useFormTheme } from "@/components/ui/formTheme"
 import type { ChoiceRowProps, DateRowProps, TaskFormProps } from "@/features/today/taskFormTypes"
 
 export function TaskForm({
@@ -21,12 +22,13 @@ export function TaskForm({
 	placeholder,
 }: TaskFormProps) {
 	const text = useNativeState(initialTitle)
+	const theme = useFormTheme()
 	return (
 		<NativeForm>
 			<FormSection>
 				<TextField
 					autoFocus={autoFocus}
-					modifiers={[submitLabel("done"), onSubmit(() => onSubmitTitle?.())]}
+					modifiers={[submitLabel("done"), onSubmit(() => onSubmitTitle?.()), ...theme.row]}
 					onTextChange={onTitleChange}
 					placeholder={placeholder}
 					text={text}
@@ -45,10 +47,11 @@ export function ChoiceRow<T extends string>({
 	title,
 	value,
 }: ChoiceRowProps<T>) {
+	const theme = useFormTheme()
 	return (
 		<Picker
 			label={title}
-			modifiers={[pickerStyle("menu"), disabledModifier(disabled)]}
+			modifiers={[pickerStyle("menu"), disabledModifier(disabled), ...theme.row]}
 			onSelectionChange={(selection) => onChange(selection as T)}
 			selection={value}
 			systemImage={icon?.sf}
@@ -63,6 +66,7 @@ export function ChoiceRow<T extends string>({
 }
 
 export function DateRow({ icon, onChange, title, today, value }: DateRowProps) {
+	const theme = useFormTheme()
 	return (
 		<>
 			<FormToggle
@@ -74,7 +78,7 @@ export function DateRow({ icon, onChange, title, today, value }: DateRowProps) {
 			{value ? (
 				<DatePicker
 					displayedComponents={["date"]}
-					modifiers={[datePickerStyle("compact")]}
+					modifiers={[datePickerStyle("compact"), ...theme.row]}
 					onDateChange={(date) => onChange(toIsoDate(date))}
 					selection={parseIsoDate(value)}
 					title="Date"

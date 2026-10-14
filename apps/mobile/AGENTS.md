@@ -62,16 +62,20 @@ src/
 - Icons: only `components/ui/Symbol` (`{ sf, md }` → expo-symbols `SymbolView`), SwiftUI
   `Image systemName` inside SwiftUI trees, and SF names in `Stack.Toolbar`. `lucide-react-native` is
   only used by `PluginIcon` to resolve icons declared by plugins.
+- Tab roots use the system large title: `useStackScreenOptions` never sets an iOS header background
+  (it hides the large title on iOS 26) and the first child is a scroll view with automatic insets.
 - Short static lists and settings pages use `components/ui/Form` (`NativeForm`, `FormSection`,
   `FormRow`, `FormToggle`): iOS SwiftUI `Form`/`Section`, Android a Compose `LazyColumn` with M3
   connected rows. `NativeForm` scrolls by itself and is the screen's root content. Feature folders own
-  their platform form controls (pickers, text fields, date pickers) next to their screens.
+  their platform form controls (pickers, text fields, date pickers) next to their screens and theme
+  every row with `useFormTheme()` (iOS) or `formColors.ts` (Android) so rows follow the Cortex theme.
 - Large collections (files, search results, tasks, logs, versions) stay on `FlatList`/`SectionList`
   with React Native rows styled like native inset lists.
 - Text fields: SwiftUI `TextField`/`SecureField` inside forms on iOS; on Android Compose text fields
   or `MobileTextField`. Do not use the universal `@expo/ui` `TextInput` (Android Expo Go warnings).
 - Item actions are native context menus: iOS wraps rows in expo-router `Link` + `Link.Menu`
-  (`onPress` prevents navigation and runs the handler), Android opens a Compose `DropdownMenu`
+  (`onPress` prevents navigation and runs the handler; row styles must be plain objects, not
+  `({ pressed }) => ...` functions, because `Link.Trigger asChild` spreads them), Android opens a Compose `DropdownMenu`
   (`features/file-explorer/FileExplorerHost.android.tsx`). Confirmations use RN `Alert.alert`
   (native) or `ConfirmDialog`; name prompts use `Alert.prompt` on iOS and `TextPromptDialog` on Android.
 - Every screen and sheet has a native title; no subtitles that repeat the title, no duplicated actions,
@@ -356,7 +360,8 @@ stores, note sessions, and draws plugin UI from a mirror.
 
 - Settings screens read and write `@cortex/settings` `useSettingsStore` with the desktop schema keys;
   no local-only setting state or mobile-only keys.
-- Every settings page is one `NativeForm`. `features/settings/SettingsControls.{ios,android}.tsx`
+- Settings pages are one `NativeForm` each; the Settings index is a React Native `SectionList` so its
+  large title collapses like Apple's. `features/settings/SettingsControls.{ios,android}.tsx`
   provides `SettingsPicker`, `SettingsSlider` and `SettingsTextField`. Appearance has a Theme menu
   picker (Default plus installed community families, `appearance.theme`) and a Light | Dark | System
   segmented control (`appearance.colorscheme`), like desktop. Settings Home search is
@@ -444,17 +449,20 @@ stores, note sessions, and draws plugin UI from a mirror.
   The root title is the vault name; Create / More menus come from `filesMenus.ts`.
 - The drawer (`features/sidebar/`) shows the vault switcher row, Today, Databases, the file tree,
   Plugins, Marketplace and Settings over the `sidebarBackground` token.
-- `features/note/NoteScreen`: native title and ⋯ toolbar menu; a compact native "Properties · N" button
-  above the editor opens the `properties` sheet; while reading, one glass `NoteBottomMenu` button
+- `features/note/NoteScreen`: native title and ⋯ toolbar menu; `NotePropertiesBlock` shows the
+  properties above the editor (first 4 rows, "Show all", collapsible per session, hidden while
+  editing); tapping a row opens the `properties` sheet on that property's editor; while reading, one glass `NoteBottomMenu` button
   (Find or create a note, New note, Open tabs); while editing, the glass `KeyboardToolbar` above the
   keyboard (Heading, Bold, Italic, Task, List, Link, More menu, Hide keyboard) sends command ids from
   `@cortex/editor/markdown-format-commands` plus `mobile.insert-divider`, `mobile.insert-tag`,
   `mobile.insert-wikilink`, `mobile.slash` through the `command` message. Nothing about properties is
-  rendered inside the WebView.
+  rendered inside the WebView. The WebView never scrolls: `html`/`body` are fixed height and
+  `.cm-scroller` is the only scroller; the shell sets `--markdown-content-gutter: 16px` so blocks
+  align with text.
 - Protocol additions: native → web `find` (request answered with `{ current, total }`) and `command`
   with `mobile.blur`, `mobile.focus`, `mobile.reveal-line` or any registered editor command id.
 - `app/properties/` stack (`index`, `add`, `edit`, `option`, `value`, `select`, `person`, `date`,
-  `auto`) shares one `useNoteProperties` through `PropertiesContext`; controls live in
+  `tags`, `auto`) shares one `useNoteProperties` through `PropertiesContext`; controls live in
   `PropertyControls.{ios,android}.tsx`.
 - `outline`, `export` and `tabs` sheets use native headers and lists.
 

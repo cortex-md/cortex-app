@@ -7,13 +7,12 @@ import {
 	disabled as disabledModifier,
 	font,
 	foregroundStyle,
-	listRowBackground,
-	listRowSeparatorTint,
 	scrollContentBackground,
 	shapes,
 	tint,
 } from "@expo/ui/swift-ui/modifiers"
 
+import { useFormTheme } from "@/components/ui/formTheme"
 import type {
 	FormRowProps,
 	FormSectionProps,
@@ -30,6 +29,7 @@ export function NativeForm({ children }: NativeFormProps) {
 				modifiers={[
 					scrollContentBackground("hidden"),
 					background(colors.groupedBackground),
+					foregroundStyle(colors.label),
 					tint(colors.tint),
 				]}
 			>
@@ -40,16 +40,18 @@ export function NativeForm({ children }: NativeFormProps) {
 }
 
 export function FormSection({ children, footer, title }: FormSectionProps) {
-	const { colors } = useMobileColors()
+	const theme = useFormTheme()
 	return (
-		<FieldGroup.Section
-			modifiers={[listRowBackground(colors.cell), listRowSeparatorTint(colors.separator)]}
-			title={title}
-		>
+		<FieldGroup.Section modifiers={theme.row}>
+			{title ? (
+				<FieldGroup.SectionHeader>
+					<Text modifiers={[theme.secondary]}>{title}</Text>
+				</FieldGroup.SectionHeader>
+			) : null}
 			{children}
 			{footer ? (
 				<FieldGroup.SectionFooter>
-					<Text>{footer}</Text>
+					<Text modifiers={[theme.secondary]}>{footer}</Text>
 				</FieldGroup.SectionFooter>
 			) : null}
 		</FieldGroup.Section>
@@ -65,18 +67,12 @@ function RowLabel({
 	title: string
 	titleColor: string
 }) {
+	const theme = useFormTheme()
 	return (
 		<VStack alignment="leading" spacing={2}>
 			<Text modifiers={[foregroundStyle(titleColor)]}>{title}</Text>
 			{subtitle ? (
-				<Text
-					modifiers={[
-						font({ textStyle: "footnote" }),
-						foregroundStyle({ type: "hierarchical", style: "secondary" }),
-					]}
-				>
-					{subtitle}
-				</Text>
+				<Text modifiers={[font({ textStyle: "footnote" }), theme.secondary]}>{subtitle}</Text>
 			) : null}
 		</VStack>
 	)
@@ -89,32 +85,29 @@ export function FormRow({
 	icon,
 	onPress,
 	subtitle,
-	tint = false,
+	tint: tinted = false,
 	title,
 	trailing,
 	value,
 }: FormRowProps) {
 	const { colors } = useMobileColors()
-	const titleColor = destructive ? colors.destructiveText : tint ? colors.tint : colors.label
+	const theme = useFormTheme()
+	const titleColor = destructive ? colors.destructiveText : tinted ? colors.tint : colors.label
 	const content = (
-		<HStack modifiers={[contentShape(shapes.rectangle())]} spacing={12}>
+		<HStack
+			modifiers={[contentShape(shapes.rectangle()), ...(onPress ? [] : theme.row)]}
+			spacing={12}
+		>
 			{icon ? (
 				<Image color={destructive ? colors.destructiveText : colors.tint} systemName={icon.sf} />
 			) : null}
 			<RowLabel subtitle={subtitle} title={title} titleColor={titleColor} />
 			<Spacer />
-			{value ? (
-				<Text modifiers={[foregroundStyle({ type: "hierarchical", style: "secondary" })]}>
-					{value}
-				</Text>
-			) : null}
+			{value ? <Text modifiers={[theme.secondary]}>{value}</Text> : null}
 			{trailing}
 			{chevron ? (
 				<Image
-					modifiers={[
-						font({ size: 13, weight: "semibold" }),
-						foregroundStyle({ type: "hierarchical", style: "tertiary" }),
-					]}
+					modifiers={[font({ size: 13, weight: "semibold" }), theme.tertiary]}
 					systemName="chevron.right"
 				/>
 			) : null}
@@ -122,7 +115,10 @@ export function FormRow({
 	)
 	if (!onPress) return content
 	return (
-		<Button modifiers={[buttonStyle("plain"), disabledModifier(disabled)]} onPress={onPress}>
+		<Button
+			modifiers={[buttonStyle("plain"), disabledModifier(disabled), ...theme.row]}
+			onPress={onPress}
+		>
 			{content}
 		</Button>
 	)
@@ -137,8 +133,13 @@ export function FormToggle({
 	value,
 }: FormToggleProps) {
 	const { colors } = useMobileColors()
+	const theme = useFormTheme()
 	return (
-		<Toggle isOn={value} modifiers={[disabledModifier(disabled)]} onIsOnChange={onValueChange}>
+		<Toggle
+			isOn={value}
+			modifiers={[theme.toggle, disabledModifier(disabled), ...theme.row]}
+			onIsOnChange={onValueChange}
+		>
 			<HStack spacing={12}>
 				{icon ? <Image color={colors.tint} systemName={icon.sf} /> : null}
 				<RowLabel subtitle={subtitle} title={title} titleColor={colors.label} />
