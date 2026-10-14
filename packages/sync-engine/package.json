@@ -7,13 +7,11 @@
 		".": "./src/index.ts"
 	},
 	"scripts": {
-		"test": "vitest run",
 		"typecheck": "tsc -b --pretty false"
 	},
 	"dependencies": {
 		"@cortex/platform": "workspace:*",
 		"@cortex/sync-api": "workspace:*",
-		"argon2": "^0.45.1",
 		"diff-match-patch": "^1.0.5"
 	},
 	"devDependencies": {

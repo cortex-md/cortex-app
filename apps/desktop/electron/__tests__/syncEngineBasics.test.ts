@@ -8,13 +8,20 @@ import {
 } from "@cortex/platform/sync-rules"
 import { toVaultRelativePath } from "@cortex/platform/utils"
 import { SyncError } from "@cortex/sync-api"
-import { afterEach, describe, expect, it } from "vitest"
-import { SyncDb } from "../db"
-import { mergeMarkdown } from "../merge"
-import { retryBackoffSecs, SyncQueue } from "../queue"
-import { normalizeRelativePath } from "../util"
+import {
+	configureSyncRuntime,
+	mergeMarkdown,
+	normalizeRelativePath,
+	retryBackoffSecs,
+	SyncDb,
+	SyncQueue,
+} from "@cortex/sync-engine"
+import { afterEach, beforeAll, describe, expect, it } from "vitest"
+import { nodeSyncRuntime } from "../platform/nodeSyncRuntime"
 
 const tempDirs: string[] = []
+
+beforeAll(() => configureSyncRuntime(nodeSyncRuntime))
 
 function tempVault(): string {
 	const directory = mkdtempSync(join(tmpdir(), "cortex-sync-engine-"))

@@ -1,8 +1,6 @@
-import { randomUUID } from "node:crypto"
-import { mkdir, rename, rm, writeFile } from "node:fs/promises"
-import { dirname, isAbsolute, relative, resolve } from "node:path"
 import type { SubscriptionBlockCode, SyncAccessDeniedKind } from "@cortex/platform"
 import { SyncError, subscriptionAccessMessage } from "@cortex/sync-api"
+import { syncRuntime } from "./runtime"
 
 export function normalizeSlashes(path: string): string {
 	return path.replaceAll("\\", "/")
@@ -13,6 +11,7 @@ export function normalizeRelativePath(path: string): string {
 }
 
 export function resolveInVault(vaultPath: string, relativePath: string): string {
+	const { isAbsolute, relative, resolve } = syncRuntime().path
 	const normalized = normalizeSlashes(relativePath)
 	if (
 		!normalized ||
@@ -37,13 +36,14 @@ export function nowSeconds(): number {
 }
 
 export async function writeFileAtomic(path: string, content: Uint8Array): Promise<void> {
-	await mkdir(dirname(path), { recursive: true })
+	const { fs, path: paths, randomUUID } = syncRuntime()
+	await fs.mkdir(paths.dirname(path))
 	const temporaryPath = `${path}.${randomUUID()}.tmp`
 	try {
-		await writeFile(temporaryPath, content)
-		await rename(temporaryPath, path)
+		await fs.writeFile(temporaryPath, content)
+		await fs.rename(temporaryPath, path)
 	} catch (error) {
-		await rm(temporaryPath, { force: true })
+		await fs.rm(temporaryPath)
 		throw error
 	}
 }

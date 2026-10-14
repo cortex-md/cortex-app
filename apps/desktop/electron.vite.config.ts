@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react"
 import { defineConfig, externalizeDepsPlugin } from "electron-vite"
 
 const syncServerUrl = process.env.CORTEX_SYNC_SERVER_URL || "http://localhost:8080"
+const registryRepo = process.env.CORTEX_REGISTRY_REPO || "cortex-md/registry"
 const billingUrl = process.env.CORTEX_BILLING_URL || "http://localhost:3000/billing"
 
 export default defineConfig({
@@ -12,6 +13,7 @@ export default defineConfig({
 			externalizeDepsPlugin({
 				exclude: [
 					"@cortex/collab",
+					"@cortex/core",
 					"@cortex/platform",
 					"@cortex/sync-api",
 					"@cortex/sync-engine",
@@ -31,7 +33,7 @@ export default defineConfig({
 			rollupOptions: {
 				input: {
 					index: resolve(__dirname, "electron/main.ts"),
-					"sync-worker": resolve(__dirname, "../../packages/sync-engine/src/worker.ts"),
+					"sync-worker": resolve(__dirname, "electron/syncWorker.ts"),
 				},
 			},
 		},
@@ -61,6 +63,7 @@ export default defineConfig({
 		plugins: [react(), tailwindcss()],
 		define: {
 			"globalThis.__CORTEX_SYNC_SERVER_URL__": JSON.stringify(syncServerUrl),
+			"globalThis.__CORTEX_REGISTRY_REPO__": JSON.stringify(registryRepo),
 			"globalThis.__CORTEX_BILLING_URL__": JSON.stringify(billingUrl),
 		},
 		resolve: {

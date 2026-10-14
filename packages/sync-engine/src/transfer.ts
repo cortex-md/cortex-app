@@ -1,5 +1,3 @@
-import { lstat, mkdir, readFile, rename, rm } from "node:fs/promises"
-import { dirname } from "node:path"
 import type {
 	CollabFileSyncRole,
 	ConflictResolution,
@@ -10,10 +8,12 @@ import { hashBytes } from "@cortex/platform/hash"
 import * as syncApi from "@cortex/sync-api"
 import { SyncError } from "@cortex/sync-api"
 import type { SyncAccess } from "./access"
+import { utf8Decode, utf8Encode } from "./bytes"
 import { attemptAutoMerge } from "./conflict"
 import { decrypt, encrypt } from "./crypto"
 import type { FileState, NoteMetadataRecord, SyncDb } from "./db"
 import { isMergeableText, takeConflictSide } from "./merge"
+import { isNotFoundError, syncRuntime } from "./runtime"
 import { resolveInVault, writeFileAtomic } from "./util"
 
 export interface SyncContext {
@@ -21,7 +21,7 @@ export interface SyncContext {
 	db: SyncDb
 	vaultId: string
 	vaultPath: string
-	vek: Buffer
+	vek: Uint8Array
 	access: SyncAccess
 	collabRoles?: ReadonlyMap<string, CollabFileSyncRole>
 }
@@ -38,7 +38,7 @@ export type SyncOutcome =
 	| "kept-live"
 
 export interface RemoteContent {
-	content: Buffer
+	content: Uint8Array
 	hash: string
 	version: number
 }
@@ -49,7 +49,7 @@ interface FileStat {
 }
 
 interface LocalContent {
-	content: Buffer
+	content: Uint8Array
 	hash: string
 	stat?: FileStat
 }
@@ -86,7 +86,7 @@ function writeMetadata(result: syncApi.UploadResult): NoteMetadataRecord {
 
 async function localStat(ctx: SyncContext, path: string): Promise<FileStat | null> {
 	try {
-		const stats = await lstat(resolveInVault(ctx.vaultPath, path))
+		const stats = await syncRuntime().fs.lstat(resolveInVault(ctx.vaultPath, path))
 		return stats.isFile() ? { mtime: Math.trunc(stats.mtimeMs), size: stats.size } : null
 	} catch {
 		return null
@@ -146,10 +146,10 @@ async function readLocal(ctx: SyncContext, path: string): Promise<LocalContent |
 	const stat = await localStat(ctx, path)
 	if (!stat) return null
 	try {
-		const content = await readFile(resolveInVault(ctx.vaultPath, path))
+		const content = await syncRuntime().fs.readFile(resolveInVault(ctx.vaultPath, path))
 		return { content, hash: hashBytes(content), stat }
 	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code === "ENOENT") return null
+		if (isNotFoundError(error)) return null
 		throw error
 	}
 }
@@ -169,12 +169,12 @@ async function fetchDecrypted(
 	ctx: SyncContext,
 	path: string,
 	version: number | null = null,
-): Promise<{ content: Buffer; version: number }> {
+): Promise<{ content: Uint8Array; version: number }> {
 	const downloaded = await syncApi.downloadFile(ctx.api, ctx.vaultId, path, version)
 	return { content: decrypt(downloaded.bytes, ctx.vek), version: downloaded.version }
 }
 
-export function remoteContent(content: Buffer, version: number): RemoteContent {
+export function remoteContent(content: Uint8Array, version: number): RemoteContent {
 	return { content, hash: hashBytes(content), version }
 }
 
@@ -187,7 +187,7 @@ async function loadAncestor(
 	ctx: SyncContext,
 	path: string,
 	base: SyncBase,
-): Promise<Buffer | null> {
+): Promise<Uint8Array | null> {
 	if (!base.hash || !base.version) return null
 	try {
 		const { content } = await fetchDecrypted(ctx, path, base.version)
@@ -266,7 +266,7 @@ async function mergeWithRemote(
 	const merge = keepLive
 		? {
 				kind: "merged" as const,
-				content: Buffer.from(takeConflictSide(attempted.content.toString("utf8"), "local"), "utf8"),
+				content: utf8Encode(takeConflictSide(utf8Decode(attempted.content), "local")),
 			}
 		: attempted
 	const mergedHash = hashBytes(merge.content)
@@ -475,10 +475,10 @@ export async function applyResolution(
 		return "pulled"
 	}
 	const current = await readLocal(ctx, path)
-	let content = current?.content ?? Buffer.alloc(0)
-	if (resolution.type === "merged") content = Buffer.from(resolution.content, "utf8")
+	let content = current?.content ?? new Uint8Array(0)
+	if (resolution.type === "merged") content = utf8Encode(resolution.content)
 	else if (isMergeableText(path))
-		content = Buffer.from(takeConflictSide(content.toString("utf8"), "local"), "utf8")
+		content = utf8Encode(takeConflictSide(utf8Decode(content), "local"))
 	const hash = hashBytes(content)
 	if (hash === current?.hash) return await pushContent(ctx, path, current, baseFor(state))
 	await writeLocal(ctx, path, content)
@@ -495,7 +495,7 @@ export async function deleteLocalFile(ctx: SyncContext, path: string): Promise<S
 			ctx.db.deleteFileState(path)
 			return "deferred"
 		}
-		await rm(resolveInVault(ctx.vaultPath, path), { force: true })
+		await syncRuntime().fs.rm(resolveInVault(ctx.vaultPath, path))
 	}
 	ctx.db.deleteFileState(path)
 	return "deleted"
@@ -508,11 +508,11 @@ export async function renameLocalFile(
 ): Promise<SyncOutcome> {
 	const oldFull = resolveInVault(ctx.vaultPath, oldPath)
 	const newFull = resolveInVault(ctx.vaultPath, newPath)
-	await mkdir(dirname(newFull), { recursive: true })
+	await syncRuntime().fs.mkdir(syncRuntime().path.dirname(newFull))
 	try {
-		await rename(oldFull, newFull)
+		await syncRuntime().fs.rename(oldFull, newFull)
 	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+		if (!isNotFoundError(error)) throw error
 		ctx.db.deleteFileState(oldPath)
 		return await applyRemoteContent(ctx, newPath, await fetchRemote(ctx, newPath))
 	}
@@ -529,7 +529,7 @@ export async function downloadVersion(
 	ctx: SyncContext,
 	path: string,
 	version: number,
-): Promise<Buffer> {
+): Promise<Uint8Array> {
 	assertReadable(ctx, path)
 	return (await fetchDecrypted(ctx, path, version)).content
 }

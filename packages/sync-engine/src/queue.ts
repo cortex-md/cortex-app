@@ -1,6 +1,6 @@
-import { randomUUID } from "node:crypto"
 import type { ConflictResolution } from "@cortex/platform"
 import type { QueueRow, SyncDb } from "./db"
+import { syncRuntime } from "./runtime"
 import { nowSeconds } from "./util"
 
 export type SyncOp =
@@ -127,7 +127,7 @@ export class SyncQueue {
 		}
 
 		const item: QueueItem = {
-			id: randomUUID(),
+			id: syncRuntime().randomUUID(),
 			priority: PRIORITY[next.type],
 			op: next,
 			sourceEventId: eventId,

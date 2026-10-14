@@ -1,39 +1,40 @@
-import { promisify } from "node:util"
-import { gunzip, gzip } from "node:zlib"
+import { fromBase64, fromBase64Url, toBase64, toBase64Url } from "./bytes"
 import { decrypt, encrypt, generateKey } from "./crypto"
+import { syncRuntime } from "./runtime"
 
-const gzipAsync = promisify(gzip)
-const gunzipAsync = promisify(gunzip)
 const SHARE_KEY_LENGTH = 32
 
 export interface ShareKey {
-	key: Buffer
+	key: Uint8Array
 	wrappedKey: string
 }
 
 export function createShareKey(vek: Uint8Array): ShareKey {
 	const key = generateKey()
-	return { key, wrappedKey: encrypt(key, vek).toString("base64") }
+	return { key, wrappedKey: toBase64(encrypt(key, vek)) }
 }
 
-export function unwrapShareKey(wrappedKey: string, vek: Uint8Array): Buffer {
-	return decrypt(Buffer.from(wrappedKey, "base64"), vek)
+export function unwrapShareKey(wrappedKey: string, vek: Uint8Array): Uint8Array {
+	return decrypt(fromBase64(wrappedKey), vek)
 }
 
 export function encodeShareKey(key: Uint8Array): string {
-	return Buffer.from(key).toString("base64url")
+	return toBase64Url(key)
 }
 
-export function decodeShareKey(encoded: string): Buffer {
-	const key = Buffer.from(encoded, "base64url")
+export function decodeShareKey(encoded: string): Uint8Array {
+	const key = fromBase64Url(encoded)
 	if (key.length !== SHARE_KEY_LENGTH) throw new Error("Invalid share link key")
 	return key
 }
 
-export async function sealShareBundle(plaintext: Uint8Array, key: Uint8Array): Promise<Buffer> {
-	return encrypt(await gzipAsync(plaintext), key)
+export async function sealShareBundle(plaintext: Uint8Array, key: Uint8Array): Promise<Uint8Array> {
+	return encrypt(await syncRuntime().crypto.gzip(plaintext), key)
 }
 
-export async function openShareBundle(ciphertext: Uint8Array, key: Uint8Array): Promise<Buffer> {
-	return await gunzipAsync(decrypt(ciphertext, key))
+export async function openShareBundle(
+	ciphertext: Uint8Array,
+	key: Uint8Array,
+): Promise<Uint8Array> {
+	return await syncRuntime().crypto.gunzip(decrypt(ciphertext, key))
 }

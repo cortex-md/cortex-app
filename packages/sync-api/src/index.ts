@@ -43,6 +43,12 @@ export {
 	roleAccess,
 } from "./mappers"
 export {
+	createNoteSharesService,
+	type ShareCrypto,
+	type ShareKeyMaterial,
+	type ShareServiceDeps,
+} from "./noteSharesService"
+export {
 	createCachedSecretStore,
 	identitySecretKey,
 	type SecretStore,
@@ -56,4 +62,5 @@ export {
 } from "./services"
 export { AuthSession, type AuthSessionOptions, type StoredUser, scopedKey } from "./session"
 export * from "./shares"
+export { createTemplateSharesService } from "./templateSharesService"
 export * from "./templates"

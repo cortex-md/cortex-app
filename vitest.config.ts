@@ -4,6 +4,7 @@ export default defineConfig({
 	test: {
 		projects: [
 			"apps/desktop",
+			"apps/desktop/vitest.electron.config.ts",
 			"packages/*",
 			"!packages/plugin-api",
 			"!packages/collab",

@@ -1,8 +1,10 @@
 import { join } from "node:path"
 import { pathToFileURL } from "node:url"
+import { configureSyncRuntime } from "@cortex/sync-engine"
 import { app } from "electron"
 import { registerIpcHandlers } from "./ipc/register"
 import { forgetMenuState, setupApplicationMenu } from "./menu"
+import { nodeSyncRuntime } from "./platform/nodeSyncRuntime"
 import { applyDevelopmentProfile } from "./profile"
 import { registerCortexFileProtocol, registerPrivilegedSchemes } from "./protocols"
 import { setTrustedRendererUrl } from "./security"
@@ -19,6 +21,8 @@ import {
 	openStartupWindow,
 	openVaultWindow,
 } from "./windows"
+
+configureSyncRuntime(nodeSyncRuntime)
 
 process.on("unhandledRejection", (reason) => {
 	console.error("[main] unhandled rejection:", reason)

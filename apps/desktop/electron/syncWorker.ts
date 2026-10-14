@@ -1,18 +1,22 @@
-import { decodeVek } from "./crypto"
-import { SyncEngine } from "./engine"
 import {
+	configureSyncRuntime,
+	decodeVek,
 	type FromWorkerMessage,
 	type MainMethods,
 	RpcChannel,
 	respond,
+	SyncEngine,
 	type SyncEventMessage,
 	type ToWorkerMessage,
-} from "./protocol"
+} from "@cortex/sync-engine"
+import { nodeSyncRuntime } from "./platform/nodeSyncRuntime"
 
 interface ParentPortLike {
 	on(event: "message", listener: (event: { data: unknown }) => void): void
 	postMessage(message: unknown): void
 }
+
+configureSyncRuntime(nodeSyncRuntime)
 
 const port = (process as NodeJS.Process & { parentPort?: ParentPortLike }).parentPort
 if (!port) throw new Error("sync-engine worker must run inside an Electron UtilityProcess")

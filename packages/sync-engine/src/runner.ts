@@ -1,4 +1,3 @@
-import { rm } from "node:fs/promises"
 import type { SyncPreferences } from "@cortex/platform"
 import { downloadBatch, listFileIndex, SyncError } from "@cortex/sync-api"
 import { decrypt } from "./crypto"
@@ -12,6 +11,7 @@ import {
 } from "./planner"
 import type { EmitSyncEvent } from "./protocol"
 import type { SyncOp } from "./queue"
+import { syncRuntime } from "./runtime"
 import {
 	adoptRemoteVersion,
 	applyRemoteContent,
@@ -223,7 +223,7 @@ export async function removeUnreadableFiles(
 		if (localFile && localFile.hash !== state.localHash) {
 			log(emit, "warn", `Kept local changes to ${path}; you no longer have access to it`)
 		} else if (localFile) {
-			await rm(resolveInVault(ctx.vaultPath, path), { force: true })
+			await syncRuntime().fs.rm(resolveInVault(ctx.vaultPath, path))
 			local.delete(path)
 			fileEvent(emit, path, "deleted")
 		}

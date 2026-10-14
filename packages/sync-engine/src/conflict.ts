@@ -1,5 +1,5 @@
-import { readFile } from "node:fs/promises"
 import type { ConflictInfo } from "@cortex/platform"
+import { utf8Decode, utf8Encode } from "./bytes"
 import type { SyncDb } from "./db"
 import {
 	conflictMarkers,
@@ -10,39 +10,40 @@ import {
 	mergeMarkdown,
 	takeConflictSide,
 } from "./merge"
+import { syncRuntime } from "./runtime"
 import { resolveInVault } from "./util"
 
 export type AutoMergeResult =
-	| { kind: "merged"; content: Buffer }
-	| { kind: "conflict"; content: Buffer }
+	| { kind: "merged"; content: Uint8Array }
+	| { kind: "conflict"; content: Uint8Array }
 
 function conflict(local: string, remote: string): AutoMergeResult {
-	return { kind: "conflict", content: Buffer.from(conflictMarkers(local, remote), "utf8") }
+	return { kind: "conflict", content: utf8Encode(conflictMarkers(local, remote)) }
 }
 
 export async function attemptAutoMerge(
 	path: string,
-	local: Buffer,
-	remote: Buffer,
-	loadAncestor: () => Promise<Buffer | null>,
+	local: Uint8Array,
+	remote: Uint8Array,
+	loadAncestor: () => Promise<Uint8Array | null>,
 ): Promise<AutoMergeResult> {
 	if (!isMergeableText(path)) return { kind: "merged", content: local }
 
-	const localText = local.toString("utf8")
-	const remoteText = remote.toString("utf8")
+	const localText = utf8Decode(local)
+	const remoteText = utf8Decode(remote)
 	const ancestor = await loadAncestor()
 	if (ancestor === null) return conflict(localText, remoteText)
-	const ancestorText = ancestor.toString("utf8")
+	const ancestorText = utf8Decode(ancestor)
 
 	if (isMarkdown(path)) {
 		const result = mergeMarkdown(ancestorText, localText, remoteText)
-		const content = Buffer.from(result.content, "utf8")
+		const content = utf8Encode(result.content)
 		return result.kind === "clean" ? { kind: "merged", content } : { kind: "conflict", content }
 	}
 
 	try {
 		const result = mergeJson(ancestorText, localText, remoteText)
-		return { kind: "merged", content: Buffer.from(result.content, "utf8") }
+		return { kind: "merged", content: utf8Encode(result.content) }
 	} catch {
 		return conflict(localText, remoteText)
 	}
@@ -50,7 +51,7 @@ export async function attemptAutoMerge(
 
 async function readText(vaultPath: string, path: string): Promise<string | null> {
 	try {
-		return await readFile(resolveInVault(vaultPath, path), "utf8")
+		return await syncRuntime().fs.readTextFile(resolveInVault(vaultPath, path))
 	} catch {
 		return null
 	}

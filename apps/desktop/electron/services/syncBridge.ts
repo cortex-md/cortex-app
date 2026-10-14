@@ -13,6 +13,7 @@ import {
 	createVaultKey,
 	ensureOwnVaultKey,
 	type FromWorkerMessage,
+	loadVaultKey as loadVaultKeyWithDeps,
 	type MainMethods,
 	RpcChannel,
 	type RpcRequest,
@@ -22,7 +23,6 @@ import {
 	type ToWorkerMessage,
 	unlockVaultKey,
 	type VaultRef,
-	vekSecretKey,
 	type WorkerMethods,
 } from "@cortex/sync-engine"
 import { type UtilityProcess, utilityProcess, webContents } from "electron"
@@ -87,19 +87,11 @@ async function requireIdentity(): Promise<AccountIdentity> {
 }
 
 async function loadVaultKey(vaultId: string): Promise<string | null> {
-	const secretKey = vekSecretKey(vaultId)
-	const identity = await serverApi.currentIdentity()
-	if (!secrets.get(secretKey) && identity) {
-		await requestVaultKey(await serverApi.client(), secrets, vaultId, identity)
-	}
-	const encoded = secrets.get(secretKey)
-	if (encoded && identity) {
-		void serverApi
-			.client()
-			.then((api) => ensureOwnVaultKey(api, secrets, vaultId, identity))
-			.catch((error) => console.warn("[sync] vault key self-registration failed:", error))
-	}
-	return encoded
+	return await loadVaultKeyWithDeps(vaultId, {
+		secrets,
+		currentIdentity: () => serverApi.currentIdentity(),
+		client: () => serverApi.client(),
+	})
 }
 
 async function handleMainRequest(request: RpcRequest<MainMethods>): Promise<unknown> {
