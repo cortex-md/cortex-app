@@ -24,7 +24,7 @@ import { triggerSelectionHaptic } from "@/utils/haptics"
 
 const IS_IOS = Platform.OS === "ios"
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const INVITE_ROLES: CollabRole[] = ["Editor", "Viewer"]
+const INVITE_ROLES: CollabRole[] = ["Editor", "Viewer", "Guest"]
 
 function confirmCancelInvite(id: string, email: string) {
 	Alert.alert(`Cancel the invite for ${email}?`, undefined, [
@@ -51,7 +51,7 @@ export function PeopleSheet() {
 		const value = email.trim()
 		setEmail("")
 		setFieldKey((key) => key + 1)
-		void inviteToVault(value, role).then((invited) => {
+		void inviteToVault(value, role, filePath).then((invited) => {
 			if (invited) toast(`Invited ${value}`)
 		})
 	}
@@ -104,7 +104,7 @@ export function PeopleSheet() {
 									INVITE_ROLES.map((option) => ({
 										checked: option === role,
 										key: option,
-										label: option,
+										label: option === "Guest" ? "Guest (this note only)" : option,
 										onPress: () => setRole(option),
 									})),
 								]}

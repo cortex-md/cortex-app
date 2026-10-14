@@ -64,6 +64,7 @@ function tintFor(id: string): AvatarTint {
 function toRole(role: string): CollabRole {
 	if (role === "owner" || role === "admin") return "Owner"
 	if (role === "viewer") return "Viewer"
+	if (role === "guest") return "Guest"
 	return "Editor"
 }
 
@@ -189,6 +190,7 @@ function toCollabRole(role: string): CollabRole {
 
 function toServerRole(role: CollabRole): string {
 	if (role === "Owner") return "admin"
+	if (role === "Guest") return "guest"
 	return role === "Viewer" ? "viewer" : "editor"
 }
 
@@ -242,9 +244,23 @@ async function withLinkedVault(task: (vaultId: string) => Promise<void>): Promis
 	}
 }
 
-export function inviteToVault(email: string, role: CollabRole): Promise<boolean> {
+export function inviteToVault(
+	email: string,
+	role: CollabRole,
+	filePath: string | null = null,
+): Promise<boolean> {
 	return withLinkedVault(async (vaultId) => {
-		await useMembersStore.getState().createInvite(vaultId, email, toServerRole(role), "")
+		const notePath = role === "Guest" && filePath ? notePathFor(filePath) : null
+		if (role === "Guest" && !notePath) throw new Error("Open a note to invite a guest to it.")
+		await useMembersStore
+			.getState()
+			.createInvite(
+				vaultId,
+				email,
+				toServerRole(role),
+				"",
+				notePath ? { grants: [{ path: notePath, canWrite: true }] } : undefined,
+			)
 	})
 }
 

@@ -1,6 +1,6 @@
 import type { AvatarTint } from "@/components/ui/Avatar"
 
-export type CollabRole = "Owner" | "Editor" | "Viewer"
+export type CollabRole = "Owner" | "Editor" | "Viewer" | "Guest"
 
 export interface CollabPerson {
 	id: string
