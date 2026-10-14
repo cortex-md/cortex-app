@@ -1,71 +1,73 @@
-import { useRemoteVaultStore, useSyncStore, useVaultStore } from "@cortex/core"
+import { useAccountStore, useRemoteVaultStore, useSyncStore, useVaultStore } from "@cortex/core"
 import type { RemoteVaultInfo, VaultRegistryEntry } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
-import { useEffect, useState } from "react"
-
-import {
-	FIXTURE_CLOUD_REMOTE_VAULTS,
-	FIXTURE_DOWNLOAD_PROGRESS,
-	FIXTURE_SELF_HOSTED_REMOTE_VAULTS,
-	FIXTURE_SELF_HOSTED_SERVER,
-} from "@/features/vault/vaultFixtures"
+import { useEffect } from "react"
+import { Alert } from "react-native"
 
 export type RemoteServerKind = "cloud" | "selfHosted"
 
-const PROGRESS_TICK_MS = 1200
-const PROGRESS_STEP = 0.04
-
-function isUnsupported(error: unknown): boolean {
-	return error instanceof Error && /not available in Cortex Mobile/u.test(error.message)
-}
+const EMPTY_VAULTS: RemoteVaultInfo[] = []
 
 export function useRemoteVaultChoices(server: RemoteServerKind): RemoteVaultInfo[] {
-	// stub: the fixture account vaults stand in until the account has remote vaults on this server
 	const remoteVaults = useRemoteVaultStore((state) => state.remoteVaults)
 	const selfHosted = useRemoteVaultStore((state) => state.syncConfig.selfHosted)
 	const storeMatches = (server === "selfHosted") === selfHosted
-	if (storeMatches && remoteVaults.length > 0) return remoteVaults
-	return server === "cloud" ? FIXTURE_CLOUD_REMOTE_VAULTS : FIXTURE_SELF_HOSTED_REMOTE_VAULTS
+	useEffect(() => {
+		if (storeMatches) void useRemoteVaultStore.getState().fetchRemoteVaults()
+	}, [storeMatches])
+	return storeMatches ? remoteVaults : EMPTY_VAULTS
 }
 
 export function getSelfHostedServerLabel(): string {
-	// stub: the self-hosted host name comes from the fixture until the server switcher is wired
 	const { serverUrl, selfHosted } = useRemoteVaultStore.getState().syncConfig
 	if (selfHosted && serverUrl) return serverUrl.replace(/^https?:\/\//u, "")
-	return FIXTURE_SELF_HOSTED_SERVER
+	return "your server"
+}
+
+function showRecoveryKey(recoveryKey: string): void {
+	Alert.alert(
+		"Save your recovery key",
+		`${recoveryKey}\n\nStore it somewhere safe. It is the only way back into your encrypted notes if you forget your password.`,
+		[
+			{ onPress: () => void getPlatform().clipboard.writeText(recoveryKey), text: "Copy" },
+			{ style: "cancel", text: "I saved it" },
+		],
+	)
+}
+
+async function ensureAccountKeys(password: string): Promise<void> {
+	const account = useAccountStore.getState()
+	const status = await account.loadKeyStatus()
+	if (!status || (status.kdfVersion !== 0 && status.hasLocalIdentity)) return
+	const result = await account.setupKeys(password)
+	if (result.recoveryKey) showRecoveryKey(result.recoveryKey)
 }
 
 export async function protectRemoteVault(remoteVaultId: string, password: string): Promise<void> {
-	// stub: the E2E key setup is not available on mobile; the password is accepted locally
-	if (password.length < 8) throw new Error("Password must be at least 8 characters")
-	try {
-		await useSyncStore.getState().createVaultKey(remoteVaultId)
-	} catch (error) {
-		if (!isUnsupported(error)) throw error
-	}
+	await ensureAccountKeys(password)
+	await useSyncStore.getState().createVaultKey(remoteVaultId)
 }
 
 export async function unlockRemoteVault(remoteVaultId: string, password: string): Promise<void> {
-	// stub: key unlock is not available on mobile; a non-empty password is accepted
-	if (!password) throw new Error("Enter the password")
-	try {
-		await useSyncStore.getState().unlockVaultKey(remoteVaultId, password)
-	} catch (error) {
-		if (!isUnsupported(error)) throw error
+	await ensureAccountKeys(password)
+	const sync = useSyncStore.getState()
+	const status = await sync.checkVaultEncryption(remoteVaultId)
+	if (status.hasLocalKey) return
+	if (!status.hasKey) {
+		await sync.createVaultKey(remoteVaultId)
+		return
 	}
+	if ((await sync.requestVaultKey(remoteVaultId)) === "granted") return
+	if (status.hasPasswordKey) await sync.unlockVaultKey(remoteVaultId, password)
 }
 
 export function useDownloadProgress(active: boolean): number {
-	// stub: the remote download runs in the sync engine; progress is simulated from the fixture
-	const [progress, setProgress] = useState(FIXTURE_DOWNLOAD_PROGRESS)
-	useEffect(() => {
-		if (!active) return
-		const timer = setInterval(() => {
-			setProgress((value) => Math.min(1, value + PROGRESS_STEP))
-		}, PROGRESS_TICK_MS)
-		return () => clearInterval(timer)
-	}, [active])
-	return progress
+	const progress = useSyncStore((state) => state.initialSyncProgress)
+	const complete = useSyncStore((state) => state.initialSyncComplete)
+	if (!active) return 0
+	if (complete) return 1
+	if (!progress || progress.total === 0) return 0
+	return Math.min(1, progress.completed / progress.total)
 }
 
 export async function locateVaultFolder(entry: VaultRegistryEntry): Promise<boolean> {

@@ -57,10 +57,5 @@ export function localVaultName(state: AddVaultState): string {
 }
 
 export function validatePassword(state: AddVaultState): string | null {
-	if (isNewRemote(state)) {
-		if (state.password.length < 8) return "Password must be at least 8 characters."
-		if (state.password !== state.confirm) return "Passwords do not match."
-		return null
-	}
-	return state.password ? null : "Enter the password."
+	return state.password ? null : "Enter your password."
 }

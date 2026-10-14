@@ -21,7 +21,7 @@ export function AddVaultPasswordScreen() {
 	async function submit() {
 		const error = validatePassword(state)
 		if (error) {
-			Alert.alert(isNew ? "Check the password" : "Enter the password", error)
+			Alert.alert("Enter the password", error)
 			return
 		}
 		if (await finishSyncedVault(state, patch)) pushAddVaultStep("done")
@@ -34,8 +34,8 @@ export function AddVaultPasswordScreen() {
 				<FormSection
 					footer={
 						isNew
-							? "Notes are encrypted with this password. You need it on every device."
-							: "Ask the owner if you don't have it."
+							? "Your account password. Notes are end-to-end encrypted, and the key reaches your other devices on its own."
+							: "Your account password, or the vault password if this vault still uses one."
 					}
 					title="Password"
 				>
@@ -44,18 +44,9 @@ export function AddVaultPasswordScreen() {
 						autoFocus
 						label="Password"
 						onChangeText={(password) => patch({ password })}
-						onSubmit={isNew ? undefined : () => void submit()}
+						onSubmit={() => void submit()}
 						secure
 					/>
-					{isNew ? (
-						<FormTextField
-							autoCapitalize="none"
-							label="Confirm password"
-							onChangeText={(confirm) => patch({ confirm })}
-							onSubmit={() => void submit()}
-							secure
-						/>
-					) : null}
 				</FormSection>
 				<FormSection>
 					<FormButton disabled={state.busy} label={label} onPress={() => void submit()} />
