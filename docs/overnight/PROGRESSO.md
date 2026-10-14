@@ -5,16 +5,16 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 ## Estado atual
 
 - Início: 2026-10-13 23:25 (-03).
-- Item em andamento: 3. Interface pura.
+- Item em andamento: 4. Arquivos nativos.
 
 ## Status por item
 
 | Item | Status | Commits | Notas |
 | --- | --- | --- | --- |
 | 1. Sync remoto | feito (validar no device) | e2558b9, 006e95d, 3b3f486 | Motor `@cortex/sync-engine` roda no JS do app com runtime mobile; telas de vínculo E2E, versões, lixeira, conflitos, logs, dispositivos, comentários e presença com dados reais. Convites e links de nota ficam para o item 5. |
-| 2. Editor (Mermaid, desenhos, PDF) | feito (parcial em desenhos) | e5cc5da | Mermaid renderizado sob demanda na WebView com o mesmo renderer do desktop, agora em `@cortex/editor/mermaid`. Desenho vira card só de leitura (contagem de formas). PDF: lista no Files e visualizador nativo (WKWebView no iOS, \"abrir com\" no Android). |
-| 3. Interface pura | em andamento | | |
-| 4. Arquivos nativos | pendente | | |
+| 2. Editor (Mermaid, desenhos, PDF) | feito (parcial em desenhos) | e5cc5da | Mermaid renderizado sob demanda na WebView com o mesmo renderer do desktop, agora em `@cortex/editor/mermaid`. Desenho vira card só de leitura (contagem de formas). PDF: lista no Files e visualizador nativo (WKWebView no iOS, "abrir com" no Android). |
+| 3. Interface pura | feito | be09d92, 4b8eeed, 46c3267, bc2a0c6, f303f60, bbcc886 | Tabs: fixar, fechar outras, fechar à direita, reabrir fechada, ordem MRU. Paleta: ~45 comandos do app com os mesmos ids do desktop, mais os comandos do editor/formatação via bridge. Daily notes (na página Templates, como no desktop) e Excluded paths na semântica do desktop. Recuperar senha (deep link `cortex://reset-password`), trocar senha, nova recovery key. Menções não vinculadas via `findPhrase` do índice. |
+| 4. Arquivos nativos | em andamento | | |
 | 5. APIs de compartilhamento | pendente | | Inclui convites, links de nota e templates de equipe (`collabAdapter`, `membersAdapter`, `shareAdapter`, `templatesAdapter` ainda com stubs). |
 | 6. Colaboração em tempo real | pendente | | |
 | 7. Lembretes | pendente | | |
@@ -42,6 +42,10 @@ Especificação: `docs/overnight/PLANO.md`. Atualizar a cada item concluído.
 - **Desenhos no mobile:** card só de leitura. Editar exigiria o Excalidraw (vários MB, fontes por CDN) dentro da WebView. Ver PENDENCIAS.
 - **PDF:** o desktop abre PDF numa aba com pdfjs. No mobile, native first: WKWebView renderiza PDF nativamente no iOS; no Android abre o leitor do sistema via `expo-sharing`. Isso evita incluir o pdfjs no bundle.
 
+- **Paleta:** os comandos do editor vivem na WebView, e importar as fábricas no lado React Native puxaria o CodeMirror. A WebView anuncia `{id, label, category, aliases}` pela bridge (`editorCommands`), e o lado nativo registra proxies que chamam `workspaceChannel.sendCommand`.
+- **Bug corrigido:** o `SignInSheet` tratava o retorno de `login`/`register` (que é a recovery key) como mensagem de erro. Agora mostra a recovery key para o usuário guardar.
+- **Fora do mobile:** comandos que dependem de split, zoom, janelas e atalhos de teclado do desktop ficaram de fora porque não existem no celular.
+
 ## Próximo passo exato
 
-Item 3: comparar a paleta de comandos mobile (`apps/mobile/src/app/command-palette.tsx`) com o registro de comandos do desktop (`apps/desktop/src/bootstrap/appCommands.ts`, `@cortex/commands`) e registrar no mobile os comandos que fazem sentido (navegação voltar/avançar, reabrir tab fechada, daily note etc.).
+Item 4: ler `apps/mobile/src/features/importExport/importAdapter.ts` (fixtures de PDF/Obsidian) e `@cortex/import-export`; usar `expo-document-picker` para escolher arquivos, `expo-image-picker` para inserir imagem na nota (salvar como asset e inserir o link via comando do editor), `expo-print` mais `expo-sharing` para exportar HTML/PDF de verdade.
