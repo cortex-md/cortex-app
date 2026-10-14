@@ -26,3 +26,13 @@ Só o que depende de você. Cada item traz o contexto e a recomendação.
 
 - **Contexto:** o `fetch` global do React Native não expõe `response.body` em stream. O `SseClient` do motor cai no fallback de polling de 30 s quando o SSE não conecta, então o sync funciona, só que não é instantâneo.
 - **Recomendação:** adicionar `fetch?: FetchLike` em `SyncEngineDeps`, repassar para os dois `new ApiClient(...)` em `packages/sync-engine/src/engine.ts` e passar `expo/fetch`, que tem stream, no mobile. Não fiz porque `engine.ts` tem mudanças não commitadas de outra sessão.
+
+## 4. Build de produção do editor (DOM component)
+
+- **Contexto:** `bunx expo export` falha com `Asset not found: _expo/static/js/web/__common-*.js` ao exportar o `WorkspaceWebView` ("use dom"). O erro já existia antes desta execução e vem dos chunks assíncronos (runtime lazy do CodeMirror e agora o Mermaid). No dev (Expo Go + Metro) funciona.
+- **Recomendação:** antes de um build de loja, validar o export do DOM component num dev build. Se continuar, desligar o split de chunks só para o DOM bundle (opção de bundle splitting do Metro web) ou servir os chunks como assets.
+
+## 5. Editar desenhos no celular
+
+- **Contexto:** o desktop edita desenhos com o Excalidraw. No mobile mostro um card só de leitura com o número de formas.
+- **Recomendação:** decidir se vale levar o editor para o celular. Seria lazy na WebView, mas o pacote é grande e busca fontes por CDN; uma prévia em SVG estático exige o mesmo pacote.
