@@ -12,6 +12,7 @@ import {
 	marketplaceKindLabels,
 	marketplaceKindTabs,
 	marketplaceSortOptions,
+	publishingGuideUrl,
 } from "../../content/marketplace"
 import { trackEvent } from "../../lib/analytics"
 import type { MarketplaceCatalog } from "../../server/marketplace"
@@ -188,20 +189,32 @@ export function MarketplaceBrowsePage({
 						{sections.length === 0 ? (
 							<div className="mt-12 flex flex-col items-center gap-2 rounded-[22px] px-6 py-12 text-center shadow-[inset_0_0_0_1px_var(--site-sep)]">
 								<b className="text-[17px] leading-[1.3] font-semibold">
-									{marketplaceCopy.emptyTitle(search.q)}
+									{search.q.trim()
+										? marketplaceCopy.emptyTitle(search.q)
+										: marketplaceCopy.emptyKindTitle(
+												search.kind === "all"
+													? "plugins or themes"
+													: marketplaceKindLabels[search.kind].plural.toLowerCase(),
+											)}
 								</b>
-								<span className="mb-2 text-[14px] leading-[1.4] text-text-secondary">
-									{marketplaceCopy.emptyBody}
+								<span className="mb-2 max-w-[460px] text-[14px] leading-[1.4] text-text-secondary">
+									{search.q.trim() ? marketplaceCopy.emptyBody : marketplaceCopy.emptyKindBody}
 								</span>
-								<Button
-									variant="secondary"
-									onClick={() => {
-										setDraft("")
-										onSearchChange({ q: "", kind: "all" })
-									}}
-								>
-									{marketplaceCopy.emptyAction}
-								</Button>
+								{search.q.trim() ? (
+									<Button
+										variant="secondary"
+										onClick={() => {
+											setDraft("")
+											onSearchChange({ q: "", kind: "all" })
+										}}
+									>
+										{marketplaceCopy.emptyAction}
+									</Button>
+								) : (
+									<Button variant="secondary" asChild>
+										<a href={publishingGuideUrl}>{marketplaceCopy.emptyKindAction}</a>
+									</Button>
+								)}
 							</div>
 						) : null}
 					</TabsContent>

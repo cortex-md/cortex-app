@@ -45,6 +45,19 @@ function toHttpUrl(value: unknown) {
 	}
 }
 
+const MAX_SCREENSHOTS = 6
+
+export function parseScreenshots(value: unknown) {
+	if (!Array.isArray(value)) return []
+	const urls: string[] = []
+	for (const item of value) {
+		const url = toHttpUrl(item)
+		if (url?.startsWith("https://") && !urls.includes(url)) urls.push(url)
+		if (urls.length === MAX_SCREENSHOTS) break
+	}
+	return urls
+}
+
 export function parseRegistryEntries(value: unknown): RegistryEntry[] | null {
 	if (!Array.isArray(value)) return null
 	return value.flatMap((item): RegistryEntry[] => {
@@ -63,6 +76,7 @@ export function parseRegistryEntries(value: unknown): RegistryEntry[] | null {
 				...(authorUrl ? { authorUrl } : {}),
 				description: optionalString(item.description) ?? "",
 				coverImageUrl: toHttpUrl(item.coverImageUrl) ?? "",
+				screenshots: parseScreenshots(item.screenshots),
 				repo,
 			},
 		]

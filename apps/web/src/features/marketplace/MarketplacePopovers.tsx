@@ -6,7 +6,7 @@ import {
 	PopoverTitle,
 	PopoverTrigger,
 } from "@cortex/ui/popover"
-import { Github, ThumbsUp } from "lucide-react"
+import { ArrowBigUp, Github } from "lucide-react"
 import { useState } from "react"
 import {
 	cortexAppUrl,
@@ -36,7 +36,7 @@ export function VotePopover({ item }: { item: MarketplaceItem }) {
 						trackEvent({ name: "marketplace_vote_clicked", kind: item.kind, id: item.id })
 					}
 				>
-					<ThumbsUp aria-hidden="true" />
+					<ArrowBigUp aria-hidden="true" />
 					{marketplaceCopy.vote.label}
 					<b className="ml-1 border-sep border-l pl-2.5 font-semibold tabular-nums">
 						<span className="sr-only">, </span>
@@ -70,25 +70,14 @@ export function VotePopover({ item }: { item: MarketplaceItem }) {
 	)
 }
 
-function getInstallSteps(item: MarketplaceItem) {
-	const copy = marketplaceCopy.install
-	if (item.kind === "templates") return copy.builtInTemplateSteps(item.name)
-	if (item.source === "builtin") {
-		return item.kind === "themes" ? copy.builtInThemeSteps : copy.builtInPluginSteps
-	}
-	return copy.steps(item.name)
-}
-
 export function getInstallLabel(item: MarketplaceItem) {
-	if (item.kind === "templates") return "Use template"
-	if (item.source === "builtin") return "Open in Cortex"
 	return item.kind === "themes" ? "Install theme" : "Install"
 }
 
 export function InstallPopover({ item }: { item: MarketplaceItem }) {
 	const label = getInstallLabel(item)
 
-	if (marketplaceDeepLinksSupported && item.source === "community") {
+	if (marketplaceDeepLinksSupported) {
 		return (
 			<Button size="lg" className="max-sm:w-full" asChild>
 				<a
@@ -121,12 +110,10 @@ export function InstallPopover({ item }: { item: MarketplaceItem }) {
 					{marketplaceCopy.install.title}
 				</PopoverTitle>
 				<p className="rounded-xl bg-cell px-3 py-2.5 text-[14px] leading-[1.4] font-medium">
-					{getInstallSteps(item)}
+					{marketplaceCopy.install.steps(item.name)}
 				</p>
 				<PopoverDescription className="text-[14px] leading-normal text-text-secondary">
-					{item.source === "builtin"
-						? marketplaceCopy.install.builtInBody
-						: marketplaceCopy.install.body}
+					{marketplaceCopy.install.body}
 				</PopoverDescription>
 				<div className="mt-2.5 flex items-center justify-between gap-2">
 					<a

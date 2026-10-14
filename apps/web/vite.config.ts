@@ -16,6 +16,7 @@ const runtimeEnvKeys = [
 	"CORTEX_BILLING_RETURN_URL",
 	"CORTEX_BILLING_COMPLETION_URL",
 	"CORTEX_REGISTRY_REPO",
+	"GITHUB_TOKEN",
 ] as const
 const dynamicPrerenderPaths = new Set([
 	"/account",
@@ -23,16 +24,12 @@ const dynamicPrerenderPaths = new Set([
 	"/billing/cancelled",
 	"/billing/success",
 	"/changelog",
+	"/roadmap",
 	"/login",
 	"/signup",
 	"/marketplace/browse",
 ])
-const dynamicPrerenderPrefixes = [
-	"/invite/",
-	"/marketplace/plugins/",
-	"/marketplace/themes/",
-	"/marketplace/templates/",
-]
+const dynamicPrerenderPrefixes = ["/invite/", "/marketplace/plugins/", "/marketplace/themes/"]
 
 function getPrerenderPathname(routePath: string) {
 	return routePath.split("?")[0]?.split("#")[0] ?? routePath

@@ -5,7 +5,7 @@ import { MarketplaceProductPage } from "../features/product/marketplace/Marketpl
 import { createProductHead } from "../features/product/productHead"
 
 const legacySearchSchema = z.object({
-	tab: z.enum(["plugins", "themes", "templates"]).optional().catch(undefined),
+	tab: z.enum(["plugins", "themes"]).optional().catch(undefined),
 })
 
 export const Route = createFileRoute("/marketplace/")({
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/marketplace/")({
 		createProductHead({
 			seo: marketplacePage.seo,
 			name: "Cortex Marketplace",
-			featureList: ["Plugins", "Themes", "Templates"],
+			featureList: ["Plugins", "Themes"],
 			isService: true,
 		}),
 	component: MarketplaceProductPage,

@@ -1,6 +1,6 @@
 export const cortexAppUrl = "cortex://"
 
-export type MarketplaceDeepLinkKind = "plugins" | "themes" | "templates"
+export type MarketplaceDeepLinkKind = "plugins" | "themes"
 
 // Flip once the desktop app registers cortex://marketplace/<kind>/<id>.
 export const marketplaceDeepLinksSupported = false

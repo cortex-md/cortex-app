@@ -469,7 +469,7 @@ export const productCards: ReadonlyArray<{
 	{
 		art: "marketplace",
 		title: "Marketplace",
-		description: "Plugins, themes and templates, reviewed before they’re listed.",
+		description: "Plugins and themes, reviewed before they’re listed.",
 		href: "/marketplace",
 		cta: "Browse",
 		painting: "meadow",

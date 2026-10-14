@@ -1,8 +1,8 @@
 import { cn } from "@cortex/ui/lib/utils"
-import { Gem, Icon, Puzzle, Sheet } from "lucide-react"
+import { Gem, Icon, Puzzle } from "lucide-react"
 import type React from "react"
 import type { ThemePalette } from "../../lib/registry/types"
-import type { MarketplaceItem, MarketplaceTemplateData } from "../../server/marketplace"
+import type { MarketplaceItem } from "../../server/marketplace"
 
 type ArtSize = "card" | "shot"
 
@@ -97,121 +97,8 @@ export function ThemeWindow({ palette, size = "card" }: { palette: ThemePalette;
 	)
 }
 
-export function TemplatePreview({
-	template,
-	size = "card",
-}: {
-	template: MarketplaceTemplateData
-	size?: ArtSize
-}) {
-	const isShot = size === "shot"
-
-	if (template.art === "board") {
-		return (
-			<div
-				className={cn(
-					"grid size-full auto-cols-[minmax(0,1fr)] grid-flow-col gap-2",
-					isShot && "min-h-60",
-				)}
-				aria-hidden="true"
-			>
-				{template.columns.map((column) => (
-					<div
-						key={column.title}
-						className="flex flex-col gap-1.5 rounded-[10px] bg-[color-mix(in_srgb,var(--text-primary)_4%,transparent)] p-2"
-					>
-						<h6
-							className={cn(
-								"mb-0.5 truncate leading-[1.2] font-medium text-text-muted",
-								isShot ? "text-[12px]" : "text-[10.5px]",
-							)}
-						>
-							{column.title}
-						</h6>
-						{column.cards.map((card) => (
-							<span
-								key={card}
-								className={cn(
-									"truncate rounded-[7px] bg-bg-elevated px-2 py-[7px] leading-[1.2] font-medium shadow-ring",
-									isShot ? "text-[13px]" : "text-[11px]",
-								)}
-							>
-								{card}
-							</span>
-						))}
-					</div>
-				))}
-			</div>
-		)
-	}
-
-	if (template.art === "table") {
-		return (
-			<div
-				className={cn(
-					"w-full overflow-hidden rounded-[10px] bg-bg-elevated leading-none shadow-ring",
-					isShot ? "text-[13px]" : "text-[12px]",
-				)}
-				aria-hidden="true"
-			>
-				<div
-					className={cn(
-						"flex items-center justify-between text-[11px] text-text-muted",
-						isShot ? "px-4 py-3.5" : "px-3 py-[9px]",
-					)}
-				>
-					<span>Name</span>
-					<span>{template.columnLabel}</span>
-				</div>
-				{template.rows.map((row) => (
-					<div
-						key={row.title}
-						className={cn(
-							"flex items-center justify-between border-sep border-t",
-							isShot ? "px-4 py-3.5" : "px-3 py-[9px]",
-						)}
-					>
-						<span>{row.title}</span>
-						<em className="rounded-md bg-cell px-[7px] py-[3px] text-[11px] leading-none font-medium text-text-secondary not-italic">
-							{row.value}
-						</em>
-					</div>
-				))}
-			</div>
-		)
-	}
-
-	return (
-		<div className="grid w-full grid-cols-3 gap-2" aria-hidden="true">
-			{template.rows.map((row) => (
-				<div
-					key={row.title}
-					className="flex min-w-0 flex-col gap-1 rounded-[10px] bg-bg-elevated px-1.5 pt-1.5 pb-2 shadow-ring"
-				>
-					<i
-						className={cn(
-							"rounded-md bg-[linear-gradient(160deg,var(--accent-subtle),var(--site-cell))]",
-							isShot ? "h-[150px] max-sm:h-16" : "h-16",
-						)}
-					/>
-					<b
-						className={cn(
-							"truncate leading-[1.2] font-semibold",
-							isShot ? "text-[13px]" : "text-[11px]",
-						)}
-					>
-						{row.title}
-					</b>
-					<em className="text-[10.5px] leading-none text-text-muted not-italic">{row.value}</em>
-				</div>
-			))}
-		</div>
-	)
-}
-
 export function ItemGlyph({ item, className }: { item: MarketplaceItem; className?: string }) {
 	if (item.kind === "themes") return <Gem className={className} aria-hidden="true" />
-	if (item.kind === "templates") return <Sheet className={className} aria-hidden="true" />
 	if (item.iconNode) {
 		return <Icon iconNode={item.iconNode} className={className} aria-hidden="true" />
 	}
@@ -219,17 +106,17 @@ export function ItemGlyph({ item, className }: { item: MarketplaceItem; classNam
 }
 
 export function itemTone(item: MarketplaceItem) {
-	if (item.kind !== "plugins") return "var(--site-cell)"
-	return item.source === "builtin" ? "var(--warning-bg)" : "var(--accent-subtle)"
+	return item.kind === "plugins" ? "var(--accent-subtle)" : "var(--site-cell)"
 }
 
 export function CardArt({ item }: { item: MarketplaceItem }) {
-	if (item.coverImageUrl) {
+	const coverUrl = item.coverImageUrl ?? item.screenshots[0]
+	if (coverUrl) {
 		return (
 			<div className="relative h-40 overflow-hidden rounded-2xl bg-cell">
 				<img
-					className="size-full object-cover"
-					src={item.coverImageUrl}
+					className="size-full object-cover object-top"
+					src={coverUrl}
 					width={400}
 					height={160}
 					alt={`${item.name} cover`}
@@ -247,14 +134,6 @@ export function CardArt({ item }: { item: MarketplaceItem }) {
 				{item.palettes.map((palette) => (
 					<ThemeWindow key={palette.label} palette={palette} />
 				))}
-			</div>
-		)
-	}
-
-	if (item.kind === "templates" && item.template) {
-		return (
-			<div className="flex h-40 items-center justify-center overflow-hidden rounded-2xl bg-cell p-3.5">
-				<TemplatePreview template={item.template} />
 			</div>
 		)
 	}

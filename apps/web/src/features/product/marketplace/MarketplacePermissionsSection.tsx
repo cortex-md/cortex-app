@@ -1,11 +1,12 @@
-import { marketplacePage, noteCapabilityLabels } from "../../../content/product"
+import { getCapabilityLabel } from "../../../content/marketplace"
+import { marketplacePage } from "../../../content/product"
 import { Painting } from "../../site/Painting"
 import { FeatureStory, MockFigure, ProductSection } from "../shared/layout"
 
 const { permissions } = marketplacePage
 
 function ManifestCard() {
-	const last = permissions.capabilities.length - 1
+	const last = permissions.manifestPermissions.length - 1
 
 	return (
 		<div className="absolute top-[50px] left-8 z-[1] w-[290px] rounded-2xl bg-[rgba(28,25,23,0.92)] pb-3.5 text-left text-[#e7e5e4] shadow-[0_30px_60px_-30px_rgba(0,0,0,0.55)]">
@@ -20,16 +21,16 @@ function ManifestCard() {
 				<span className="text-[#fda4af]">"name"</span>:{" "}
 				<span className="text-[#86efac]">"{permissions.pluginName}"</span>
 				{",\n  "}
-				<span className="text-[#fda4af]">"capabilities"</span>
+				<span className="text-[#fda4af]">"permissions"</span>
 				{": [\n"}
-				{permissions.capabilities.map((capability, index) => (
-					<span key={capability}>
+				{permissions.manifestPermissions.map((permission, index) => (
+					<span key={permission}>
 						{"    "}
 						<span
 							className="rounded text-[#86efac] animate-product-capability motion-reduce:animate-none"
 							style={{ animationDelay: `${index * 0.45}s` }}
 						>
-							"{capability}"
+							"{permission}"
 						</span>
 						{index < last ? ",\n" : "\n"}
 					</span>
@@ -48,14 +49,14 @@ function EnableDialog() {
 				{permissions.dialogLead}
 			</p>
 			<ul className="m-0 grid list-none gap-0.5 p-0">
-				{permissions.capabilities.map((capability, index) => (
+				{permissions.manifestPermissions.map((permission, index) => (
 					<li
-						key={capability}
+						key={permission}
 						className="flex items-center gap-2.5 rounded-[7px] px-2 py-[5px] text-[13px] leading-[1.2] opacity-35 animate-product-permission motion-reduce:animate-none motion-reduce:opacity-100"
 						style={{ animationDelay: `${index * 0.45}s` }}
 					>
 						<i className="size-1.5 rounded-full bg-brand" />
-						{noteCapabilityLabels[capability] ?? capability}
+						{getCapabilityLabel(permission)}
 					</li>
 				))}
 			</ul>

@@ -10,9 +10,9 @@ import { type Plugin, unified } from "unified"
 import { visit } from "unist-util-visit"
 import { z } from "zod"
 import { highlightDocsCode } from "../lib/highlight"
+import { githubApiHeaders, githubRepo } from "./github"
 
-const GITHUB_RELEASES_URL = "https://api.github.com/repos/cortex-md/cortex-app/releases?per_page=20"
-const GITHUB_API_VERSION = "2022-11-28"
+const GITHUB_RELEASES_URL = `https://api.github.com/repos/${githubRepo}/releases?per_page=20`
 const GITHUB_USER_AGENT = "Cortex website changelog"
 const CACHE_TTL_MS = 5 * 60 * 1000
 
@@ -459,11 +459,7 @@ export async function fetchChangelogReleases(
 ): Promise<ChangelogResult> {
 	try {
 		const response = await fetcher(GITHUB_RELEASES_URL, {
-			headers: {
-				Accept: "application/vnd.github+json",
-				"X-GitHub-Api-Version": GITHUB_API_VERSION,
-				"User-Agent": GITHUB_USER_AGENT,
-			},
+			headers: githubApiHeaders(GITHUB_USER_AGENT),
 		})
 
 		if (response.status === 404) {

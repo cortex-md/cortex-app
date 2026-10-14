@@ -1,4 +1,4 @@
-import { BadgeCheck, Download, ThumbsUp } from "lucide-react"
+import { ArrowBigUp, BadgeCheck, Download } from "lucide-react"
 import { marketplaceCopy } from "../../content/marketplace"
 import type { MarketplaceItem } from "../../server/marketplace"
 import { CardArt } from "./MarketplaceArt"
@@ -23,22 +23,16 @@ export function MarketplaceCard({ item }: { item: MarketplaceItem }) {
 					{item.description}
 				</p>
 				<div className="mt-auto flex gap-3.5 pt-3.5 text-[13px] leading-none font-medium text-text-muted tabular-nums">
-					{item.source === "community" ? (
-						<>
-							<span className="inline-flex items-center gap-1.5">
-								<ThumbsUp className="size-[15px]" aria-hidden="true" />
-								<span className="sr-only">Votes: </span>
-								{formatCount(item.votes)}
-							</span>
-							<span className="inline-flex items-center gap-1.5">
-								<Download className="size-[15px]" aria-hidden="true" />
-								<span className="sr-only">Downloads: </span>
-								{formatCount(item.downloads)}
-							</span>
-						</>
-					) : (
-						<span>{marketplaceCopy.builtIn}</span>
-					)}
+					<span className="inline-flex items-center gap-1.5">
+						<ArrowBigUp className="size-[15px]" aria-hidden="true" />
+						<span className="sr-only">Votes: </span>
+						{formatCount(item.votes)}
+					</span>
+					<span className="inline-flex items-center gap-1.5">
+						<Download className="size-[15px]" aria-hidden="true" />
+						<span className="sr-only">Downloads: </span>
+						{formatCount(item.downloads)}
+					</span>
 				</div>
 			</div>
 		</a>

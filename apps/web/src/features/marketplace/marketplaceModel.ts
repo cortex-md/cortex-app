@@ -16,10 +16,10 @@ const dateFormatter = new Intl.DateTimeFormat("en", {
 	timeZone: "UTC",
 })
 
-export const marketplaceKinds: MarketplaceKind[] = ["plugins", "themes", "templates"]
+export const marketplaceKinds: MarketplaceKind[] = ["plugins", "themes"]
 
-export function formatCount(value: number | null) {
-	return countFormatter.format(value ?? 0)
+export function formatCount(value: number) {
+	return countFormatter.format(value)
 }
 
 export function formatDate(value: string | null) {
@@ -41,9 +41,9 @@ export function matchesQuery(item: MarketplaceItem, query: string) {
 }
 
 function sortValue(item: MarketplaceItem, sort: MarketplaceSort) {
-	if (sort === "downloads") return item.downloads ?? -1
+	if (sort === "downloads") return item.downloads
 	if (sort === "updated") return item.releasedAt ? Date.parse(item.releasedAt) : -1
-	return item.votes ?? -1
+	return item.votes
 }
 
 export function sortItems(items: MarketplaceItem[], sort: MarketplaceSort) {
@@ -59,6 +59,5 @@ export function countByKind(items: MarketplaceItem[], query: string) {
 		all: matching.length,
 		plugins: matching.filter((item) => item.kind === "plugins").length,
 		themes: matching.filter((item) => item.kind === "themes").length,
-		templates: matching.filter((item) => item.kind === "templates").length,
 	} satisfies Record<MarketplaceKindFilter, number>
 }

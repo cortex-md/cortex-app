@@ -315,18 +315,6 @@ export const cliPage = {
 	},
 } as const
 
-export const noteCapabilityLabels: Record<string, string> = {
-	commands: "Register commands",
-	"editor:read": "Read active editor",
-	"editor:write": "Write editor content",
-	"vault:read": "Read vault files",
-	"workspace:tabs": "Open workspace tabs",
-	"ui:views": "Show custom views",
-	"ui:statusbar": "Add status bar items",
-	"ui:contextmenu": "Add context menu actions",
-	settings: "Store settings",
-}
-
 export const marketplacePage = {
 	seo: {
 		title: "Marketplace",
@@ -361,7 +349,7 @@ export const marketplacePage = {
 		coverTitle: "Reading list",
 		coverLink: "[[Autumn]]",
 		info: [
-			{ label: "Theme version", value: "1.0.0" },
+			{ label: "Theme version", value: "1.1.0" },
 			{ label: "Minimum Cortex", value: "0.1.0" },
 			{ label: "Scope", value: "This vault" },
 			{ label: "Source", value: "cortex-md/gruvbox" },
@@ -377,26 +365,16 @@ export const marketplacePage = {
 			"If an update fails, the previous version comes back",
 		],
 		manifestFile: "manifest.json",
-		pluginId: "note-pulse",
-		pluginName: "Note Pulse",
-		capabilities: [
-			"commands",
-			"editor:read",
-			"editor:write",
-			"vault:read",
-			"workspace:tabs",
-			"ui:views",
-			"ui:statusbar",
-			"ui:contextmenu",
-			"settings",
-		],
-		dialogTitle: "Enable Note Pulse?",
+		pluginId: "smart-typography",
+		pluginName: "Smart Typography",
+		manifestPermissions: ["editor:read", "vault:read", "vault:write", "notifications"],
+		dialogTitle: "Enable Smart Typography?",
 		dialogLead: "It declares these permissions:",
 		dialogWarning:
 			"Community plugins run with full access to your vault and to Cortex. Only enable plugins you trust.",
 		cancel: "Cancel",
 		enable: "Enable",
-		alt: "Note Pulse’s manifest next to the Enable dialog, which lists each declared permission in plain words.",
+		alt: "Smart Typography’s manifest next to the Enable dialog, which lists each declared permission in plain words.",
 	},
 	themes: {
 		title: "Change the whole look in one click.",
@@ -494,7 +472,7 @@ export const marketplacePage = {
 		title: "Made something useful?",
 		quiet: "Share it.",
 		body: "Everything in the Marketplace started in someone’s own vault. Share a template with your team or with a link, or send a theme or plugin for review so everyone can find it.",
-		primaryCta: { label: "Browse templates", href: "/marketplace/browse?kind=templates" },
+		primaryCta: { label: "Browse the Marketplace", href: "/marketplace/browse" },
 		secondaryCta: { label: "Make a theme or plugin", href: "/docs/developers/cli" },
 		ways: [
 			{

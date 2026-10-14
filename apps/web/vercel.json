@@ -67,6 +67,11 @@
 			"source": "/marketplace/:kind(plugins|themes)",
 			"destination": "/marketplace/browse?kind=:kind",
 			"permanent": true
+		},
+		{
+			"source": "/marketplace/templates/:path*",
+			"destination": "/marketplace/browse",
+			"permanent": true
 		}
 	]
 }

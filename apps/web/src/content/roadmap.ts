@@ -1,135 +1,77 @@
 export type RoadmapStatus = "shipped" | "in-progress" | "planned"
 
+export type RoadmapSort = "votes" | "newest"
+
 export interface RoadmapItem {
+	number: number
 	title: string
 	description: string
-	area: string
-	release?: string
+	url: string
+	status: RoadmapStatus
+	area: string | null
+	release: string | null
+	votes: number
+	comments: number
+	createdAt: string
+	closedAt: string | null
 }
 
-export interface RoadmapColumn {
-	id: RoadmapStatus
-	title: string
+export interface RoadmapResult {
+	status: "ok" | "empty" | "unavailable"
 	items: RoadmapItem[]
+	isStale?: boolean
 }
+
+export const roadmapLabels = {
+	roadmap: "roadmap",
+	inProgress: "status: in progress",
+	areaPrefix: "area: ",
+} as const
+
+export const roadmapColumns: ReadonlyArray<{ id: RoadmapStatus; title: string }> = [
+	{ id: "shipped", title: "Shipped" },
+	{ id: "in-progress", title: "In progress" },
+	{ id: "planned", title: "Planned" },
+]
+
+export const roadmapSorts: ReadonlyArray<{ id: RoadmapSort; label: string }> = [
+	{ id: "votes", label: "Most votes" },
+	{ id: "newest", label: "Newest" },
+]
 
 export const roadmapCopy = {
 	title: "What has shipped, what is in motion,",
 	titleQuiet: "and what is next.",
-	lead: "Cortex keeps product status explicit so you can tell the shipped workspace apart from the work ahead.",
-	description: "What is available in Cortex today and what is still being built.",
-	issuesLink: "See open issues on GitHub",
+	lead: "Every card is a GitHub issue. Vote with a thumbs up on the issue and the most wanted work rises to the top.",
+	description:
+		"The Cortex roadmap, read live from GitHub issues. See what shipped, what is in progress, and vote on what comes next.",
+	issuesLink: "See the roadmap on GitHub",
+	ideasLink: "Browse open ideas",
 	filterLabel: "Filter by area",
+	sortLabel: "Sort",
 	allAreas: "All",
-	openIssue: "Open issue",
+	otherArea: "Other",
+	viewIssue: (number: number) => `#${number}`,
+	votes: (count: number) => `${count} ${count === 1 ? "vote" : "votes"}. Vote on GitHub`,
 	shippedIn: (release: string) => `Shipped in ${release}`,
 	empty: "Nothing in this area yet.",
+	emptyTitle: "The roadmap is empty for now",
+	emptyDescription:
+		"No issue carries the roadmap label yet. Ideas you open on GitHub land here once they are triaged.",
+	unavailableTitle: "The roadmap is unavailable right now",
+	unavailableDescription: "GitHub did not answer. The same issues are on GitHub.",
+	stale: "Showing a cached copy while GitHub is unavailable.",
 	ideaTitle: "Missing something?",
-	ideaDescription: "Open an issue with the feature request template on GitHub.",
+	ideaDescription:
+		"Search the open ideas first and vote with a thumbs up. If nobody asked yet, suggest it on GitHub.",
 	ideaCta: "Suggest an idea",
 } as const
 
 const repoUrl = "https://github.com/cortex-md/cortex-app"
 
 export const roadmapLinks = {
-	issues: `${repoUrl}/issues`,
+	roadmapIssues: `${repoUrl}/issues?q=${encodeURIComponent(`is:issue label:${roadmapLabels.roadmap}`)}`,
+	ideas: `${repoUrl}/issues?q=${encodeURIComponent("is:issue is:open label:enhancement sort:reactions-+1-desc")}`,
 	suggestIdea: `${repoUrl}/issues/new?template=feature_request.yml`,
 	release: (tag: string) => `${repoUrl}/releases/tag/${tag}`,
-	openIssue: (title: string) =>
-		`${repoUrl}/issues/new?template=feature_request.yml&title=${encodeURIComponent(title)}`,
 } as const
-
-export const roadmapColumns: RoadmapColumn[] = [
-	{
-		id: "shipped",
-		title: "Shipped",
-		items: [
-			{
-				title: "Local Markdown vaults",
-				description:
-					"Open an existing folder and keep plain Markdown files as the source of truth.",
-				area: "Workspace",
-				release: "v0.1.0",
-			},
-			{
-				title: "Live Preview editor",
-				description: "Write Markdown while formatting, links, and structure stay readable.",
-				area: "Writing",
-				release: "v0.1.0",
-			},
-			{
-				title: "Tabs, split panes, and search",
-				description: "Move across notes and keep nearby context visible while you work.",
-				area: "Navigation",
-				release: "v0.1.0",
-			},
-			{
-				title: "Tags, bookmarks, and properties",
-				description: "Add lightweight organization without replacing your folder structure.",
-				area: "Organize",
-				release: "v0.1.0",
-			},
-			{
-				title: "Themes, fonts, and hotkeys",
-				description: "Tune the writing surface and shortcuts for longer sessions.",
-				area: "Personalization",
-				release: "v0.1.0",
-			},
-			{
-				title: "Cortex CLI",
-				description: "Build and validate plugin or theme work against a local vault.",
-				area: "Developers",
-			},
-		],
-	},
-	{
-		id: "in-progress",
-		title: "In progress",
-		items: [
-			{
-				title: "Cortex Sync",
-				description:
-					"Optional client-side encryption with encrypted blob storage and a self-hostable path.",
-				area: "Sync",
-			},
-			{
-				title: "Version history and conflict recovery",
-				description: "Make synced edits easier to inspect and recover across devices.",
-				area: "Sync",
-			},
-			{
-				title: "Stable Plugin API",
-				description:
-					"Harden extension surfaces for commands, Markdown transforms, settings, and views.",
-				area: "Developers",
-			},
-			{
-				title: "Community plugin and theme registry",
-				description:
-					"Create a clearer path for discovering extensions without making notes less portable.",
-				area: "Developers",
-			},
-		],
-	},
-	{
-		id: "planned",
-		title: "Planned",
-		items: [
-			{
-				title: "Mobile apps",
-				description: "Future clients that keep the local-first Markdown model in mind.",
-				area: "Clients",
-			},
-			{
-				title: "Public notes",
-				description: "A planned sharing surface for selected Markdown content.",
-				area: "Sharing",
-			},
-		],
-	},
-]
-
-export const roadmapAreas = [
-	roadmapCopy.allAreas,
-	...new Set(roadmapColumns.flatMap((column) => column.items.map((item) => item.area))),
-]

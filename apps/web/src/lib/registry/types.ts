@@ -7,6 +7,7 @@ export interface RegistryEntry {
 	authorUrl?: string
 	description: string
 	coverImageUrl: string
+	screenshots: string[]
 	repo: string
 }
 

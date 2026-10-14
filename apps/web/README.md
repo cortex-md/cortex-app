@@ -21,11 +21,21 @@ CORTEX_SYNC_URL=https://api.cortex-md.tech
 CORTEX_BILLING_RETURN_URL=https://cortex-md.tech/billing/cancelled
 CORTEX_BILLING_COMPLETION_URL=https://cortex-md.tech/billing/success
 CLOUDFLARE_WEB_ANALYTICS_TOKEN=
+GITHUB_TOKEN=
 ```
 
 `SITE_URL` defaults to `https://cortex-md.tech`. Checkout started on the website returns to
 `<SITE_URL>/billing/success` unless `CORTEX_BILLING_COMPLETION_URL` is set; checkout started from the
 desktop app (the `/billing#token=…` handoff) keeps returning to `cortex://sync/checkout-complete`.
+`GITHUB_TOKEN` is optional; a fine-grained token with public read access lifts the GitHub API rate
+limit for the changelog, the roadmap and Marketplace comments (read from the registry discussions).
+
+## Roadmap
+
+`/roadmap` reads issues labeled `roadmap` from `cortex-md/cortex-app`. Closed as completed means
+Shipped (a milestone like `v0.2.0` shows the release), open with `status: in progress` means In
+progress, and every other open issue is Planned. Issues closed as not planned are hidden. An
+`area: <Name>` label sets the area filter, and thumbs up reactions are the votes.
 
 ## Analytics
 

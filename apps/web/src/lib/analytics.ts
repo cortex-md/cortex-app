@@ -16,8 +16,10 @@ export type SiteEvent =
 	| { name: "marketplace_vote_clicked"; kind: string; id: string }
 	| { name: "marketplace_install_opened"; kind: string; id: string }
 	| { name: "marketplace_report_clicked"; kind: string; id: string }
+	| { name: "marketplace_comment_clicked"; kind: string; id: string }
 	| { name: "changelog_feed_clicked"; feed: "rss" | "watch" }
 	| { name: "roadmap_suggest_clicked" }
+	| { name: "roadmap_vote_clicked"; issue: number }
 	| { name: "auth_completed"; mode: "login" | "signup" }
 	| { name: "invite_accepted" }
 	| { name: "device_revoked" }

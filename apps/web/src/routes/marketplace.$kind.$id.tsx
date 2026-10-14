@@ -1,5 +1,6 @@
 import { createFileRoute, notFound } from "@tanstack/react-router"
 import { marketplaceKindLabels } from "../content/marketplace"
+import docsCss from "../features/docs/docs.css?url"
 import { MarketplaceUnavailable } from "../features/marketplace/MarketplaceBits"
 import { MarketplaceDetailPage } from "../features/marketplace/MarketplaceDetailPage"
 import { getItemHref } from "../features/marketplace/marketplaceModel"
@@ -7,16 +8,30 @@ import { createSeoHead, noIndexRobots, pageTitle } from "../seo/metadata"
 import { breadcrumbSchema, jsonLdScripts, softwareApplicationSchema } from "../seo/structuredData"
 import { getMarketplaceItem } from "../server/marketplace"
 
-const kinds = new Set(["plugins", "themes", "templates"])
+const kinds = new Set(["plugins", "themes"])
 
 export const Route = createFileRoute("/marketplace/$kind/$id")({
 	loader: async ({ params }) => {
 		if (!kinds.has(params.kind)) throw notFound()
 		const result = await getMarketplaceItem({
-			data: { kind: params.kind as "plugins" | "themes" | "templates", id: params.id },
+			data: { kind: params.kind as "plugins" | "themes", id: params.id },
 		})
 		if (result.status === "notFound") throw notFound()
-		return { result }
+		if (result.status !== "ok") {
+			return { result, comments: null, readme: null }
+		}
+		const { item } = result
+		const [{ getDiscussionComments }, { getMarketplaceReadme }] = await Promise.all([
+			import("../server/discussions"),
+			import("../server/readme"),
+		])
+		const [comments, readme] = await Promise.all([
+			item.discussionNumber
+				? getDiscussionComments({ data: { number: item.discussionNumber } })
+				: Promise.resolve(null),
+			getMarketplaceReadme({ data: { kind: item.kind, id: item.id } }),
+		])
+		return { result, comments, readme }
 	},
 	staleTime: 60_000,
 	headers: ({ loaderData }) => ({
@@ -34,15 +49,20 @@ export const Route = createFileRoute("/marketplace/$kind/$id")({
 		const { item } = result
 		const kindLabel = marketplaceKindLabels[item.kind]
 		const description = item.description || `${kindLabel.singular} for Cortex by ${item.author}.`
+		const seoHead = createSeoHead({
+			title: pageTitle(`${item.name} · ${kindLabel.singular}`),
+			description,
+			path: getItemHref(item),
+			...(item.coverImageUrl ? { image: item.coverImageUrl, imageAlt: `${item.name} cover` } : {}),
+		})
 		return {
-			...createSeoHead({
-				title: pageTitle(`${item.name} · ${kindLabel.singular}`),
-				description,
-				path: getItemHref(item),
-				...(item.coverImageUrl
-					? { image: item.coverImageUrl, imageAlt: `${item.name} cover` }
-					: {}),
-			}),
+			...seoHead,
+			links: [
+				...seoHead.links,
+				...(loaderData.comments?.comments.length || loaderData.readme
+					? [{ rel: "stylesheet", href: docsCss }]
+					: []),
+			],
 			scripts: jsonLdScripts(
 				softwareApplicationSchema({
 					name: item.name,
@@ -67,7 +87,7 @@ export const Route = createFileRoute("/marketplace/$kind/$id")({
 })
 
 function MarketplaceItemRoute() {
-	const { result } = Route.useLoaderData()
+	const { result, comments, readme } = Route.useLoaderData()
 
 	if (result.status !== "ok") {
 		return (
@@ -77,5 +97,12 @@ function MarketplaceItemRoute() {
 		)
 	}
 
-	return <MarketplaceDetailPage item={result.item} isStale={result.isStale} />
+	return (
+		<MarketplaceDetailPage
+			item={result.item}
+			isStale={result.isStale}
+			comments={comments}
+			readme={readme}
+		/>
+	)
 }

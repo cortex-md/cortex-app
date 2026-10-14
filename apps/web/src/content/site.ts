@@ -60,7 +60,7 @@ export const productNavGroups: ReadonlyArray<{ title: string; items: ProductNavI
 			},
 			{
 				label: "Marketplace",
-				description: "Plugins, themes and templates",
+				description: "Plugins and themes",
 				icon: "marketplace",
 				href: "/marketplace",
 			},

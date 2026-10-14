@@ -8,7 +8,7 @@ import { breadcrumbSchema, itemListSchema, jsonLdScripts } from "../seo/structur
 import { getMarketplaceCatalog } from "../server/marketplace"
 
 const searchSchema = z.object({
-	kind: z.enum(["all", "plugins", "themes", "templates"]).catch("all"),
+	kind: z.enum(["all", "plugins", "themes"]).catch("all"),
 	q: z.string().max(100).catch(""),
 	sort: z.enum(["votes", "downloads", "updated"]).catch("votes"),
 })

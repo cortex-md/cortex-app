@@ -38,6 +38,6 @@ export const llmsProductPages = [
 	{
 		title: "Cortex Marketplace",
 		href: "/marketplace",
-		description: "Plugins, themes and templates for Cortex.",
+		description: "Plugins and themes for Cortex.",
 	},
 ] as const

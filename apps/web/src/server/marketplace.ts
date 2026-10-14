@@ -2,15 +2,7 @@ import { createServerFn } from "@tanstack/react-start"
 import type { IconNode } from "lucide-react"
 import { dynamicIconImports } from "lucide-react/dynamic"
 import { z } from "zod"
-import {
-	builtInPlugins,
-	builtInTemplates,
-	builtInThemePalettes,
-	builtInThemes,
-	cortexAppRepo,
-	type MarketplaceKind,
-	type TemplateArt,
-} from "../content/marketplace"
+import type { MarketplaceKind } from "../content/marketplace"
 import {
 	defaultRegistryRepo,
 	findBlockedEntry,
@@ -38,15 +30,6 @@ const CATALOG_TTL_MS = 5 * 60 * 1000
 const MANIFEST_TTL_MS = 30 * 60 * 1000
 const USER_AGENT = "Cortex website marketplace"
 
-export interface MarketplaceTemplateData {
-	properties: ReadonlyArray<{ name: string; type: string }>
-	views: string[]
-	art: TemplateArt
-	columnLabel: string
-	columns: ReadonlyArray<{ title: string; cards: string[] }>
-	rows: ReadonlyArray<{ title: string; value: string }>
-}
-
 export interface MarketplaceItem {
 	kind: MarketplaceKind
 	id: string
@@ -54,21 +37,21 @@ export interface MarketplaceItem {
 	author: string
 	authorUrl: string | null
 	description: string
-	source: "community" | "builtin"
 	repo: string
 	coverImageUrl: string | null
+	screenshots: string[]
 	iconNode: IconNode | null
 	verified: boolean
-	votes: number | null
-	downloads: number | null
+	votes: number
+	downloads: number
 	version: string | null
 	minAppVersion: string | null
 	releasedAt: string | null
 	discussionUrl: string | null
+	discussionNumber: number | null
 	capabilities: string[] | null
 	palettes: ThemePalette[]
 	appearance: string | null
-	template: MarketplaceTemplateData | null
 }
 
 export interface MarketplaceCatalog {
@@ -87,7 +70,7 @@ let cachedCatalog: CachedValue<MarketplaceCatalog> | undefined
 const cachedManifests = new Map<string, CachedValue<RegistryManifest | null>>()
 const cachedPalettes = new Map<string, CachedValue<ThemePalette | null>>()
 
-function getRegistryRepo() {
+export function getRegistryRepo() {
 	const configured = process.env.CORTEX_REGISTRY_REPO?.trim()
 	return configured && isRepoSlug(configured) ? configured : defaultRegistryRepo
 }
@@ -224,7 +207,7 @@ async function fetchThemePalettes(
 	return palettes.filter((palette): palette is ThemePalette => palette !== null)
 }
 
-async function toCommunityItem(
+async function toMarketplaceItem(
 	kind: "plugins" | "themes",
 	entry: RegistryEntry,
 	stats: RegistryStats | null,
@@ -243,9 +226,9 @@ async function toCommunityItem(
 		author: entry.author,
 		authorUrl: entry.authorUrl ?? null,
 		description: entry.description,
-		source: "community",
 		repo: entry.repo,
 		coverImageUrl: entry.coverImageUrl || null,
+		screenshots: entry.screenshots,
 		iconNode: kind === "plugins" ? await resolveIconNode(manifest?.icon) : null,
 		verified: isVerifiedEntry(verified, kind === "plugins" ? "plugin" : "theme", entry.id),
 		votes: itemStats?.votes ?? 0,
@@ -254,6 +237,7 @@ async function toCommunityItem(
 		minAppVersion: manifest?.minAppVersion ?? null,
 		releasedAt: itemStats?.releasedAt ?? null,
 		discussionUrl: itemStats?.discussion?.url ?? null,
+		discussionNumber: itemStats?.discussion?.number ?? null,
 		capabilities: kind === "plugins" ? (manifest?.capabilities ?? null) : null,
 		palettes,
 		appearance:
@@ -262,86 +246,7 @@ async function toCommunityItem(
 				: palettes.length === 1
 					? (palettes[0]?.label ?? null)
 					: null,
-		template: null,
 	}
-}
-
-async function builtInItems(): Promise<MarketplaceItem[]> {
-	const pluginIcons = await Promise.all(
-		builtInPlugins.map((plugin) => resolveIconNode(plugin.icon)),
-	)
-	const base = {
-		authorUrl: null,
-		source: "builtin" as const,
-		repo: cortexAppRepo,
-		coverImageUrl: null,
-		verified: false,
-		votes: null,
-		downloads: null,
-		releasedAt: null,
-		discussionUrl: null,
-	}
-
-	return [
-		...builtInPlugins.map(
-			(plugin, index): MarketplaceItem => ({
-				...base,
-				kind: "plugins",
-				id: plugin.id,
-				name: plugin.name,
-				author: plugin.author,
-				description: plugin.description,
-				iconNode: pluginIcons[index] ?? null,
-				version: plugin.version,
-				minAppVersion: plugin.minAppVersion,
-				capabilities: plugin.capabilities,
-				palettes: [],
-				appearance: null,
-				template: null,
-			}),
-		),
-		...builtInThemes.map(
-			(theme): MarketplaceItem => ({
-				...base,
-				kind: "themes",
-				id: theme.id,
-				name: theme.name,
-				author: theme.author,
-				description: theme.description,
-				iconNode: null,
-				version: null,
-				minAppVersion: null,
-				capabilities: null,
-				palettes: [builtInThemePalettes[theme.id]],
-				appearance: theme.appearance,
-				template: null,
-			}),
-		),
-		...builtInTemplates.map(
-			(template): MarketplaceItem => ({
-				...base,
-				kind: "templates",
-				id: template.id,
-				name: template.name,
-				author: template.author,
-				description: template.description,
-				iconNode: null,
-				version: null,
-				minAppVersion: null,
-				capabilities: null,
-				palettes: [],
-				appearance: null,
-				template: {
-					properties: template.properties,
-					views: template.views,
-					art: template.art,
-					columnLabel: template.columnLabel,
-					columns: template.columns,
-					rows: template.rows,
-				},
-			}),
-		),
-	]
 }
 
 function visibleEntries(
@@ -374,22 +279,18 @@ export async function fetchMarketplaceCatalog(
 
 	const stats = parseRegistryStats(statsJson)
 	const verified = parseVerifiedEntries(verifiedJson) ?? []
-	const community = await Promise.all([
+	const items = await Promise.all([
 		...visibleEntries(plugins, blocked, "plugin").map((entry) =>
-			toCommunityItem("plugins", entry, stats, verified, fetchImpl),
+			toMarketplaceItem("plugins", entry, stats, verified, fetchImpl),
 		),
 		...visibleEntries(themes, blocked, "theme").map((entry) =>
-			toCommunityItem("themes", entry, stats, verified, fetchImpl),
+			toMarketplaceItem("themes", entry, stats, verified, fetchImpl),
 		),
 	])
-	const communityKeys = new Set(community.map((item) => `${item.kind}/${item.id}`))
 
 	return {
 		status: "ok",
-		items: [
-			...community,
-			...(await builtInItems()).filter((item) => !communityKeys.has(`${item.kind}/${item.id}`)),
-		],
+		items,
 		generatedAt: stats?.generatedAt ?? null,
 		isStale: false,
 	}
@@ -412,7 +313,7 @@ export const getMarketplaceCatalog = createServerFn({ method: "GET" }).handler((
 )
 
 const itemInputSchema = z.object({
-	kind: z.enum(["plugins", "themes", "templates"]),
+	kind: z.enum(["plugins", "themes"]),
 	id: z.string().min(1).max(100),
 })
 
@@ -425,12 +326,7 @@ export const getMarketplaceItem = createServerFn({ method: "GET" })
 	.validator(itemInputSchema)
 	.handler(async ({ data }): Promise<MarketplaceItemResult> => {
 		const catalog = await fetchCachedMarketplaceCatalog()
-		if (catalog.status === "unavailable") {
-			const builtIn = (await builtInItems()).find(
-				(item) => item.kind === data.kind && item.id === data.id,
-			)
-			return builtIn ? { status: "ok", item: builtIn, isStale: true } : { status: "unavailable" }
-		}
+		if (catalog.status === "unavailable") return { status: "unavailable" }
 		const item = catalog.items.find(
 			(candidate) => candidate.kind === data.kind && candidate.id === data.id,
 		)

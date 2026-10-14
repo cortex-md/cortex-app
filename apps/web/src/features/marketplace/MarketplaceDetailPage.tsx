@@ -8,50 +8,24 @@ import {
 	reportProblemUrl,
 } from "../../content/marketplace"
 import { trackEvent } from "../../lib/analytics"
+import type { DiscussionCommentsResult } from "../../server/discussions"
 import type { MarketplaceItem } from "../../server/marketplace"
-import { ItemGlyph, itemTone, TemplatePreview, ThemeWindow } from "./MarketplaceArt"
+import type { MarketplaceReadme } from "../../server/readme"
+import { ItemGlyph, itemTone, ThemeWindow } from "./MarketplaceArt"
 import { StaleNotice, SubmitBanner } from "./MarketplaceBits"
+import { MarketplaceComments } from "./MarketplaceComments"
 import { InstallPopover, VotePopover } from "./MarketplacePopovers"
 import { formatCount, formatDate } from "./marketplaceModel"
 
-function getOpensNote(item: MarketplaceItem) {
-	if (item.source === "community") return marketplaceCopy.opens.community
-	if (item.kind === "templates") return marketplaceCopy.opens.builtInTemplate
-	return item.kind === "themes"
-		? marketplaceCopy.opens.builtInTheme
-		: marketplaceCopy.opens.builtInPlugin
-}
-
 function getInfoRows(item: MarketplaceItem): Array<[string, string]> {
-	const requires = item.minAppVersion ? `Cortex ${item.minAppVersion} or later` : null
-	const rows: Array<[string, string | null]> =
-		item.source === "community"
-			? [
-					["Votes", formatCount(item.votes)],
-					["Downloads", formatCount(item.downloads)],
-					["Version", item.version],
-					["Updated", formatDate(item.releasedAt)],
-					...(item.kind === "themes"
-						? [["Appearance", item.appearance] as [string, string | null]]
-						: []),
-					["Requires", requires],
-				]
-			: item.kind === "plugins"
-				? [
-						["Version", item.version],
-						["Distribution", marketplaceCopy.builtIn],
-						["Requires", requires],
-					]
-				: item.kind === "themes"
-					? [
-							["Appearance", item.appearance],
-							["Distribution", marketplaceCopy.builtIn],
-						]
-					: [
-							["Views", item.template?.views.join(", ") ?? null],
-							["Properties", item.template ? String(item.template.properties.length) : null],
-							["Distribution", marketplaceCopy.builtIn],
-						]
+	const rows: Array<[string, string | null]> = [
+		["Votes", formatCount(item.votes)],
+		["Downloads", formatCount(item.downloads)],
+		["Version", item.version],
+		["Updated", formatDate(item.releasedAt)],
+		["Appearance", item.kind === "themes" ? item.appearance : null],
+		["Requires", item.minAppVersion ? `Cortex ${item.minAppVersion} or later` : null],
+	]
 	return rows.filter((row): row is [string, string] => Boolean(row[1]))
 }
 
@@ -81,36 +55,73 @@ function SideLink({
 	)
 }
 
+function ScreenshotFigure({ url, alt, single }: { url: string; alt: string; single: boolean }) {
+	return (
+		<figure
+			className={cn(
+				"m-0 min-w-0 overflow-hidden rounded-[22px] bg-cell",
+				single ? "w-full" : "h-[360px] flex-[0_0_auto] max-sm:h-60 max-sm:flex-[0_0_86%]",
+			)}
+		>
+			<a
+				className="block h-full rounded-[22px] outline-none focus-visible:shadow-focus"
+				href={url}
+				target="_blank"
+				rel="noopener noreferrer"
+			>
+				<img
+					className={cn(
+						"object-cover",
+						single ? "aspect-[16/9] w-full" : "aspect-[16/10] h-full w-auto max-sm:w-full",
+					)}
+					src={url}
+					width={1280}
+					height={single ? 720 : 800}
+					alt={alt}
+					loading="lazy"
+					decoding="async"
+					referrerPolicy="no-referrer"
+				/>
+			</a>
+		</figure>
+	)
+}
+
 function Screenshots({ item }: { item: MarketplaceItem }) {
 	const shotClass =
 		"relative m-0 h-[360px] min-w-0 flex-[1_0_0] rounded-[22px] bg-cell p-[22px] max-sm:h-60 max-sm:flex-[0_0_86%] max-sm:p-3.5"
 	const captionClass =
 		"absolute bottom-[-28px] left-[22px] text-[13px] leading-none font-medium text-text-muted"
+	const stripClass =
+		"flex gap-3.5 overflow-x-auto pb-7 [scrollbar-width:none] max-sm:-mr-5 max-sm:pr-5"
+	const screenshotAlt = (index: number) => `${item.name} screenshot ${index + 1}`
 
 	if (item.kind === "themes" && item.palettes.length > 0) {
 		return (
-			<div className="flex gap-3.5 overflow-x-auto pb-7 [scrollbar-width:none] max-sm:-mr-5 max-sm:pr-5">
+			<div className={stripClass}>
 				{item.palettes.map((palette) => (
 					<figure key={palette.label} className={shotClass}>
 						<ThemeWindow palette={palette} size="shot" />
 						<figcaption className={captionClass}>{palette.label}</figcaption>
 					</figure>
 				))}
+				{item.screenshots.map((url, index) => (
+					<ScreenshotFigure key={url} url={url} alt={screenshotAlt(index)} single={false} />
+				))}
 			</div>
 		)
 	}
 
-	if (item.kind === "templates" && item.template) {
-		const firstView = item.template.views[0] ?? ""
-		const caption = firstView === "Table" && item.template.art === "board" ? "Board" : firstView
+	if (item.screenshots.length === 1 && item.screenshots[0]) {
+		return <ScreenshotFigure url={item.screenshots[0]} alt={screenshotAlt(0)} single />
+	}
+
+	if (item.screenshots.length > 1) {
 		return (
-			<div className="flex pb-7">
-				<figure
-					className={cn(shotClass, "flex h-auto items-start max-sm:h-auto max-sm:flex-[1_0_100%]")}
-				>
-					<TemplatePreview template={item.template} size="shot" />
-					<figcaption className={captionClass}>{caption}</figcaption>
-				</figure>
+			<div className={cn(stripClass, "pb-2")}>
+				{item.screenshots.map((url, index) => (
+					<ScreenshotFigure key={url} url={url} alt={screenshotAlt(index)} single={false} />
+				))}
 			</div>
 		)
 	}
@@ -138,15 +149,20 @@ function Screenshots({ item }: { item: MarketplaceItem }) {
 export function MarketplaceDetailPage({
 	item,
 	isStale,
+	comments,
+	readme,
 }: {
 	item: MarketplaceItem
 	isStale: boolean
+	comments: DiscussionCommentsResult | null
+	readme: MarketplaceReadme | null
 }) {
 	const screenshots = <Screenshots item={item} />
 	const hasScreenshots =
 		(item.kind === "themes" && item.palettes.length > 0) ||
-		(item.kind === "templates" && item.template !== null) ||
+		item.screenshots.length > 0 ||
 		Boolean(item.coverImageUrl)
+	const hasPrimaryContent = hasScreenshots || item.kind === "plugins"
 	const repoUrl = `https://github.com/${item.repo}`
 	const sectionTitle = "mb-3.5 text-[20px] leading-[1.25] font-semibold tracking-[-0.015em]"
 
@@ -199,12 +215,12 @@ export function MarketplaceDetailPage({
 					</p>
 				</div>
 				<div className="flex items-center gap-2.5 pt-1.5 max-[1000px]:col-span-full max-sm:flex-col-reverse max-sm:items-stretch">
-					{item.source === "community" ? <VotePopover item={item} /> : null}
+					<VotePopover item={item} />
 					<InstallPopover item={item} />
 				</div>
 			</header>
 			<small className="mt-3.5 ml-28 block text-[13px] leading-[1.4] text-text-muted max-[1000px]:ml-0">
-				{getOpensNote(item)}{" "}
+				{marketplaceCopy.opens}{" "}
 				<a
 					className="text-text-secondary underline underline-offset-[3px] hover:text-text-primary"
 					href="/#download"
@@ -267,28 +283,28 @@ export function MarketplaceDetailPage({
 						</section>
 					) : null}
 
-					{item.template ? (
-						<section className="mt-10" aria-labelledby="marketplace-properties">
-							<h2 id="marketplace-properties" className={sectionTitle}>
-								{marketplaceCopy.properties}
+					{readme ? (
+						<section
+							className={hasPrimaryContent ? "mt-10" : undefined}
+							aria-labelledby="marketplace-readme"
+						>
+							<h2 id="marketplace-readme" className={sectionTitle}>
+								{marketplaceCopy.readme}
 							</h2>
-							<ul className="grid overflow-hidden rounded-2xl bg-bg-elevated shadow-ring">
-								{item.template.properties.map((property) => (
-									<li
-										key={property.name}
-										className="flex items-center gap-3 border-sep border-t px-4 py-3 text-[14.5px] leading-[1.4] first:border-t-0"
-									>
-										<span className="flex-1">{property.name}</span>
-										<em className="text-right text-[13.5px] leading-[1.3] text-text-secondary not-italic">
-											{property.type}
-										</em>
-									</li>
-								))}
-							</ul>
-							<p className="mt-3 text-[13.5px] leading-normal text-text-muted">
-								{marketplaceCopy.propertiesNote}
-							</p>
+							<div
+								className="markdown-surface docs-markdown rounded-2xl bg-bg-elevated px-6 py-5 shadow-ring max-sm:px-4 [&>:first-child]:mt-0 [&>:last-child]:mb-0"
+								// biome-ignore lint/security/noDangerouslySetInnerHtml: README HTML is sanitized by renderReleaseMarkdown on the server.
+								dangerouslySetInnerHTML={{ __html: readme.html }}
+							/>
 						</section>
+					) : null}
+
+					{comments ? (
+						<MarketplaceComments
+							item={item}
+							comments={comments}
+							className={hasPrimaryContent || readme ? "mt-10" : undefined}
+						/>
 					) : null}
 				</div>
 
@@ -308,22 +324,18 @@ export function MarketplaceDetailPage({
 						<SideLink href={repoUrl} icon={<Github aria-hidden="true" />}>
 							{item.repo}
 						</SideLink>
-						{item.source === "community" ? (
-							<>
-								<SideLink href={`${repoUrl}#readme`} icon={<BookOpen aria-hidden="true" />}>
-									{marketplaceCopy.readme}
-								</SideLink>
-								<SideLink
-									href={reportProblemUrl}
-									icon={<Flag aria-hidden="true" />}
-									onClick={() =>
-										trackEvent({ name: "marketplace_report_clicked", kind: item.kind, id: item.id })
-									}
-								>
-									{marketplaceCopy.report}
-								</SideLink>
-							</>
-						) : null}
+						<SideLink href={`${repoUrl}#readme`} icon={<BookOpen aria-hidden="true" />}>
+							{marketplaceCopy.readme}
+						</SideLink>
+						<SideLink
+							href={reportProblemUrl}
+							icon={<Flag aria-hidden="true" />}
+							onClick={() =>
+								trackEvent({ name: "marketplace_report_clicked", kind: item.kind, id: item.id })
+							}
+						>
+							{marketplaceCopy.report}
+						</SideLink>
 					</div>
 				</aside>
 			</div>
