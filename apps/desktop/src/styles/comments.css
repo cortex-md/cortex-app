@@ -257,13 +257,10 @@
 	left: 0;
 	z-index: 20;
 	overflow: hidden;
-	border-radius: 12px;
-	background: var(--bg-elevated);
-	box-shadow: var(--shadow-popup);
-}
-
-.comment-mention-menu [data-slot="command-item"] {
-	gap: 8px;
+	border: 1px solid var(--menu-border);
+	border-radius: var(--popup-radius);
+	background: var(--popover);
+	box-shadow: var(--shadow-floating);
 }
 
 .comment-mention-role {

@@ -259,7 +259,8 @@ body[data-platform="macos"]
 }
 
 body[data-platform="macos"] [data-popup-surface],
-body[data-platform="macos"] :where(.slash-command-menu, .note-property-popover) {
+body[data-platform="macos"]
+	:where(.slash-command-menu, .note-property-popover, .comment-mention-menu) {
 	border-color: transparent;
 	border-radius: var(--popup-radius);
 	background: var(--macos-surface-bg);
@@ -283,7 +284,7 @@ body[data-platform="macos"]
 	padding: 5px;
 }
 
-body[data-platform="macos"] [data-command-surface] {
+body[data-platform="macos"] [data-command-surface][data-slot="dialog-content"] {
 	border-color: transparent;
 	border-radius: var(--dialog-radius);
 	background: var(--macos-modal-bg);
@@ -406,11 +407,6 @@ body[data-platform="macos"]
 	color: var(--text-muted);
 	font-size: 11px;
 	letter-spacing: 0;
-}
-
-body[data-platform="macos"] .slash-command-icon {
-	transition-duration: var(--macos-duration-base);
-	transition-timing-function: var(--macos-ease);
 }
 
 body[data-platform="macos"] :where(.template-picker, .template-new-dialog) {

@@ -383,6 +383,10 @@
 	content: "";
 }
 
+.note-property-option-list {
+	scrollbar-width: none;
+}
+
 .note-property-popover [data-slot="separator"] {
 	flex: none;
 	margin: 0;
@@ -392,86 +396,6 @@
 .note-property-popover [data-slot="command"] {
 	min-height: 0;
 	background: transparent;
-}
-
-.note-property-popover [data-slot="command-input-wrapper"] {
-	height: 38px;
-	min-height: 38px;
-	gap: 8px;
-	margin: 0;
-	padding: 0 12px;
-	border: 0;
-	border-bottom: 1px solid var(--property-popover-hairline);
-	border-radius: 0;
-	background: transparent;
-	box-shadow: none;
-}
-
-.note-property-popover [data-slot="command-input-icon"] {
-	width: 14px;
-	height: 14px;
-	color: var(--text-muted);
-	opacity: 1;
-}
-
-.note-property-popover [data-slot="command-input"] {
-	height: 36px;
-	padding: 0;
-	color: var(--text-primary);
-	font-size: 13px;
-	line-height: 18px;
-}
-
-.note-property-popover :is([data-slot="command-list"], .note-property-option-list) {
-	scrollbar-width: none;
-}
-
-.note-property-popover [data-slot="command-list"] {
-	max-height: 288px;
-	padding: 4px;
-}
-
-.note-property-popover [data-slot="command-group"] {
-	padding: 0;
-}
-
-.note-property-popover [data-slot="command-group"] + [data-slot="command-group"] {
-	margin-top: 4px;
-}
-
-.note-property-popover [cmdk-group-heading] {
-	padding: 6px 8px 4px;
-	color: var(--text-muted);
-	font-size: 11px;
-	font-weight: 500;
-	line-height: 14px;
-}
-
-.note-property-popover [data-slot="command-item"] {
-	min-height: 28px;
-	gap: 8px;
-	padding: 4px 8px;
-	border-radius: var(--popup-item-radius, 6px);
-	color: var(--text-secondary, var(--text-primary));
-	font-size: 13px;
-	line-height: 18px;
-}
-
-.note-property-popover [data-slot="command-item"][data-selected="true"] {
-	background: var(--property-popover-hover);
-	color: var(--text-primary);
-}
-
-.note-property-popover [data-slot="command-item"] small {
-	margin-left: auto;
-	color: var(--text-muted);
-	font-size: 11px;
-}
-
-.note-property-popover [data-slot="command-empty"] {
-	padding: 14px 8px;
-	color: var(--text-muted);
-	font-size: 12px;
 }
 
 .note-property-popover [data-slot="input"] {

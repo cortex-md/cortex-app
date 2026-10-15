@@ -146,3 +146,120 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 	border-radius: 9999px;
 	background-clip: content-box;
 }
+
+:is(.note-property-popover, .slash-command-menu, .comment-mention-menu, .vault-switcher-menu) {
+	--compact-menu-hover: var(--macos-row-bg-hover, var(--menu-hover, var(--bg-hover)));
+	--compact-menu-hairline: var(--macos-hairline, var(--border-subtle));
+}
+
+:is(.note-property-popover, .slash-command-menu, .comment-mention-menu, .vault-switcher-menu)
+	[data-slot="command"] {
+	min-height: 0;
+	background: transparent;
+}
+
+:is(.note-property-popover, .slash-command-menu, .comment-mention-menu, .vault-switcher-menu)
+	[data-slot="command-input-wrapper"] {
+	height: 38px;
+	min-height: 38px;
+	gap: 8px;
+	margin: 0;
+	padding: 0 12px;
+	border: 0;
+	border-bottom: 1px solid var(--compact-menu-hairline);
+	border-radius: 0;
+	background: transparent;
+	box-shadow: none;
+}
+
+:is(.note-property-popover, .slash-command-menu, .comment-mention-menu, .vault-switcher-menu)
+	[data-slot="command-input-icon"] {
+	width: 14px;
+	height: 14px;
+	color: var(--text-muted);
+	opacity: 1;
+}
+
+:is(.note-property-popover, .slash-command-menu, .comment-mention-menu, .vault-switcher-menu)
+	[data-slot="command-input"] {
+	height: 36px;
+	padding: 0;
+	color: var(--text-primary);
+	font-size: 13px;
+	line-height: 18px;
+}
+
+:is(.note-property-popover, .slash-command-menu, .comment-mention-menu, .vault-switcher-menu)
+	[data-slot="command-list"] {
+	max-height: 288px;
+	padding: 4px;
+	scrollbar-width: none;
+}
+
+:is(.note-property-popover, .slash-command-menu, .comment-mention-menu, .vault-switcher-menu)
+	[data-slot="command-group"] {
+	padding: 0;
+}
+
+:is(.note-property-popover, .slash-command-menu, .comment-mention-menu, .vault-switcher-menu)
+	[data-slot="command-group"]
+	+ [data-slot="command-group"] {
+	margin-top: 4px;
+}
+
+:is(.note-property-popover, .slash-command-menu, .comment-mention-menu, .vault-switcher-menu)
+	[cmdk-group-heading] {
+	padding: 6px 8px 4px;
+	color: var(--text-muted);
+	font-size: 11px;
+	font-weight: 500;
+	line-height: 14px;
+}
+
+:is(.note-property-popover, .slash-command-menu, .comment-mention-menu, .vault-switcher-menu)
+	[data-slot="command-item"] {
+	min-height: 28px;
+	gap: 8px;
+	padding: 4px 8px;
+	border: 0;
+	border-radius: var(--popup-item-radius, 6px);
+	color: var(--text-secondary, var(--text-primary));
+	font-size: 13px;
+	font-weight: 400;
+	line-height: 18px;
+}
+
+:is(.note-property-popover, .slash-command-menu, .comment-mention-menu, .vault-switcher-menu)
+	[data-slot="command-item"]
+	svg:not([class*="size-"]) {
+	width: 15px;
+	height: 15px;
+}
+
+:is(.note-property-popover, .slash-command-menu, .comment-mention-menu, .vault-switcher-menu)
+	[data-slot="command-item"]:is([data-selected="true"], [data-active="true"]) {
+	background: var(--compact-menu-hover);
+	color: var(--text-primary);
+}
+
+:is(.note-property-popover, .slash-command-menu, .comment-mention-menu, .vault-switcher-menu)
+	[data-slot="command-item"]
+	:is(small, [data-slot="command-shortcut"]) {
+	margin-left: auto;
+	color: var(--text-muted);
+	font-size: 11px;
+	letter-spacing: 0;
+}
+
+:is(.note-property-popover, .slash-command-menu, .comment-mention-menu, .vault-switcher-menu)
+	[data-slot="command-empty"] {
+	padding: 14px 8px;
+	color: var(--text-muted);
+	font-size: 12px;
+}
+
+:is(.note-property-popover, .slash-command-menu, .comment-mention-menu, .vault-switcher-menu)
+	[data-slot="command-separator"] {
+	margin: 4px 0;
+	background: var(--compact-menu-hairline);
+}

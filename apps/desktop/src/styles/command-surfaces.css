@@ -1,6 +1,9 @@
 [data-command-surface] {
 	--command-selected-bg: var(--fill-quiet-strong);
 	--command-selected-border: transparent;
+}
+
+[data-command-surface][data-slot="dialog-content"] {
 	align-self: start;
 	margin-top: 80px;
 }
@@ -264,15 +267,14 @@
 	transform-origin: bottom left;
 }
 
-.slash-command-list {
-	max-height: min(260px, calc(100vh - 120px));
+.slash-command-menu .slash-command-list {
+	max-height: min(288px, calc(100vh - 120px));
 }
 
-.slash-command-menu [data-slot="command-item"] {
-	min-height: 40px;
-	gap: 9px;
-	padding-right: 9px;
-	padding-left: 8px;
+.slash-command-icon {
+	display: inline-flex;
+	flex: none;
+	color: var(--text-muted);
 }
 
 .slash-command-menu [data-slot="command-item"][data-selected="true"]:not([data-active="true"]) {
@@ -281,42 +283,8 @@
 	color: var(--text-secondary);
 }
 
-.slash-command-icon {
-	display: inline-flex;
-	width: 28px;
-	height: 28px;
-	flex: 0 0 28px;
-	align-items: center;
-	justify-content: center;
-	border-radius: 7px;
-	color: var(--text-muted);
-	transition-duration: 120ms;
-	transition-timing-function: ease-out;
-}
-
-.slash-command-menu
-	[data-slot="command-item"][data-selected="true"]:not([data-active="true"])
-	.slash-command-icon {
-	color: var(--text-muted);
-}
-
-.slash-command-menu [data-slot="command-item"][data-active="true"] .slash-command-icon {
+.slash-command-menu [data-slot="command-item"][data-active="true"] .slash-command-icon svg {
 	color: var(--accent-text);
-}
-
-.slash-command-menu [data-slot="command-footer"] {
-	min-height: 34px;
-	padding: 7px 10px;
-	gap: 10px;
-}
-
-.slash-command-menu [data-slot="command-footer-hint"] {
-	gap: 4px;
-}
-
-.slash-command-menu [data-slot="command-footer-key"] {
-	min-width: 18px;
-	padding-inline: 5px;
 }
 
 .quick-finder-create-shortcut {
