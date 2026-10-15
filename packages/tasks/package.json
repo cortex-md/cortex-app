@@ -5,8 +5,5 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"
-	},
-	"devDependencies": {
-		"typescript": "~5.8.3"
 	}
 }

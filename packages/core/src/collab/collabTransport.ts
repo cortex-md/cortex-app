@@ -135,7 +135,7 @@ export function createCollabTransport({ secrets, decodeVek, serverApi }: CollabT
 			: "network"
 	}
 
-	function sendFrame(channel: CollabChannelState, frame: Uint8Array | string): void {
+	function sendFrame(channel: CollabChannelState, frame: Uint8Array<ArrayBuffer> | string): void {
 		const socket = channel.socket
 		if (!socket || socket.readyState !== WebSocket.OPEN) return
 		socket.send(frame)

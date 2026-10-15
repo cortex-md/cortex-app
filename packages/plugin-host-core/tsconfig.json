@@ -1,27 +1,24 @@
 {
+	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
-		"composite": true,
-		"target": "ES2022",
-		"module": "ESNext",
-		"moduleResolution": "bundler",
-		"jsx": "react-jsx",
-		"strict": true,
-		"esModuleInterop": true,
-		"skipLibCheck": true,
-		"forceConsistentCasingInFileNames": true,
-		"resolveJsonModule": true,
-		"isolatedModules": true,
-		"declaration": true,
-		"declarationMap": true,
-		"outDir": "dist",
-		"baseUrl": "."
+		"outDir": "dist"
 	},
 	"include": ["src"],
 	"references": [
-		{ "path": "../commands" },
-		{ "path": "../plugin-api" },
-		{ "path": "../platform" },
-		{ "path": "../properties" },
-		{ "path": "../renderer" }
+		{
+			"path": "../commands"
+		},
+		{
+			"path": "../plugin-api"
+		},
+		{
+			"path": "../platform"
+		},
+		{
+			"path": "../properties"
+		},
+		{
+			"path": "../renderer"
+		}
 	]
 }

@@ -9,9 +9,5 @@
 	"dependencies": {
 		"@cortex/platform": "workspace:*",
 		"@cortex/renderer": "workspace:*"
-	},
-	"devDependencies": {
-		"typescript": "~5.8.3",
-		"vitest": "^4.1.0"
 	}
 }

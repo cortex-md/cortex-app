@@ -1,21 +1,14 @@
 {
+	"extends": "../tsconfig.base.json",
 	"compilerOptions": {
-		"composite": true,
-		"target": "ES2022",
-		"module": "ESNext",
-		"moduleResolution": "bundler",
-		"strict": true,
-		"esModuleInterop": true,
-		"skipLibCheck": true,
-		"forceConsistentCasingInFileNames": true,
-		"resolveJsonModule": true,
-		"isolatedModules": true,
-		"declaration": true,
-		"declarationMap": true,
 		"outDir": "dist",
 		"rootDir": "."
 	},
-	"references": [{ "path": "../packages/plugin-api" }],
+	"references": [
+		{
+			"path": "../packages/plugin-api"
+		}
+	],
 	"include": ["index.ts", "*/**/*.ts"],
 	"exclude": ["dist", "node_modules"]
 }

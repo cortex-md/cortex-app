@@ -1,23 +1,15 @@
 {
+	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
-		"composite": true,
-		"target": "ES2022",
-		"module": "ESNext",
-		"moduleResolution": "bundler",
-		"strict": true,
-		"esModuleInterop": true,
-		"skipLibCheck": true,
-		"forceConsistentCasingInFileNames": true,
-		"resolveJsonModule": true,
-		"isolatedModules": true,
-		"declaration": true,
-		"declarationMap": true,
-		"outDir": "dist",
-		"baseUrl": ".",
-		"paths": {
-			"@/*": ["./*"]
-		}
+		"outDir": "dist"
 	},
 	"include": ["src"],
-	"references": [{ "path": "../platform" }, { "path": "../properties" }]
+	"references": [
+		{
+			"path": "../platform"
+		},
+		{
+			"path": "../properties"
+		}
+	]
 }

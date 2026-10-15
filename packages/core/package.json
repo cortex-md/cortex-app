@@ -28,8 +28,5 @@
 	},
 	"peerDependencies": {
 		"react": ">=19"
-	},
-	"devDependencies": {
-		"typescript": "~5.8.3"
 	}
 }

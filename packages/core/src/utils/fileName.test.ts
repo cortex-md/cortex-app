@@ -31,27 +31,19 @@ describe("getNotePathPresentation", () => {
 })
 
 describe("getPortableFileNameError", () => {
-	it.each([
-		"",
-		" ",
-		".",
-		"..",
-		"CON.md",
-		"name.",
-		"name ",
-		"folder/note.md",
-		"note?.md",
-	])("rejects non-portable file name %j", (fileName) => {
-		expect(getPortableFileNameError(fileName)).not.toBeNull()
-	})
+	it.each(["", " ", ".", "..", "CON.md", "name.", "name ", "folder/note.md", "note?.md"])(
+		"rejects non-portable file name %j",
+		(fileName) => {
+			expect(getPortableFileNameError(fileName)).not.toBeNull()
+		},
+	)
 
-	it.each([
-		"Note.md",
-		"My note.md",
-		"daily.2026-06-12.md",
-	])("accepts portable file name %j", (fileName) => {
-		expect(getPortableFileNameError(fileName)).toBeNull()
-	})
+	it.each(["Note.md", "My note.md", "daily.2026-06-12.md"])(
+		"accepts portable file name %j",
+		(fileName) => {
+			expect(getPortableFileNameError(fileName)).toBeNull()
+		},
+	)
 })
 
 describe("getNoteTitleError", () => {

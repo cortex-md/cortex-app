@@ -10,12 +10,12 @@ function readEditorSource(fileName: string): string {
 }
 
 describe("markdown surface styles", () => {
-	it.each([
-		"EditorView.tsx",
-		"ReadingView.tsx",
-	])("loads shared markdown styles from %s", (fileName) => {
-		expect(readEditorSource(fileName)).toContain(markdownCssImport)
-	})
+	it.each(["EditorView.tsx", "ReadingView.tsx"])(
+		"loads shared markdown styles from %s",
+		(fileName) => {
+			expect(readEditorSource(fileName)).toContain(markdownCssImport)
+		},
+	)
 
 	it("keeps heading typography aligned with the compact theme scale", () => {
 		const markdownCss = readEditorSource("markdown.css")

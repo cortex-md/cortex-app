@@ -8,8 +8,5 @@
 	},
 	"dependencies": {
 		"@cortex.md/api": "workspace:*"
-	},
-	"devDependencies": {
-		"typescript": "~5.8.3"
 	}
 }

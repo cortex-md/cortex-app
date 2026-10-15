@@ -50,13 +50,11 @@ describe("theme contrast", () => {
 		).toBeGreaterThanOrEqual(4.5)
 	})
 
-	it.each([
-		"#ffffff",
-		"#0a0a09",
-		"#ffd400",
-		"#1f6feb",
-	])("resolves an accessible foreground for %s", (accent) => {
-		const foreground = resolveAccessibleForeground(accent)
-		expect(getContrastRatio(foreground, accent)).toBeGreaterThanOrEqual(4.5)
-	})
+	it.each(["#ffffff", "#0a0a09", "#ffd400", "#1f6feb"])(
+		"resolves an accessible foreground for %s",
+		(accent) => {
+			const foreground = resolveAccessibleForeground(accent)
+			expect(getContrastRatio(foreground, accent)).toBeGreaterThanOrEqual(4.5)
+		},
+	)
 })
