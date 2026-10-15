@@ -116,6 +116,7 @@ jobs:
             echo "::warning::Unsigned macOS prerelease: auto-update and notifications will not work on macOS."
             unset CSC_LINK CSC_KEY_PASSWORD
             export CSC_IDENTITY_AUTO_DISCOVERY=false
+            args+=(-c.mac.identity=- -c.mac.hardenedRuntime=false)
           else
             echo "::error::Stable macOS releases need MAC_CERTIFICATE_P12, MAC_CERTIFICATE_PASSWORD, APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID."
             exit 1
