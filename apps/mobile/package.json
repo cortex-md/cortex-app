@@ -81,7 +81,7 @@
 		"typecheck": "tsc --noEmit",
 		"check": "bun run lint && bun run typecheck",
 		"test": "bun run test:unit && bun run check",
-		"test:unit": "vitest run src/platform/__tests__/mobile-vault-paths.test.ts",
+		"test:unit": "vitest run --project mobile",
 		"doctor": "npx react-doctor@latest . --verbose --scope changed",
 		"doctor:full": "npx react-doctor@latest . --verbose"
 	},
