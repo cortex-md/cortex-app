@@ -28,7 +28,7 @@ export function isCollabFrameOp(value: unknown): value is CollabFrameOp {
 	return value === 1 || value === 2 || value === 3 || value === 4
 }
 
-export function encodeClientFrame(op: CollabFrameOp, payload: Uint8Array): Uint8Array {
+export function encodeClientFrame(op: CollabFrameOp, payload: Uint8Array): Uint8Array<ArrayBuffer> {
 	const frame = new Uint8Array(payload.length + 1)
 	frame[0] = op
 	frame.set(payload, 1)

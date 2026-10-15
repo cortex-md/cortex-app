@@ -6,12 +6,6 @@ import {
 	useUIStore,
 	useVaultStore,
 } from "@cortex/core"
-import { createEditorConfig } from "@cortex/editor/editor-config"
-import { EditorView } from "@cortex/editor/editor-view"
-import { type SlashCommandMenuState, slashCommandExtension } from "@cortex/editor/slash-commands"
-import type { EditorExtensionFactory, EditorRuntimeView } from "@cortex/editor/types"
-import { parseFrontmatter, serializeFrontmatter } from "@cortex/properties"
-import { useSettingsStore } from "@cortex/settings"
 import {
 	createFileNamePattern,
 	getFileNameParts,
@@ -21,7 +15,13 @@ import {
 	renderTemplateValue,
 	type TemplateRenderContext,
 	type TemplateValueGroup,
-} from "@cortex/templates"
+} from "@cortex/core/templates"
+import { createEditorConfig } from "@cortex/editor/editor-config"
+import { EditorView } from "@cortex/editor/editor-view"
+import { type SlashCommandMenuState, slashCommandExtension } from "@cortex/editor/slash-commands"
+import type { EditorExtensionFactory, EditorRuntimeView } from "@cortex/editor/types"
+import { parseFrontmatter, serializeFrontmatter } from "@cortex/properties"
+import { useSettingsStore } from "@cortex/settings"
 import {
 	Alert,
 	AlertDescription,

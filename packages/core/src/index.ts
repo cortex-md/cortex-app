@@ -60,9 +60,7 @@ export {
 	CURRENT_ENTRY as CURRENT_HISTORY_ENTRY,
 	compareEntries as compareHistoryEntries,
 	copyName as historyVersionCopyName,
-	type DeviceFilter as HistoryDeviceFilter,
 	type HistoryEntry,
-	matchesDeviceFilter as matchesHistoryDeviceFilter,
 } from "./history/historyEntries"
 export { groupByDay, historyDayLabel, parseTimestamp } from "./history/historyTime"
 export {

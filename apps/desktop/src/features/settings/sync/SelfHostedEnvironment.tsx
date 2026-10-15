@@ -5,13 +5,14 @@ import {
 } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
 import {
-	Badge,
 	Button,
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 	Input,
-	StatusBadge,
+	NativeSelect,
+	NativeSelectOption,
+	Switch,
 } from "@cortex/ui"
 import {
 	ChevronRight,
@@ -45,11 +46,64 @@ interface EnvironmentDisclosureProps {
 	onFieldChange(field: SelfHostedEnvironmentField, value: string): Promise<void>
 }
 
+interface EnvironmentControlProps {
+	field: SelfHostedEnvironmentField
+	value: string
+	onChange(value: string): void
+}
+
 const ENVIRONMENT_GROUP_ICONS: Record<string, LucideIcon> = {
 	server: ServerIcon,
 	database: DatabaseIcon,
 	authentication: KeyRoundIcon,
 	storage: HardDriveIcon,
+}
+
+function EnvironmentControl({ field, value, onChange }: EnvironmentControlProps) {
+	const effectiveValue = value || field.defaultValue
+	if (field.kind === "boolean") {
+		return (
+			<Switch
+				id={field.key}
+				size="sm"
+				checked={effectiveValue === "true"}
+				onCheckedChange={(checked) => onChange(checked ? "true" : "false")}
+			/>
+		)
+	}
+	if (field.options) {
+		return (
+			<NativeSelect
+				id={field.key}
+				size="sm"
+				value={effectiveValue}
+				onChange={(event: ChangeEvent<HTMLSelectElement>) => onChange(event.target.value)}
+			>
+				{field.options.map((option) => (
+					<NativeSelectOption key={option} value={option}>
+						{option}
+					</NativeSelectOption>
+				))}
+			</NativeSelect>
+		)
+	}
+	return (
+		<div className="settings-env-control">
+			<Input
+				id={field.key}
+				size="sm"
+				type={field.secret ? "password" : "text"}
+				value={value}
+				onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(event.target.value)}
+				placeholder={field.defaultValue}
+			/>
+			{field.secret && (
+				<span className="settings-env-secret" title="Stored in the OS keychain">
+					<LockIcon />
+				</span>
+			)}
+		</div>
+	)
 }
 
 function EnvironmentDisclosure({
@@ -66,23 +120,18 @@ function EnvironmentDisclosure({
 	return (
 		<Collapsible open={open} onOpenChange={onOpenChange} asChild>
 			<SettingsGroup className="settings-env-group">
-				<CollapsibleTrigger asChild>
-					<Button
-						size="sm"
-						variant="ghost"
-						aria-label={group.label}
-						className="settings-env-trigger"
-					>
-						<ChevronRight className="settings-env-chevron" />
-						<SettingsIconTile>
-							<GroupIcon />
-						</SettingsIconTile>
-						<span className="settings-env-copy">
-							<b>{group.label}</b>
-							<span>{group.description}</span>
-						</span>
-						<Badge variant="secondary">{fieldCount}</Badge>
-					</Button>
+				<CollapsibleTrigger className="settings-env-trigger">
+					<ChevronRight className="settings-env-chevron" />
+					<SettingsIconTile>
+						<GroupIcon />
+					</SettingsIconTile>
+					<span className="settings-env-copy">
+						<span className="settings-env-title">{group.label}</span>
+						<span className="settings-env-description">{group.description}</span>
+					</span>
+					<span className="settings-env-count">
+						{fieldCount} {fieldCount === 1 ? "field" : "fields"}
+					</span>
 				</CollapsibleTrigger>
 				<CollapsibleContent
 					forceMount
@@ -102,30 +151,15 @@ function EnvironmentDisclosure({
 										fieldId={`${ENVIRONMENT_FIELD_PREFIX}${field.key}`}
 										className="settings-env-field"
 										label={field.label}
-										description={<code>{field.key}</code>}
+										description={<code title={field.key}>{field.key}</code>}
 										htmlFor={field.key}
 										controlClassName="settings-env-control-column"
 									>
-										<div className="settings-env-control">
-											<Input
-												id={field.key}
-												size="sm"
-												type={field.secret ? "password" : "text"}
-												value={
-													field.secret ? (secrets[field.key] ?? "") : (values[field.key] ?? "")
-												}
-												onChange={(event: ChangeEvent<HTMLInputElement>) =>
-													void onFieldChange(field, event.target.value)
-												}
-												placeholder={field.defaultValue}
-											/>
-											{field.secret && (
-												<StatusBadge color="gray" dot={false} title="Stored in the OS keychain">
-													<LockIcon />
-													Secret
-												</StatusBadge>
-											)}
-										</div>
+										<EnvironmentControl
+											field={field}
+											value={field.secret ? (secrets[field.key] ?? "") : (values[field.key] ?? "")}
+											onChange={(value) => void onFieldChange(field, value)}
+										/>
 									</SettingsField>
 								))}
 							</div>

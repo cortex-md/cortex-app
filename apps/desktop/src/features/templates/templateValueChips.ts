@@ -1,5 +1,5 @@
+import { getTemplateValueLabel } from "@cortex/core/templates"
 import type { EditorExtensionFactory, EditorRuntimeView } from "@cortex/editor/types"
-import { getTemplateValueLabel } from "@cortex/templates"
 import { tagVariants } from "@cortex/ui"
 
 const tokenPattern = /\{\{\s*([^{}]+?)\s*\}\}/g

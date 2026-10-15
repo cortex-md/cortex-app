@@ -13,7 +13,7 @@ import {
 import { promisify } from "node:util"
 import { gunzip, gzip } from "node:zlib"
 import type { CryptoPrimitives } from "@cortex/platform"
-import { argon2id, hash } from "argon2"
+import { argon2idAsync } from "@noble/hashes/argon2"
 
 const gzipAsync = promisify(gzip)
 const gunzipAsync = promisify(gunzip)
@@ -72,18 +72,13 @@ export const nodeCrypto: CryptoPrimitives = {
 			publicKey: publicKeyObject(publicKey),
 		}),
 	sha256: (data) => createHash("sha256").update(data).digest(),
-	argon2id: async (password, { salt, memoryCost, timeCost, parallelism, hashLength }) =>
-		Buffer.from(
-			await hash(password, {
-				type: argon2id,
-				memoryCost,
-				timeCost,
-				parallelism,
-				hashLength,
-				salt: Buffer.from(salt),
-				raw: true,
-			}),
-		),
+	argon2id: (password, { salt, memoryCost, timeCost, parallelism, hashLength }) =>
+		argon2idAsync(password, salt, {
+			m: memoryCost,
+			t: timeCost,
+			p: parallelism,
+			dkLen: hashLength,
+		}),
 	gzip: (data) => gzipAsync(data),
 	gunzip: (data) => gunzipAsync(data),
 }

@@ -23,5 +23,5 @@ function isValidLucideIconName(value: string): value is LucideIconName {
 	return resolveLucideIconName(value) !== undefined
 }
 
-export { isValidLucideIconName, resolveLucideIconName }
 export type { LucideIconName }
+export { isValidLucideIconName, resolveLucideIconName }

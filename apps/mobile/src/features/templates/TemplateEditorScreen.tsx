@@ -11,7 +11,7 @@ import {
 	getTemplateValueGroups,
 	getTemplateValueLabel,
 	splitTemplateSegments,
-} from "@cortex/templates"
+} from "@cortex/core/templates"
 import { router, Stack, useLocalSearchParams } from "expo-router"
 import { useEffect, useMemo, useState } from "react"
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"

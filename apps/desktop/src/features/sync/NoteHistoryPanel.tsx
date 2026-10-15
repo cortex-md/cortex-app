@@ -4,13 +4,10 @@ import {
 	canWriteVaultPath,
 	captureCurrentNoteVersion,
 	historyVersionCopyName as copyName,
-	type HistoryDeviceFilter as DeviceFilter,
 	getParentPath,
 	type HistoryEntry,
 	type LocalVersion,
-	type LocalVersionReason,
 	listLocalVersions,
-	matchesHistoryDeviceFilter as matchesDeviceFilter,
 	readCurrentNoteContent,
 	readLocalVersion,
 	reportAppError,
@@ -23,6 +20,7 @@ import {
 	type WordChangeCount,
 } from "@cortex/core"
 import { getPlatform, type VersionInfo } from "@cortex/platform"
+import { hashBytes } from "@cortex/platform/hash"
 import { Button, Spinner, Tabs, TabsList, TabsTrigger } from "@cortex/ui"
 import { CopyIcon, ExternalLinkIcon, InfoIcon, MonitorIcon, RotateCcwIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -52,22 +50,10 @@ const TIME_FORMAT = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute
 const DATE_FORMAT = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" })
 const THIS_DEVICE = "This device"
 
-const DEVICE_FILTERS: readonly { value: DeviceFilter; label: string }[] = [
-	{ value: "all", label: "All" },
-	{ value: "device", label: THIS_DEVICE },
-	{ value: "others", label: "Others" },
-]
-
-const LOCAL_TITLES: Record<LocalVersionReason, string> = {
-	edit: "Autosaved version",
-	external: "Before external change",
-	restore: "Before restore",
-}
-
-function entryTitle(entry: HistoryEntry): string {
+function entryTitle(entry: HistoryEntry, actors: SyncActorNames): string {
 	if (entry.kind === "current") return "Current version"
-	if (entry.kind === "local") return LOCAL_TITLES[entry.local.reason]
-	return `Version ${entry.server.version}`
+	if (entry.kind === "local") return THIS_DEVICE
+	return authorName(entry.server, actors)
 }
 
 function entryTime(entry: HistoryEntry): string {
@@ -86,10 +72,7 @@ function deviceLabel(version: VersionInfo, actors: SyncActorNames): string | nul
 }
 
 function entryMeta(entry: HistoryEntry, actors: SyncActorNames): string {
-	const parts =
-		entry.kind === "server"
-			? [authorName(entry.server, actors), deviceLabel(entry.server, actors)]
-			: [THIS_DEVICE]
+	const parts = entry.kind === "server" ? [deviceLabel(entry.server, actors)] : []
 	if (entry.timestamp !== null) parts.push(formatDateTime(entry.timestamp))
 	return parts.filter(Boolean).join(" · ")
 }
@@ -111,27 +94,17 @@ interface VersionRowProps {
 	onSelect: () => void
 }
 
-function VersionWho({ entry, actors }: { entry: HistoryEntry; actors: SyncActorNames }) {
+function VersionAvatar({ entry, actors }: { entry: HistoryEntry; actors: SyncActorNames }) {
 	if (entry.kind !== "server") {
-		return (
-			<span className="version-who">
-				<MonitorIcon className="size-3.5 shrink-0" aria-hidden="true" />
-				{THIS_DEVICE}
-			</span>
-		)
+		return <MonitorIcon className="version-avatar size-3.5 shrink-0" aria-hidden="true" />
 	}
-	const author = authorName(entry.server, actors)
-	const device = deviceLabel(entry.server, actors)
 	return (
-		<span className="version-who">
-			<UserAvatar
-				size="sm"
-				name={author}
-				avatarUrl={entry.server.authorAvatarUrl}
-				className="version-avatar"
-			/>
-			{device ? `${author} · ${device}` : author}
-		</span>
+		<UserAvatar
+			size="sm"
+			name={authorName(entry.server, actors)}
+			avatarUrl={entry.server.authorAvatarUrl}
+			className="version-avatar"
+		/>
 	)
 }
 
@@ -152,10 +125,10 @@ function VersionRow({ entry, last, selected, delta, actors, onSelect }: VersionR
 			</span>
 			<span className="version-copy">
 				<span className="version-top">
-					<b>{entryTitle(entry)}</b>
+					{entry.kind !== "current" && <VersionAvatar entry={entry} actors={actors} />}
+					<b>{entryTitle(entry, actors)}</b>
 					<span>{entryTime(entry)}</span>
 				</span>
-				<VersionWho entry={entry} actors={actors} />
 				{delta && (
 					<span className="version-delta">
 						<span data-kind="add">+{delta.added}</span>
@@ -170,29 +143,14 @@ function VersionRow({ entry, last, selected, delta, actors, onSelect }: VersionR
 
 interface VersionRailProps {
 	entries: HistoryEntry[] | null
-	showDeviceFilter: boolean
 	selectedId: string | null
 	deltas: Record<string, WordChangeCount>
 	actors: SyncActorNames
 	onSelect: (id: string) => void
 }
 
-function VersionRail({
-	entries,
-	showDeviceFilter,
-	selectedId,
-	deltas,
-	actors,
-	onSelect,
-}: VersionRailProps) {
-	const [deviceFilter, setDeviceFilter] = useState<DeviceFilter>("all")
-	const visibleEntries = useMemo(
-		() =>
-			(entries ?? []).filter((entry) =>
-				matchesDeviceFilter(entry, deviceFilter, actors.currentDeviceId),
-			),
-		[entries, deviceFilter, actors.currentDeviceId],
-	)
+function VersionRail({ entries, selectedId, deltas, actors, onSelect }: VersionRailProps) {
+	const visibleEntries = entries ?? []
 	const days = useMemo(
 		() => groupByDay(visibleEntries, (entry) => entry.timestamp ?? Date.now()),
 		[visibleEntries],
@@ -202,32 +160,12 @@ function VersionRail({
 
 	return (
 		<aside className="history-rail" aria-label="Versions">
-			{showDeviceFilter && (
-				<div className="history-rail-top">
-					<Tabs
-						value={deviceFilter}
-						onValueChange={(value) => setDeviceFilter(value as DeviceFilter)}
-					>
-						<TabsList aria-label="Show" className="history-rail-tabs">
-							{DEVICE_FILTERS.map((filter) => (
-								<TabsTrigger key={filter.value} value={filter.value}>
-									{filter.label}
-								</TabsTrigger>
-							))}
-						</TabsList>
-					</Tabs>
-				</div>
-			)}
 			<div className="history-list">
 				{entries === null && <HistoryLoading />}
-				{entries !== null && (!hasVersions || visibleEntries.length === 0) && (
+				{entries !== null && !hasVersions && (
 					<HistoryEmpty
-						title={hasVersions ? "No versions here" : "No history yet"}
-						description={
-							hasVersions
-								? "Try another filter."
-								: "Earlier versions of this note will appear here as it changes."
-						}
+						title="No changes yet"
+						description="Earlier versions of this note will appear here when its text changes."
 					/>
 				)}
 				{hasVersions &&
@@ -337,7 +275,7 @@ function VersionPane({
 		<>
 			<div className="history-pane-head">
 				<div className="history-pane-title">
-					<b>{entryTitle(entry)}</b>
+					<b>{entryTitle(entry, actors)}</b>
 					<span>{entryMeta(entry, actors)}</span>
 				</div>
 				<Tabs value={mode} onValueChange={(value) => setMode(value as PaneMode)}>
@@ -387,21 +325,6 @@ function VersionPane({
 	)
 }
 
-function historySubtitle(relativePath: string, entries: HistoryEntry[] | null): string {
-	if (!entries) return relativePath
-	let local = 0
-	let server = 0
-	for (const entry of entries) {
-		if (entry.kind === "local") local++
-		else if (entry.kind === "server") server++
-	}
-	const counts = [
-		server > 0 ? `${server} kept by Cortex Sync` : null,
-		`${local} on this device`,
-	].filter(Boolean)
-	return `${relativePath} · ${counts.join(" · ")}`
-}
-
 function NoteHistoryContent({ filePath }: { filePath: string }) {
 	const vaultPath = useVaultStore((state) => state.vault?.path)
 	const linkedVaultId = useRemoteVaultStore((state) => state.linkedVaultId)
@@ -410,8 +333,21 @@ function NoteHistoryContent({ filePath }: { filePath: string }) {
 	const [serverVersions, setServerVersions] = useState<VersionInfo[] | null>(null)
 	const [error, setError] = useState<string | null>(null)
 	const [selectedId, setSelectedId] = useState<string | null>(null)
+	const [currentHash, setCurrentHash] = useState<string | null>(null)
 	const relativePath = vaultPath ? (toVaultRelativePath(filePath, vaultPath) ?? filePath) : filePath
 	const serverLinked = Boolean(vaultPath && linkedVaultId)
+
+	useEffect(() => {
+		let cancelled = false
+		readCurrentNoteContent(filePath)
+			.then((content) => {
+				if (!cancelled) setCurrentHash(hashBytes(content))
+			})
+			.catch(() => undefined)
+		return () => {
+			cancelled = true
+		}
+	}, [filePath])
 
 	useEffect(() => {
 		let cancelled = false
@@ -451,9 +387,9 @@ function NoteHistoryContent({ filePath }: { filePath: string }) {
 	const entries = useMemo(
 		() =>
 			localVersions && (!serverLinked || serverVersions)
-				? buildEntries(localVersions, serverVersions ?? [])
+				? buildEntries(localVersions, serverVersions ?? [], currentHash)
 				: null,
-		[localVersions, serverVersions, serverLinked],
+		[localVersions, serverVersions, serverLinked, currentHash],
 	)
 
 	const loadEntryContent = useCallback(
@@ -485,14 +421,13 @@ function NoteHistoryContent({ filePath }: { filePath: string }) {
 			<div className="history-body">
 				<VersionRail
 					entries={entries}
-					showDeviceFilter={serverLinked}
 					selectedId={activeId}
 					deltas={deltas}
 					actors={actors}
 					onSelect={setSelectedId}
 				/>
 				<div className="history-pane">
-					<HistoryHead title="Version history" subtitle={historySubtitle(relativePath, entries)} />
+					<HistoryHead title="Version history" subtitle={relativePath} />
 					{error && <HistoryError message={error} />}
 					{selected && (
 						<VersionPane

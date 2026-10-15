@@ -1,0 +1,299 @@
+.drawing-embed-card {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 12px;
+	min-height: 72px;
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--markdown-block-radius, 6px);
+	background: var(--bg-secondary);
+	padding: 12px;
+	color: var(--text-primary);
+}
+
+.drawing-embed-card.is-error {
+	border-color: var(--status-warning-border);
+	background: var(--status-warning-background);
+}
+
+.drawing-embed-icon,
+.mermaid-embed-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 6px;
+	background: var(--bg-primary);
+	color: var(--accent);
+}
+
+.drawing-embed-card.is-error .drawing-embed-icon {
+	color: var(--status-warning-foreground);
+}
+
+.drawing-embed-copy,
+.mermaid-embed-copy {
+	min-width: 0;
+}
+
+.drawing-embed-title,
+.mermaid-embed-title {
+	overflow: hidden;
+	font-size: 0.95em;
+	font-weight: 600;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.drawing-embed-meta,
+.mermaid-embed-meta {
+	margin-top: 2px;
+	overflow: hidden;
+	color: var(--text-muted);
+	font-size: 0.78em;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.drawing-embed-actions,
+.mermaid-embed-actions {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.drawing-embed-actions [data-slot="button"],
+.mermaid-embed-actions [data-slot="button"] {
+	gap: 6px;
+}
+
+.drawing-board-view,
+.mermaid-diagram-view {
+	flex: 1 1 auto;
+	display: flex;
+	min-height: 0;
+	background: var(--bg-primary);
+}
+
+.cm-codeblock-embed-preview.is-drawing-board {
+	height: clamp(420px, 54vh, 620px);
+	min-height: 420px;
+	padding: 8px 0;
+}
+
+.drawing-live-preview-board {
+	display: flex;
+	width: 100%;
+	height: 100%;
+	min-height: inherit;
+	overflow: hidden;
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--markdown-block-radius, 6px);
+	background: var(--bg-primary);
+}
+
+.drawing-board-shell {
+	flex: 1 1 auto;
+	width: 100%;
+	height: 100%;
+	min-height: 0;
+	background: var(--bg-primary);
+}
+
+.drawing-board-shell .excalidraw {
+	--color-primary: var(--accent);
+	--color-primary-darker: var(--accent-hover);
+	--color-primary-light: var(--accent-subtle);
+}
+
+.drawing-board-state {
+	flex: 1 1 auto;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	min-height: 220px;
+	gap: 10px;
+	padding: 24px;
+	color: var(--text-muted);
+	font-size: 13px;
+	text-align: center;
+}
+
+.mermaid-embed-card {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--markdown-block-radius, 6px);
+	background: var(--bg-secondary);
+	padding: 12px;
+	color: var(--text-primary);
+}
+
+.mermaid-embed-header {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 12px;
+	min-height: 32px;
+}
+
+.mermaid-diagram-surface {
+	display: flex;
+	align-items: stretch;
+	justify-content: center;
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 260px;
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--markdown-block-radius, 6px);
+	background: var(--bg-primary);
+	padding: 12px;
+	color: var(--text-primary);
+	font: inherit;
+	text-align: left;
+	overflow: auto;
+}
+
+button.mermaid-diagram-surface {
+	appearance: none;
+	cursor: zoom-in;
+}
+
+button.mermaid-diagram-surface:hover {
+	border-color: var(--border-strong);
+	background: var(--bg-tertiary);
+}
+
+button.mermaid-diagram-surface:focus-visible {
+	outline: 2px solid var(--border-focus);
+	outline-offset: 2px;
+}
+
+.mermaid-diagram-surface.is-live-preview {
+	height: 100%;
+	min-height: inherit;
+}
+
+.mermaid-diagram-svg {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	min-width: 0;
+	overflow: auto;
+}
+
+.mermaid-diagram-surface .mermaid-diagram-svg svg[role] {
+	display: block;
+	max-width: 100%;
+	height: auto;
+}
+
+.mermaid-diagram-surface .mermaid-diagram-svg svg[role] :is(text, tspan) {
+	fill: var(--text-primary);
+}
+
+.mermaid-diagram-state {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	width: 100%;
+	min-height: 160px;
+	padding: 18px;
+	color: var(--text-muted);
+	font-family: var(--font-ui);
+	font-size: 13px;
+	text-align: center;
+}
+
+.mermaid-diagram-state.is-error {
+	color: var(--status-warning-foreground);
+}
+
+.cm-codeblock-embed-preview.is-mermaid-diagram {
+	height: clamp(300px, 44vh, 520px);
+	min-height: 300px;
+	padding: 8px 0;
+}
+
+.mermaid-live-preview {
+	display: flex;
+	width: 100%;
+	height: 100%;
+	min-height: inherit;
+	overflow: hidden;
+}
+
+.mermaid-explorer {
+	flex: 1 1 auto;
+	display: flex;
+	min-width: 0;
+	min-height: 0;
+	flex-direction: column;
+	background: var(--bg-primary);
+	color: var(--text-primary);
+}
+
+.mermaid-explorer-toolbar {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 4px;
+	min-height: 44px;
+	border-bottom: 1px solid var(--border-subtle);
+	background: var(--bg-secondary);
+	padding: 6px 8px;
+}
+
+.mermaid-explorer-tool {
+	width: 32px;
+	min-width: 32px;
+	padding-inline: 0;
+}
+
+.mermaid-explorer-viewport {
+	position: relative;
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: hidden;
+	cursor: grab;
+	touch-action: none;
+}
+
+.mermaid-explorer-viewport[data-dragging="true"] {
+	cursor: grabbing;
+}
+
+.mermaid-explorer-content {
+	position: absolute;
+	inset: 0;
+}
+
+.mermaid-explorer .mermaid-explorer-content svg[role] {
+	display: block;
+	width: 100%;
+	height: 100%;
+	max-width: none;
+	overflow: visible;
+}
+
+.mermaid-explorer .mermaid-explorer-content svg[role] :is(text, tspan) {
+	fill: var(--text-primary);
+}
+
+.mermaid-diagram-view-state {
+	flex: 1 1 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 220px;
+	padding: 24px;
+	color: var(--text-muted);
+	font-size: 13px;
+	text-align: center;
+}

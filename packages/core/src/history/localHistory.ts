@@ -18,11 +18,10 @@ export interface LocalVersion {
 	timestamp: number
 	reason: LocalVersionReason
 	size: number
-}
-
-interface StoredVersion extends LocalVersion {
 	hash: string
 }
+
+type StoredVersion = LocalVersion
 
 interface HistoryIndexFile {
 	version: typeof INDEX_VERSION
@@ -50,6 +49,8 @@ const PRUNE_CONCURRENCY = 8
 const NOTE_ID_LENGTH = 24
 const CONTENT_HASH_LENGTH = 16
 const VERSION_FILE_PATTERN = /^(\d+)-(edit|external|restore)-([0-9a-f]+)\.txt$/
+
+export const HISTORY_CONTENT_HASH_LENGTH = CONTENT_HASH_LENGTH
 
 export const LOCAL_HISTORY_SIZE_CAP_BYTES = 200 * 1024 * 1024
 
@@ -90,8 +91,8 @@ function parseVersion(name: string, size: number | undefined): StoredVersion | n
 	}
 }
 
-function toLocalVersion({ id, timestamp, reason, size }: StoredVersion): LocalVersion {
-	return { id, timestamp, reason, size }
+function toLocalVersion({ id, timestamp, reason, size, hash }: StoredVersion): LocalVersion {
+	return { id, timestamp, reason, size, hash }
 }
 
 async function readIndex(root: string): Promise<Map<string, string>> {

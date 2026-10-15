@@ -4,15 +4,16 @@ import {
 	type OpenedPublicTemplate,
 	openNewDatabaseView,
 	openPublicTemplate,
+	TEMPLATE_LINK_ENTRY_PREFIX,
 	type TemplateDefinition,
 	useTemplateSharingStore,
 	useTemplateStore,
 	useUIStore,
 	useVaultStore,
 } from "@cortex/core"
+import { getTeamLabel, isTeamTemplate } from "@cortex/core/templates"
 import type { PublicTemplateInfo } from "@cortex/platform"
 import type { DatabasePreset } from "@cortex/properties/database"
-import { getTeamLabel, isTeamTemplate } from "@cortex/templates"
 import {
 	Button,
 	Empty,
@@ -41,7 +42,6 @@ import { FileTextIcon, LayoutTemplateIcon, Search, ShieldCheckIcon, Table2Icon }
 import { useEffect, useMemo, useState } from "react"
 import { TemplateNotePreview } from "../templates/TemplateNotePreview"
 import { openTemplatesView } from "../templates/templateActions"
-import { TEMPLATE_LINK_ENTRY_PREFIX } from "../templates/useTemplateDeepLink"
 import type { MarketplaceViewTab } from "./marketplaceWorkspaceView"
 import "../templates/templates.css"
 

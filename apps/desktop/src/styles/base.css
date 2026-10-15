@@ -1,0 +1,159 @@
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+	body {
+		--control-font-size: 14px;
+		--control-line-height: 18px;
+		--control-radius: 6px;
+		--control-pill-radius: 999px;
+		--control-height-sm: 28px;
+		--control-height-md: 32px;
+		--control-height-lg: 44px;
+		--input-height-md: 36px;
+		--button-height-xs: 28px;
+		--button-height-sm: 32px;
+		--button-height-md: 36px;
+		--button-height-lg: 44px;
+		--row-height: 36px;
+		--row-radius: 10px;
+		--surface-raised: var(--bg-elevated);
+		--surface-raised-hover: color-mix(in srgb, var(--surface-raised) 96%, var(--text-primary));
+		--hairline: color-mix(in srgb, var(--text-primary) 10%, transparent);
+		--fill-quiet: color-mix(in srgb, var(--text-primary) 5.5%, transparent);
+		--fill-quiet-strong: color-mix(in srgb, var(--text-primary) 9%, transparent);
+		--fill-selected: color-mix(in srgb, var(--text-primary) 7%, transparent);
+		--shadow-floating-pill:
+			0 0 0 1px rgba(28, 25, 23, 0.05), 0 2px 4px rgba(28, 25, 23, 0.05),
+			0 10px 24px -8px rgba(28, 25, 23, 0.18);
+		--shadow-primary: 0 1px 2px rgba(190, 18, 60, 0.18);
+		--sidebar-transition-duration: 180ms;
+		--sidebar-transition-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+		--popup-radius: 10px;
+		--popup-item-radius: 6px;
+		--dialog-radius: 14px;
+		--slash-menu-radius: 12px;
+		--titlebar-height: 48px;
+		--settings-group-radius: 12px;
+		--settings-row-height: 44px;
+		--settings-row-inset: 14px;
+		--settings-row-inset-icon: 52px;
+		--settings-row-icon: 28px;
+		--workspace-card-radius: 12px;
+		--workspace-card-shadow:
+			0 0 0 1px rgba(28, 25, 23, 0.05), 0 1px 2px rgba(28, 25, 23, 0.04),
+			0 10px 28px -14px rgba(28, 25, 23, 0.12);
+
+		--background: var(--bg-primary);
+		--foreground: var(--text-primary);
+		--card: var(--bg-elevated);
+		--card-foreground: var(--text-primary);
+		--popover: var(--menu-bg);
+		--popover-foreground: var(--text-primary);
+		--primary: var(--accent);
+		--primary-foreground: var(--text-on-accent);
+		--secondary: var(--bg-secondary);
+		--secondary-foreground: var(--text-primary);
+		--muted: var(--bg-tertiary);
+		--muted-foreground: var(--text-muted);
+		--destructive: var(--status-error);
+		--destructive-foreground: var(--status-error-on-solid);
+		--input: var(--input-border);
+		--ring: var(--border-focus);
+		--chart-1: var(--accent);
+		--chart-2: var(--status-success);
+		--chart-3: var(--accent-text);
+		--chart-4: var(--status-warning);
+		--chart-5: var(--status-error);
+		--sidebar: var(--sidebar-bg);
+		--sidebar-foreground: var(--text-primary);
+		--sidebar-primary: var(--accent);
+		--sidebar-primary-foreground: var(--text-on-accent);
+		--sidebar-accent: var(--accent-subtle);
+		--sidebar-accent-foreground: var(--accent-text);
+		--sidebar-ring: var(--border-focus);
+		@apply bg-background text-foreground;
+	}
+}
+
+@layer base {
+	body[data-theme-scheme="dark"] {
+		--shadow-floating-pill:
+			inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 10px 24px -8px rgba(0, 0, 0, 0.6);
+		--shadow-primary: 0 1px 2px rgba(0, 0, 0, 0.4);
+	}
+}
+
+body[data-theme-scheme="dark"] {
+	--workspace-card-shadow:
+		0 0 0 1px rgba(255, 255, 255, 0.05), 0 10px 28px -14px rgba(0, 0, 0, 0.6);
+}
+
+html,
+body,
+#root {
+	height: 100%;
+	overflow: hidden;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+body {
+	font-family: var(--font-ui, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+	font-size: var(--ui-font-size, 14px);
+	font-weight: var(--ui-font-weight, 500);
+	line-height: var(--ui-line-height, 17px);
+	background: transparent;
+	color: var(--text-primary);
+	user-select: none;
+	-webkit-user-select: none;
+	cursor: default;
+}
+
+button,
+[role="button"],
+[role="tab"],
+[role="treeitem"],
+.cursor-pointer {
+	cursor: default;
+}
+
+a[href] {
+	cursor: pointer;
+}
+
+input,
+textarea,
+[contenteditable="true"],
+.cm-editor,
+.cm-editor *,
+.reading-view,
+.reading-view * {
+	user-select: text;
+	-webkit-user-select: text;
+}
+
+::selection {
+	background: var(--editor-selection-bg, var(--bg-selected));
+	color: inherit;
+}
+
+input,
+textarea {
+	cursor: text;
+}
+
+input[type="range"],
+input[type="color"] {
+	cursor: default;
+}
+
+[data-slot="dialog-overlay"],
+[data-slot="alert-dialog-overlay"] {
+	background: color-mix(in srgb, var(--bg-tertiary) 45%, transparent);
+}
+
+body[data-theme-scheme="dark"]
+	:is([data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"]) {
+	background: rgba(0, 0, 0, 0.4);
+}

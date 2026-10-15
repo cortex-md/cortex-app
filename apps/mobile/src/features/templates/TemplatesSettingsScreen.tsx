@@ -1,5 +1,5 @@
 import { getErrorMessage, type TemplateVault, useTemplateStore } from "@cortex/core"
-import { isTeamTemplate } from "@cortex/templates"
+import { isTeamTemplate } from "@cortex/core/templates"
 import { useMemo, useState } from "react"
 
 import { FormRow, FormSection, NativeForm } from "@/components/ui/Form"

@@ -12,7 +12,7 @@ import {
 import { getPlatform } from "@cortex/platform"
 import { parseFrontmatter } from "@cortex/properties"
 import { useSettingsStore } from "@cortex/settings"
-import { getTemplateGroups, isTeamTemplate, renderTemplate } from "@cortex/templates"
+import { getTemplateGroups, isTeamTemplate, renderTemplate } from "@cortex/core/templates"
 import { useEffect, useMemo } from "react"
 
 import type { SymbolName } from "@/components/ui/Symbol"

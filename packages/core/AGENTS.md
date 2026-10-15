@@ -308,6 +308,9 @@ inline; the whole vault is pruned at most every 30 minutes, 30 s after a capture
 access, writes through `mutateNote` (which snapshots the current text first) and flushes;
 `captureCurrentNoteVersion` snapshots before a server restore. Unopened notes changed by the sync
 engine are not captured locally (the server keeps their history).
+`buildHistoryEntries` merges local and server versions into one timeline of real changes: consecutive
+entries with the same content hash (local `hash`, server `checksum` prefix) collapse into one,
+preferring the server entry, and the newest run equal to the current note text is dropped.
 
 ### Tasks and Reminders
 
@@ -789,7 +792,7 @@ uiStore (UI chrome)
   └─ no dependencies
 
 templateStore (vault-scoped templates)
-  ├─ uses @cortex/templates → safe placeholder rendering
+  ├─ uses ./templates → safe placeholder rendering
   ├─ uses getPlatform() → .cortex/templates manifest, body files and shares.json
   ├─ keeps team templates in memory (source "team", remoteBodies); writeManifest never persists them
   └─ creates notes through @cortex/properties defaults
@@ -1113,3 +1116,26 @@ recombine edits with the current cached frontmatter prefix before calling `noteC
   `Note#Heading.md`.
 - `createVaultFromFolder` accepts `createOnboardingNote: false`; desktop uses it for folders that are
   already Obsidian vaults.
+
+## Template Language (`@cortex/core/templates`)
+
+`@cortex/core/templates` owns the platform-neutral template language used by desktop and future
+React Native clients. Keep it free of React, DOM, Electron, Node-only APIs, and filesystem access.
+
+- Export pure functions and serializable types only.
+- Do not execute user JavaScript or add dynamic evaluation.
+- Keep template rendering deterministic from the provided `TemplateRenderContext`.
+- Manifest `bodyPath` values must normalize to safe relative paths under the templates directory.
+  Reject absolute paths, drive-letter paths, and `..` traversal before any platform filesystem code
+  joins paths.
+- Render unknown placeholders as empty values so unfinished templates stay usable, while keeping
+  explicit validation errors for unsupported filters and malformed expressions.
+- Add focused parser tests only for language features that can corrupt template output.
+- `formatTemplateDate(date, pattern)` is the single date formatter for template filters and daily
+  note file names; it supports `yyyy yy MM M dd d HH H mm m ss s ww w` only.
+- `getTemplateValueGroups` is the single catalog for "Insert value" menus and the `{{` autocomplete
+  (Dates / The new note / Vault with live examples); `getTemplateValueLabel` names chips.
+- `getFileNameParts`/`createFileNamePattern` convert between chip lists and `fileNamePattern`;
+  `getFileNameParts` returns `null` for patterns with literal text so the UI falls back to raw input.
+- `createTemplateBodyFromNote` keeps only headings; `createNoteTemplateBundle` /
+  `readNoteTemplateBundle` define the shared note template payload (`template.json` + `template.md`).

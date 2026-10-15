@@ -1,6 +1,6 @@
 import ReactDOM from "react-dom/client"
 import { initRenderer } from "./bootstrap/initRenderer"
-import "./styles.css"
+import "./styles/index.css"
 
 initRenderer()
 

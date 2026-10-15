@@ -12,7 +12,7 @@ let macosStylesRequested = false
 function loadPlatformStyles(platform: NativePlatform) {
 	if (platform !== "macos" || macosStylesRequested) return
 	macosStylesRequested = true
-	void import("../styles.macos.css")
+	void import("../styles/macos.css")
 }
 
 function applyNativeAppearance(snapshot: NativeAppearanceSnapshot) {

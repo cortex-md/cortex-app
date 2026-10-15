@@ -1,5 +1,5 @@
 import type { TemplateDefinition } from "@cortex/core"
-import { isTeamTemplate } from "@cortex/templates"
+import { isTeamTemplate } from "@cortex/core/templates"
 import { Stack, useLocalSearchParams } from "expo-router"
 import { useMemo, useState } from "react"
 

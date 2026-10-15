@@ -7,7 +7,7 @@ import {
 	parseCustomValueExpression,
 	renderTemplateExpression,
 	type TemplateRenderContext,
-} from "@cortex/templates"
+} from "@cortex/core/templates"
 import {
 	Button,
 	Collapsible,

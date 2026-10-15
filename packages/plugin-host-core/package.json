@@ -19,7 +19,6 @@
 		"zustand": "^5.0.0"
 	},
 	"devDependencies": {
-		"@types/css-tree": "^2.3.11",
-		"typescript": "~5.8.3"
+		"@types/css-tree": "^2.3.11"
 	}
 }

@@ -1,9 +1,17 @@
-import { resolveSyncServerUrl, useAuthStore, useRemoteVaultStore, useUIStore } from "@cortex/core"
+import {
+	CLOUD_SERVER_LABEL,
+	describeServerUrl,
+	resolveSyncServerUrl,
+	useAuthStore,
+	useRemoteVaultStore,
+	useUIStore,
+} from "@cortex/core"
 import {
 	Alert,
 	AlertDescription,
 	Button,
 	DialogContent,
+	DialogDescription,
 	DialogHeader,
 	DialogTitle,
 	Field,
@@ -171,7 +179,10 @@ function AuthModalContent({ initialView, recoveryKey, onRecoveryKey }: AuthModal
 	return (
 		<DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-[440px]">
 			<DialogHeader className="dialog-chrome-header">
-				<DialogTitle>{activeView}</DialogTitle>
+				<DialogTitle>{activeView === "login" ? "Sign in" : "Create account"}</DialogTitle>
+				<DialogDescription>
+					{syncConfig.selfHosted ? describeServerUrl(serverUrl) : CLOUD_SERVER_LABEL}
+				</DialogDescription>
 			</DialogHeader>
 
 			<Tabs value={activeView} onValueChange={handleViewChange}>

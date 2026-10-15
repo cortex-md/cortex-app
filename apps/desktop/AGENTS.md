@@ -54,7 +54,9 @@ Typecheck projects: `tsconfig.json` (renderer), `tsconfig.electron.json` (main/p
 - `services/{fs,vault,registry,watcher,device}.ts` keep all IO in main but call the pure rules from
   `@cortex/platform/{hash,vault,utils}` (entry shaping/sort, hidden paths, vault id and name from
   `.cortex/vault-metadata.json`, registry ops with `lastOpened` in milliseconds, device id). Main
-  bundles `@cortex/platform` (it is excluded from `externalizeDepsPlugin`).
+  bundles `@cortex/platform`. Only packages in `dependencies` stay external to main; keep that list
+  to what main loads at runtime (`adm-zip`, `electron-updater`, `font-list`, `write-file-atomic`) and
+  put renderer and workspace packages in `devDependencies` so electron-builder does not pack them.
 - Sync runs in a `utilityProcess` worker built from `packages/sync-engine/src/worker.ts`;
   `services/syncBridge.ts` owns it. `services/serverApi.ts` wires `@cortex/sync-api`
   `createServerApiServices` over the main-process keychain, so auth, devices, members,
@@ -78,7 +80,7 @@ Typecheck projects: `tsconfig.json` (renderer), `tsconfig.electron.json` (main/p
   capability (cached 5 min), and the VEK. `setFileSyncRole` stores roles per owner session in
   `syncBridge` (`setCollabRole`), re-sent on worker respawn and cleared on `sync.stop`. Channels
   and roles of a webContents are dropped when it reloads or is destroyed. Main bundles
-  `@cortex/collab` (excluded from `externalizeDepsPlugin`); the renderer dedupes `yjs` and
+  `@cortex/collab`; the renderer dedupes `yjs` and
   `@codemirror/state|view`.
 - macOS uses `trafficLightPosition` and `vibrancy: "sidebar"`, Windows uses Mica, both gated by
   `appearance.nativeWindowEffects` (applied on relaunch). Do not add CSS blur over native materials.
@@ -160,7 +162,7 @@ one sync worker per window. Window bounds are remembered per vault (`services/wi
   instance or the Radix fallback. Shortcuts render with `formatHotkeyDisplay`. Never write a
   separate native and Radix copy of a menu.
 - `file-explorer.*` commands reach the mounted tree through `setFileExplorerCommandHandler`.
-- `@cortex/hotkeys` stores bindings only; command `hotkey` metadata is mirrored by
+- `@cortex/commands/hotkeys` stores bindings only; command `hotkey` metadata is mirrored by
   `bootstrap/commandHotkeyBridge.ts`.
 
 ## Obsidian Import
@@ -329,7 +331,7 @@ republishes a shared note after this device pushes a new version. `cortex://s/{i
   `useNoteDocumentSession({ live })` never pushes full-body replacements into a bound editor.
 - `NoteHeader` shows live peers from the session (falling back to `membersStore.presence`) and the
   `note-header-live` badge with connecting, offline, full, unavailable, and view-only states.
-- Remote cursor, selection, and name label styling (`.cm-ySelection*`) lives in `src/styles.css`;
+- Remote cursor, selection, and name label styling (`.cm-ySelection*`) lives in `src/styles/statusbar.css`;
   colors come from awareness (`collabUserColor`).
 
 ## Databases

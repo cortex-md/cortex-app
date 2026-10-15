@@ -1,5 +1,4 @@
-.db-page,
-.db-dialog {
+.db-page {
 	--nxg-cell: color-mix(in srgb, var(--text-primary) 4.5%, transparent);
 	--nxg-sep: color-mix(in srgb, var(--text-primary) 9%, transparent);
 	--db-tone-1: var(--accent);

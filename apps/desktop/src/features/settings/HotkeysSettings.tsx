@@ -1,6 +1,6 @@
 import { commandRegistry } from "@cortex/commands"
+import { formatHotkeyDisplay, type HotkeyBinding, useHotkeysStore } from "@cortex/commands/hotkeys"
 import { useVaultStore } from "@cortex/core"
-import { formatHotkeyDisplay, type HotkeyBinding, useHotkeysStore } from "@cortex/hotkeys"
 import { Button, InputGroup, InputGroupAddon, InputGroupInput, Kbd } from "@cortex/ui"
 import { RotateCcwIcon, SearchIcon } from "lucide-react"
 import {

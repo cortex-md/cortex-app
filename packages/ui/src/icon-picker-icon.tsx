@@ -16,4 +16,4 @@ const IconRenderer = React.memo(({ name }: { name: IconName }) => {
 })
 IconRenderer.displayName = "IconRenderer"
 
-export { Icon, IconRenderer, type IconName }
+export { Icon, type IconName, IconRenderer }

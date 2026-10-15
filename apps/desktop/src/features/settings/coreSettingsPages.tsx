@@ -73,6 +73,8 @@ export function PluginsSettingsPage({ onOpenMarketplace }: CoreSettingsPageProps
 	return <PluginsSection onBrowseMarketplace={onOpenMarketplace} />
 }
 
-export { HotkeysSection as HotkeysSettingsPage }
-export { ImportExportSection as ImportExportSettingsPage }
-export { TemplatesSection as TemplatesSettingsPage }
+export {
+	HotkeysSection as HotkeysSettingsPage,
+	ImportExportSection as ImportExportSettingsPage,
+	TemplatesSection as TemplatesSettingsPage,
+}

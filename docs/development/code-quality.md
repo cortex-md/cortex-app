@@ -49,9 +49,14 @@ process. Narrow it with `--project` while iterating:
 ```bash
 bun run test -- --project desktop
 bun run test -- --project core
-bun run test -- --project @cortex/sync-engine
+bun run test -- --project sync-engine
 bun run test:watch -- --project editor
 ```
+
+Tests cover features where a regression loses data or breaks third-party code: sync (planner,
+merge, conflicts, crypto), external plugin and theme loading, vault and frontmatter persistence,
+import/export, sanitization, and settings migration. Do not add render tests for individual
+components or tests for trivial stores, getters, or CSS classes.
 
 ## React Doctor
 

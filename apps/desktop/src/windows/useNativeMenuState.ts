@@ -1,4 +1,5 @@
 import { commandRegistry } from "@cortex/commands"
+import { useHotkeysStore } from "@cortex/commands/hotkeys"
 import {
 	canReadVaultPath,
 	toVaultRelativePath,
@@ -8,7 +9,6 @@ import {
 	useUIStore,
 	useVaultStore,
 } from "@cortex/core"
-import { useHotkeysStore } from "@cortex/hotkeys"
 import { getPlatform, type NativeMenuState } from "@cortex/platform"
 import { useSettingsStore } from "@cortex/settings"
 import { useEffect } from "react"

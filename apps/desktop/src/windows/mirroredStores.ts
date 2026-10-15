@@ -1,3 +1,4 @@
+import { useHotkeysStore } from "@cortex/commands/hotkeys"
 import {
 	useAuthStore,
 	useEditorStore,
@@ -7,7 +8,6 @@ import {
 	useTemplateStore,
 	useVaultStore,
 } from "@cortex/core"
-import { useHotkeysStore } from "@cortex/hotkeys"
 import { usePluginStore } from "@cortex/plugin-host-core"
 import { type AppSettings, getSettingsManager, useSettingsStore } from "@cortex/settings"
 import { type MirroredStore, mirrorStore } from "./windowBridge"

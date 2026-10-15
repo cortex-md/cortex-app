@@ -511,7 +511,7 @@ stores, note sessions, and draws plugin UI from a mirror.
 - `features/templates/` owns New from template (`app/from-template/` stack: list + `preview`),
   Insert template (`app/insert-template.tsx`), the template editor (`template-editor`, Preview | Source
   in the toolbar, "New note settings" pushes `template-settings`) and Settings → Templates.
-- Data comes from `useTemplateStore` and `@cortex/templates`; `templatesAdapter.ts` reads the real team
+- Data comes from `useTemplateStore` and `@cortex/core/templates`; `templatesAdapter.ts` reads the real team
   and marketplace templates.
 - `features/importExport/` owns Import (`app/import/` stack: source, Obsidian, progress, review,
   preview, result) and Settings → Import & export; `features/share/` owns Share as template

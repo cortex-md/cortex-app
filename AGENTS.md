@@ -64,7 +64,7 @@ Inputs default to the comfortable 32px form size; inline rename and dense contro
 Use `CommandDialog`, `CommandInput`, `CommandList`, `CommandGroup`, `CommandItem`, and
 `CommandShortcut` from `@cortex/ui` for command palettes, quick finders, tag pickers, and similar
 keyboard-first modal search surfaces. These surfaces are styled through `[data-command-surface]`
-in `apps/desktop/src/styles.css`; keep selection states subtle and token-driven, preserve
+in `apps/desktop/src/styles/command-surfaces.css`; keep selection states subtle and token-driven, preserve
 `cursor: default`, use `cmdk` loop navigation for arrow keys, prefer item-level actions, and use
 `CommandFooter`, `CommandFooterHint`, and `CommandFooterKey` only for concise global keyboard hints
 such as navigation, open, create, and dismiss.
@@ -72,7 +72,7 @@ such as navigation, open, create, and dismiss.
 ### Commands, Hotkeys, and Vim
 All app and plugin commands must be registered through `@cortex/commands`. A command's palette
 entry, configurable hotkey, and Vim command-line name should be described in the same
-`CommandEntry`. Desktop bridges command hotkeys into `@cortex/hotkeys`; editor-scoped command
+`CommandEntry`. Desktop bridges command hotkeys into `@cortex/commands/hotkeys`; editor-scoped command
 hotkeys are reconfigured into CodeMirror; Vim mode reads the same registry only while Vim is
 enabled. Use `CommandExecutionContext.payload` for explicit menu/context targets. Do not add
 separate command lists for the palette, hotkeys, native menus, context menus, or Vim.
@@ -245,7 +245,9 @@ bun run dist              # Build + package release binaries
 - **src/features/** — Desktop feature modules, including file explorer, split view, settings, sync,
   and marketplace UI
 - **src/components/shared/** — Cross-feature desktop helpers only
-- **src/styles.css** — Design system CSS (primitives, layout, components)
+- **src/styles/** — Design system CSS: `index.css` imports `theme.css`, `base.css`, and one partial per
+  surface in cascade order; `macos.css` loads lazily on macOS. Add rules to the partial that owns the
+  surface instead of creating new global files
 - **electron/** — Electron main/preload (IPC handlers, native services, menus)
 
 
@@ -481,7 +483,7 @@ restore.
 1. Create in `packages/ui/src/MyComponent.tsx` as a primitive
 2. Export from `packages/ui/src/index.ts`
 3. Import in app: `import { MyComponent } from "@cortex/ui"`
-4. Style via CSS classes in `apps/desktop/src/styles.css`
+4. Style via CSS classes in the owning partial under `apps/desktop/src/styles/`
 
 ### Adding a New Store
 1. Create in `packages/core/src/stores/myStore.ts`

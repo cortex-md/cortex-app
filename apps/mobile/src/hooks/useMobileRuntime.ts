@@ -7,7 +7,7 @@ import {
 	startSyncLifecycle,
 	useVaultStore,
 } from "@cortex/core"
-import { useHotkeysStore } from "@cortex/hotkeys"
+import { useHotkeysStore } from "@cortex/commands/hotkeys"
 import { useEffect, useState } from "react"
 import { AppState } from "react-native"
 

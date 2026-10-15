@@ -44,5 +44,5 @@ function Chip({
 	)
 }
 
-export { Chip }
 export type { ChipProps }
+export { Chip }

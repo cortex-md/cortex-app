@@ -160,19 +160,20 @@ function EmailSection() {
 							onChange={(event) => setNewEmail(event.target.value)}
 						/>
 					</SettingsField>
-					<SettingsField htmlFor="account-email-password" label="Password">
-						<div className="flex w-full gap-2">
-							<Input
-								id="account-email-password"
-								type="password"
-								value={password}
-								onChange={(event) => setPassword(event.target.value)}
-							/>
-							<Button type="submit" disabled={!newEmail.trim() || !password}>
-								Change
-							</Button>
-						</div>
+					<SettingsField htmlFor="account-email-password" label="Confirm with password">
+						<Input
+							id="account-email-password"
+							type="password"
+							autoComplete="current-password"
+							value={password}
+							onChange={(event) => setPassword(event.target.value)}
+						/>
 					</SettingsField>
+					<div className="settings-form-actions">
+						<Button type="submit" size="sm" disabled={!newEmail.trim() || !password}>
+							Change email
+						</Button>
+					</div>
 				</form>
 			</SettingsGroup>
 		</SettingsSection>
@@ -211,20 +212,24 @@ function PasswordSection() {
 							onChange={(event) => setCurrentPassword(event.target.value)}
 						/>
 					</SettingsField>
-					<SettingsField htmlFor="account-new-password" label="New password">
-						<div className="flex w-full gap-2">
-							<Input
-								id="account-new-password"
-								type="password"
-								autoComplete="new-password"
-								value={newPassword}
-								onChange={(event) => setNewPassword(event.target.value)}
-							/>
-							<Button type="submit" disabled={!currentPassword || newPassword.length < 8}>
-								Change
-							</Button>
-						</div>
+					<SettingsField
+						htmlFor="account-new-password"
+						label="New password"
+						description="At least 8 characters."
+					>
+						<Input
+							id="account-new-password"
+							type="password"
+							autoComplete="new-password"
+							value={newPassword}
+							onChange={(event) => setNewPassword(event.target.value)}
+						/>
 					</SettingsField>
+					<div className="settings-form-actions">
+						<Button type="submit" size="sm" disabled={!currentPassword || newPassword.length < 8}>
+							Change password
+						</Button>
+					</div>
 				</form>
 			</SettingsGroup>
 		</SettingsSection>

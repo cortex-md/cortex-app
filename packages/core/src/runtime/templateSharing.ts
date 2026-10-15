@@ -7,11 +7,6 @@ import {
 	type TemplateShares,
 } from "@cortex/platform"
 import { type DatabasePreset, parseDatabasePreset } from "@cortex/properties/database"
-import {
-	createNoteTemplateBundle,
-	readNoteTemplateBundle,
-	type TemplateDefinition,
-} from "@cortex/templates"
 import { create } from "zustand"
 import { useAuthStore } from "../stores/authStore"
 import { useRemoteVaultStore } from "../stores/remoteVaultStore"
@@ -21,6 +16,11 @@ import {
 	type TemplateVault,
 	useTemplateStore,
 } from "../stores/templateStore"
+import {
+	createNoteTemplateBundle,
+	readNoteTemplateBundle,
+	type TemplateDefinition,
+} from "../templates"
 import { exportDatabasePreset } from "./databaseActions"
 
 const databasePresetPath = "database.json"

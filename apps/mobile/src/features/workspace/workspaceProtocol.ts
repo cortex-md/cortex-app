@@ -1,4 +1,4 @@
-import type { HotkeyOverrides } from "@cortex/hotkeys"
+import type { HotkeyOverrides } from "@cortex/commands/hotkeys"
 import type { Capabilities, Platform, WatchEvent, WatchOptions } from "@cortex/platform"
 import type { JsonValue, PluginHostMessage, PluginUiMessage } from "@cortex/plugin-host-core"
 import type {

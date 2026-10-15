@@ -13,14 +13,12 @@ import {
 	Button,
 	Command,
 	CommandEmpty,
-	CommandFooterHints,
 	CommandGroup,
 	CommandInput,
 	CommandItem,
 	CommandList,
 	CommandSeparator,
 	CommandShortcut,
-	cn,
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
@@ -43,11 +41,6 @@ import { DEVICE_LABEL } from "./deviceLabel"
 import { VaultTile } from "./VaultTile"
 import { openAddVault, openRecentVault } from "./vaultActions"
 
-const SWITCHER_HINTS = [
-	{ keys: ["↵"], label: "open" },
-	{ keys: ["⌘", "↵"], label: "new window" },
-] as const
-
 const STATUS_ICON: Record<VaultListItem["status"], ReactNode> = {
 	synced: <Cloud className="size-3.5 text-status-success-foreground" aria-hidden="true" />,
 	paused: <Pause className="size-3.5 text-text-secondary" aria-hidden="true" />,
@@ -56,8 +49,6 @@ const STATUS_ICON: Record<VaultListItem["status"], ReactNode> = {
 }
 
 const VAULT_STATUS_TITLE = getVaultStatusTitles(DEVICE_LABEL)
-
-const ROW_CLASS = "h-9 gap-2.5 rounded-[var(--popup-item-radius,6px)] px-2 text-[13px]"
 
 function vaultMenuItems(entry: VaultRegistryEntry): MenuItem[] {
 	return [
@@ -176,7 +167,7 @@ export function VaultSwitcher() {
 						<ChevronsUpDown size={14} className="shrink-0 text-text-muted" />
 					</Button>
 				</PopoverTrigger>
-				<PopoverContent align="start" className="w-[320px] p-1.5">
+				<PopoverContent align="start" className="vault-switcher-menu w-[300px] p-0">
 					<Command loop value={selected} onValueChange={setSelected} onKeyDown={handleKeyDown}>
 						<CommandInput placeholder="Switch vault…" aria-label="Find a vault" />
 						<CommandList>
@@ -207,7 +198,6 @@ export function VaultSwitcher() {
 												event.preventDefault()
 												showMenu(vaultMenuItems(item.entry), { x: event.clientX, y: event.clientY })
 											}}
-											className={ROW_CLASS}
 										>
 											<VaultTile name={item.entry.name} color={item.color} size="sm" />
 											<span className="min-w-0 flex-1 truncate">
@@ -241,7 +231,6 @@ export function VaultSwitcher() {
 												close()
 												openAddVault({ start: "download", remoteVaultId: remote.id })
 											}}
-											className={ROW_CLASS}
 										>
 											<VaultTile
 												name={remote.name}
@@ -256,20 +245,17 @@ export function VaultSwitcher() {
 								</CommandGroup>
 							) : null}
 						</CommandList>
-						<CommandFooterHints hints={SWITCHER_HINTS} className="min-h-0 px-2 pt-1.5 pb-0.5" />
-						<CommandSeparator className="mx-0 my-1" />
-						<CommandGroup className="p-0">
+						<CommandSeparator />
+						<CommandGroup>
 							<CommandItem
 								value="action:add"
 								onSelect={() => {
 									close()
 									openAddVault()
 								}}
-								className={ROW_CLASS}
 							>
 								<Plus className="size-[15px]" />
 								<span className="flex-1">Add a vault…</span>
-								<span className="text-xs text-muted-foreground">new · open · download</span>
 							</CommandItem>
 							<CommandItem
 								value="action:manage"
@@ -277,7 +263,6 @@ export function VaultSwitcher() {
 									close()
 									openSettings("vaults")
 								}}
-								className={cn(ROW_CLASS)}
 							>
 								<Settings className="size-[15px]" />
 								<span className="flex-1">Manage vaults…</span>

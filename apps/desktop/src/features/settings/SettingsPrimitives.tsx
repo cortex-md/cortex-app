@@ -163,7 +163,7 @@ export function SettingsField({
 			</FieldContent>
 			<div
 				className={cn(
-					"flex w-full min-w-0 justify-start @md/field-group:min-w-[180px] @md/field-group:max-w-[320px] @md/field-group:flex-1 @md/field-group:justify-end",
+					"flex w-full min-w-0 items-center justify-start @md/field-group:min-w-[180px] @md/field-group:max-w-[320px] @md/field-group:flex-1 @md/field-group:justify-end",
 					controlClassName,
 				)}
 			>

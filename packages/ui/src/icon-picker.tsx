@@ -171,4 +171,4 @@ function IconPicker({
 	)
 }
 
-export { IconPicker, Icon, type IconName }
+export { Icon, type IconName, IconPicker }
