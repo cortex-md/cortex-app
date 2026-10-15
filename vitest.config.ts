@@ -40,7 +40,7 @@ export default defineConfig({
 			project("renderer", "packages/renderer"),
 			project("search", "packages/search"),
 			project("settings", "packages/settings"),
-			project("sync-engine", "packages/sync-engine", { passWithNoTests: true }),
+			project("sync-engine", "packages/sync-engine"),
 			project("templates", "packages/templates"),
 			project("ui", "packages/ui"),
 		],
