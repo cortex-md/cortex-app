@@ -3,6 +3,8 @@ export interface SelfHostedEnvironmentField {
 	label: string
 	defaultValue: string
 	secret?: boolean
+	kind?: "boolean"
+	options?: readonly string[]
 }
 
 export interface SelfHostedEnvironmentSubsection {
@@ -33,6 +35,7 @@ export const SELF_HOSTED_ENVIRONMENT_GROUPS: SelfHostedEnvironmentGroup[] = [
 						key: "CORTEX_SERVER_TRUST_PROXY_HEADERS",
 						label: "Trust proxy headers",
 						defaultValue: "true",
+						kind: "boolean",
 					},
 				],
 			},
@@ -78,7 +81,7 @@ export const SELF_HOSTED_ENVIRONMENT_GROUPS: SelfHostedEnvironmentGroup[] = [
 	{
 		id: "storage",
 		label: "Storage",
-		description: "Local MinIO or remote S3-compatible snapshot storage.",
+		description: "Where encrypted snapshots are stored: local, Cloudflare R2 or any S3 service.",
 		sections: [
 			{
 				id: "storage",
@@ -88,6 +91,7 @@ export const SELF_HOSTED_ENVIRONMENT_GROUPS: SelfHostedEnvironmentGroup[] = [
 						key: "CORTEX_STORAGE_BACKEND",
 						label: "Backend",
 						defaultValue: "r2",
+						options: ["local", "r2", "s3"],
 					},
 					{
 						key: "CORTEX_STORAGE_ENDPOINT",
