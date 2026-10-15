@@ -1,0 +1,150 @@
+.sidebar-view-stage {
+	position: relative;
+	width: 100%;
+	height: 100%;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.sidebar-view-panel {
+	position: absolute;
+	inset: 0;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.sidebar-view-panel--current {
+	z-index: 2;
+}
+
+.sidebar-view-panel--previous {
+	z-index: 1;
+	pointer-events: none;
+}
+
+.sidebar-view-panel--current.sidebar-view-panel--animated[data-direction="forward"] {
+	animation: sidebar-view-enter-forward var(--macos-duration-base, 190ms)
+		var(--macos-ease, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
+}
+
+.sidebar-view-panel--previous[data-direction="forward"] {
+	animation: sidebar-view-exit-forward var(--macos-duration-base, 190ms)
+		var(--macos-ease, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
+}
+
+.sidebar-view-panel--current.sidebar-view-panel--animated[data-direction="backward"] {
+	animation: sidebar-view-enter-backward var(--macos-duration-base, 190ms)
+		var(--macos-ease, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
+}
+
+.sidebar-view-panel--previous[data-direction="backward"] {
+	animation: sidebar-view-exit-backward var(--macos-duration-base, 190ms)
+		var(--macos-ease, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
+}
+
+@keyframes sidebar-view-enter-forward {
+	from {
+		opacity: 0.28;
+		transform: translate3d(18px, 0, 0);
+	}
+
+	to {
+		opacity: 1;
+		transform: translate3d(0, 0, 0);
+	}
+}
+
+@keyframes sidebar-view-exit-forward {
+	from {
+		opacity: 1;
+		transform: translate3d(0, 0, 0);
+	}
+
+	to {
+		opacity: 0;
+		transform: translate3d(-14px, 0, 0);
+	}
+}
+
+@keyframes sidebar-view-enter-backward {
+	from {
+		opacity: 0.28;
+		transform: translate3d(-18px, 0, 0);
+	}
+
+	to {
+		opacity: 1;
+		transform: translate3d(0, 0, 0);
+	}
+}
+
+@keyframes sidebar-view-exit-backward {
+	from {
+		opacity: 1;
+		transform: translate3d(0, 0, 0);
+	}
+
+	to {
+		opacity: 0;
+		transform: translate3d(14px, 0, 0);
+	}
+}
+
+body[data-platform="windows"] .app-shell,
+body[data-platform="linux"] .app-shell {
+	--app-collapsed-tabbar-start-padding: 46px;
+	position: relative;
+	background: var(--sidebar-bg);
+}
+
+body[data-platform="windows"] .app-titlebar,
+body[data-platform="linux"] .app-titlebar,
+body[data-platform="macos"] .app-titlebar {
+	position: absolute;
+	top: 0;
+	right: 0;
+	left: 0;
+	z-index: 70;
+	height: var(--titlebar-height, 48px);
+	background: transparent;
+	pointer-events: none;
+}
+
+body[data-platform="windows"] .app-sidebar-toggle,
+body[data-platform="linux"] .app-sidebar-toggle,
+body[data-platform="macos"] .app-sidebar-toggle {
+	position: absolute;
+	top: 7px;
+	left: calc(var(--app-sidebar-width, 292px) - 40px);
+	z-index: 2;
+	pointer-events: auto;
+}
+
+body[data-platform="windows"] .app-sidebar-toggle--collapsed,
+body[data-platform="linux"] .app-sidebar-toggle--collapsed {
+	left: calc(var(--app-sidebar-width, 56px) + 6px);
+}
+
+body[data-platform="windows"] .app-content,
+body[data-platform="linux"] .app-content {
+	min-height: 0;
+}
+
+body[data-platform="windows"] .app-sidebar,
+body[data-platform="linux"] .app-sidebar {
+	padding-top: var(--titlebar-height, 48px);
+	border-radius: 0;
+	background: transparent;
+	transition:
+		width var(--sidebar-transition-duration) var(--sidebar-transition-ease),
+		min-width var(--sidebar-transition-duration) var(--sidebar-transition-ease),
+		max-width var(--sidebar-transition-duration) var(--sidebar-transition-ease);
+}
+
+body[data-platform="windows"] .app-sidebar-resizer--hidden,
+body[data-platform="linux"] .app-sidebar-resizer--hidden {
+	width: 0;
+	opacity: 0;
+	pointer-events: none;
+}

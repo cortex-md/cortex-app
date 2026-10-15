@@ -1,0 +1,119 @@
+@source "../../../../packages/ui/src";
+@source "../../../../packages/editor/src";
+
+@custom-variant dark (&:where([data-theme-scheme="dark"], [data-theme-scheme="dark"] *));
+
+@theme inline {
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent-subtle);
+	--color-accent-foreground: var(--accent-text);
+	--color-destructive: var(--destructive);
+	--color-destructive-foreground: var(--destructive-foreground);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-chart-1: var(--chart-1);
+	--color-chart-2: var(--chart-2);
+	--color-chart-3: var(--chart-3);
+	--color-chart-4: var(--chart-4);
+	--color-chart-5: var(--chart-5);
+
+	--color-sidebar: var(--sidebar);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-accent: var(--accent-subtle);
+	--color-sidebar-accent-foreground: var(--accent-text);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-ring: var(--sidebar-ring);
+
+	--color-bg-primary: var(--bg-primary);
+	--color-bg-secondary: var(--bg-secondary);
+	--color-bg-tertiary: var(--bg-tertiary);
+	--color-bg-elevated: var(--bg-elevated);
+	--color-bg-hover: var(--bg-hover);
+	--color-bg-active: var(--bg-active);
+	--color-bg-code: var(--bg-code);
+	--color-bg-tag: var(--bg-tag);
+
+	--color-text-primary: var(--text-primary);
+	--color-text-secondary: var(--text-secondary);
+	--color-text-muted: var(--text-muted);
+	--color-text-disabled: var(--text-disabled);
+	--color-text-placeholder: var(--text-placeholder);
+	--color-text-on-accent: var(--text-on-accent);
+	--color-status-error: var(--status-error);
+	--color-status-error-background: var(--error-bg);
+	--color-status-error-foreground: var(--status-error-foreground);
+	--color-status-error-border: var(--status-error-border);
+	--color-status-error-on-solid: var(--status-error-on-solid);
+	--color-status-success: var(--status-success);
+	--color-status-success-background: var(--success-bg);
+	--color-status-success-foreground: var(--status-success-foreground);
+	--color-status-success-border: var(--status-success-border);
+	--color-status-success-on-solid: var(--status-success-on-solid);
+	--color-status-warning: var(--status-warning);
+	--color-status-warning-background: var(--warning-bg);
+	--color-status-warning-foreground: var(--status-warning-foreground);
+	--color-status-warning-border: var(--status-warning-border);
+	--color-status-warning-on-solid: var(--status-warning-on-solid);
+	--color-settings-group: var(--settings-group-bg);
+	--color-settings-group-border: var(--settings-group-border);
+	--color-settings-group-divider: var(--settings-group-divider);
+
+	--color-brand: var(--accent);
+	--color-brand-hover: var(--accent-hover);
+	--color-brand-subtle: var(--accent-subtle);
+	--color-brand-border: var(--accent-border);
+	--color-brand-text: var(--accent-text);
+
+	--color-border-subtle: var(--border-subtle);
+	--color-border-strong: var(--border-strong);
+	--color-border-focus: var(--border-focus);
+
+	--color-input-bg: var(--input-bg);
+	--color-input-border: var(--input-border);
+	--color-tab-bg: var(--tab-bg);
+	--color-menu-bg: var(--menu-bg);
+	--color-menu-border: var(--menu-border);
+	--color-menu-hover: var(--menu-hover);
+	--color-modal-bg: var(--modal-bg);
+	--color-modal-border: var(--modal-border);
+	--color-statusbar-bg: var(--statusbar-bg);
+	--color-statusbar-border: var(--statusbar-border);
+	--color-scrollbar-thumb: var(--scrollbar-thumb);
+	--color-scrollbar-hover: var(--scrollbar-hover);
+
+	--font-family-ui: var(--font-ui);
+	--font-family-editor: var(--font-editor);
+	--font-family-mono: var(--font-mono);
+
+	--shadow-menu: var(--menu-shadow);
+	--shadow-modal: var(--modal-shadow);
+	--shadow-floating: var(--shadow-floating);
+	--shadow-overlay: var(--shadow-overlay);
+
+	--color-tag-bg: var(--tag-bg);
+	--color-tag-active-bg: var(--tag-active-bg);
+	--color-tag-text: var(--tag-text);
+	--color-tag-active-text: var(--tag-active-text);
+
+	--radius-sm: calc(var(--radius) * 0.6);
+	--radius-md: calc(var(--radius) * 0.8);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) * 1.4);
+	--radius-2xl: calc(var(--radius) * 1.8);
+	--radius-3xl: calc(var(--radius) * 2.2);
+	--radius-4xl: calc(var(--radius) * 2.6);
+}

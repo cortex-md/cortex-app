@@ -425,7 +425,7 @@ body[data-platform="macos"] :where(.template-picker, .template-new-dialog) {
 	-webkit-backdrop-filter: none;
 }
 
-body[data-platform="macos"] :where(.dialog-chrome-header, .dialog-chrome-toolbar) {
+body[data-platform="macos"] :where(.dialog-chrome-header) {
 	border-bottom-color: var(--macos-hairline);
 	background: color-mix(in srgb, var(--macos-modal-bg) 92%, transparent);
 }

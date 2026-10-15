@@ -329,7 +329,7 @@ republishes a shared note after this device pushes a new version. `cortex://s/{i
   `useNoteDocumentSession({ live })` never pushes full-body replacements into a bound editor.
 - `NoteHeader` shows live peers from the session (falling back to `membersStore.presence`) and the
   `note-header-live` badge with connecting, offline, full, unavailable, and view-only states.
-- Remote cursor, selection, and name label styling (`.cm-ySelection*`) lives in `src/styles.css`;
+- Remote cursor, selection, and name label styling (`.cm-ySelection*`) lives in `src/styles/statusbar.css`;
   colors come from awareness (`collabUserColor`).
 
 ## Databases

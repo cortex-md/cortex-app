@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with UI
 - Apply CSS class names (never inline styles)
 - Have no business logic, no state, no store dependencies
 - Extend native HTML element attributes for full DOM access
-- Are consistently styled via the design system in `apps/desktop/src/styles.css`
+- Are consistently styled via the design system in `apps/desktop/src/styles/`
 
 ## Component Contract
 
@@ -165,7 +165,7 @@ Components apply **CSS class names**, never inline `style` props:
 <button style={{ backgroundColor: color, padding: `${padding}px` }}>
 ```
 
-All styling is defined in `apps/desktop/src/styles.css` via:
+All styling is defined in `apps/desktop/src/styles/` via:
 - `:root` variables (primitives: colors, spacing, shadows)
 - `.btn` base class
 - `.btn-primary`, `.btn-secondary`, etc. (variants)
@@ -309,7 +309,7 @@ Before creating or modifying a component, ensure:
 2. **Define props interface**: Extend HTML attributes
 3. **Implement component**: Apply CSS classes, spread props, no state
 4. **Export from index**: Add to `packages/ui/src/index.ts`
-5. **Add CSS**: Define styles in `apps/desktop/src/styles.css`
+5. **Add CSS**: Define styles in `apps/desktop/src/styles/`
 6. **Test in app**: Import and use in `apps/desktop/src/features/**`, `components/shared/**`, or
    `App.tsx`
 
@@ -350,7 +350,7 @@ Then add to `index.ts`:
 export { Badge } from "./Badge"
 ```
 
-And style in `apps/desktop/src/styles.css`:
+And style in `apps/desktop/src/styles/`:
 ```css
 .badge {
   display: inline-block;
@@ -366,7 +366,7 @@ And style in `apps/desktop/src/styles.css`:
 
 ## Design System CSS Variables
 
-All styling uses CSS variables from `apps/desktop/src/styles.css`:
+All styling uses CSS variables from `apps/desktop/src/styles/`:
 
 ```css
 :root {

@@ -1,0 +1,187 @@
+/* ── StatusBar ───────────────────────────────────────────────────────── */
+
+.app-statusbar {
+	display: flex;
+	align-items: center;
+	height: 36px;
+	min-height: 36px;
+	flex-shrink: 0;
+	background: transparent;
+	border-top: 0;
+	padding: 0 14px;
+	gap: 2px;
+	font-size: 12px;
+	line-height: 16px;
+	color: var(--text-muted);
+	user-select: none;
+}
+
+.statusbar-left {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+}
+
+.statusbar-sep {
+	flex: 1;
+}
+
+.statusbar-right {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.statusbar-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	height: 26px;
+	padding: 0 10px;
+	border-radius: var(--control-pill-radius);
+	font-size: 12px;
+	white-space: nowrap;
+	color: var(--text-muted);
+}
+
+.statusbar-btn[data-slot="button"] {
+	height: 26px;
+	padding: 0 10px;
+	border: 0;
+	border-radius: var(--control-pill-radius);
+	background: transparent;
+	color: var(--text-muted);
+	font-size: 12px;
+	font-weight: 400;
+	line-height: 16px;
+}
+
+.statusbar-btn[data-slot="button"]:hover {
+	background: var(--fill-quiet);
+	color: var(--text-primary);
+}
+
+.user-avatar[data-slot="avatar"] [data-slot="avatar-fallback"] {
+	background: var(--accent-subtle);
+	color: var(--accent-text);
+	font-weight: 600;
+}
+
+.user-avatar[data-slot="avatar"] [data-slot="avatar-image"] {
+	object-fit: cover;
+}
+
+.user-facepile {
+	align-items: center;
+}
+
+.user-facepile [data-slot="avatar"][data-size="sm"],
+.user-facepile [data-slot="avatar-group-count"] {
+	width: 20px;
+	height: 20px;
+	font-size: 9px;
+}
+
+.user-facepile [data-slot="avatar-fallback"] {
+	font-size: 8.5px;
+}
+
+.account-avatar[data-slot="avatar"] [data-slot="avatar-fallback"] {
+	font-size: 14px;
+}
+
+.note-unavailable {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding: 32px;
+	background: var(--bg-primary);
+	color: var(--text-secondary);
+	text-align: center;
+}
+
+.note-unavailable-icon {
+	width: 22px;
+	height: 22px;
+	margin-bottom: 4px;
+	color: var(--text-muted);
+}
+
+.note-unavailable-title {
+	margin: 0;
+	color: var(--text-primary);
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.note-unavailable-description {
+	max-width: 420px;
+	margin: 0;
+	font-size: 12.5px;
+	line-height: 18px;
+}
+
+.note-header-read-only {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	height: 22px;
+	padding: 0 8px;
+	border-radius: var(--control-pill-radius);
+	background: var(--settings-group-divider);
+	color: var(--text-secondary);
+	font-family: var(--font-ui);
+	font-size: 11px;
+	font-weight: 500;
+	line-height: 16px;
+	white-space: nowrap;
+}
+
+.note-header-presence {
+	margin-right: 4px;
+}
+
+.editor-view .cm-content .cm-ySelection {
+	border-radius: 2px;
+}
+
+.editor-view .cm-content .cm-yLineSelection {
+	margin: 0;
+	padding: 0 var(--markdown-content-gutter, 40px);
+}
+
+.editor-view .cm-content .cm-ySelectionCaret {
+	position: relative;
+	z-index: 3;
+	margin-inline: -1px;
+	border-left-width: 2px;
+	border-right-width: 0;
+}
+
+.editor-view .cm-content .cm-ySelectionCaretDot {
+	display: none;
+}
+
+.editor-view .cm-content .cm-ySelectionInfo {
+	top: auto;
+	bottom: calc(100% - 1px);
+	left: -2px;
+	padding: 1px 5px;
+	border-radius: 4px 4px 4px 0;
+	color: #fff;
+	font-family: var(--font-ui);
+	font-size: 11px;
+	font-weight: 500;
+	line-height: 14px;
+	opacity: 1;
+	pointer-events: none;
+	transition: none;
+}
+
+.note-properties-content[data-read-only="true"] .note-property-row {
+	pointer-events: none;
+}
