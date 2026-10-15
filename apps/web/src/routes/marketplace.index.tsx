@@ -1,31 +1,26 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 import { z } from "zod"
-import { siteConfig } from "../config/site"
-import { MarketplacePage } from "../features/marketplace/MarketplacePage"
-import { createSeoHead } from "../seo/metadata"
+import { marketplacePage } from "../content/product"
+import { MarketplaceProductPage } from "../features/product/marketplace/MarketplaceProductPage"
+import { createProductHead } from "../features/product/productHead"
 
-const searchSchema = z.object({
-	tab: z.enum(["plugins", "themes"]).catch("plugins"),
-	sort: z.enum(["popular", "downloads", "name"]).catch("popular"),
+const legacySearchSchema = z.object({
+	tab: z.enum(["plugins", "themes"]).optional().catch(undefined),
 })
 
 export const Route = createFileRoute("/marketplace/")({
-	validateSearch: (search) => searchSchema.parse(search),
-	loader: async () => {
-		const { getMarketplaceCatalog } = await import("../server/marketplace")
-		return { catalog: await getMarketplaceCatalog() }
+	validateSearch: (search) => legacySearchSchema.parse(search),
+	beforeLoad: ({ search }) => {
+		if (search.tab) {
+			throw redirect({ href: `/marketplace/browse?kind=${search.tab}`, statusCode: 301 })
+		}
 	},
 	head: () =>
-		createSeoHead({
-			title: `Marketplace — ${siteConfig.name}`,
-			description: "Community plugins and themes for Cortex, ranked by votes and downloads.",
-			path: "/marketplace",
+		createProductHead({
+			seo: marketplacePage.seo,
+			name: "Cortex Marketplace",
+			featureList: ["Plugins", "Themes"],
+			isService: true,
 		}),
-	component: MarketplaceRoute,
+	component: MarketplaceProductPage,
 })
-
-function MarketplaceRoute() {
-	const { catalog } = Route.useLoaderData()
-	const { tab, sort } = Route.useSearch()
-	return <MarketplacePage catalog={catalog} sort={sort} tab={tab} />
-}

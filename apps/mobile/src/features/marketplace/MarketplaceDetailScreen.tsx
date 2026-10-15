@@ -1,5 +1,6 @@
 import { getErrorMessage, useVaultStore } from "@cortex/core"
 import {
+	BLOCKLIST_UNAVAILABLE_MESSAGE,
 	findThemeFamily,
 	formatCount,
 	formatManifestValue,
@@ -78,7 +79,9 @@ function useCommunityData() {
 	const stats = useMarketplaceStore((state) => state.stats)
 	const verified = useMarketplaceStore((state) => state.verified)
 	const blocked = useMarketplaceStore((state) => state.blocked)
-	return { stats, verified, blocked }
+	const blocklistAvailable = useMarketplaceStore((state) => state.blocklistAvailable)
+	const statsLoaded = useMarketplaceStore((state) => state.statsLoaded)
+	return { stats, verified, blocked, blocklistAvailable, statsLoaded }
 }
 
 function ReviewSection({
@@ -90,6 +93,13 @@ function ReviewSection({
 }) {
 	const label = kind === "plugins" ? "plugin" : "theme"
 	const audit = entryState.stats?.audit
+	if (entryState.blocklistUnavailable) {
+		return (
+			<FormSection footer={BLOCKLIST_UNAVAILABLE_MESSAGE} title="Review">
+				<FormRow disabled title="Installs and updates are paused" />
+			</FormSection>
+		)
+	}
 	if (entryState.blockState === "item") {
 		return (
 			<FormSection footer={entryState.blockReason ?? undefined} title="Review">
@@ -276,7 +286,11 @@ function PluginDetail({ id }: { id: string }) {
 						title="Source"
 						value="GitHub"
 					/>
-					<FormRow chevron onPress={() => openMarketplaceReadme(entry.id)} title="README" />
+					<FormRow
+						chevron
+						onPress={() => openMarketplaceReadme(entry.id)}
+						title={entry.screenshots?.length ? "README and screenshots" : "README"}
+					/>
 				</FormSection>
 				<FormSection footer="Permissions apply to this vault only." title="Permissions">
 					{capabilities.length > 0 ? (
@@ -427,7 +441,11 @@ function ThemeDetail({ id }: { id: string }) {
 						title="Source"
 						value="GitHub"
 					/>
-					<FormRow chevron onPress={() => openMarketplaceReadme(entry.id)} title="README" />
+					<FormRow
+						chevron
+						onPress={() => openMarketplaceReadme(entry.id)}
+						title={entry.screenshots?.length ? "README and screenshots" : "README"}
+					/>
 				</FormSection>
 				{familyName ? (
 					<FormSection>

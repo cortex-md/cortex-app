@@ -40,6 +40,7 @@ import {
 	TabsTrigger,
 } from "@cortex/ui"
 import {
+	ArrowBigUp,
 	BadgeCheck,
 	CheckIcon,
 	ChevronDown,
@@ -49,7 +50,6 @@ import {
 	PackageSearch,
 	RefreshCw,
 	Search,
-	ThumbsUp,
 	TriangleAlert,
 } from "lucide-react"
 import {
@@ -186,7 +186,7 @@ function MarketplaceCatalogRow({
 					{stats && (stats.votes !== undefined || stats.downloads !== undefined) && (
 						<span className="marketplace-catalog-stats">
 							<span title="Votes on GitHub">
-								<ThumbsUp aria-hidden="true" />
+								<ArrowBigUp aria-hidden="true" />
 								{formatCount(stats.votes)}
 							</span>
 							<span title="Downloads">

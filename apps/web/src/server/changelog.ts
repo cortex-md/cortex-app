@@ -1,4 +1,3 @@
-import { createServerFn } from "@tanstack/react-start"
 import type { Nodes } from "hast"
 import { fromHtml } from "hast-util-from-html"
 import { toHtml } from "hast-util-to-html"
@@ -10,11 +9,12 @@ import { type Plugin, unified } from "unified"
 import { visit } from "unist-util-visit"
 import { z } from "zod"
 import { highlightDocsCode } from "../lib/highlight"
+import { withCache } from "./cache"
+import { githubApiHeaders, githubFetch, githubRepo } from "./github"
 
-const GITHUB_RELEASES_URL = "https://api.github.com/repos/cortex-md/cortex-app/releases?per_page=20"
-const GITHUB_API_VERSION = "2022-11-28"
+const GITHUB_RELEASES_URL = `https://api.github.com/repos/${githubRepo}/releases?per_page=20`
 const GITHUB_USER_AGENT = "Cortex website changelog"
-const CACHE_TTL_MS = 5 * 60 * 1000
+export const CHANGELOG_CACHE_SECONDS = 300
 
 type HastNode = {
 	type: string
@@ -37,11 +37,39 @@ const githubReleaseSchema = z.object({
 	published_at: z.string().nullable().optional(),
 	prerelease: z.boolean().optional(),
 	draft: z.boolean().optional(),
+	assets: z
+		.array(
+			z.object({
+				name: z.string(),
+				browser_download_url: z.string().url(),
+			}),
+		)
+		.optional(),
 })
 
 const githubReleasesSchema = z.array(githubReleaseSchema)
 
 export type GithubRelease = z.infer<typeof githubReleaseSchema>
+
+export type ReleaseNoteGroupKind = "new" | "fixed"
+
+export interface ReleaseNoteGroup {
+	kind: ReleaseNoteGroupKind
+	items: string[]
+}
+
+export interface ReleaseNotes {
+	intro: string[]
+	groups: ReleaseNoteGroup[]
+}
+
+export type ReleaseDownloadPlatform = "macos" | "windows" | "debian" | "linux"
+
+export interface ReleaseDownload {
+	platform: ReleaseDownloadPlatform
+	fileName: string
+	url: string
+}
 
 export interface ChangelogRelease {
 	tagName: string
@@ -52,6 +80,8 @@ export interface ChangelogRelease {
 	formattedDate: string
 	bodyMarkdown: string
 	bodyHtml: string
+	notes?: ReleaseNotes
+	downloads?: ReleaseDownload[]
 }
 
 export interface ChangelogResult {
@@ -60,13 +90,6 @@ export interface ChangelogResult {
 	message: string
 	isStale?: boolean
 }
-
-interface CachedChangelog {
-	expiresAt: number
-	result: ChangelogResult
-}
-
-let cachedChangelog: CachedChangelog | undefined
 
 function isStablePublicRelease(release: GithubRelease) {
 	return !release.draft && !release.prerelease
@@ -264,6 +287,112 @@ export async function renderReleaseMarkdown(markdown: string) {
 	return toHtml(hast as Nodes)
 }
 
+type MarkdownNode = {
+	type: string
+	value?: string
+	depth?: number
+	children?: MarkdownNode[]
+}
+
+const newGroupLabels = /^(new|what'?s new|added|features?|highlights)$/iu
+const fixedGroupLabels = /^(fixed|fixes|bug ?fixes)$/iu
+const downloadLabels = /^downloads?$/iu
+
+function markdownText(node: MarkdownNode): string {
+	if (typeof node.value === "string") return node.value
+	return (node.children ?? []).map(markdownText).join("")
+}
+
+function normalizeNoteText(value: string) {
+	return value.replace(/\s+/gu, " ").trim()
+}
+
+function getMarkerLabel(value: string) {
+	return normalizeNoteText(value)
+		.replace(/[:：]$/u, "")
+		.trim()
+}
+
+function listItems(node: MarkdownNode) {
+	return (node.children ?? [])
+		.filter((child) => child.type === "listItem")
+		.map((child) => normalizeNoteText(markdownText(child)))
+		.filter(Boolean)
+}
+
+export function parseReleaseNotes(markdown: string, title = ""): ReleaseNotes {
+	const tree = unified().use(remarkParse).use(remarkGfm).parse(markdown) as MarkdownNode
+	const intro: string[] = []
+	const groups: ReleaseNoteGroup[] = []
+	let currentKind: ReleaseNoteGroupKind | null = null
+	let skipDepth: number | null = null
+	const comparableTitle = normalizeComparableTitle(title)
+
+	function addItems(kind: ReleaseNoteGroupKind, items: string[]) {
+		if (items.length === 0) return
+		const existing = groups.find((group) => group.kind === kind)
+		if (existing) existing.items.push(...items)
+		else groups.push({ kind, items })
+	}
+
+	for (const node of tree.children ?? []) {
+		if (node.type === "heading") {
+			const depth = node.depth ?? 1
+			if (skipDepth !== null && depth > skipDepth) continue
+			skipDepth = null
+			const label = getMarkerLabel(markdownText(node))
+			if (downloadLabels.test(label)) {
+				skipDepth = depth
+				currentKind = null
+			} else if (newGroupLabels.test(label)) currentKind = "new"
+			else if (fixedGroupLabels.test(label)) currentKind = "fixed"
+			else if (normalizeComparableTitle(label) !== comparableTitle) currentKind = null
+			continue
+		}
+
+		if (skipDepth !== null) continue
+
+		if (node.type === "paragraph") {
+			const text = normalizeNoteText(markdownText(node))
+			const label = getMarkerLabel(text)
+			if (newGroupLabels.test(label)) {
+				currentKind = "new"
+				continue
+			}
+			if (fixedGroupLabels.test(label)) {
+				currentKind = "fixed"
+				continue
+			}
+			if (text) intro.push(text.replace(/[:：]$/u, "."))
+			continue
+		}
+
+		if (node.type === "list") {
+			addItems(currentKind ?? "new", listItems(node))
+		}
+	}
+
+	return { intro, groups }
+}
+
+const downloadMatchers: Array<[ReleaseDownloadPlatform, RegExp]> = [
+	["macos", /\.dmg$/iu],
+	["windows", /\.msi$/iu],
+	["debian", /\.deb$/iu],
+	["linux", /\.appimage$/iu],
+]
+
+export function mapReleaseDownloads(assets: GithubRelease["assets"]): ReleaseDownload[] {
+	const downloads: ReleaseDownload[] = []
+	for (const [platform, pattern] of downloadMatchers) {
+		const asset = assets?.find((candidate) => pattern.test(candidate.name))
+		if (asset) {
+			downloads.push({ platform, fileName: asset.name, url: asset.browser_download_url })
+		}
+	}
+	return downloads
+}
+
 function formatReleaseDate(isoDate: string) {
 	return new Intl.DateTimeFormat("en", {
 		month: "short",
@@ -297,6 +426,8 @@ export async function mapGithubRelease(release: GithubRelease): Promise<Changelo
 		formattedDate: formatReleaseDate(publishedAt),
 		bodyMarkdown,
 		bodyHtml,
+		notes: parseReleaseNotes(bodyMarkdown, title),
+		downloads: mapReleaseDownloads(release.assets),
 	}
 }
 
@@ -321,11 +452,7 @@ export async function fetchChangelogReleases(
 ): Promise<ChangelogResult> {
 	try {
 		const response = await fetcher(GITHUB_RELEASES_URL, {
-			headers: {
-				Accept: "application/vnd.github+json",
-				"X-GitHub-Api-Version": GITHUB_API_VERSION,
-				"User-Agent": GITHUB_USER_AGENT,
-			},
+			headers: githubApiHeaders(GITHUB_USER_AGENT),
 		})
 
 		if (response.status === 404) {
@@ -359,28 +486,22 @@ export async function fetchChangelogReleases(
 	}
 }
 
-async function fetchCachedChangelogReleases() {
-	const now = Date.now()
-	if (cachedChangelog && cachedChangelog.expiresAt > now) {
-		return cachedChangelog.result
-	}
-
-	const nextResult = await fetchChangelogReleases()
-	if (nextResult.status === "unavailable" && cachedChangelog) {
-		return {
-			...cachedChangelog.result,
-			isStale: true,
-			message: "Showing the latest cached release notes while GitHub is unavailable.",
-		}
-	}
-
-	cachedChangelog = {
-		result: nextResult,
-		expiresAt: now + CACHE_TTL_MS,
-	}
-	return nextResult
+export async function fetchCachedChangelogReleases(): Promise<ChangelogResult> {
+	const cached = await withCache({
+		key: "changelog",
+		ttlSeconds: CHANGELOG_CACHE_SECONDS,
+		tags: ["changelog"],
+		load: async () => {
+			const result = await fetchChangelogReleases(githubFetch)
+			return result.status === "unavailable" ? null : result
+		},
+	})
+	if (!cached) return unavailableResult("Release notes are temporarily unavailable.")
+	return cached.isStale
+		? {
+				...cached.value,
+				isStale: true,
+				message: "Showing the latest cached release notes while GitHub is unavailable.",
+			}
+		: cached.value
 }
-
-export const getChangelogReleases = createServerFn({ method: "GET" }).handler(() =>
-	fetchCachedChangelogReleases(),
-)

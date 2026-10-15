@@ -1,9 +1,12 @@
 export {
+	absolutizeReadmeUrls,
 	createEmptyStats,
 	findBlockedEntry,
 	isVersionBlocked,
 	parseBlockedEntries,
 	parseMarketplaceStats,
+	parseRegistryEntries,
+	parseScreenshots,
 	parseVerifiedEntries,
 } from "./catalogData"
 export { installPlugin, installTheme, uninstallPlugin, uninstallTheme } from "./installService"
@@ -36,6 +39,7 @@ export {
 	toMarketplaceKind,
 } from "./marketplaceSelectors"
 export {
+	BLOCKLIST_UNAVAILABLE_MESSAGE,
 	isEntryInstalled,
 	type MarketplaceCallbacks,
 	type MarketplaceNotificationEvent,

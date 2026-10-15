@@ -6,9 +6,11 @@ import {
 	mapDevices,
 	mapRemoteVaults,
 	type RemoteVaultInfo,
+	revokeDevice,
 	type SubscriptionStatus,
 } from "@cortex/sync-api"
 import { createServerFn } from "@tanstack/react-start"
+import { z } from "zod"
 import {
 	createSessionClient,
 	isAuthFailure,
@@ -23,6 +25,7 @@ export interface AccountPublicSession {
 }
 
 export interface AccountDeviceSummary {
+	id: string
 	createdAt: string | null
 	isCurrent: boolean
 	isRevoked: boolean
@@ -63,9 +66,16 @@ export type AccountOverviewResult =
 			vaults: AccountVaultsResult
 	  }
 
+export type RevokeAccountDeviceResult =
+	| { ok: true }
+	| { ok: false; code: "unauthenticated"; redirectTo: string }
+	| { ok: false; code: "failed"; message: string }
+
+const accountLoginPath = "/login?redirect=/account"
+
 const unauthenticatedResult: AccountOverviewResult = {
 	authenticated: false,
-	redirectTo: "/login?redirect=/account",
+	redirectTo: accountLoginPath,
 }
 
 function normalizeVaultRole(role: string): AccountVaultRole {
@@ -83,6 +93,7 @@ function normalizeVaultRole(role: string): AccountVaultRole {
 
 function toDeviceSummary(device: DeviceEntry): AccountDeviceSummary {
 	return {
+		id: device.id,
 		name: device.deviceName,
 		type: device.deviceType,
 		isCurrent: device.isCurrent === true,
@@ -168,3 +179,40 @@ export const getAccountOverview = createServerFn({ method: "GET" }).handler(asyn
 		session: readAuthSessionFromCookies(),
 	})
 })
+
+const revokeDeviceSchema = z.object({ deviceId: z.string().trim().min(1).max(200) })
+
+export async function revokeAccountDeviceFromAuthSession(
+	deviceId: string,
+	dependencies: SessionDependencies = {},
+): Promise<RevokeAccountDeviceResult> {
+	const session = await resolveActiveSession(dependencies)
+
+	if (!session) return { ok: false, code: "unauthenticated", redirectTo: accountLoginPath }
+
+	const { api } = createSessionClient(session, dependencies)
+
+	try {
+		await revokeDevice(api, deviceId)
+		return { ok: true }
+	} catch (error) {
+		if (isAuthFailure(error)) {
+			dependencies.onSessionCleared?.()
+			return { ok: false, code: "unauthenticated", redirectTo: accountLoginPath }
+		}
+		return { ok: false, code: "failed", message: "Couldn’t sign out that device. Try again." }
+	}
+}
+
+export const revokeAccountDevice = createServerFn({ method: "POST" })
+	.validator(revokeDeviceSchema)
+	.handler(async ({ data }) => {
+		const { clearAuthSessionCookies, readAuthSessionFromCookies, setAuthSessionCookies } =
+			await import("./auth-cookies.server")
+
+		return revokeAccountDeviceFromAuthSession(data.deviceId, {
+			onSessionCleared: clearAuthSessionCookies,
+			onSessionRefreshed: setAuthSessionCookies,
+			session: readAuthSessionFromCookies(),
+		})
+	})

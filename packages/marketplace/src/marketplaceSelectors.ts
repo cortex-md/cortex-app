@@ -36,6 +36,7 @@ export interface MarketplaceEntryState {
 	blockReason: string | null
 	blockedVersions: string[]
 	installBlocked: boolean
+	blocklistUnavailable: boolean
 }
 
 export const marketplaceSortLabels: Record<MarketplaceSortOrder, string> = {
@@ -211,7 +212,12 @@ export function groupMarketplaceEntries(
 
 export function getMarketplaceEntryState(
 	state: Pick<MarketplaceState, "availableUpdates" | "appVersion" | "manifestMetadataCache"> &
-		Partial<Pick<MarketplaceState, "activeTab" | "stats" | "verified" | "blocked">>,
+		Partial<
+			Pick<
+				MarketplaceState,
+				"activeTab" | "stats" | "verified" | "blocked" | "blocklistAvailable" | "statsLoaded"
+			>
+		>,
 	entryId: string,
 	installed: boolean,
 	kind?: MarketplaceTab,
@@ -227,6 +233,7 @@ export function getMarketplaceEntryState(
 			? "item"
 			: "versions"
 	const candidateVersion = state.manifestMetadataCache[entryId]?.version ?? stats?.latest ?? null
+	const blocklistUnavailable = state.statsLoaded === true && state.blocklistAvailable === false
 
 	return {
 		action: updateVersion ? "update" : installed ? "uninstall" : "install",
@@ -241,7 +248,8 @@ export function getMarketplaceEntryState(
 		blockState,
 		blockReason: block?.reason ?? null,
 		blockedVersions: block?.versions ?? [],
-		installBlocked: isVersionBlocked(block, candidateVersion),
+		installBlocked: blocklistUnavailable || isVersionBlocked(block, candidateVersion),
+		blocklistUnavailable,
 	}
 }
 

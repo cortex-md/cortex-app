@@ -80,6 +80,7 @@ export interface MarketplaceState {
 	stats: MarketplaceStats
 	verified: VerifiedEntry[]
 	blocked: BlockedEntry[]
+	blocklistAvailable: boolean
 	statsLoaded: boolean
 
 	setActiveTab: (tab: MarketplaceTab) => void
@@ -125,6 +126,7 @@ export const useMarketplaceStore = create<MarketplaceState>()(
 			stats: createEmptyStats(),
 			verified: [],
 			blocked: [],
+			blocklistAvailable: false,
 			statsLoaded: false,
 
 			setActiveTab: (tab) =>
@@ -225,6 +227,7 @@ export const useMarketplaceStore = create<MarketplaceState>()(
 					activeTab === "plugins"
 						? callbacks.pluginHost.isPluginInstalled(entry.id)
 						: callbacks.isThemeInstalled(entry.id)
+				if (!get().blocklistAvailable) await get().loadStats()
 				const blockMessage = getInstallBlockMessage(get(), entry, activeTab)
 				if (blockMessage) {
 					set((s) => {
@@ -385,6 +388,7 @@ export const useMarketplaceStore = create<MarketplaceState>()(
 					s.updatesChecking = true
 				})
 				try {
+					if (!get().blocklistAvailable) await get().loadStats()
 					const { pluginEntries, themeEntries } = get()
 					const pluginsDir = callbacks.getPluginsDir()
 					const themesDir = callbacks.getThemesDir()
@@ -406,17 +410,19 @@ export const useMarketplaceStore = create<MarketplaceState>()(
 							: Promise.resolve({}),
 					])
 
-					const blocked = get().blocked
+					const { blocked, blocklistAvailable } = get()
 					const allowedUpdates = (updates: Record<string, string>, tab: MarketplaceTab) =>
-						Object.fromEntries(
-							Object.entries(updates).filter(
-								([id, version]) =>
-									!isVersionBlocked(
-										findBlockedEntry(blocked, tab === "plugins" ? "plugin" : "theme", id),
-										version,
+						blocklistAvailable
+							? Object.fromEntries(
+									Object.entries(updates).filter(
+										([id, version]) =>
+											!isVersionBlocked(
+												findBlockedEntry(blocked, tab === "plugins" ? "plugin" : "theme", id),
+												version,
+											),
 									),
-							),
-						)
+								)
+							: {}
 					set((s) => {
 						s.availableUpdates = {
 							...allowedUpdates(pluginUpdates, "plugins"),
@@ -482,11 +488,12 @@ export const useMarketplaceStore = create<MarketplaceState>()(
 				set((s) => {
 					s.stats = stats
 					s.verified = verified
-					s.blocked = blocked
+					s.blocked = blocked ?? []
+					s.blocklistAvailable = blocked !== null
 					s.statsLoaded = true
 					for (const [id, version] of Object.entries(s.availableUpdates)) {
 						const kind = s.pluginEntries.some((entry) => entry.id === id) ? "plugin" : "theme"
-						if (isVersionBlocked(findBlockedEntry(blocked, kind, id), version))
+						if (!blocked || isVersionBlocked(findBlockedEntry(blocked, kind, id), version))
 							delete s.availableUpdates[id]
 					}
 				})
@@ -496,11 +503,18 @@ export const useMarketplaceStore = create<MarketplaceState>()(
 	),
 )
 
+export const BLOCKLIST_UNAVAILABLE_MESSAGE =
+	"The Marketplace block list couldn’t be loaded, so installs and updates are paused. Check your connection and try again."
+
 function getInstallBlockMessage(
-	state: Pick<MarketplaceState, "blocked" | "stats" | "manifestMetadataCache" | "availableUpdates">,
+	state: Pick<
+		MarketplaceState,
+		"blocked" | "blocklistAvailable" | "stats" | "manifestMetadataCache" | "availableUpdates"
+	>,
 	entry: RegistryEntry,
 	tab: MarketplaceTab,
 ): string | null {
+	if (!state.blocklistAvailable) return BLOCKLIST_UNAVAILABLE_MESSAGE
 	const block = findBlockedEntry(state.blocked, tab === "plugins" ? "plugin" : "theme", entry.id)
 	if (!block) return null
 	if (block.versions === null)

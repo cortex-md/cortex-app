@@ -1,16 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { siteConfig } from "../config/site"
+import { roadmapCopy } from "../content/roadmap"
 import { RoadmapPage } from "../features/roadmap/RoadmapPage"
-import { createSeoHead } from "../seo/metadata"
-
-const roadmapDescription = "What is available in Cortex today and what is still being built."
+import { createSeoHead, pageTitle } from "../seo/metadata"
+import { getRoadmapItems } from "../server/functions"
 
 export const Route = createFileRoute("/roadmap")({
+	loader: async () => ({ roadmap: await getRoadmapItems() }),
+	headers: () => ({
+		"Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=86400",
+	}),
 	head: () =>
 		createSeoHead({
-			title: `Roadmap — ${siteConfig.name}`,
-			description: roadmapDescription,
+			title: pageTitle("Roadmap"),
+			description: roadmapCopy.description,
 			path: "/roadmap",
 		}),
-	component: RoadmapPage,
+	component: RoadmapRoute,
 })
+
+function RoadmapRoute() {
+	const { roadmap } = Route.useLoaderData()
+
+	return <RoadmapPage roadmap={roadmap} />
+}

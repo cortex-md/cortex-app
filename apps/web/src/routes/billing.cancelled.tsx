@@ -1,18 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { siteConfig } from "../config/site"
-import { BillingCancelledPage } from "../features/billing/BillingCancelledPage"
-import { createSeoHead, noIndexRobots } from "../seo/metadata"
-
-const billingCancelledDescription =
-	"Your Cortex Sync checkout was cancelled and your plan was not changed."
+import { billingCancelledCopy } from "../content/callback"
+import { BillingCancelledPage } from "../features/billing/BillingCallbackPages"
+import { createPrivateSeoHead, pageTitle } from "../seo/metadata"
 
 export const Route = createFileRoute("/billing/cancelled")({
 	head: () =>
-		createSeoHead({
-			title: `Checkout cancelled — ${siteConfig.name}`,
-			description: billingCancelledDescription,
+		createPrivateSeoHead({
+			title: pageTitle(billingCancelledCopy.seoTitle),
+			description: billingCancelledCopy.seoDescription,
 			path: "/billing/cancelled",
-			robots: noIndexRobots,
 		}),
 	component: BillingCancelledPage,
 })

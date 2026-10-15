@@ -47,7 +47,7 @@ interface RegistryEntry {
 
 The registry publishes community data without any backend (see `cortex-md/registry` README):
 
-- `data` branch `stats.json`: per item `votes` (👍 on the item's GitHub Discussion), `downloads`,
+- `data` branch `stats.json`: per item `votes` (upvotes on the item's GitHub Discussion), `downloads`,
   `stars`, `latest`, `releasedAt`, `discussion.url`, and `audit` (daily static review).
 - `main` branch `verified.json` and `blocked.json` (maintainers only). `versions: null` blocks the
   whole item; a list pulls only those versions.

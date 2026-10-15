@@ -1,5 +1,6 @@
 import { ReadingView } from "@cortex/editor/reading-view"
 import {
+	BLOCKLIST_UNAVAILABLE_MESSAGE,
 	formatCount,
 	formatManifestValue,
 	formatStatsAge,
@@ -30,6 +31,7 @@ import {
 	Spinner,
 } from "@cortex/ui"
 import {
+	ArrowBigUp,
 	ArrowUp,
 	BadgeCheck,
 	Ban,
@@ -38,7 +40,6 @@ import {
 	Package,
 	ShieldAlert,
 	ShieldCheckIcon,
-	ThumbsUp,
 	Trash2,
 	TriangleAlert,
 } from "lucide-react"
@@ -182,6 +183,12 @@ function MarketplaceTrustNotices({
 
 	return (
 		<>
+			{entryState.blocklistUnavailable && (
+				<Alert>
+					<ShieldAlert size={14} />
+					<AlertDescription>{BLOCKLIST_UNAVAILABLE_MESSAGE}</AlertDescription>
+				</Alert>
+			)}
 			{entryState.blockState === "versions" && (
 				<Alert variant="destructive">
 					<Ban size={14} />
@@ -224,6 +231,8 @@ export function MarketplaceDetail({ tab, entry, hasVault }: MarketplaceDetailPro
 	const stats = useMarketplaceStore((state) => state.stats)
 	const verified = useMarketplaceStore((state) => state.verified)
 	const blocked = useMarketplaceStore((state) => state.blocked)
+	const blocklistAvailable = useMarketplaceStore((state) => state.blocklistAvailable)
+	const statsLoaded = useMarketplaceStore((state) => state.statsLoaded)
 	const readmeScrollRef = useRef<HTMLElement>(null)
 	const allowCommunity = useCommunityPluginsAllowed()
 
@@ -240,7 +249,16 @@ export function MarketplaceDetail({ tab, entry, hasVault }: MarketplaceDetailPro
 
 	const entryState = entry
 		? getMarketplaceEntryState(
-				{ availableUpdates, appVersion, manifestMetadataCache, stats, verified, blocked },
+				{
+					availableUpdates,
+					appVersion,
+					manifestMetadataCache,
+					stats,
+					verified,
+					blocked,
+					blocklistAvailable,
+					statsLoaded,
+				},
 				entry.id,
 				isEntryInstalled(entry.id, tab),
 				tab,
@@ -338,10 +356,10 @@ export function MarketplaceDetail({ tab, entry, hasVault }: MarketplaceDetailPro
 							{voteUrl && (
 								<Button
 									variant="ghost"
-									title="Votes are 👍 reactions on GitHub; counts refresh every 30 minutes"
+									title="Votes are upvotes on GitHub Discussions; counts refresh every 30 minutes"
 									onClick={() => openExternalUrl(voteUrl)}
 								>
-									<ThumbsUp size={13} />
+									<ArrowBigUp size={13} />
 									Vote on GitHub
 								</Button>
 							)}
@@ -426,6 +444,24 @@ export function MarketplaceDetail({ tab, entry, hasVault }: MarketplaceDetailPro
 							<TriangleAlert size={14} />
 							<AlertDescription>{installError}</AlertDescription>
 						</Alert>
+					)}
+
+					{entry.screenshots && entry.screenshots.length > 0 && (
+						<ul className="marketplace-screenshots" aria-label="Screenshots">
+							{entry.screenshots.map((url, index) => (
+								<li key={url}>
+									<button type="button" onClick={() => openExternalUrl(url)} title="Open full size">
+										<img
+											src={url}
+											alt={`${entry.name} screenshot ${index + 1}`}
+											loading="lazy"
+											decoding="async"
+											referrerPolicy="no-referrer"
+										/>
+									</button>
+								</li>
+							))}
+						</ul>
 					)}
 
 					<div className="marketplace-detail-body">

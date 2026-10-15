@@ -1,39 +1,35 @@
-import { LandingHeader } from "./LandingHeader"
-import { CliSection } from "./sections/CliSection"
+import { useMotionPause } from "../site/motion"
+import { HomeMotionContext } from "./components/HomeMotion"
 import { DownloadSection } from "./sections/DownloadSection"
-import { FaqSection } from "./sections/FaqSection"
 import { HeroSection } from "./sections/HeroSection"
-import { LandingFooter } from "./sections/LandingFooter"
-import { OrganizationSection } from "./sections/OrganizationSection"
-import { PluginSection } from "./sections/PluginSection"
+import { KeepSection } from "./sections/KeepSection"
+import { OpenSourceSection } from "./sections/OpenSourceSection"
+import { OrganizeSection } from "./sections/OrganizeSection"
 import { PricingSection } from "./sections/PricingSection"
-import { SyncSection } from "./sections/SyncSection"
-import { ThemesSection } from "./sections/ThemesSection"
-import { TrustStrip } from "./sections/TrustStrip"
-import { WritingSection } from "./sections/WritingSection"
+import { ProductsSection } from "./sections/ProductsSection"
+import { RealWorkSection } from "./sections/RealWorkSection"
+import { RecentlyShippedSection } from "./sections/RecentlyShippedSection"
+import { TogetherSection } from "./sections/TogetherSection"
 
-interface LandingPageProps {
-	pluginCodeHtml: string
-}
+export function LandingPage() {
+	const { isPaused, togglePaused, pausedAttribute } = useMotionPause()
 
-export function LandingPage({ pluginCodeHtml }: LandingPageProps) {
 	return (
-		<div className="overflow-clip bg-background">
-			<LandingHeader />
-			<main id="main-content" tabIndex={-1}>
+		<HomeMotionContext.Provider value={{ isPaused, togglePaused }}>
+			<div className="overflow-x-clip" {...pausedAttribute}>
 				<HeroSection />
-				<WritingSection />
-				<OrganizationSection />
-				<SyncSection />
-				<TrustStrip />
-				<PluginSection pluginCodeHtml={pluginCodeHtml} />
-				<ThemesSection />
-				<CliSection />
-				<FaqSection />
+				<div id="features">
+					<OrganizeSection />
+					<KeepSection />
+					<TogetherSection />
+					<RealWorkSection />
+				</div>
+				<ProductsSection />
+				<OpenSourceSection />
 				<PricingSection />
+				<RecentlyShippedSection />
 				<DownloadSection />
-			</main>
-			<LandingFooter />
-		</div>
+			</div>
+		</HomeMotionContext.Provider>
 	)
 }
