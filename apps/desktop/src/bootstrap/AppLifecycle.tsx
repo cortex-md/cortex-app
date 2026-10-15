@@ -17,17 +17,13 @@ import { loadEditorRuntime } from "@cortex/editor/runtime"
 import { useSettingsStore } from "@cortex/settings"
 import { useEffect } from "react"
 import { useTeamTemplates } from "../features/templates/useTeamTemplates"
-import { useTemplateDeepLink } from "../features/templates/useTemplateDeepLink"
 import { useAppUpdateLifecycle } from "../hooks/useAppUpdates"
 import { useCommunityPluginLifecycle } from "../hooks/useCommunityPluginLifecycle"
 import { useCommunityThemeLifecycle } from "../hooks/useCommunityThemeLifecycle"
-import { useInviteDeepLink } from "../hooks/useInviteDeepLink"
+import { useDeepLinks } from "../hooks/useDeepLinks"
 import { useLiveNoteShares } from "../hooks/useLiveNoteShares"
 import { useNativeMenuEvents } from "../hooks/useNativeMenuEvents"
 import { useNativeNotifications } from "../hooks/useNativeNotifications"
-import { useResetPasswordDeepLink } from "../hooks/useResetPasswordDeepLink"
-import { useSharedNoteDeepLink } from "../hooks/useSharedNoteDeepLink"
-import { useSyncBillingDeepLink } from "../hooks/useSyncBillingDeepLink"
 import { useSyncLifecycle } from "../hooks/useSyncLifecycle"
 import { useVaultOverviewRefresh } from "../hooks/useVaultOverviewRefresh"
 import { scheduleIdleWork } from "../utils/scheduleIdleWork"
@@ -133,14 +129,10 @@ export function AppLifecycle() {
 
 	useHotkeyListener()
 	useSyncLifecycle()
-	useSyncBillingDeepLink()
-	useInviteDeepLink()
-	useSharedNoteDeepLink()
-	useResetPasswordDeepLink()
+	useDeepLinks()
 	useVaultOverviewRefresh()
 	useLiveNoteShares()
 	useTeamTemplates()
-	useTemplateDeepLink()
 	useNativeNotifications()
 	useCommunityPluginLifecycle(vault)
 	useCommunityThemeLifecycle(vault, appearanceSettings)

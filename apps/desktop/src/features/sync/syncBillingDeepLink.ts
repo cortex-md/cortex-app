@@ -5,12 +5,7 @@ import {
 	useWorkspaceStore,
 } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
-import { useEffect } from "react"
-import {
-	SYNC_WELCOME_MARKDOWN,
-	SYNC_WELCOME_TITLE,
-	SYNC_WELCOME_VIEW_ID,
-} from "../features/sync/syncWelcome"
+import { SYNC_WELCOME_MARKDOWN, SYNC_WELCOME_TITLE, SYNC_WELCOME_VIEW_ID } from "./syncWelcome"
 
 export function isSyncCheckoutCompleteDeepLink(value: string): boolean {
 	try {
@@ -23,7 +18,7 @@ export function isSyncCheckoutCompleteDeepLink(value: string): boolean {
 	}
 }
 
-function startSyncBillingDeepLinks(): () => void {
+export function startSyncBillingDeepLinks(): () => void {
 	let processing = false
 	let welcomeOpened = false
 
@@ -55,8 +50,4 @@ function startSyncBillingDeepLinks(): () => void {
 	return getPlatform().app.onDeepLinkOpen((urls) => {
 		void handleDeepLinkUrls(urls)
 	})
-}
-
-export function useSyncBillingDeepLink() {
-	useEffect(() => startSyncBillingDeepLinks(), [])
 }

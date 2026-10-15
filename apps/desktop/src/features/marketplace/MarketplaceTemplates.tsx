@@ -4,6 +4,7 @@ import {
 	type OpenedPublicTemplate,
 	openNewDatabaseView,
 	openPublicTemplate,
+	TEMPLATE_LINK_ENTRY_PREFIX,
 	type TemplateDefinition,
 	useTemplateSharingStore,
 	useTemplateStore,
@@ -41,7 +42,6 @@ import { FileTextIcon, LayoutTemplateIcon, Search, ShieldCheckIcon, Table2Icon }
 import { useEffect, useMemo, useState } from "react"
 import { TemplateNotePreview } from "../templates/TemplateNotePreview"
 import { openTemplatesView } from "../templates/templateActions"
-import { TEMPLATE_LINK_ENTRY_PREFIX } from "../templates/useTemplateDeepLink"
 import type { MarketplaceViewTab } from "./marketplaceWorkspaceView"
 import "../templates/templates.css"
 
