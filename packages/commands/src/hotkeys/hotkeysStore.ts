@@ -1,7 +1,7 @@
-import { type CommandEntry, commandRegistry } from "@cortex/commands"
 import { getPlatform } from "@cortex/platform"
 import { getVaultFilePath, VAULT_CONFIG_DIR } from "@cortex/platform/utils"
 import { create } from "zustand"
+import { type CommandEntry, commandRegistry } from "../index"
 import { matchesEvent, parseHotkey } from "./parser"
 import type { HotkeyBinding, HotkeyOverrides, ParsedHotkey } from "./types"
 

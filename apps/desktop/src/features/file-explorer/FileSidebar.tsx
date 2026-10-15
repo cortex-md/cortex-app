@@ -1,11 +1,11 @@
 import { executeCommand } from "@cortex/commands"
+import { useHotkeysStore } from "@cortex/commands/hotkeys"
 import {
 	selectActiveTabFilePath,
 	useCanWriteVaultPath,
 	useVaultStore,
 	useWorkspaceStore,
 } from "@cortex/core"
-import { useHotkeysStore } from "@cortex/hotkeys"
 import { useSettingsStore } from "@cortex/settings"
 import {
 	Button,

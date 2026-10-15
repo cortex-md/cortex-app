@@ -4,7 +4,7 @@
 
 - App defaults live in `src/defaults.ts`, including system font constants, appearance defaults,
   editor defaults, file defaults, and the complete app default snapshot. Hotkey overrides live in
-  `@cortex/hotkeys`, not in app settings.
+  `@cortex/commands/hotkeys`, not in app settings.
 - `DEFAULT_ACCENT_COLOR` should match the active built-in theme accent so the desktop appearance
   layer treats the shipped theme color as the no-override state.
 - `src/defaults.ts` must stay free of React, DOM, Electron, platform, Zustand, and schema imports so
@@ -53,6 +53,6 @@
   hours and sound with task reminders.
 
 - The `dailyNotes` section (`DEFAULT_DAILY_NOTES_SETTINGS`, `DailyNotesSettingsSchema`) is a vault
-  setting: `folder` (vault-relative, empty for the root), `format` (an `@cortex/templates` date
+  setting: `folder` (vault-relative, empty for the root), `format` (an `@cortex/core/templates` date
   pattern such as `yyyy-MM-dd`, may contain `/`), and `templateId` (empty for the built-in daily
   note).

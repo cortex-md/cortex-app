@@ -1,4 +1,4 @@
-import { type HotkeyBinding, parseHotkey, useHotkeysStore } from "@cortex/hotkeys"
+import { type HotkeyBinding, parseHotkey, useHotkeysStore } from "@cortex/commands/hotkeys"
 import { useMemo } from "react"
 import { Platform } from "react-native"
 

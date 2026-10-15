@@ -4,6 +4,17 @@
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.ts",
+		"./hotkeys": "./src/hotkeys/index.ts"
+	},
+	"dependencies": {
+		"@cortex/platform": "workspace:*",
+		"zustand": "^5.0.11"
+	},
+	"peerDependencies": {
+		"react": ">=19"
+	},
+	"devDependencies": {
+		"@types/react": "^19.1.8"
 	}
 }

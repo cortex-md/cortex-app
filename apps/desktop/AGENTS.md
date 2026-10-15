@@ -160,7 +160,7 @@ one sync worker per window. Window bounds are remembered per vault (`services/wi
   instance or the Radix fallback. Shortcuts render with `formatHotkeyDisplay`. Never write a
   separate native and Radix copy of a menu.
 - `file-explorer.*` commands reach the mounted tree through `setFileExplorerCommandHandler`.
-- `@cortex/hotkeys` stores bindings only; command `hotkey` metadata is mirrored by
+- `@cortex/commands/hotkeys` stores bindings only; command `hotkey` metadata is mirrored by
   `bootstrap/commandHotkeyBridge.ts`.
 
 ## Obsidian Import

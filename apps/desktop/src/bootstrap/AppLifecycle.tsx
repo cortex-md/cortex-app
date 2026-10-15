@@ -1,3 +1,4 @@
+import { useHotkeyListener, useHotkeysStore } from "@cortex/commands/hotkeys"
 import {
 	bootstrapApp,
 	consumePendingOnboardingNote,
@@ -13,7 +14,6 @@ import {
 	useWorkspaceStore,
 } from "@cortex/core"
 import { loadEditorRuntime } from "@cortex/editor/runtime"
-import { useHotkeyListener, useHotkeysStore } from "@cortex/hotkeys"
 import { useSettingsStore } from "@cortex/settings"
 import { useEffect } from "react"
 import { useTeamTemplates } from "../features/templates/useTeamTemplates"

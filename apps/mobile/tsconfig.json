@@ -33,9 +33,6 @@
 			"path": "../../packages/editor"
 		},
 		{
-			"path": "../../packages/hotkeys"
-		},
-		{
 			"path": "../../packages/platform"
 		},
 		{
@@ -64,9 +61,6 @@
 		},
 		{
 			"path": "../../packages/import-export"
-		},
-		{
-			"path": "../../packages/templates"
 		},
 		{
 			"path": "../../packages/search"

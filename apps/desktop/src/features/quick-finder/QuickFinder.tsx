@@ -1,3 +1,4 @@
+import { formatHotkeyDisplay } from "@cortex/commands/hotkeys"
 import type { OpenTabOptions } from "@cortex/core"
 import {
 	formatRelativeTime,
@@ -13,7 +14,6 @@ import {
 	useWorkspaceStore,
 	type VaultMetadata,
 } from "@cortex/core"
-import { formatHotkeyDisplay } from "@cortex/hotkeys"
 import { type SearchResult, type SearchSnippet, useSearchStore } from "@cortex/search"
 import {
 	CommandDialog,

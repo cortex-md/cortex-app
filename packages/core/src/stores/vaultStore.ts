@@ -29,11 +29,11 @@ import {
 	renameNotePropertiesUiState,
 } from "@cortex/properties"
 import { getSettingsManager, useSettingsStore } from "@cortex/settings"
-import { formatTemplateDate } from "@cortex/templates"
 import { create } from "zustand"
 import { moveLocalHistory } from "../history/localHistory"
 import { noteCache } from "../noteCache"
 import { ensureVaultOnboardingNote } from "../onboarding/vaultOnboarding"
+import { formatTemplateDate } from "../templates"
 import { pathExists, resolveUniquePath, writeCleanNote } from "../utils/createdNote"
 import { getPortableFileNameError } from "../utils/fileName"
 import { createDefaultFrontmatter } from "../utils/frontmatter"

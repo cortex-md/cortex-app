@@ -8,9 +8,6 @@
 			"path": "packages/comments"
 		},
 		{
-			"path": "packages/templates"
-		},
-		{
 			"path": "packages/tasks"
 		},
 		{
@@ -42,9 +39,6 @@
 		},
 		{
 			"path": "packages/theme"
-		},
-		{
-			"path": "packages/hotkeys"
 		},
 		{
 			"path": "packages/search"

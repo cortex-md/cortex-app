@@ -1,6 +1,6 @@
 import { type CommandEntry, executeCommand, getCommands } from "@cortex/commands"
+import { formatHotkeyDisplay, useHotkeysStore } from "@cortex/commands/hotkeys"
 import { useUIStore } from "@cortex/core"
-import { formatHotkeyDisplay, useHotkeysStore } from "@cortex/hotkeys"
 import {
 	CommandDialog,
 	CommandEmpty,

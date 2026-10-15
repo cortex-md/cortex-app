@@ -6,6 +6,7 @@ import {
 	parseFrontmatter,
 	serializeFrontmatter,
 } from "@cortex/properties"
+import { create } from "zustand"
 import {
 	createTemplateBodyFromNote,
 	renderTemplate,
@@ -13,8 +14,7 @@ import {
 	type TemplateManifest,
 	type TemplateRenderContext,
 	validateTemplateManifest,
-} from "@cortex/templates"
-import { create } from "zustand"
+} from "../templates"
 import { resolveUniquePath, writeCleanNote } from "../utils/createdNote"
 import { getPortableFileNameError } from "../utils/fileName"
 import { assertVaultPathWritable } from "./accessStore"

@@ -8,7 +8,7 @@ import {
 	useWorkspaceStore,
 } from "@cortex/core"
 import { createEditorConfig } from "@cortex/editor/editor-config"
-import { useHotkeysStore } from "@cortex/hotkeys"
+import { useHotkeysStore } from "@cortex/commands/hotkeys"
 import { getPlatform } from "@cortex/platform"
 import { type AppSettings, useSettingsStore } from "@cortex/settings"
 import { getThemeManager } from "@cortex/theme"

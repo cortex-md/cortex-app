@@ -32,7 +32,6 @@
         "@cortex/comments": "workspace:*",
         "@cortex/core": "workspace:*",
         "@cortex/editor": "workspace:*",
-        "@cortex/hotkeys": "workspace:*",
         "@cortex/import-export": "workspace:*",
         "@cortex/marketplace": "workspace:*",
         "@cortex/platform": "workspace:*",
@@ -45,7 +44,6 @@
         "@cortex/sync-api": "workspace:*",
         "@cortex/sync-engine": "workspace:*",
         "@cortex/tasks": "workspace:*",
-        "@cortex/templates": "workspace:*",
         "@cortex/theme": "workspace:*",
         "@cortex/ui": "workspace:*",
         "@excalidraw/excalidraw": "0.18.1",
@@ -90,7 +88,6 @@
         "@cortex/commands": "workspace:*",
         "@cortex/core": "workspace:*",
         "@cortex/editor": "workspace:*",
-        "@cortex/hotkeys": "workspace:*",
         "@cortex/import-export": "workspace:*",
         "@cortex/marketplace": "workspace:*",
         "@cortex/platform": "workspace:*",
@@ -103,7 +100,6 @@
         "@cortex/sync-api": "workspace:*",
         "@cortex/sync-engine": "workspace:*",
         "@cortex/tasks": "workspace:*",
-        "@cortex/templates": "workspace:*",
         "@cortex/theme": "workspace:*",
         "@expo/ui": "~57.0.24",
         "@noble/ciphers": "2.4.0",
@@ -232,6 +228,16 @@
     "packages/commands": {
       "name": "@cortex/commands",
       "version": "0.1.0",
+      "dependencies": {
+        "@cortex/platform": "workspace:*",
+        "zustand": "^5.0.11",
+      },
+      "devDependencies": {
+        "@types/react": "^19.1.8",
+      },
+      "peerDependencies": {
+        "react": ">=19",
+      },
     },
     "packages/comments": {
       "name": "@cortex/comments",
@@ -250,7 +256,6 @@
         "@cortex/settings": "workspace:*",
         "@cortex/sync-api": "workspace:*",
         "@cortex/tasks": "workspace:*",
-        "@cortex/templates": "workspace:*",
         "immer": "^10.1.1",
         "zustand": "^5.0.0",
       },
@@ -296,21 +301,6 @@
       "devDependencies": {
         "@types/react": "^19.1.8",
         "react": "^19.1.0",
-      },
-    },
-    "packages/hotkeys": {
-      "name": "@cortex/hotkeys",
-      "version": "0.1.0",
-      "dependencies": {
-        "@cortex/commands": "workspace:*",
-        "@cortex/platform": "workspace:*",
-        "zustand": "^5.0.11",
-      },
-      "devDependencies": {
-        "@types/react": "^19.1.8",
-      },
-      "peerDependencies": {
-        "react": ">=19",
       },
     },
     "packages/import-export": {
@@ -431,10 +421,6 @@
     },
     "packages/tasks": {
       "name": "@cortex/tasks",
-      "version": "0.1.0",
-    },
-    "packages/templates": {
-      "name": "@cortex/templates",
       "version": "0.1.0",
     },
     "packages/theme": {
@@ -746,8 +732,6 @@
 
     "@cortex/editor": ["@cortex/editor@workspace:packages/editor"],
 
-    "@cortex/hotkeys": ["@cortex/hotkeys@workspace:packages/hotkeys"],
-
     "@cortex/import-export": ["@cortex/import-export@workspace:packages/import-export"],
 
     "@cortex/marketplace": ["@cortex/marketplace@workspace:packages/marketplace"],
@@ -773,8 +757,6 @@
     "@cortex/sync-engine": ["@cortex/sync-engine@workspace:packages/sync-engine"],
 
     "@cortex/tasks": ["@cortex/tasks@workspace:packages/tasks"],
-
-    "@cortex/templates": ["@cortex/templates@workspace:packages/templates"],
 
     "@cortex/theme": ["@cortex/theme@workspace:packages/theme"],
 

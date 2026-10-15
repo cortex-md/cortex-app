@@ -72,7 +72,7 @@ such as navigation, open, create, and dismiss.
 ### Commands, Hotkeys, and Vim
 All app and plugin commands must be registered through `@cortex/commands`. A command's palette
 entry, configurable hotkey, and Vim command-line name should be described in the same
-`CommandEntry`. Desktop bridges command hotkeys into `@cortex/hotkeys`; editor-scoped command
+`CommandEntry`. Desktop bridges command hotkeys into `@cortex/commands/hotkeys`; editor-scoped command
 hotkeys are reconfigured into CodeMirror; Vim mode reads the same registry only while Vim is
 enabled. Use `CommandExecutionContext.payload` for explicit menu/context targets. Do not add
 separate command lists for the palette, hotkeys, native menus, context menus, or Vim.

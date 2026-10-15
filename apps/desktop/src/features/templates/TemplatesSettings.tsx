@@ -1,6 +1,6 @@
 import { useTemplateStore, useVaultStore } from "@cortex/core"
+import { getTeamLabel, isTeamTemplate } from "@cortex/core/templates"
 import { useSettingsStore } from "@cortex/settings"
-import { getTeamLabel, isTeamTemplate } from "@cortex/templates"
 import { Button, Switch } from "@cortex/ui"
 import { LayoutTemplateIcon } from "lucide-react"
 import { useEffect } from "react"

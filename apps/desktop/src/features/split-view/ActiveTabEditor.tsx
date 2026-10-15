@@ -1,4 +1,5 @@
 import { executeCommand } from "@cortex/commands"
+import { useHotkeysStore } from "@cortex/commands/hotkeys"
 import {
 	openWikiLink,
 	type Tab,
@@ -30,7 +31,6 @@ import type {
 	EditorExtensionFactory,
 	EditorRuntimeView,
 } from "@cortex/editor/types"
-import { useHotkeysStore } from "@cortex/hotkeys"
 import { getPlatform } from "@cortex/platform"
 import { registerEditorView, setEditorViewRef } from "@cortex/plugin-host-core"
 import {

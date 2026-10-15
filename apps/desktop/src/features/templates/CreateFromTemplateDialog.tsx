@@ -6,8 +6,8 @@ import {
 	useVaultStore,
 	useWorkspaceStore,
 } from "@cortex/core"
+import { getTemplateGroups } from "@cortex/core/templates"
 import { useSettingsStore } from "@cortex/settings"
-import { getTemplateGroups } from "@cortex/templates"
 import {
 	Button,
 	Command,

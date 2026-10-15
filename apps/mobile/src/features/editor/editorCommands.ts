@@ -10,7 +10,7 @@ import {
 	markdownToolbarShortLabels,
 } from "@cortex/editor/markdown-format-commands"
 import type { EditorCommand, EditorRuntimeView } from "@cortex/editor/types"
-import type { HotkeyOverrides } from "@cortex/hotkeys"
+import type { HotkeyOverrides } from "@cortex/commands/hotkeys"
 
 import type { EditorCommandSummary } from "@/features/workspace/workspaceProtocol"
 

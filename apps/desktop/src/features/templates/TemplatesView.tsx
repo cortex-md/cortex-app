@@ -4,7 +4,7 @@ import {
 	getTemplateGroups,
 	getTemplateValueLabel,
 	isTeamTemplate,
-} from "@cortex/templates"
+} from "@cortex/core/templates"
 import {
 	Button,
 	DropdownMenu,

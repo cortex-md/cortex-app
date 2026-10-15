@@ -14,13 +14,12 @@ interface WorkspacePackage {
 const workspaceRoots = ["apps", "packages"]
 const bundledPluginsDirectory = "plugins"
 const allowedDependencies: Record<string, readonly string[]> = {
-	"@cortex/commands": [],
+	"@cortex/commands": ["@cortex/platform"],
 	"@cortex/comments": [],
 	"@cortex/platform": [],
 	"@cortex/properties": [],
 	"@cortex/renderer": ["@cortex/properties"],
 	"@cortex/tasks": [],
-	"@cortex/templates": [],
 	"@cortex/theme": [],
 	"@cortex/settings": ["@cortex/platform"],
 	"@cortex/sync-api": ["@cortex/platform"],
@@ -35,7 +34,6 @@ const allowedDependencies: Record<string, readonly string[]> = {
 		"@cortex/settings",
 		"@cortex/sync-api",
 		"@cortex/tasks",
-		"@cortex/templates",
 	],
 	"@cortex/editor": [
 		"@cortex/collab",
@@ -56,7 +54,6 @@ const allowedDependencies: Record<string, readonly string[]> = {
 	],
 	"@cortex/ui": [],
 	"@cortex/search": ["@cortex/platform", "@cortex/properties"],
-	"@cortex/hotkeys": ["@cortex/commands", "@cortex/platform"],
 	"@cortex/import-export": ["@cortex/platform", "@cortex/renderer"],
 	"@cortex/marketplace": ["@cortex/platform", "@cortex/theme"],
 	"@cortex/plugins": ["@cortex.md/api"],
@@ -67,7 +64,6 @@ const allowedDependencies: Record<string, readonly string[]> = {
 		"@cortex/commands",
 		"@cortex/core",
 		"@cortex/editor",
-		"@cortex/hotkeys",
 		"@cortex/import-export",
 		"@cortex/marketplace",
 		"@cortex/platform",
@@ -80,7 +76,6 @@ const allowedDependencies: Record<string, readonly string[]> = {
 		"@cortex/sync-api",
 		"@cortex/sync-engine",
 		"@cortex/tasks",
-		"@cortex/templates",
 		"@cortex/theme",
 	],
 }

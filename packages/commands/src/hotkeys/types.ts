@@ -1,4 +1,4 @@
-import type { CommandEntry, CommandHotkeyScope } from "@cortex/commands"
+import type { CommandEntry, CommandHotkeyScope } from "../index"
 
 export type ModifierKey = "mod" | "shift" | "alt" | "ctrl" | "meta"
 export type HotkeyScope = CommandHotkeyScope

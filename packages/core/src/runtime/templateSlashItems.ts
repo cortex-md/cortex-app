@@ -1,6 +1,6 @@
 import { useSettingsStore } from "@cortex/settings"
-import { getTeamLabel, isTeamTemplate } from "@cortex/templates"
 import { useTemplateStore } from "../stores/templateStore"
+import { getTeamLabel, isTeamTemplate } from "../templates"
 
 export const TEMPLATE_SLASH_PREFIX = "template:"
 

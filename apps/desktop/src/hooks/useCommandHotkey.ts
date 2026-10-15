@@ -1,4 +1,4 @@
-import { formatHotkeyDisplay, useHotkeysStore } from "@cortex/hotkeys"
+import { formatHotkeyDisplay, useHotkeysStore } from "@cortex/commands/hotkeys"
 
 export function useCommandHotkey(commandId: string): string | null {
 	const keys = useHotkeysStore((state) => {

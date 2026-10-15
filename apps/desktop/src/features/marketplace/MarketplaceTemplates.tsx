@@ -10,9 +10,9 @@ import {
 	useUIStore,
 	useVaultStore,
 } from "@cortex/core"
+import { getTeamLabel, isTeamTemplate } from "@cortex/core/templates"
 import type { PublicTemplateInfo } from "@cortex/platform"
 import type { DatabasePreset } from "@cortex/properties/database"
-import { getTeamLabel, isTeamTemplate } from "@cortex/templates"
 import {
 	Button,
 	Empty,

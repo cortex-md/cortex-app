@@ -1,5 +1,5 @@
 import { commandRegistry } from "@cortex/commands"
-import { useHotkeysStore } from "@cortex/hotkeys"
+import { useHotkeysStore } from "@cortex/commands/hotkeys"
 
 let initialized = false
 
