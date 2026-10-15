@@ -1,9 +1,7 @@
 import type { VersionInfo } from "@cortex/platform"
 import { getBaseName } from "@cortex/platform/utils"
 import { parseTimestamp } from "./historyTime"
-import type { LocalVersion } from "./localHistory"
-
-export type DeviceFilter = "all" | "device" | "others"
+import { HISTORY_CONTENT_HASH_LENGTH, type LocalVersion } from "./localHistory"
 
 export type HistoryEntry =
 	| { kind: "current"; id: string; timestamp: null }
@@ -21,9 +19,21 @@ export function compareEntries(left: HistoryEntry, right: HistoryEntry): number 
 	return 0
 }
 
+function entryContentHash(entry: HistoryEntry): string | null {
+	if (entry.kind === "local") return entry.local.hash
+	if (entry.kind === "server")
+		return entry.server.checksum?.slice(0, HISTORY_CONTENT_HASH_LENGTH) ?? null
+	return null
+}
+
+function preferEntry(current: HistoryEntry, candidate: HistoryEntry): HistoryEntry {
+	return current.kind !== "server" && candidate.kind === "server" ? candidate : current
+}
+
 export function buildEntries(
 	localVersions: readonly LocalVersion[],
 	serverVersions: readonly VersionInfo[],
+	currentHash: string | null = null,
 ): HistoryEntry[] {
 	const versions: HistoryEntry[] = [
 		...localVersions.map(
@@ -42,18 +52,21 @@ export function buildEntries(
 				server,
 			}),
 		),
-	]
-	return [CURRENT_ENTRY, ...versions.sort(compareEntries)]
-}
+	].sort(compareEntries)
 
-export function matchesDeviceFilter(
-	entry: HistoryEntry,
-	filter: DeviceFilter,
-	currentDeviceId: string | null,
-): boolean {
-	if (filter === "all") return true
-	const onThisDevice = entry.kind !== "server" || entry.server.deviceId === currentDeviceId
-	return filter === "device" ? onThisDevice : !onThisDevice
+	const changes: { hash: string | null; entry: HistoryEntry }[] = []
+	for (const entry of versions.reverse()) {
+		const hash = entryContentHash(entry)
+		const previous = changes.at(-1)
+		if (previous && hash !== null && previous.hash === hash) {
+			previous.entry = preferEntry(previous.entry, entry)
+			continue
+		}
+		changes.push({ hash, entry })
+	}
+	const current = currentHash?.slice(0, HISTORY_CONTENT_HASH_LENGTH) ?? null
+	if (current !== null && changes.at(-1)?.hash === current) changes.pop()
+	return [CURRENT_ENTRY, ...changes.reverse().map((change) => change.entry)]
 }
 
 export function copyName(filePath: string, entry: HistoryEntry): string {

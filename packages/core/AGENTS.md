@@ -308,6 +308,9 @@ inline; the whole vault is pruned at most every 30 minutes, 30 s after a capture
 access, writes through `mutateNote` (which snapshots the current text first) and flushes;
 `captureCurrentNoteVersion` snapshots before a server restore. Unopened notes changed by the sync
 engine are not captured locally (the server keeps their history).
+`buildHistoryEntries` merges local and server versions into one timeline of real changes: consecutive
+entries with the same content hash (local `hash`, server `checksum` prefix) collapse into one,
+preferring the server entry, and the newest run equal to the current note text is dropped.
 
 ### Tasks and Reminders
 

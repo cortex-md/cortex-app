@@ -306,31 +306,26 @@
 
 .version-top {
 	display: flex;
-	align-items: baseline;
+	align-items: center;
 	gap: 6px;
+	min-width: 0;
 }
 
 .version-top b {
+	overflow: hidden;
 	font-size: 13px;
 	font-weight: 500;
 	line-height: 17px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
-.version-top span {
+.version-top > span:last-child {
+	flex: none;
 	margin-left: auto;
 	color: var(--text-muted);
 	font-size: 11px;
 	line-height: 15px;
-}
-
-.version-who {
-	display: flex;
-	min-width: 0;
-	align-items: center;
-	gap: 6px;
-	color: var(--text-secondary);
-	font-size: 12px;
-	line-height: 16px;
 }
 
 .version-avatar[data-slot="avatar"] {
