@@ -27,7 +27,7 @@ import { SettingsField, SettingsGroup, SettingsPage, SettingsSection } from "../
 import { runSettingsAction } from "../settingsActions"
 import { openSettings } from "../settingsModal"
 import { SignedOutNotice } from "./SignedOutNotice"
-import { SubscriptionRequiredNotice } from "./SubscriptionRequiredNotice"
+import { SubscriptionRequiredNotice, useCloudPlanBlocked } from "./SubscriptionRequiredNotice"
 
 const statusToneClassNames = {
 	success: "bg-status-success-foreground",
@@ -398,6 +398,14 @@ function HistorySection() {
 }
 
 export function SyncOverviewPage(props: SyncOverviewProps) {
+	const planBlocked = useCloudPlanBlocked()
+	if (props.authenticated && planBlocked) {
+		return (
+			<SettingsPage>
+				<SubscriptionRequiredNotice />
+			</SettingsPage>
+		)
+	}
 	const showLink = props.authenticated
 	const linkedAndOn = showLink && props.syncEnabled && props.linkedVaultId
 	return (
@@ -411,7 +419,6 @@ export function SyncOverviewPage(props: SyncOverviewProps) {
 				/>
 			) : null}
 			{!props.authenticated && <SignedOutNotice />}
-			{props.authenticated && <SubscriptionRequiredNotice />}
 			{showLink && <VaultLinkSection {...props} />}
 			{linkedAndOn && <DevicesSection />}
 			{linkedAndOn && <HistorySection />}
