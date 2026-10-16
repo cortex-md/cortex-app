@@ -77,8 +77,7 @@ workspace WebView, next to the single CodeMirror editor. Bundled and community p
 ## What is left
 
 - Simulator pass on iOS and Android: note switching keeps undo per note, keyboard/scroll/transitions without
-  glitches, typing without lag, github-emoji (drawer view, insert, `:smile:`, header menu, settings), a
-  community plugin (allow → install → enable → command/view/settings; turned off, nothing loads), and WebView
+  glitches, typing without lag, a community plugin (allow → install → enable → command/view/settings; turned off, nothing loads), and WebView
   crash/reload recovery.
 - Store review: document the feature and confirm compliance before release.
 

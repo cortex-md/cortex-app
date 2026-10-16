@@ -43,8 +43,7 @@ cortex/
 │   ├── sync-api/                   # Fetch-only Cortex server client shared by desktop main, mobile, web
 │   ├── sync-engine/                # Sync engine Node (UtilityProcess): sync.db, SSE, queue, merge
 ├── plugins/                        # @cortex/plugins: bundled definePlugin modules
-│   ├── index.ts                    # bundledPlugins list (one line per plugin)
-│   └── github-emoji/               # index.ts + data
+│   └── index.ts                    # bundledPlugins list (one line per plugin; empty today)
 └── bun.lock
 ```
 

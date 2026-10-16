@@ -31,7 +31,6 @@ change.
 - [Views, settings, and UI](views-settings-and-ui.md)
 - [Storage, bookmarks, and notifications](storage-bookmarks-notifications.md)
 - [Publishing and Marketplace](publishing-and-marketplace.md)
-- [Example: GitHub emoji plugin](examples/github-emoji.md)
 
 ## Rules of Thumb
 
