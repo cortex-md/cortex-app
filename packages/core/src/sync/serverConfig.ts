@@ -6,7 +6,7 @@ declare global {
 }
 
 export const DEFAULT_CLOUD_SYNC_SERVER_URL = normalizeServerUrl(
-	globalThis.__CORTEX_SYNC_SERVER_URL__ || "http://localhost:8080",
+	globalThis.__CORTEX_SYNC_SERVER_URL__ || "https://api.cortex-md.tech",
 )
 export const DEFAULT_SELF_HOSTED_SYNC_SERVER_URL = "http://localhost:8080"
 export const DEFAULT_SYNC_SERVER_URL = DEFAULT_CLOUD_SYNC_SERVER_URL

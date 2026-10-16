@@ -1,5 +1,5 @@
 const defaultSiteUrl = "https://cortex-md.tech"
-const defaultSyncUrl = "http://localhost:8080"
+const defaultSyncUrl = "https://api.cortex-md.tech"
 
 export interface SyncRuntimeEnv {
 	CORTEX_BILLING_COMPLETION_URL?: string

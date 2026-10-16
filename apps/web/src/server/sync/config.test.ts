@@ -8,8 +8,8 @@ import {
 } from "./config"
 
 describe("Sync runtime config", () => {
-	it("uses the local Sync server by default", () => {
-		expect(getSyncBaseUrl({})).toBe("http://localhost:8080")
+	it("uses the Cortex Cloud Sync server by default", () => {
+		expect(getSyncBaseUrl({})).toBe("https://api.cortex-md.tech")
 	})
 
 	it("normalizes configured HTTP base URLs", () => {
