@@ -8,7 +8,6 @@ import {
 	type TemplateDefinition,
 	useTemplateSharingStore,
 	useTemplateStore,
-	useUIStore,
 	useVaultStore,
 } from "@cortex/core"
 import { getTeamLabel, isTeamTemplate } from "@cortex/core/templates"
@@ -44,6 +43,7 @@ import { TemplateNotePreview } from "../templates/TemplateNotePreview"
 import { openTemplatesView } from "../templates/templateActions"
 import type { MarketplaceViewTab } from "./marketplaceWorkspaceView"
 import "../templates/templates.css"
+import { openCreateFromTemplate } from "@/utils/modals"
 
 type KindFilter = "all" | "note" | "database"
 type EntryGroup = "link" | "team" | "vault" | "market"
@@ -344,7 +344,6 @@ export function MarketplaceTemplates({
 function TemplateDetail({ entry, hasVault }: { entry: TemplateEntry; hasVault: boolean }) {
 	const vault = useVaultStore((state) => state.vault)
 	const readTemplateBody = useTemplateStore((state) => state.readTemplateBody)
-	const openCreateFromTemplate = useUIStore((state) => state.openCreateFromTemplate)
 	const opened = useOpenedTemplate(entry.slug)
 	const [localBody, setLocalBody] = useState<string | null>(null)
 	const [added, setAdded] = useState<TemplateDefinition | null>(null)

@@ -3,7 +3,6 @@ import {
 	createVaultKeyDraft,
 	NEW_REMOTE,
 	useRemoteVaultStore,
-	useUIStore,
 	useVaultStore,
 	type VaultKeyDraft,
 } from "@cortex/core"
@@ -19,6 +18,7 @@ import {
 import { Check } from "lucide-react"
 import { useState } from "react"
 import { ModalHost } from "@/utils/ModalHost"
+import { openSettings } from "../settings/settingsModal"
 import { RemoteStep } from "../vault/add-vault/AddVaultSteps"
 import { useAddVaultRemotes } from "../vault/add-vault/useAddVaultRemotes"
 import {
@@ -57,7 +57,6 @@ function VaultLinkModalContent({
 	const vault = useVaultStore((state) => state.vault)
 	const linkedVaultId = useRemoteVaultStore((state) => state.linkedVaultId)
 	const createRemoteVault = useRemoteVaultStore((state) => state.createRemoteVault)
-	const openSettings = useUIStore((state) => state.openSettings)
 	const remotes = useAddVaultRemotes()
 	const vaultName = vault?.name ?? "this vault"
 	const [view, setView] = useState<LinkView>(unlockMode ? "key" : "pick")

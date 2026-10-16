@@ -23,7 +23,7 @@ bun run check:mobile
 
 ## TypeScript
 
-The default TypeScript gate uses `tsconfig.desktop.json`:
+The default TypeScript gate builds the desktop projects (`apps/desktop`, its Electron and Node configs, and `plugins`):
 
 ```bash
 bun run typecheck

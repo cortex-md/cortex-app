@@ -7,7 +7,6 @@ import {
 	useRemoteVaultStore,
 	useSubscriptionStore,
 	useSyncStore,
-	useUIStore,
 	useVaultStore,
 } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
@@ -34,9 +33,10 @@ import {
 	UnlinkIcon,
 } from "lucide-react"
 import { Suspense, useState } from "react"
+import { noteHistoryModal } from "@/utils/modals"
 import { useHasOpened } from "../../hooks/useHasOpened"
+import { openSettings } from "../settings/settingsModal"
 import { LazyVaultLinkModal } from "./LazyVaultLinkModal"
-import { noteHistoryModal } from "./noteHistoryModal"
 import { deletedNotesModal, syncLogsModal } from "./syncDialogStores"
 
 const STATUS_BUTTON_CLASS = "statusbar-item statusbar-btn gap-1.5 tracking-normal active:scale-100"
@@ -73,7 +73,6 @@ export function SyncIndicator() {
 	const linkedVaultId = useRemoteVaultStore((s) => s.linkedVaultId)
 	const syncEnabled = useRemoteVaultStore((s) => s.syncConfig.enabled)
 	const subscriptionBlock = useSubscriptionStore((s) => s.block)
-	const openSettings = useUIStore((s) => s.openSettings)
 	const activeFilePath = useEditorStore((s) => s.activeFilePath)
 	const [unlockModalOpen, setUnlockModalOpen] = useState(false)
 	const unlockModalMounted = useHasOpened(unlockModalOpen)

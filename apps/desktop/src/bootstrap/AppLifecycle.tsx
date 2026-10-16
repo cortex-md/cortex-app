@@ -13,7 +13,7 @@ import {
 	useVaultStore,
 	useWorkspaceStore,
 } from "@cortex/core"
-import { loadEditorRuntime } from "@cortex/editor/runtime"
+import { loadEditorRuntime, loadVimRuntime } from "@cortex/editor/runtime"
 import { useSettingsStore } from "@cortex/settings"
 import { useEffect } from "react"
 import { useTeamTemplates } from "../features/templates/useTeamTemplates"
@@ -27,7 +27,6 @@ import { useNativeNotifications } from "../hooks/useNativeNotifications"
 import { useSyncLifecycle } from "../hooks/useSyncLifecycle"
 import { useVaultOverviewRefresh } from "../hooks/useVaultOverviewRefresh"
 import { scheduleIdleWork } from "../utils/scheduleIdleWork"
-import { useMainWindowBridge } from "../windows/useMainWindowBridge"
 import { useNativeMenuState } from "../windows/useNativeMenuState"
 
 function openStartupVault(): Promise<unknown> {
@@ -72,6 +71,7 @@ function useAppRuntime() {
 			onVaultOpened: (vault) => void useHotkeysStore.getState().loadOverrides(vault.path),
 			onWorkspaceRestored: () => {
 				void loadEditorRuntime()
+				if (useSettingsStore.getState().settings.editor.vimMode) void loadVimRuntime()
 				consumePendingOnboardingNote(openTabInActivePane)
 			},
 			onWorkspacePersistError: reportWorkspacePersistError,
@@ -143,7 +143,6 @@ export function AppLifecycle() {
 	useAppRuntime()
 	useInactiveTabSuspension(suspendInactiveTabs)
 	useGlobalDragGuards()
-	useMainWindowBridge()
 	useNativeMenuState()
 
 	return null

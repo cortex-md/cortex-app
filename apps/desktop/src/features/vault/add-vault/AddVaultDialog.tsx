@@ -12,14 +12,14 @@ import {
 	NEW_REMOTE,
 	resolveAddVaultNames,
 	resolveVaultColor,
-	useUIStore,
 	type VaultKeyDraft,
 } from "@cortex/core"
 import { isObsidianVault } from "@cortex/import-export"
 import { Button, Spinner } from "@cortex/ui"
 import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react"
 import { ModalStoreHost } from "@/utils/ModalHost"
-import { obsidianImportModal } from "../../import-export/obsidianImportModal"
+import { obsidianImportModal } from "@/utils/modals"
+import { openSettings } from "../../settings/settingsModal"
 import { useVaultKeyFlow, type VaultKeyFlow } from "../../sync/vault-key/useVaultKeyFlow"
 import { VaultKeyStepView } from "../../sync/vault-key/VaultKeyStepView"
 import {
@@ -72,7 +72,6 @@ function AddVaultDialogContent({ target }: { target: AddVaultTarget }) {
 	const [keyDraft, setKeyDraft] = useState<VaultKeyDraft>(() => createVaultKeyDraft())
 	const [defaultLocation, setDefaultLocation] = useState<string | null>(null)
 	const remotes = useAddVaultRemotes()
-	const openSettings = useUIStore((state) => state.openSettings)
 	const update = controller.update
 	const updateKeyDraft = (next: Partial<VaultKeyDraft>) =>
 		setKeyDraft((current) => ({ ...current, ...next }))

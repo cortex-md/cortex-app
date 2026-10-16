@@ -15,7 +15,6 @@ on:
       - 'apps/mobile/**'
       - 'apps/web/**'
       - 'docs/**'
-  workflow_call:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -31,6 +30,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: ${{ github.event_name == 'pull_request' && 0 || 1 }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -59,3 +60,7 @@ jobs:
 
       - name: Vitest
         run: bun run test
+
+      - name: React Doctor
+        if: github.event_name == 'pull_request'
+        run: bun run doctor

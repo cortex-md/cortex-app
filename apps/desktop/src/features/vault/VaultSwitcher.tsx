@@ -4,7 +4,6 @@ import {
 	resolveVaultColor,
 	useAuthStore,
 	useRemoteVaultStore,
-	useUIStore,
 	useVaultStore,
 	type VaultListItem,
 	type VaultRegistryEntry,
@@ -37,6 +36,7 @@ import {
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react"
 import type { MenuItem } from "@/utils/context-menu"
 import { useContextMenu } from "../context-menu/useContextMenu"
+import { openSettings } from "../settings/settingsModal"
 import { DEVICE_LABEL } from "./deviceLabel"
 import { VaultTile } from "./VaultTile"
 import { openAddVault, openRecentVault } from "./vaultActions"
@@ -107,7 +107,6 @@ const modKey = typeof navigator !== "undefined" && /Mac/i.test(navigator.platfor
 
 export function VaultSwitcher() {
 	const vault = useVaultStore((state) => state.vault)
-	const openSettings = useUIStore((state) => state.openSettings)
 	const [open, setOpen] = useState(false)
 	const [selected, setSelected] = useState("")
 	const altKeyRef = useRef(false)

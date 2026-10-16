@@ -12,7 +12,7 @@ import {
 	runObsidianImport as runWithHost,
 	type ObsidianRunSummary as SharedObsidianRunSummary,
 } from "@cortex/import-export"
-import { type ObsidianImportTarget, obsidianImportModal } from "./obsidianImportModal"
+import { type ObsidianImportTarget, obsidianImportModal } from "@/utils/modals"
 
 export type { ObsidianRunOptions }
 

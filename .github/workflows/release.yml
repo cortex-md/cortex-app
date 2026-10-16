@@ -36,15 +36,10 @@ jobs:
         run: |
           node scripts/release/resolve-desktop-release-metadata.mjs
 
-  ci:
-    name: CI
-    uses: ./.github/workflows/ci.yml
-
   build-electron:
     name: Build ${{ matrix.name }}
     needs:
       - release-metadata
-      - ci
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
     strategy:

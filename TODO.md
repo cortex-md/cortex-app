@@ -5,7 +5,7 @@ Each item has a desktop counterpart already in place and only needs the server c
 
 ## Vault creation without a raw key
 
-- `POST /sync/v1/vaults` now receives `encrypted_vault_key: ""` (desktop: `apps/desktop/electron/services/remoteVault.ts`).
+- `POST /sync/v1/vaults` now receives `encrypted_vault_key: ""` (desktop: `apps/desktop/electron/services/serverApi.ts`).
   Previously the raw VEK was sent in that field, which broke end-to-end encryption.
 - The real key is created afterwards by `createVaultKey` (argon2id + encrypted VEK), sent to the
   encryption endpoint as `{ salt, encrypted_vek }` (`packages/sync-engine/src/vek.ts`).
@@ -15,19 +15,19 @@ Each item has a desktop counterpart already in place and only needs the server c
 ## Invites without the raw VEK
 
 - When the client sends no key, the invite fallback now uses the server's password-wrapped
-  `encrypted_vek` instead of the raw VEK (`apps/desktop/electron/services/members.ts`).
+  `encrypted_vek` instead of the raw VEK (`apps/desktop/electron/services/serverApi.ts`).
 - **Server:** confirm the invite-accept flow lets the invitee unlock the key with that payload (or
   define the per-member key-wrapping scheme).
 
 ## `X-File-Path` header with non-ASCII names
 
 - Uploads send the vault-relative path in the `X-File-Path` header
-  (`packages/sync-engine/src/api/files.ts`). Header values must be ASCII, so notes with accents or
+  (`packages/sync-api/src/files.ts`). Header values must be ASCII, so notes with accents or
   other Unicode characters fail to upload. This was already broken in the Rust version.
 - **Server:** pick an encoding and implement it, for example:
   - `X-File-Path` with percent-encoding (`encodeURIComponent`) decoded on the server, or
   - send the path in the body/query instead of a header.
-- **Desktop:** after that, change only the header construction in `api/files.ts` (and the conflict and
+- **Desktop:** after that, change only the header construction in `packages/sync-api/src/files.ts` (and the conflict and
   initial-sync call sites that use the same upload function).
 
 ## Local schema reset

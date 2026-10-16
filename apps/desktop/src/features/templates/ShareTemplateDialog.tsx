@@ -9,7 +9,6 @@ import {
 	useDatabaseStore,
 	useMembersStore,
 	useTemplateStore,
-	useUIStore,
 	useVaultStore,
 } from "@cortex/core"
 import { getPlatform, type TemplateShareAudience, type TemplateShareInfo } from "@cortex/platform"
@@ -44,6 +43,7 @@ import { useEffect, useState } from "react"
 import { ModalStoreHost } from "@/utils/ModalHost"
 import { type ShareTemplateTarget, shareTemplateModal } from "./shareActions"
 import "./templates.css"
+import { openSettings } from "../settings/settingsModal"
 
 const sampleRowCount = 3
 
@@ -80,7 +80,6 @@ function ShareTemplateContent({ target }: { target: ShareTemplateTarget }) {
 	const existing = useTemplateStore((state) => (key ? state.shares[key] : undefined))
 	const groups = useMembersStore((state) => state.groups)
 	const ensureMembers = useMembersStore((state) => state.ensureMembers)
-	const openSettings = useUIStore((state) => state.openSettings)
 	const remoteVaultId = getLinkedRemoteVaultId()
 	const [audience, setAudience] = useState<TemplateShareAudience>(existing?.audience ?? "team")
 	const [groupId, setGroupId] = useState<string | null>(existing?.groupId ?? null)

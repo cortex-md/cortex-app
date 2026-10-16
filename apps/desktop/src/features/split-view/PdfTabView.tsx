@@ -13,6 +13,7 @@ import {
 import { GlobalWorkerOptions } from "pdfjs-dist"
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url"
 import { type ChangeEvent, useCallback, useRef } from "react"
+import { clamp } from "@/utils/format"
 import { getProgressValue, usePdfDocument } from "./usePdfDocument"
 import { usePdfPageRenderer } from "./usePdfPageRenderer"
 
@@ -39,10 +40,6 @@ const ZOOM_STEP = 0.25
 
 function normalizeNumber(value: unknown, fallback: number): number {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback
-}
-
-function clamp(value: number, min: number, max: number): number {
-	return Math.min(Math.max(value, min), max)
 }
 
 function normalizePdfViewState(viewState: ViewTabState | null): PdfViewState {

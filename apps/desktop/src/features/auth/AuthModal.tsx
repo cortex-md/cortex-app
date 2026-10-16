@@ -4,7 +4,6 @@ import {
 	resolveSyncServerUrl,
 	useAuthStore,
 	useRemoteVaultStore,
-	useUIStore,
 } from "@cortex/core"
 import {
 	Alert,
@@ -29,10 +28,11 @@ import {
 import { CircleAlert, KeyRound, Mail, UserRound } from "lucide-react"
 import { type ChangeEvent, type FormEvent, useReducer, useState } from "react"
 import { ModalHost } from "@/utils/ModalHost"
+import { type AuthView, authModal, closeAuth } from "@/utils/modals"
+import { openSettings } from "../settings/settingsModal"
 import { validateNewPassword } from "./passwordValidation"
 import { RecoveryKeyPanel } from "./RecoveryKeyPanel"
 
-type AuthView = "login" | "register"
 type AuthField = "email" | "password" | "displayName" | "confirmPassword"
 
 interface AuthFormState {
@@ -72,9 +72,9 @@ function authFormReducer(state: AuthFormState, action: AuthFormAction): AuthForm
 }
 
 export function AuthModal() {
-	const authOpen = useUIStore((s) => s.authOpen)
-	const authInitialView = useUIStore((s) => s.authInitialView)
-	const closeAuth = useUIStore((s) => s.closeAuth)
+	const authTarget = authModal.useTarget()
+	const authOpen = authTarget !== null
+	const authInitialView = authTarget?.view ?? "login"
 	const clearError = useAuthStore((s) => s.clearError)
 	const [recoveryKey, setRecoveryKey] = useState<string | null>(null)
 
@@ -103,9 +103,7 @@ interface AuthModalContentProps {
 }
 
 function AuthModalContent({ initialView, recoveryKey, onRecoveryKey }: AuthModalContentProps) {
-	const authReturnTo = useUIStore((s) => s.authReturnTo)
-	const closeAuth = useUIStore((s) => s.closeAuth)
-	const openSettings = useUIStore((s) => s.openSettings)
+	const authReturnTo = authModal.useTarget()?.returnTo ?? null
 	const login = useAuthStore((s) => s.login)
 	const register = useAuthStore((s) => s.register)
 	const loading = useAuthStore((s) => s.loading)

@@ -52,6 +52,16 @@ import {
 	UsersIcon,
 	XIcon,
 } from "lucide-react"
+import {
+	manageAccessModal,
+	noteHistoryModal,
+	noteShareModal,
+	openCreateFromTemplate,
+	openQuickFinder,
+	toggleCommandPalette,
+	toggleQuickFinder,
+	toggleTagPicker,
+} from "@/utils/modals"
 import { checkForAppUpdate } from "../features/app-updates/appUpdateStore"
 import { openChangelogTab } from "../features/app-updates/openChangelog"
 import { commentCommands } from "../features/comments/commentCommands"
@@ -67,9 +77,7 @@ import {
 } from "../features/import-export/importExportActions"
 import { importObsidianVaultFromDialog } from "../features/import-export/obsidianImport"
 import { openMarketplaceView } from "../features/marketplace/openMarketplaceView"
-import { manageAccessModal } from "../features/sync/manageAccessModal"
-import { noteHistoryModal } from "../features/sync/noteHistoryModal"
-import { noteShareModal } from "../features/sync/noteShareModal"
+import { openSettings } from "../features/settings/settingsModal"
 import { deletedNotesModal, syncLogsModal } from "../features/sync/syncDialogStores"
 import { openTasksSidebar, openTodayView } from "../features/tasks/taskModel"
 import { openNewTemplate, openTemplatesView } from "../features/templates/templateActions"
@@ -459,7 +467,7 @@ const appCommands: CommandEntry[] = [
 		aliases: ["quick-finder", "open-note"],
 		icon: SearchIcon,
 		hotkey: { defaultKeys: "mod+o", scope: "global" },
-		execute: () => useUIStore.getState().toggleQuickFinder(),
+		execute: () => toggleQuickFinder(),
 	},
 	{
 		id: "navigate.command-palette",
@@ -468,7 +476,7 @@ const appCommands: CommandEntry[] = [
 		aliases: ["command-palette", "commands"],
 		icon: TerminalIcon,
 		hotkey: { defaultKeys: "mod+p", scope: "global" },
-		execute: () => useUIStore.getState().toggleCommandPalette(),
+		execute: () => toggleCommandPalette(),
 	},
 	{
 		id: "navigate.mru-next",
@@ -510,7 +518,7 @@ const appCommands: CommandEntry[] = [
 		category: "File",
 		aliases: ["new-tab"],
 		icon: PlusIcon,
-		execute: () => useUIStore.getState().openQuickFinder(),
+		execute: () => openQuickFinder(),
 	},
 	{
 		id: "view.toggle-right-sidebar",
@@ -611,7 +619,10 @@ const appCommands: CommandEntry[] = [
 		aliases: ["settings", "open-settings"],
 		icon: SettingsIcon,
 		hotkey: { defaultKeys: "mod+,", scope: "global" },
-		execute: () => useUIStore.getState().openSettings(),
+		execute: (context) => {
+			const section = (context.payload as { section?: string } | undefined)?.section
+			openSettings(section)
+		},
 	},
 	{
 		id: "marketplace.open",
@@ -644,7 +655,7 @@ const appCommands: CommandEntry[] = [
 		aliases: ["tag-picker"],
 		icon: TagIcon,
 		hotkey: { defaultKeys: "mod+t", scope: "global" },
-		execute: () => useUIStore.getState().toggleTagPicker(),
+		execute: () => toggleTagPicker(),
 	},
 	{
 		id: FILE_EXPLORER_COMMAND_IDS.openMenu,
@@ -691,7 +702,7 @@ const appCommands: CommandEntry[] = [
 		aliases: ["template", "new-from-template"],
 		icon: LayoutTemplateIcon,
 		execute: () => {
-			if (useVaultStore.getState().vault) useUIStore.getState().openCreateFromTemplate()
+			if (useVaultStore.getState().vault) openCreateFromTemplate()
 		},
 	},
 	{
@@ -771,7 +782,7 @@ const appCommands: CommandEntry[] = [
 		label: "Keyboard Shortcuts",
 		category: "Help",
 		aliases: ["hotkeys", "shortcuts"],
-		execute: () => useUIStore.getState().openSettings("hotkeys"),
+		execute: () => openSettings("hotkeys"),
 	},
 	{
 		id: "sync.now",
@@ -798,7 +809,7 @@ const appCommands: CommandEntry[] = [
 		id: "sync.settings",
 		label: "Sync Settings",
 		category: "Sync",
-		execute: () => useUIStore.getState().openSettings("sync"),
+		execute: () => openSettings("sync"),
 	},
 	{
 		id: "view.zoom-in",

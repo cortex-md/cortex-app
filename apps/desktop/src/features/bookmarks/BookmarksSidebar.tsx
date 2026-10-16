@@ -3,7 +3,6 @@ import {
 	resolveBookmarkPath,
 	selectActiveTabFilePath,
 	useBookmarksStore,
-	useUIStore,
 	useVaultStore,
 	useWorkspaceStore,
 } from "@cortex/core"
@@ -12,6 +11,7 @@ import { BookmarkIcon, FileTextIcon, GripVerticalIcon, SearchIcon } from "lucide
 import { useCallback, useDeferredValue, useMemo, useState } from "react"
 import { useCommandHotkey } from "@/hooks/useCommandHotkey"
 import { formatCount } from "@/utils/format"
+import { openQuickFinder } from "@/utils/modals"
 import { SidebarNoVaultState, SidebarToolView } from "../sidebar/SidebarToolView"
 import { getSidebarNotePresentation } from "../sidebar/sidebarNotePresentation"
 import { type SortableItemProps, useSortableList } from "../sidebar/useSortableList"
@@ -35,7 +35,7 @@ interface BookmarkRowProps {
 }
 
 function findMovedNote(row: BookmarkRowModel) {
-	useUIStore.getState().openQuickFinder({
+	openQuickFinder({
 		kind: "relink-bookmark",
 		bookmarkPath: row.filePath,
 		query: row.title,

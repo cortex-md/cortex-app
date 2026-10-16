@@ -1,11 +1,10 @@
 # AGENTS.md
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+This file is the repository manual for coding agents (Codex, Claude Code) working in this repository.
 
 ## Project Overview
 
 **Cortex** is a modular markdown platform with desktop app and developer tooling. The architecture is a monorepo using bun workspaces, with clear separation between:
-- **apps/cli** — Official Cortex CLI (Go) for plugin/theme create, validate, and publish workflows
 - **apps/desktop** — The Electron application entry point
 - **packages/** — Reusable modules (ui, core, platform, theme, editor, settings, sync-api, sync-engine)
 
@@ -46,8 +45,7 @@ cortex/
 ├── plugins/                        # @cortex/plugins: bundled definePlugin modules
 │   ├── index.ts                    # bundledPlugins list (one line per plugin)
 │   └── github-emoji/               # index.ts + data
-├── bun.lockb
-└── bunfig.toml
+└── bun.lock
 ```
 
 ## Code Conventions
@@ -200,9 +198,10 @@ bun run perf:monitor      # Live FPS, long tasks, JS heap, RAM, and CPU of the b
 
 GitHub Actions are desktop-scoped by default while mobile is in active development. `ci.yml` runs
 Biome, TypeScript, workspace boundaries, and every desktop Vitest project; it ignores changes that
-only touch `apps/mobile`, `apps/web`, or `docs`. `release.yml` calls `ci.yml` as a reusable workflow
-before packaging, so a release never builds from a red commit. React Doctor runs on pull requests.
-`perf.yml` runs the smoke budgets on every push to `main` (manual dispatch picks the roadmap scale)
+only touch `apps/mobile`, `apps/web`, or `docs`, and runs React Doctor as its last step on pull
+requests. `release.yml` packages the tagged commit (which already passed CI on `main`). `apps.yml`
+lints, typechecks and tests mobile and web only when those paths change.
+`perf.yml` runs the smoke budgets weekly and on manual dispatch (which picks the roadmap scale)
 and keeps the JSON as an artifact; the plugin API publish workflow is manual-only. Mobile and web checks stay
 available through explicit scripts but do not block default CI.
 
@@ -244,7 +243,7 @@ bun run dist              # Build + package release binaries
 - **src/App.tsx** — Root component, orchestrates stores and layout
 - **src/features/** — Desktop feature modules, including file explorer, split view, settings, sync,
   and marketplace UI
-- **src/components/shared/** — Cross-feature desktop helpers only
+- **src/utils/** — Cross-feature desktop helpers (formatting, modal stores, idle scheduling)
 - **src/styles/** — Design system CSS: `index.css` imports `theme.css`, `base.css`, and one partial per
   surface in cascade order; `macos.css` loads lazily on macOS. Add rules to the partial that owns the
   surface instead of creating new global files
@@ -567,9 +566,8 @@ changes. Enabling a community plugin first confirms its declared `manifest.permi
 Marketplace is a first-class desktop workspace view, not a Settings section. Community plugin/theme
 browse buttons, the sidebar Marketplace entry, and app commands should call the desktop-owned
 `openMarketplaceView(tab)` helper so the existing Marketplace view tab is reused, activated, and
-switched between plugins/themes without adding Marketplace routing to `useUIStore` or the settings
-window URL. Settings browse actions must close Settings or ask the main window to open Marketplace
-instead of opening a hidden workspace tab inside the Settings window.
+switched between plugins/themes without adding Marketplace routing to `useUIStore`. Settings browse
+actions must close the Settings overlay before opening the Marketplace tab.
 
 Community plugins and themes are vault-scoped. The desktop app loads plugins from
 `<vault>/.cortex/plugins` and themes from `<vault>/.cortex/themes`; `cortex dev` (cortex-md/cli)

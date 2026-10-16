@@ -1,3 +1,4 @@
+import { clamp } from "@/utils/format"
 export interface SvgCameraBox {
 	x: number
 	y: number
@@ -21,10 +22,6 @@ export const zoomStep = 1.18
 export const fitPaddingRatio = 0.08
 
 const viewBoxSeparatorPattern = /[\s,]+/
-
-function clamp(value: number, min: number, max: number): number {
-	return Math.min(max, Math.max(min, value))
-}
 
 function hasValidBox(box: SvgCameraBox): boolean {
 	return (

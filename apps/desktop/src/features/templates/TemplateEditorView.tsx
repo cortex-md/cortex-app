@@ -3,7 +3,6 @@ import {
 	republishNoteTemplate,
 	type TemplateDefinition,
 	useTemplateStore,
-	useUIStore,
 	useVaultStore,
 } from "@cortex/core"
 import {
@@ -71,6 +70,7 @@ import { retitleTemplateEditor } from "./templateActions"
 import { refreshTemplateValueChips, templateValueChipsExtension } from "./templateValueChips"
 import { useTemplateFolderOptions } from "./useTemplateFolderOptions"
 import "./templates.css"
+import { openCreateFromTemplate } from "@/utils/modals"
 
 interface PropertyDraft {
 	id: string
@@ -202,7 +202,6 @@ interface TemplateEditorContentProps {
 function TemplateEditorContent({ template, source }: TemplateEditorContentProps) {
 	const vault = useVaultStore((state) => state.vault)
 	const updateTemplate = useTemplateStore((state) => state.updateTemplate)
-	const openCreateFromTemplate = useUIStore((state) => state.openCreateFromTemplate)
 	const settings = useSettingsStore((state) => state.settings)
 	const updateSetting = useSettingsStore((state) => state.updateSetting)
 	const folderOptions = useTemplateFolderOptions()

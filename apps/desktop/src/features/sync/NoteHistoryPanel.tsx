@@ -27,6 +27,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useCopyFeedback } from "@/hooks/useCopyFeedback"
 import { formatDateTime } from "@/utils/format"
 import { ModalStoreHost } from "@/utils/ModalHost"
+import { noteHistoryModal } from "@/utils/modals"
 import {
 	groupByDay,
 	HistoryDayLabel,
@@ -39,7 +40,6 @@ import {
 	historyDayLabel,
 	NoteReadingPreview,
 } from "./HistoryDialogParts"
-import { noteHistoryModal } from "./noteHistoryModal"
 import { UserAvatar } from "./UserAvatar"
 import { type SyncActorNames, useSyncActorNames } from "./useSyncActorNames"
 import { useVersionContents } from "./useVersionContents"

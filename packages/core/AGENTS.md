@@ -458,7 +458,6 @@ export interface UIState {
   setLeftSidebarLayout: (layout: Partial<LeftSidebarLayout>) => void
   resetLeftSidebarLayout: () => void
   setLeftSidebarView: (view: string) => void
-  openSettings: (section?: string) => void  // opens the native Settings window via getPlatform().window
 }
 ```
 

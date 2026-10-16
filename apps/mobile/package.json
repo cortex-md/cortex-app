@@ -79,7 +79,7 @@
 		"typecheck": "tsc --noEmit",
 		"check": "bun run lint && bun run typecheck",
 		"test": "bun run test:unit && bun run check",
-		"test:unit": "vitest run --project mobile",
+		"test:unit": "vitest run --config ../../vitest.config.ts --project mobile",
 		"doctor": "npx react-doctor@latest . --verbose --scope changed",
 		"doctor:full": "npx react-doctor@latest . --verbose"
 	},

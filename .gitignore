@@ -11,15 +11,7 @@ target
 .tanstack/
 .impeccable/
 *.tsbuildinfo
-.next/
 docs/internal/
-/infra/
-/sync/
-/apps/cli
-apps/desktop/src-tauri/~/
-apps/desktop/src-tauri/tauri.release.conf.json
-!apps/desktop/src-tauri/icons/
-!apps/desktop/src-tauri/icons/**
 .claudeignore
 coverage/
 .codex/*

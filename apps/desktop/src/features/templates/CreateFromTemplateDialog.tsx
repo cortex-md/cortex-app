@@ -2,7 +2,6 @@ import {
 	type TemplateDefinition,
 	useCanWriteVaultPath,
 	useTemplateStore,
-	useUIStore,
 	useVaultStore,
 	useWorkspaceStore,
 } from "@cortex/core"
@@ -38,6 +37,7 @@ import { TemplateNotePreview } from "./TemplateNotePreview"
 import { openNewTemplate, openTemplatesView } from "./templateActions"
 import { useTemplateFolderOptions } from "./useTemplateFolderOptions"
 import "./templates.css"
+import { closeCreateFromTemplate, createFromTemplateModal } from "@/utils/modals"
 
 const BLANK_KEY = "__blank__"
 
@@ -49,8 +49,7 @@ interface PreviewState {
 }
 
 export function CreateFromTemplateDialog() {
-	const open = useUIStore((state) => state.createFromTemplateOpen)
-	const closeCreateFromTemplate = useUIStore((state) => state.closeCreateFromTemplate)
+	const open = createFromTemplateModal.useTarget() !== null
 
 	return (
 		<ModalHost open={open} onOpenChange={(nextOpen) => !nextOpen && closeCreateFromTemplate()}>
@@ -101,7 +100,6 @@ interface PickerLinksProps {
 }
 
 function PickerLinks({ activeTemplateId }: PickerLinksProps) {
-	const closeCreateFromTemplate = useUIStore((state) => state.closeCreateFromTemplate)
 	const run = (action: () => void) => () => {
 		closeCreateFromTemplate()
 		action()
@@ -170,8 +168,7 @@ function CreateFromTemplateContent() {
 	const templates = useTemplateStore((state) => state.templates)
 	const ensureTemplatesLoaded = useTemplateStore((state) => state.ensureTemplatesLoaded)
 	const createNoteFromTemplate = useTemplateStore((state) => state.createNoteFromTemplate)
-	const initialTemplateId = useUIStore((state) => state.createFromTemplateId)
-	const closeCreateFromTemplate = useUIStore((state) => state.closeCreateFromTemplate)
+	const initialTemplateId = createFromTemplateModal.useTarget()?.templateId ?? null
 	const openTab = useWorkspaceStore((state) => state.openTab)
 	const showTeam = useSettingsStore((state) => state.settings.templates.showTeam)
 	const [query, setQuery] = useState("")

@@ -3,7 +3,7 @@ import { getPlatform } from "@cortex/platform"
 import { getBaseName, getNoteTitle, getParentPath, joinPath } from "@cortex/platform/utils"
 import { useAuthStore } from "../stores/authStore"
 import { useVaultStore } from "../stores/vaultStore"
-import { extractAllTags, parseFrontmatter } from "../utils/frontmatter"
+import { extractAllTags, parseNoteFrontmatter } from "../utils/frontmatter"
 
 export interface SharedNoteBundleDeps {
 	render: (markdown: string) => Promise<string>
@@ -79,7 +79,7 @@ export async function buildSharedNoteBundle(
 	const vaultPath = useVaultStore.getState().vault?.path
 	if (!vaultPath) throw new Error("Open the vault before sharing a note.")
 	const content = await getPlatform().fs.readFile(notePath)
-	const markdown = parseFrontmatter(content).body
+	const markdown = parseNoteFrontmatter(content).body
 	const rendered = await render(markdown)
 	const { html, attachments } = await embedImages(rendered, notePath, vaultPath)
 	return {

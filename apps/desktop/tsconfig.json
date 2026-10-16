@@ -30,6 +30,15 @@
 			"path": "../../packages/commands"
 		},
 		{
+			"path": "../../packages/import-export"
+		},
+		{
+			"path": "../../packages/sync-api"
+		},
+		{
+			"path": "../../packages/sync-engine"
+		},
+		{
 			"path": "../../packages/comments"
 		},
 		{

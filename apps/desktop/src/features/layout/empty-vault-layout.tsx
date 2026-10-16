@@ -1,13 +1,13 @@
-import { useAppStore, useAuthStore, useUIStore, useVaultStore } from "@cortex/core"
+import { useAppStore, useAuthStore, useVaultStore } from "@cortex/core"
 import { Badge, Button, Item, isValidLucideIconName, LucideIcon } from "@cortex/ui"
 import { FileText, FolderOpen, FolderPlus, User, Vault } from "lucide-react"
+import { openAuth } from "@/utils/modals"
+import { openSettings } from "../settings/settingsModal"
 import { openAddVault, openRecentVault } from "../vault/vaultActions"
 
 function AccountBadge() {
 	const authenticated = useAuthStore((s) => s.authenticated)
 	const user = useAuthStore((s) => s.user)
-	const openSettings = useUIStore((s) => s.openSettings)
-	const openAuth = useUIStore((s) => s.openAuth)
 
 	if (authenticated && user) {
 		return (

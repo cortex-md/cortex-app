@@ -2,6 +2,7 @@ import { getPlatform } from "@cortex/platform"
 import { useAuthStore } from "../stores/authStore"
 import { useMembersStore } from "../stores/membersStore"
 import { useRemoteVaultStore } from "../stores/remoteVaultStore"
+import { getErrorMessage } from "../utils/reportAppError"
 
 export interface InviteDeepLink {
 	token: string
@@ -19,10 +20,6 @@ export function parseInviteDeepLink(value: string): InviteDeepLink | null {
 	} catch {
 		return null
 	}
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error)
 }
 
 async function acceptInvite({ token, linkKey }: InviteDeepLink): Promise<void> {
@@ -60,7 +57,7 @@ export function startInviteDeepLinks(): () => void {
 			.catch((error) =>
 				getPlatform().dialog.showAlert({
 					title: "Could not join the vault",
-					message: errorMessage(error),
+					message: getErrorMessage(error),
 					kind: "error",
 				}),
 			)

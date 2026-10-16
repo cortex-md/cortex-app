@@ -35,7 +35,7 @@ export function hasFrontmatter(content: string): boolean {
 	return locateFrontmatter(content) !== null
 }
 
-export function parseFrontmatter(content: string): ParsedNote {
+export function parseNoteFrontmatter(content: string): ParsedNote {
 	const location = locateFrontmatter(content)
 	if (!location) {
 		return { frontmatter: null, rawYaml: "", body: content, hasFrontmatter: false }
@@ -81,7 +81,7 @@ export function updateFrontmatterField(
 }
 
 export function addTagToFrontmatter(content: string, tag: string): string {
-	const { frontmatter } = parseFrontmatter(content)
+	const { frontmatter } = parseNoteFrontmatter(content)
 	const existingTags = frontmatter?.tags ?? []
 	if (existingTags.some((existingTag) => existingTag.toLowerCase() === tag.toLowerCase())) {
 		return content
@@ -90,7 +90,7 @@ export function addTagToFrontmatter(content: string, tag: string): string {
 }
 
 export function removeTagFromFrontmatter(content: string, tag: string): string {
-	const { frontmatter } = parseFrontmatter(content)
+	const { frontmatter } = parseNoteFrontmatter(content)
 	if (!frontmatter) return content
 	const tags = frontmatter.tags.filter(
 		(existingTag) => existingTag.toLowerCase() !== tag.toLowerCase(),
@@ -123,7 +123,7 @@ export function extractInlineTags(content: string): string[] {
 }
 
 export function extractAllTags(content: string): string[] {
-	const { frontmatter, body } = parseFrontmatter(content)
+	const { frontmatter, body } = parseNoteFrontmatter(content)
 	const yamlTags = (frontmatter?.tags ?? []).map((tag) => tag.toLowerCase())
 	const inlineTags = extractInlineTags(body)
 	return [...new Set([...yamlTags, ...inlineTags])]
@@ -142,7 +142,7 @@ export function renameTagInContent(content: string, oldTag: string, newTag: stri
 	const from = oldTag.trim().replace(/^#/, "").toLowerCase()
 	const to = newTag.trim().replace(/^#/, "")
 	if (!from || !to || from === to.toLowerCase()) return content
-	const { frontmatter } = parseFrontmatter(content)
+	const { frontmatter } = parseNoteFrontmatter(content)
 	let updated = content
 	const yamlTags = frontmatter?.tags ?? []
 	if (yamlTags.some((tag) => renameTagValue(tag, from, to) !== tag)) {
@@ -155,7 +155,7 @@ export function renameTagInContent(content: string, oldTag: string, newTag: stri
 		`(^|[^\\w&#])#${from.replace(TAG_ESCAPE_PATTERN, "\\$&")}(?=[/\\s.,;:!?)\\]]|$)`,
 		"gimu",
 	)
-	const updatedBody = parseFrontmatter(updated).body
+	const updatedBody = parseNoteFrontmatter(updated).body
 	if (!updated.endsWith(updatedBody)) return updated
 	const nextBody = updatedBody.replace(inlinePattern, `$1#${to}`)
 	if (nextBody === updatedBody) return updated

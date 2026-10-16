@@ -20,8 +20,8 @@ import {
 import { type FormEvent, type ReactNode, useEffect, useEffectEvent, useRef, useState } from "react"
 import { formatCount } from "@/utils/format"
 import { ModalStoreHost } from "@/utils/ModalHost"
+import { type ObsidianImportTarget, obsidianImportModal } from "@/utils/modals"
 import { type ObsidianRunSummary, runObsidianImport } from "./obsidianImport"
-import { type ObsidianImportTarget, obsidianImportModal } from "./obsidianImportModal"
 
 type ObsidianImportStage =
 	| { kind: "options" }

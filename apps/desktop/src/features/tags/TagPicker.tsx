@@ -1,10 +1,4 @@
-import {
-	selectSortedTags,
-	useEditorStore,
-	useTagsStore,
-	useUIStore,
-	useVaultStore,
-} from "@cortex/core"
+import { selectSortedTags, useEditorStore, useTagsStore, useVaultStore } from "@cortex/core"
 import {
 	Button,
 	ColorPicker,
@@ -19,6 +13,7 @@ import {
 } from "@cortex/ui"
 import { useCallback, useState } from "react"
 import { formatCount } from "@/utils/format"
+import { tagPickerModal, toggleTagPicker } from "@/utils/modals"
 
 const emptyTags: string[] = []
 const TAG_PICKER_FOOTER_HINTS = [
@@ -28,14 +23,13 @@ const TAG_PICKER_FOOTER_HINTS = [
 ]
 
 export function TagPicker() {
-	const tagPickerOpen = useUIStore((s) => s.tagPickerOpen)
+	const tagPickerOpen = tagPickerModal.useTarget() !== null
 	const activeFilePath = useEditorStore((s) => s.activeFilePath)
 	if (!tagPickerOpen || !activeFilePath) return null
 	return <TagPickerDialog activeFilePath={activeFilePath} />
 }
 
 function TagPickerDialog({ activeFilePath }: { activeFilePath: string }) {
-	const toggleTagPicker = useUIStore((s) => s.toggleTagPicker)
 	const vault = useVaultStore((s) => s.vault)
 	const allTags = useTagsStore(selectSortedTags)
 	const tagColors = useTagsStore((s) => s.tagColors)
@@ -65,7 +59,7 @@ function TagPickerDialog({ activeFilePath }: { activeFilePath: string }) {
 		await addTagToFile(activeFilePath, newTag)
 		setInputValue("")
 		closeModal()
-	}, [activeFilePath, inputValue, addTagToFile, closeModal])
+	}, [activeFilePath, inputValue, addTagToFile])
 
 	const handleColorChange = useCallback(
 		(tag: string, color: string | null) => {

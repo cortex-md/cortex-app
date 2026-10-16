@@ -12,6 +12,8 @@ import { PanelLeftIcon } from "lucide-react"
 import {
 	type ComponentType,
 	type CSSProperties,
+	createElement,
+	type FunctionComponent,
 	lazy,
 	memo,
 	type ReactNode,
@@ -19,9 +21,20 @@ import {
 	useEffect,
 	useMemo,
 } from "react"
+import {
+	authModal,
+	commandPaletteModal,
+	createFromTemplateModal,
+	manageAccessModal,
+	noteHistoryModal,
+	noteShareModal,
+	obsidianImportModal,
+	quickFinderModal,
+	resetPasswordModal,
+	tagPickerModal,
+} from "@/utils/modals"
 import { AppLifecycle } from "./bootstrap/AppLifecycle"
 import { initializeDesktopHost } from "./bootstrap/desktopHost"
-import { resetPasswordModal } from "./features/auth/resetPasswordModal"
 import { EmbedHost } from "./features/embeds/EmbedHost"
 import { SidebarViewStage } from "./features/file-explorer/SidebarViewStage"
 import {
@@ -29,20 +42,17 @@ import {
 	type SidebarViewItem,
 	type SidebarViewPanelProps,
 } from "./features/file-explorer/sidebarViewUtils"
-import { obsidianImportModal } from "./features/import-export/obsidianImportModal"
 import { EmptyVaultLayout } from "./features/layout/empty-vault-layout"
 import { type SplitPaneLeafProps, SplitPaneView } from "./features/layout/SplitPane"
 import { openMarketplaceView } from "./features/marketplace/openMarketplaceView"
 import { PluginModalHost } from "./features/plugins/rendering/PluginModalHost"
 import { PluginViewRenderer } from "./features/plugins/rendering/PluginViewRenderer"
 import { RightSidebar } from "./features/right-sidebar/RightSidebar"
+import { openSettings, settingsModal } from "./features/settings/settingsModal"
 import { SidebarRail } from "./features/sidebar/SidebarRail"
 import { DragPreview } from "./features/split-view/DragPreview"
 import { PaneView } from "./features/split-view/PaneView"
 import { StatusBar } from "./features/statusbar/StatusBar"
-import { manageAccessModal } from "./features/sync/manageAccessModal"
-import { noteHistoryModal } from "./features/sync/noteHistoryModal"
-import { noteShareModal } from "./features/sync/noteShareModal"
 import { deletedNotesModal, syncLogsModal } from "./features/sync/syncDialogStores"
 import { shareTemplateModal } from "./features/templates/shareActions"
 import { newTemplateModal } from "./features/templates/templateActions"
@@ -63,8 +73,22 @@ interface DeferredOverlayProps {
 	children: ReactNode
 }
 
-function lazyNamed<M extends Record<string, unknown>>(load: () => Promise<M>, name: keyof M) {
-	return lazy(() => load().then((module) => ({ default: module[name] as ComponentType })))
+type PreloadableComponent = FunctionComponent & { preload: () => Promise<void> }
+
+function lazyNamed<M extends Record<string, unknown>>(
+	load: () => Promise<M>,
+	name: keyof M,
+): PreloadableComponent {
+	let resolved: ComponentType | null = null
+	const resolve = () =>
+		load().then((module) => {
+			resolved = module[name] as ComponentType
+			return resolved
+		})
+	const Lazy = lazy(() => resolve().then((component) => ({ default: component })))
+	const Preloadable: FunctionComponent = () =>
+		resolved ? createElement(resolved) : createElement(Lazy)
+	return Object.assign(Preloadable, { preload: () => resolve().then(() => undefined) })
 }
 
 const overlayLoaders = {
@@ -82,6 +106,7 @@ const overlayLoaders = {
 	syncDialogs: () => import("./features/sync/syncDialogs"),
 	addVault: () => import("./features/vault/add-vault/AddVaultDialog"),
 	obsidianImport: () => import("./features/import-export/ObsidianImportDialog"),
+	settings: () => import("./features/settings/SettingsOverlay"),
 }
 
 const LazyAuthModal = lazyNamed(overlayLoaders.auth, "AuthModal")
@@ -101,10 +126,29 @@ const LazyTagPicker = lazyNamed(overlayLoaders.tagPicker, "TagPicker")
 const LazySyncDialogsHost = lazyNamed(overlayLoaders.syncDialogs, "SyncDialogsHost")
 const LazyAddVaultDialogHost = lazyNamed(overlayLoaders.addVault, "AddVaultDialogHost")
 const LazyObsidianImportHost = lazyNamed(overlayLoaders.obsidianImport, "ObsidianImportHost")
+const LazySettingsOverlayHost = lazyNamed(overlayLoaders.settings, "SettingsOverlayHost")
+
+const overlayComponents = [
+	LazyQuickFinder,
+	LazyCommandPalette,
+	LazyTagPicker,
+	LazyAuthModal,
+	LazyCreateFromTemplateDialog,
+	LazyNewTemplateHost,
+	LazyShareTemplateHost,
+	LazyNoteHistoryHost,
+	LazyNoteShareHost,
+	LazyManageAccessHost,
+	LazyResetPasswordHost,
+	LazySyncDialogsHost,
+	LazyAddVaultDialogHost,
+	LazyObsidianImportHost,
+	LazySettingsOverlayHost,
+]
 
 function preloadOverlays(): () => void {
 	return scheduleIdleWork(() => {
-		for (const load of Object.values(overlayLoaders)) void load()
+		for (const component of overlayComponents) void component.preload()
 	})
 }
 
@@ -115,7 +159,7 @@ function toggleLeftSidebar() {
 }
 
 function openGeneralSettings() {
-	useUIStore.getState().openSettings("general")
+	openSettings("general")
 }
 
 function openPluginMarketplace() {
@@ -294,11 +338,11 @@ function DeferredOverlay({ open, children }: DeferredOverlayProps) {
 }
 
 const AppOverlays = memo(function AppOverlays() {
-	const authOpen = useUIStore((s) => s.authOpen)
-	const createFromTemplateOpen = useUIStore((s) => s.createFromTemplateOpen)
-	const quickFinderOpen = useUIStore((s) => s.quickFinderOpen)
-	const commandPaletteOpen = useUIStore((s) => s.commandPaletteOpen)
-	const tagPickerOpen = useUIStore((s) => s.tagPickerOpen)
+	const authOpen = authModal.useTarget() !== null
+	const createFromTemplateOpen = createFromTemplateModal.useTarget() !== null
+	const quickFinderOpen = quickFinderModal.useTarget() !== null
+	const commandPaletteOpen = commandPaletteModal.useTarget() !== null
+	const tagPickerOpen = tagPickerModal.useTarget() !== null
 	const noteHistoryOpen = noteHistoryModal.useTarget() !== null
 	const noteShareOpen = noteShareModal.useTarget() !== null
 	const manageAccessOpen = manageAccessModal.useTarget() !== null
@@ -309,6 +353,7 @@ const AppOverlays = memo(function AppOverlays() {
 	const newTemplateOpen = newTemplateModal.useTarget() !== null
 	const shareTemplateOpen = shareTemplateModal.useTarget() !== null
 	const obsidianImportOpen = obsidianImportModal.useTarget() !== null
+	const settingsOpen = settingsModal.useTarget() !== null
 
 	useEffect(preloadOverlays, [])
 
@@ -357,6 +402,9 @@ const AppOverlays = memo(function AppOverlays() {
 			</DeferredOverlay>
 			<DeferredOverlay open={obsidianImportOpen}>
 				<LazyObsidianImportHost />
+			</DeferredOverlay>
+			<DeferredOverlay open={settingsOpen}>
+				<LazySettingsOverlayHost />
 			</DeferredOverlay>
 			<PluginModalHost />
 			<DragPreview />

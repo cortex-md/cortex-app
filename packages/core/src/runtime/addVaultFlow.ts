@@ -3,6 +3,7 @@ import { createStore } from "zustand/vanilla"
 import { useRemoteVaultStore } from "../stores/remoteVaultStore"
 import { createDefaultSyncPreferences } from "../stores/syncStore"
 import { useVaultStore } from "../stores/vaultStore"
+import { getErrorMessage } from "../utils/reportAppError"
 import { createVaultFolder, registerVaultFolder, VAULT_COLORS } from "./addVault"
 import { formatVaultPath } from "./vaultDisplay"
 import { resolvePickedFolder } from "./vaultSession"
@@ -132,10 +133,6 @@ export interface AddVaultFlowDeps {
 	onOpened?: (result: { opensHere: boolean; adoptObsidian: boolean }) => void
 }
 
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error)
-}
-
 export function createAddVaultFlow(target: AddVaultTarget, deps: AddVaultFlowDeps) {
 	const store = createStore<AddVaultDraft>(() => createAddVaultDraft(target))
 	const update = (next: Partial<AddVaultDraft>) => store.setState(next)
@@ -174,7 +171,7 @@ export function createAddVaultFlow(target: AddVaultTarget, deps: AddVaultFlowDep
 					: current,
 			)
 		} catch (error) {
-			update({ error: errorMessage(error) })
+			update({ error: getErrorMessage(error) })
 		} finally {
 			update({ picking: false })
 		}
@@ -204,7 +201,7 @@ export function createAddVaultFlow(target: AddVaultTarget, deps: AddVaultFlowDep
 		try {
 			await task()
 		} catch (error) {
-			update({ error: errorMessage(error) })
+			update({ error: getErrorMessage(error) })
 		} finally {
 			update({ busy: false })
 		}

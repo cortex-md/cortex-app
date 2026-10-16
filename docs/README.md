@@ -12,8 +12,6 @@ plugins, and community themes.
 - [Community](community/README.md): authoring guides for plugins and themes.
 - [Community plugins](community/plugins/README.md): how to build plugins with `@cortex.md/api`.
 - [Community themes](community/themes/README.md): how to build vault-scoped CSS themes.
-- [Mobile roadmap](mobile/roadmap.md): the Local-first Cortex Mobile plan, including the
-  CodeMirror-in-WebView editor architecture.
 
 ## Current Scope
 

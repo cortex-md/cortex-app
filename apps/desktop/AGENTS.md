@@ -9,24 +9,23 @@ Electron desktop app: a TypeScript main process plus a React 19 + Vite renderer 
 electron/                 # Main process (Node)
   main.ts                 # Single instance, deep links, app/window lifecycle
   window.ts               # BrowserWindow options, native materials, navigation guards
-  windows.ts              # Window registry: one main window per vault, on-demand Settings window, relay
+  windows.ts              # Window registry: one main window per vault, shown after the first React commit
   dock.ts                 # macOS Dock menu and Windows jump list (recent vaults, New Window)
   preload.ts              # contextBridge: window.cortex.invoke / window.cortex.on
   security.ts             # Path allowlist, trusted sender/URL checks, external URL protocols
-  protocols.ts            # cortex-file:// asset protocol (allowlisted paths only)
+  protocols.ts            # cortex-app:// renderer scheme (V8 code cache) + cortex-file:// assets (allowlisted paths)
   ipc/register.ts         # MainApi object → single typed invoke handler
   menu.ts, events.ts      # Command-driven application menu + typed main→renderer events
   services/               # fs, vault, registry, watcher, dialog, keychain, documents, sync bridge…
 src/                      # Renderer
-  main.tsx                # initRenderer() then mounts App or SettingsWindowApp (?window=settings)
+  main.tsx                # initRenderer() then mounts App
   App.tsx                 # initializeDesktopHost() + shell composition only
-  bootstrap/AppLifecycle.tsx # Main-window lifecycle hooks (startup, runtime, sync, window bridge)
-  settings-window/        # Settings window root (no runtime, sync, plugin host or workspace)
-  windows/                # Cross-window bridge: mirrored stores and main-window actions
+  bootstrap/AppLifecycle.tsx # Main-window lifecycle hooks (startup, runtime, sync)
+  windows/                # useNativeMenuState: commands + checked/enabled state for the native menu
   bootstrap/              # desktopHost, pluginHost, appCommands, commandHotkeyBridge, coreContributions
   features/               # Feature modules (file explorer, split view, sync, settings, …)
   hooks/                  # Lifecycle hooks and shared desktop hooks
-  utils/                  # context-menu, createModalStore, format, notifications
+  utils/                  # context-menu, createModalStore, modals (every global modal store), format
 electron.vite.config.ts   # main (+ sync-worker), preload, renderer builds
 electron-builder.yml      # Packaging and updater feed
 ```
@@ -102,11 +101,14 @@ toolbar ids from `markdownToolbarLayout` in `@cortex/editor/markdown-format-comm
 are registered in `bootstrap/coreContributions.tsx` with owner `"core"`; `App.tsx`, `PaneView`,
 and `StatusBar` render from that contribution store only. Core settings pages live in
 `features/settings/coreSettingsPageRegistry.ts`; plugin settings pages still come from the
-contribution store (mirrored into the Settings window). Lifecycle effects live in
-dedicated hooks. The native menu is declared in `electron/menu.ts` by command id; every item sends
-`menu-command { id, payload }` to the target window and `hooks/useNativeMenuEvents.ts` runs it.
-Labels, shortcuts (user hotkeys), checked and enabled state come from `windows/useNativeMenuState.ts`
-via `getPlatform().menu.setState`. Add new menu entries as registry commands first.
+contribution store. Lifecycle effects live in dedicated hooks. The native menu is declared in
+`electron/menu.ts` by command id; every item sends `menu-command { id, payload }` to the target
+window and `hooks/useNativeMenuEvents.ts` runs it (keyboard shortcuts are handled by the renderer
+hotkey listener, menu items only display them). `windows/useNativeMenuState.ts` sends the command
+list through `menu.setCommands` only when the registry or hotkeys change, and the small
+checked/enabled snapshot through `menu.setItemStates` with a signature guard; main mutates
+`MenuItem.checked`/`enabled` in place and rebuilds the menu only when the command list, the vault
+registry or the window list changes. Add new menu entries as registry commands first.
 
 ## Windows
 
@@ -184,8 +186,8 @@ one sync worker per window. Window bounds are remembered per vault (`services/wi
 - Templates are managed in workspace tabs, not in Settings. `features/templates/templateActions.ts`
   owns `openTemplatesView` (`TEMPLATES_VIEW_ID`), `openTemplateEditor` (`TEMPLATE_EDITOR_VIEW_ID`)
   and the `newTemplateModal`; view ids live in `templateViewIds.ts` so the tab bar and contributions
-  do not import feature code. Settings → Templates is a summary page that reaches the main window
-  through `runInMainWindow("openTemplates" | "openNewTemplate")`.
+  do not import feature code. Settings → Templates is a summary page that leaves Settings through
+  `runSettingsAction("openTemplates" | "openNewTemplate")`.
 - Entry points: note ⋯ / file menu "Save as Template…" (`templates.save-note-as-template`), the
   sidebar + menu ("Note from a template…", "New template…"), and the commands `templates.create-note`,
   `templates.new`, `templates.manage`. `templates.create-note` has no default hotkey because
@@ -213,46 +215,46 @@ one sync worker per window. Window bounds are remembered per vault (`services/wi
 
 ## Modals and Lazy Surfaces
 
-Global modal targets use `createModalStore<T>()` with one mounted host: `embedModal` +
-`features/embeds/EmbedHost.tsx` for drawing and Mermaid embeds, `noteHistoryModal` + the lazy
-`NoteHistoryHost` in `App.tsx`. Diff rendering goes through the lazy `features/sync/DiffViewer.tsx`
-so `@pierre/diffs` stays out of the main chunk. Dialogs render their content only while open through
+Global modal targets use `createModalStore<T>()` with one mounted host. `utils/modals.ts` owns every
+app-level modal store (quick finder, command palette, tag picker, create-from-template, auth,
+reset password, Obsidian import, note history, note share, manage access) plus the `toggle*`/`open*`
+helpers; `features/settings/settingsModal.ts` owns Settings. `uiStore` in `@cortex/core` keeps only
+layout state (sidebars, quick finder preview). `embedModal` + `features/embeds/EmbedHost.tsx` host
+drawing and Mermaid embeds. Diff rendering goes through the lazy `features/sync/DiffViewer.tsx`, and
+`shiki` is aliased to `features/sync/shiki/bundle.ts` (JavaScript regex engine, ~20 grammars) so the
+full grammar set never ships. Dialogs render their content only while open through
 `ModalHost` (`open`/`onOpenChange` props) or `ModalStoreHost` (a `createModalStore` target passed to
-a render function) from `utils/ModalHost.tsx`, and rarely used surfaces mount after first open
-(`useHasOpened`). Relative "edited N minutes ago" labels read `hooks/useMinuteNow`, one shared
+a render function) from `utils/ModalHost.tsx`. Overlays in `App.tsx` are `lazyNamed` components:
+`preloadOverlays` resolves every chunk at idle and the wrapper renders the resolved component
+synchronously, so the first open never suspends; `CommandDialog` uses the `fade` dialog motion. Relative "edited N minutes ago" labels read `hooks/useMinuteNow`, one shared
 interval for every subscriber. Search snippets render through `features/search/HighlightedSnippet`.
 
 ## Search Worker
 
 Vault search runs in a dedicated Web Worker. `initRenderer()` calls
 `setSearchBackend(createSearchWorkerBackend())`; `features/search/searchWorkerBackend.ts` starts
-`features/search/searchWorker.ts` lazily on the first call (Vite `new Worker(new URL(...))`, so the
-Settings window never spawns it) and forwards each `SearchBackend` method as one ordered
+`features/search/searchWorker.ts` lazily on the first call (Vite `new Worker(new URL(...))`) and
+forwards each `SearchBackend` method as one ordered
 `{ id, method, args }` message (`searchWorkerProtocol.ts`). The worker hosts
 `createLocalSearchBackend()` from `@cortex/search/backend`: MiniSearch, fingerprints, persisted
 index parse and serialization never run on the renderer main thread. The worker has no IPC access;
 the renderer reads note batches and the index file through `getPlatform()` and posts the text.
 The Quick Finder requests titles per keystroke and keeps the previous results until the response
 for the current query arrives (latest query wins); Enter pressed while results are pending opens
-the first result once they arrive, and title search waits while the index is still loading.
+the first result once they arrive, and title search waits while the index is still loading. The
+Quick Finder preview is plain text (`stripMarkdown`), not a rendered Markdown pipeline.
 
 ## Settings and Appearance
 
-Settings is a separate native window (`?window=settings`), bound to the main window that opened it
-or was focused last. It is created on first open and shown on `ready-to-show`; closing hides it and
-destroys it after 10 idle minutes, so an unused Settings renderer never holds memory. Messages sent
-before it calls `window.markReady()` (for example `navigate`) are queued. Pages that need the vault
-file list read it through `useSettingsVaultFiles()`, which scans only while that page is visible. Open it with `useUIStore().openSettings(section)`,
-which calls `getPlatform().window.openSettings`. The Settings window renders `SettingsView`
-(`SettingsNav` + `SettingsPageHost`, which keeps visited pages mounted with `<Activity>`). It never
-starts the app runtime, sync lifecycle, plugin host, or workspace:
-
-- State is shared through `windows/windowBridge.ts`. Stores listed in `windows/mirroredStores.ts`
-  relay changed slices to the other window; settings apply through
-  `SettingsManager.applyExternalSettings` and only the writing window persists.
-- Anything that needs main-window state (vault switch, Marketplace, import, plugin enable/settings,
-  Sync now, history dialogs) goes through `runInMainWindow(name, payload)`, implemented in
-  `windows/mainWindowActions.ts`. Add new cross-window actions there, not in pages.
+Settings is an overlay in the main window (`features/settings/SettingsOverlay.tsx`, a lazy
+`Dialog` mounted by `App.tsx`). Open it with `openSettings(section, fieldId)` from
+`features/settings/settingsModal.ts`; the `app.settings` command accepts `{ section }` as payload so
+native menu items (Settings…, Manage Plugins…, Keyboard Shortcuts) route through it. The overlay
+renders `SettingsView` (`SettingsNav` + `SettingsPageHost`, which keeps visited pages mounted with
+`<Activity>`). Pages that need the vault file list read it through `useSettingsVaultFiles()`, which
+scans only while that page is visible. Actions that leave Settings (vault switch, Marketplace,
+import, templates, history dialogs) go through `runSettingsAction(name, payload)` in
+`features/settings/settingsActions.ts`, which closes the overlay first.
 
 Settings search lives in the sidebar (`SettingsNav` + `SettingsSearchResults`). The index comes from
 `useSettingsSearchItems` (catalog fields, self-hosted environment fields, plugin schema fields, plugins,

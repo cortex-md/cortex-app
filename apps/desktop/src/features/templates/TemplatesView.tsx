@@ -1,4 +1,4 @@
-import { type TemplateDefinition, useTemplateStore, useUIStore, useVaultStore } from "@cortex/core"
+import { type TemplateDefinition, useTemplateStore, useVaultStore } from "@cortex/core"
 import {
 	getFileNameParts,
 	getTemplateGroups,
@@ -43,6 +43,7 @@ import { openShareTemplate } from "./shareActions"
 import { TemplateNotePreview } from "./TemplateNotePreview"
 import { openNewTemplate, openTemplateEditor } from "./templateActions"
 import "./templates.css"
+import { openCreateFromTemplate } from "@/utils/modals"
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" })
 
@@ -77,7 +78,6 @@ export function TemplatesView({ viewState, onStateChange }: CoreViewProps) {
 	const deleteTemplate = useTemplateStore((state) => state.deleteTemplate)
 	const readTemplateBody = useTemplateStore((state) => state.readTemplateBody)
 	const restoreTemplate = useTemplateStore((state) => state.restoreTemplate)
-	const openCreateFromTemplate = useUIStore((state) => state.openCreateFromTemplate)
 	const [query, setQuery] = useState("")
 	const [preview, setPreview] = useState<{ id: string; content: string; title: string } | null>(
 		null,
