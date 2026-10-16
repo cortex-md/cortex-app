@@ -17,6 +17,7 @@ export interface SseHandlers {
 	onChange(change: RemoteChange): void
 	onVaultEvent(event: string, payload: Record<string, unknown>): void
 	onAccessDenied(denial: AccessDenial): void
+	onReset(): void
 }
 
 interface SseMessage {
@@ -132,6 +133,11 @@ export class SseClient {
 	}
 
 	private handleMessage(message: SseMessage): void {
+		if (message.event === "reset") {
+			this.lastEventId = null
+			this.handlers.onReset()
+			return
+		}
 		if (message.id) this.lastEventId = message.id
 		let raw: RemoteChangeResponse
 		try {

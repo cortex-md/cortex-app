@@ -24,6 +24,12 @@ export interface SyncContext {
 	vek: Uint8Array
 	access: SyncAccess
 	collabRoles?: ReadonlyMap<string, CollabFileSyncRole>
+	limits?: SyncLimits
+}
+
+export interface SyncLimits {
+	maxUploadBytes: number
+	maxConcurrentUploads: number
 }
 
 export type SyncOutcome =
@@ -208,13 +214,23 @@ async function pushContent(
 	if (attempt >= MAX_PUSH_ATTEMPTS) {
 		throw new SyncError("transient", `Upload ${path} failed: remote kept changing`)
 	}
+	const sealed = encrypt(local.content, ctx.vek)
+	const maxUploadBytes = ctx.limits?.maxUploadBytes ?? 0
+	if (maxUploadBytes > 0 && sealed.length > maxUploadBytes) {
+		throw new SyncError(
+			"permanent",
+			`${path} is larger than the server upload limit`,
+			413,
+			"file_too_large",
+		)
+	}
 	try {
 		const result = await syncApi.uploadFile(
 			ctx.api,
 			ctx.vaultId,
 			path,
 			local.hash,
-			encrypt(local.content, ctx.vek),
+			sealed,
 			base.version,
 		)
 		await markSynced(ctx, path, local.hash, result.version, local.stat)

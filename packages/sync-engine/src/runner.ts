@@ -1,5 +1,5 @@
 import type { SyncPreferences } from "@cortex/platform"
-import { downloadBatch, listFileIndex, SyncError } from "@cortex/sync-api"
+import { downloadBatch, listFileIndex, SyncError, throttleDelayMs } from "@cortex/sync-api"
 import { decrypt } from "./crypto"
 import type { FileState } from "./db"
 import {
@@ -35,6 +35,25 @@ import { accessDenial, errorMessage, isPathForbidden, resolveInVault, runPool } 
 const DOWNLOAD_BATCH_ITEMS = 100
 const DOWNLOAD_BATCH_BYTES = 32 * 1024 * 1024
 const UPLOAD_CONCURRENCY = 4
+const THROTTLE_RETRIES = 5
+const MAX_THROTTLE_WAIT_MS = 60_000
+
+export async function retryThrottled<T>(task: () => Promise<T>): Promise<T> {
+	for (let attempt = 0; ; attempt += 1) {
+		try {
+			return await task()
+		} catch (error) {
+			const delay = throttleDelayMs(error)
+			if (delay === null || attempt >= THROTTLE_RETRIES) throw error
+			await new Promise((resolve) => setTimeout(resolve, Math.min(delay, MAX_THROTTLE_WAIT_MS)))
+		}
+	}
+}
+
+function uploadConcurrency(ctx: SyncContext): number {
+	const serverLimit = ctx.limits?.maxConcurrentUploads ?? 0
+	return serverLimit > 0 ? Math.min(UPLOAD_CONCURRENCY, serverLimit) : UPLOAD_CONCURRENCY
+}
 
 export type PlanMode = "initial" | "reconcile"
 
@@ -173,28 +192,30 @@ export async function downloadMany(
 		const pending = new Map(chunk.map((download) => [download.path, download.version]))
 		for (const path of pending.keys()) fileEvent(emit, path, "downloading")
 		try {
-			await downloadBatch(
-				ctx.api,
-				ctx.vaultId,
-				chunk.map((download) => ({ path: download.path })),
-				async (frame) => {
-					if (!pending.has(frame.path)) return
-					pending.delete(frame.path)
-					let failure: unknown = null
-					try {
-						if (frame.status === "ok") {
-							const remote = remoteContent(decrypt(frame.body, ctx.vek), frame.version)
-							reportOutcome(emit, frame.path, await applyRemoteContent(ctx, frame.path, remote))
-						} else if (frame.status === "forbidden") {
-							throw new SyncError("forbidden", `Download ${frame.path}: forbidden`)
-						} else if (frame.status !== "not_found") {
-							throw new Error(`Download ${frame.path}: ${frame.status}`)
+			await retryThrottled(() =>
+				downloadBatch(
+					ctx.api,
+					ctx.vaultId,
+					[...pending.keys()].map((path) => ({ path })),
+					async (frame) => {
+						if (!pending.has(frame.path)) return
+						pending.delete(frame.path)
+						let failure: unknown = null
+						try {
+							if (frame.status === "ok") {
+								const remote = remoteContent(decrypt(frame.body, ctx.vek), frame.version)
+								reportOutcome(emit, frame.path, await applyRemoteContent(ctx, frame.path, remote))
+							} else if (frame.status === "forbidden") {
+								throw new SyncError("forbidden", `Download ${frame.path}: forbidden`)
+							} else if (frame.status !== "not_found") {
+								throw new Error(`Download ${frame.path}: ${frame.status}`)
+							}
+						} catch (error) {
+							failure = error
 						}
-					} catch (error) {
-						failure = error
-					}
-					await settle(frame.path, failure)
-				},
+						await settle(frame.path, failure)
+					},
+				),
 			)
 		} catch (error) {
 			for (const path of pending.keys()) await settle(path, error)
@@ -288,7 +309,7 @@ export async function runFullSync(
 	const run = async (action: PlannedAction) => {
 		if (denied) return
 		try {
-			await executeOp(ctx, action, emit)
+			await retryThrottled(() => executeOp(ctx, action, emit))
 			finish(action.path, null)
 		} catch (error) {
 			finish(action.path, error)
@@ -306,7 +327,7 @@ export async function runFullSync(
 		() => denied,
 	)
 	for (const action of [...byType("delete"), ...byType("deleteRemote")]) await run(action)
-	await runPool(byType("upload"), UPLOAD_CONCURRENCY, run)
+	await runPool(byType("upload"), uploadConcurrency(ctx), run)
 
 	if (firstError) throw firstError
 	if (mode === "initial") {

@@ -50,6 +50,7 @@ export function createCollabTransport({ secrets, decodeVek, serverApi }: CollabT
 		4402: "subscription",
 		4403: "access-changed",
 		4408: "too-slow",
+		4429: "too-slow",
 	}
 
 	const HTTP_CLOSE_REASONS: Record<number, CollabCloseReason> = {

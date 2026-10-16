@@ -1,6 +1,7 @@
 import { getErrorMessage, useAuthStore, useMembersStore, useRemoteVaultStore } from "@cortex/core"
 import type { VaultInvite, VaultMember } from "@cortex/platform"
 import { useEffect } from "react"
+import { Share } from "react-native"
 
 import { toast } from "@/features/feedback/useToast"
 import type { MemberRecord, MemberRole, PendingInviteRecord } from "@/features/members/memberTypes"
@@ -120,8 +121,13 @@ export function roleLabel(role: MemberRole): string {
 
 export function inviteMember(email: string, role: MemberRole): void {
 	void run(async (vaultId) => {
-		await useMembersStore.getState().createInvite(vaultId, email, toServerRole(role), "")
+		const invite = await useMembersStore
+			.getState()
+			.createInvite(vaultId, email, toServerRole(role), "")
 		toast(`Invited ${email}`)
+		if (invite.inviteUrl) {
+			await Share.share({ message: invite.inviteUrl }).catch(() => undefined)
+		}
 	})
 }
 

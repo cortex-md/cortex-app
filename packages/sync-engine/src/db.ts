@@ -147,6 +147,7 @@ function prepareStatements(db: SqlDatabase) {
 		retryQueue: db.prepare(
 			"UPDATE queue SET retryCount = retryCount + 1, nextRetryAt = ? WHERE id = ?",
 		),
+		deferQueue: db.prepare("UPDATE queue SET nextRetryAt = ? WHERE id = ?"),
 		firstQueuedEventAfter: db.prepare(`SELECT MIN(CAST(sourceEventId AS INTEGER)) AS eventId
 			FROM queue WHERE sourceEventId IS NOT NULL AND CAST(sourceEventId AS INTEGER) > ?`),
 		getPin: db.prepare("SELECT * FROM memberKeyPins WHERE userId = ?"),
@@ -330,6 +331,10 @@ export class SyncDb {
 
 	retryQueueNow(): void {
 		this.sql.retryQueueNow.run()
+	}
+
+	deferQueueRow(id: string, nextRetryAt: number): void {
+		this.sql.deferQueue.run(nextRetryAt, id)
 	}
 
 	firstQueuedEventAfter(eventId: number): number | null {

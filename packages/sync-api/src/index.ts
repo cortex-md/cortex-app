@@ -18,11 +18,14 @@ export { type CollabTicket, collabSocketUrl, createCollabTicket } from "./collab
 export * from "./endpoints"
 export {
 	expectOk,
+	isCursorExpired,
+	isPayloadTooLarge,
 	isRetriable,
 	SyncError,
 	type SyncErrorKind,
 	subscriptionAccessMessage,
 	subscriptionCode,
+	throttleDelayMs,
 } from "./errors"
 export * from "./files"
 export {

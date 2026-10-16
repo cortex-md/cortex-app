@@ -24,6 +24,7 @@ export interface ServerLimits {
 	avatarMaxBytes: number
 	batchMaxItems: number
 	batchMaxBytes: number
+	maxConcurrentUploads: number
 }
 
 export interface ServerCapabilities {

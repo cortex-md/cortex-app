@@ -34,6 +34,7 @@ export class SyncError extends Error {
 		readonly status: number | null = null,
 		readonly code: string | null = null,
 		readonly detail: string | null = null,
+		readonly retryAfterMs: number | null = null,
 	) {
 		super(message)
 		this.name = "SyncError"
@@ -47,16 +48,56 @@ export class SyncError extends Error {
 		return this.kind === "subscription" ? (this.code as SubscriptionBlockCode) : null
 	}
 
-	static fromStatus(status: number, message: string, body = ""): SyncError {
+	static fromStatus(
+		status: number,
+		message: string,
+		body = "",
+		retryAfter: string | null = null,
+	): SyncError {
 		const blockCode = subscriptionCode(status, body)
 		if (blockCode) return new SyncError("subscription", message, status, blockCode)
 		const { code, detail } = parseErrorBody(body)
-		return new SyncError(kindForStatus(status), message, status, code, detail)
+		return new SyncError(
+			kindForStatus(status),
+			message,
+			status,
+			code,
+			detail,
+			parseRetryAfter(retryAfter),
+		)
 	}
+}
+
+function parseRetryAfter(value: string | null): number | null {
+	if (!value) return null
+	const seconds = Number(value)
+	if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000
+	const date = Date.parse(value)
+	return Number.isNaN(date) ? null : Math.max(0, date - Date.now())
+}
+
+const THROTTLE_CODES = new Set(["rate_limited", "server_busy", "upload_budget_exceeded"])
+
+export function throttleDelayMs(error: unknown): number | null {
+	if (!(error instanceof SyncError)) return null
+	const throttled =
+		error.status === 503 ||
+		(error.status === 429 && (error.code === null || THROTTLE_CODES.has(error.code)))
+	return throttled ? (error.retryAfterMs ?? 5000) : null
+}
+
+export function isPayloadTooLarge(error: unknown): boolean {
+	return error instanceof SyncError && error.status === 413
+}
+
+export function isCursorExpired(error: unknown): boolean {
+	return error instanceof SyncError && error.status === 410 && error.code === "cursor_expired"
 }
 
 export function subscriptionCode(status: number, body: string): SubscriptionBlockCode | null {
 	if (status < 400 || status >= 500) return null
+	const { code } = parseErrorBody(body)
+	if (code === "subscription_expired" || code === "subscription_required") return code
 	const text = body.toLowerCase()
 	if (text.includes("subscription_expired") || text.includes("plan has expired")) {
 		return "subscription_expired"
@@ -85,6 +126,7 @@ export async function expectOk(response: Response, label: string): Promise<Respo
 		response.status,
 		`${label} failed: HTTP ${response.status}: ${body}`,
 		body,
+		response.headers.get("Retry-After"),
 	)
 }
 

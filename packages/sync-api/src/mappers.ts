@@ -215,6 +215,7 @@ export function mapCapabilities(payload: unknown): ServerCapabilities {
 			avatarMaxBytes: optionalNumber(limits.avatar_max_bytes) ?? 0,
 			batchMaxItems: optionalNumber(limits.batch_max_items) ?? 0,
 			batchMaxBytes: optionalNumber(limits.batch_max_bytes) ?? 0,
+			maxConcurrentUploads: optionalNumber(limits.max_concurrent_uploads_per_user) ?? 0,
 		},
 	}
 }

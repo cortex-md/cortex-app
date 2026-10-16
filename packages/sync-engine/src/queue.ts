@@ -172,6 +172,11 @@ export class SyncQueue {
 		this.db?.deleteQueueRow(item.id)
 	}
 
+	defer(item: QueueItem, delaySeconds: number): void {
+		this.running.delete(item.id)
+		this.db?.deferQueueRow(item.id, nowSeconds() + Math.max(1, Math.ceil(delaySeconds)))
+	}
+
 	fail(item: QueueItem, retriable: boolean): boolean {
 		this.running.delete(item.id)
 		if (!retriable || item.retryCount + 1 >= MAX_RETRIES) {
