@@ -1132,7 +1132,7 @@ function getVimModeState(
 	runtime: EditorRuntimeModules,
 	view: EditorRuntimeView,
 ): VimModeState | null {
-	const vimEditor = runtime.vim.getCM(view)
+	const vimEditor = runtime.vim?.getCM(view) ?? null
 	return (vimEditor as { state?: { vim?: VimModeState } } | null)?.state?.vim ?? null
 }
 

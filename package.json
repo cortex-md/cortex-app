@@ -16,12 +16,12 @@
 		"dev:mobile": "bun run --cwd apps/mobile start",
 		"dev:web": "bun run --cwd apps/web dev",
 		"dist:desktop": "bun run --cwd apps/desktop dist",
-		"check": "biome check apps/desktop packages plugins scripts tools package.json biome.json tsconfig.json tsconfig.desktop.json tsconfig.base.json vitest.config.ts",
-		"check:fix": "biome check --write apps/desktop packages plugins scripts tools package.json biome.json tsconfig.json tsconfig.desktop.json tsconfig.base.json vitest.config.ts",
+		"check": "biome check apps/desktop packages plugins scripts tools package.json biome.json tsconfig.json tsconfig.base.json vitest.config.ts",
+		"check:fix": "biome check --write apps/desktop packages plugins scripts tools package.json biome.json tsconfig.json tsconfig.base.json vitest.config.ts",
 		"check:boundaries": "bun run scripts/check-workspace-boundaries.ts",
 		"check:mobile": "bun run --cwd apps/mobile check",
 		"check:web": "bun run --cwd apps/web check",
-		"typecheck": "tsc -b tsconfig.desktop.json && tsc -p tools/benchmarks",
+		"typecheck": "tsc -b apps/desktop apps/desktop/tsconfig.electron.json apps/desktop/tsconfig.node.json plugins && tsc -p tools/benchmarks",
 		"typecheck:all": "tsc -b",
 		"typecheck:mobile": "bun run --cwd apps/mobile typecheck",
 		"typecheck:web": "bun run --cwd apps/web typecheck",
@@ -60,6 +60,8 @@
 		"electron"
 	],
 	"overrides": {
+		"dompurify": "3.4.17",
+		"katex": "0.17.0",
 		"undici": "7.28.0",
 		"yjs": "13.6.33",
 		"react-native-screens": "4.26.2"

@@ -13,7 +13,6 @@ export function loadEditorRuntime(): Promise<EditorRuntimeModules> {
 		import("@codemirror/view"),
 		import("@lezer/highlight"),
 		import("@lezer/markdown"),
-		import("@replit/codemirror-vim"),
 	]).then(
 		([
 			autocomplete,
@@ -25,7 +24,6 @@ export function loadEditorRuntime(): Promise<EditorRuntimeModules> {
 			view,
 			lezerHighlight,
 			lezerMarkdown,
-			vim,
 		]) => ({
 			autocomplete,
 			commands,
@@ -36,11 +34,22 @@ export function loadEditorRuntime(): Promise<EditorRuntimeModules> {
 			view,
 			lezerHighlight,
 			lezerMarkdown,
-			vim,
+			vim: null,
 		}),
 	)
 
 	return editorRuntimePromise
+}
+
+let vimRuntimePromise: Promise<void> | null = null
+
+export function loadVimRuntime(): Promise<void> {
+	vimRuntimePromise ??= Promise.all([loadEditorRuntime(), import("@replit/codemirror-vim")]).then(
+		([runtime, vim]) => {
+			runtime.vim = vim
+		},
+	)
+	return vimRuntimePromise
 }
 
 export async function loadCodeMirrorCommunityPluginExternals(): Promise<Record<string, unknown>> {

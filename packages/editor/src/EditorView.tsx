@@ -15,7 +15,7 @@ import {
 	reconfigureEditor,
 } from "./extensions"
 import type { MarkdownCommandExecutor } from "./markdownKeymap"
-import { loadEditorRuntime } from "./runtime"
+import { loadEditorRuntime, loadVimRuntime } from "./runtime"
 import type {
 	CursorInfo,
 	EditorConfig,
@@ -196,6 +196,7 @@ export function EditorView({
 
 		async function mountEditor() {
 			const runtime = await loadEditorRuntime()
+			if (editorConfigRef.current.vimMode) await loadVimRuntime()
 			const extensions = await resolveExtensionFactories(runtime, extraExtensionsRef.current)
 			if (cancelled || !containerRef.current) return
 
@@ -252,15 +253,27 @@ export function EditorView({
 		const runtime = runtimeRef.current
 		editorConfigRef.current = editorConfig
 		if (!view || !runtime) return
-		reconfigureEditor(runtime, view, editorConfig, {
-			livePreview,
-			codeBlockEmbeds,
-			resolveImageUrl,
-			filePath,
-			scrollMode,
-			vimCommands: vimCommandProvider,
-			commandExecutor,
-		})
+		let cancelled = false
+		const reconfigure = () =>
+			reconfigureEditor(runtime, view, editorConfig, {
+				livePreview,
+				codeBlockEmbeds,
+				resolveImageUrl,
+				filePath,
+				scrollMode,
+				vimCommands: vimCommandProvider,
+				commandExecutor,
+			})
+		if (editorConfig.vimMode && !runtime.vim) {
+			void loadVimRuntime().then(() => {
+				if (!cancelled && viewRef.current === view) reconfigure()
+			})
+		} else {
+			reconfigure()
+		}
+		return () => {
+			cancelled = true
+		}
 	}, [
 		editorConfig,
 		filePath,

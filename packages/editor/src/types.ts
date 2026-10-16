@@ -87,7 +87,7 @@ export interface EditorRuntimeModules {
 	view: typeof import("@codemirror/view")
 	lezerHighlight: typeof LezerHighlight
 	lezerMarkdown: typeof LezerMarkdown
-	vim: typeof CodeMirrorVim
+	vim: typeof CodeMirrorVim | null
 }
 
 export type EditorExtensionFactory = (

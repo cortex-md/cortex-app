@@ -424,7 +424,7 @@ function vimModeExtension(
 	enabled: boolean,
 	vimCommands?: VimCommandProvider | null,
 ) {
-	return enabled
+	return enabled && runtime.vim
 		? [
 				vimTableNavigationExtension(runtime),
 				runtime.vim.vim(),

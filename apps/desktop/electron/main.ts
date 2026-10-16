@@ -1,12 +1,16 @@
 import { join } from "node:path"
-import { pathToFileURL } from "node:url"
 import { configureSyncRuntime } from "@cortex/sync-engine"
 import { app } from "electron"
 import { registerIpcHandlers } from "./ipc/register"
-import { forgetMenuState, setupApplicationMenu } from "./menu"
+import { forgetMenuState, setupApplicationMenu, syncApplicationMenu } from "./menu"
 import { nodeSyncRuntime } from "./platform/nodeSyncRuntime"
 import { applyDevelopmentProfile } from "./profile"
-import { registerCortexFileProtocol, registerPrivilegedSchemes } from "./protocols"
+import {
+	appUrl,
+	registerAppProtocol,
+	registerCortexFileProtocol,
+	registerPrivilegedSchemes,
+} from "./protocols"
 import { setTrustedRendererUrl } from "./security"
 import { addRegistryChangedListener } from "./services/registry"
 import { startReminderScheduler } from "./services/reminderScheduler"
@@ -38,9 +42,8 @@ function preloadPath(): string {
 	return join(__dirname, "../preload/index.cjs")
 }
 
-const rendererUrl =
-	process.env.ELECTRON_RENDERER_URL ??
-	pathToFileURL(join(__dirname, "../renderer/index.html")).toString()
+const rendererRoot = join(__dirname, "../renderer")
+const rendererUrl = process.env.ELECTRON_RENDERER_URL ?? appUrl("index.html")
 
 interface LaunchRequest {
 	vaultPath: string | null
@@ -77,11 +80,15 @@ if (!gotLock) {
 
 	app.whenReady().then(() => {
 		setTrustedRendererUrl(rendererUrl)
+		registerAppProtocol(rendererRoot)
 		registerCortexFileProtocol()
 		registerIpcHandlers()
 		configureWindows(rendererUrl, preloadPath())
 		addRegistryChangedListener(setupApplicationMenu)
-		onWindowsChanged(setupApplicationMenu)
+		onWindowsChanged((reason) => {
+			if (reason === "focus") syncApplicationMenu()
+			else setupApplicationMenu()
+		})
 		onMainWindowClosed(disposeSyncSession)
 		onMainWindowClosed(forgetMenuState)
 		setupApplicationMenu()

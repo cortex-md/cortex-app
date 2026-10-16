@@ -15,12 +15,7 @@ import {
 import { extractFrontmatterBody } from "@cortex/properties"
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
-import {
-	createLocalSearchBackend,
-	type SearchBackend,
-	type SearchIndexDocument,
-	type SearchIndexEntry,
-} from "./backend"
+import type { SearchBackend, SearchIndexDocument, SearchIndexEntry } from "./backend"
 import { buildSearchMatches } from "./matches"
 import { stripMarkdown } from "./preprocessor"
 import { parseSearchQuery, toSearchRequest } from "./query"
@@ -75,7 +70,17 @@ interface SearchState {
 	reset: () => void
 }
 
-let backend: SearchBackend = createLocalSearchBackend()
+let configuredBackend: SearchBackend | null = null
+let backendPromise: Promise<SearchBackend> | null = null
+
+function getBackend(): Promise<SearchBackend> {
+	if (configuredBackend) return Promise.resolve(configuredBackend)
+	backendPromise ??= import("./backend").then((module) => {
+		configuredBackend ??= module.createLocalSearchBackend()
+		return configuredBackend
+	})
+	return backendPromise
+}
 let indexedVaultPath: string | null = null
 let serializeTimer: ReturnType<typeof setTimeout> | null = null
 let indexVaultGeneration = 0
@@ -99,8 +104,8 @@ function scheduleSerialize(vaultPath: string) {
 	serializeTimer = setTimeout(() => {
 		serializeTimer = null
 		if (indexedVaultPath !== vaultPath) return
-		void backend
-			.serialize()
+		void getBackend()
+			.then((backend) => backend.serialize())
 			.then((serialized) =>
 				getPlatform().fs.writeFile(
 					getVaultFilePath(vaultPath, VAULT_FILES.searchIndex),
@@ -172,7 +177,8 @@ function toIndexDocument(
 }
 
 export function setSearchBackend(nextBackend: SearchBackend): void {
-	backend = nextBackend
+	configuredBackend = nextBackend
+	backendPromise = null
 }
 
 export const useSearchStore = create<SearchState>()(
@@ -200,7 +206,7 @@ export const useSearchStore = create<SearchState>()(
 					set({ results: [] })
 					return
 				}
-				const results = await backend.search(text, options)
+				const results = await (await getBackend()).search(text, options)
 				if (generation !== searchGeneration) return
 				set({ results })
 				await loadSnippets(results, text, generation)
@@ -224,9 +230,9 @@ export const useSearchStore = create<SearchState>()(
 					return runSearch(request.text, request.options, rawQuery)
 				},
 
-				searchTitles: (query) => backend.searchTitles(query),
+				searchTitles: async (query) => (await getBackend()).searchTitles(query),
 
-				findNotes: (query, options) => backend.search(query, options),
+				findNotes: async (query, options) => (await getBackend()).search(query, options),
 
 				loadMatches: async (results, query) => {
 					const vaultPath = indexedVaultPath
@@ -242,7 +248,7 @@ export const useSearchStore = create<SearchState>()(
 					const needle = phrase.trim().toLowerCase()
 					if (!vaultPath || !needle) return []
 					const candidates = (
-						await backend.search(phrase, { limit: PHRASE_CANDIDATE_LIMIT })
+						await (await getBackend()).search(phrase, { limit: PHRASE_CANDIDATE_LIMIT })
 					).filter((result) => !options?.excludeIds?.has(result.id))
 					const contents = await mapWithConcurrency(
 						candidates,
@@ -313,7 +319,7 @@ export const useSearchStore = create<SearchState>()(
 						indexedVaultPath = null
 						const persistedIndex = await readPersistedSearchIndex(vaultPath)
 						if (!isCurrent()) return
-						await backend.load(persistedIndex)
+						await (await getBackend()).load(persistedIndex)
 					}
 
 					const filesById = new Map<string, FileEntry>()
@@ -325,7 +331,7 @@ export const useSearchStore = create<SearchState>()(
 						entries.push({ id, fingerprint: getFileEntryFingerprint(file) })
 					}
 					if (!isCurrent()) return
-					const plan = await backend.planIndex(entries)
+					const plan = await (await getBackend()).planIndex(entries)
 					let documentCount = plan.documentCount
 					let pendingAdd: Promise<number> | null = null
 					const unreadableIds: string[] = []
@@ -356,11 +362,12 @@ export const useSearchStore = create<SearchState>()(
 								fingerprint: getFileEntryFingerprint(file),
 							})
 						})
-						pendingAdd = backend.addDocuments(documents)
+						pendingAdd = getBackend().then((backend) => backend.addDocuments(documents))
 					}
 					if (pendingAdd) documentCount = await pendingAdd
 					if (!isCurrent()) return
-					if (unreadableIds.length > 0) documentCount = await backend.removePaths(unreadableIds)
+					if (unreadableIds.length > 0)
+						documentCount = await (await getBackend()).removePaths(unreadableIds)
 					if (!isCurrent()) return
 
 					indexedVaultPath = vaultPath
@@ -375,7 +382,7 @@ export const useSearchStore = create<SearchState>()(
 						if (indexedVaultPath !== vaultPath) return
 						const document = toIndexDocument(vaultPath, filePath, nextSnapshot)
 						snippetContents.delete(document.id)
-						const documentCount = await backend.addDocuments([document])
+						const documentCount = await (await getBackend()).addDocuments([document])
 						if (indexedVaultPath !== vaultPath) return
 						set({ documentCount })
 					} catch {
@@ -390,7 +397,7 @@ export const useSearchStore = create<SearchState>()(
 					const id = getDocumentId(filePath, vaultPath)
 					forgetSnippetContents(id)
 					scheduleSerialize(vaultPath)
-					const documentCount = await backend.removePaths([id])
+					const documentCount = await (await getBackend()).removePaths([id])
 					if (indexedVaultPath === vaultPath) set({ documentCount })
 				},
 
@@ -404,7 +411,7 @@ export const useSearchStore = create<SearchState>()(
 					searchGeneration++
 					if (serializeTimer) clearTimeout(serializeTimer)
 					serializeTimer = null
-					void backend.clear()
+					void getBackend().then((backend) => backend.clear())
 					indexedVaultPath = null
 					snippetContents.clear()
 					historyVaultPath = null

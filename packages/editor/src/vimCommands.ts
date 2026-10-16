@@ -6,7 +6,7 @@ import type {
 } from "./types"
 
 type VimExParams = { input?: string }
-type VimApi = EditorRuntimeModules["vim"]
+type VimApi = NonNullable<EditorRuntimeModules["vim"]>
 
 const definedCommandNames = new Set<string>()
 const maxVisibleHints = 5
@@ -174,7 +174,9 @@ class VimCommandPlugin {
 }
 
 export function vimCommandExtension(runtime: EditorRuntimeModules, provider: VimCommandProvider) {
+	const vimApi = runtime.vim
+	if (!vimApi) return []
 	return runtime.view.ViewPlugin.define(
-		(view: EditorRuntimeView) => new VimCommandPlugin(view, provider, runtime.vim),
+		(view: EditorRuntimeView) => new VimCommandPlugin(view, provider, vimApi),
 	)
 }

@@ -87,8 +87,10 @@ function windowBackgroundColor(effectsEnabled: boolean): string | undefined {
 	return nativeTheme.shouldUseDarkColors ? "#1c1c1e" : "#f5f5f4"
 }
 
-function sharedWindowOptions(preloadPath: string): BrowserWindowConstructorOptions {
-	const effectsEnabled = readNativeWindowEffectsEnabled()
+function sharedWindowOptions(
+	preloadPath: string,
+	effectsEnabled: boolean,
+): BrowserWindowConstructorOptions {
 	return {
 		show: false,
 		backgroundColor: windowBackgroundColor(effectsEnabled),
@@ -114,7 +116,7 @@ const DEV_SERVER_MAX_RETRIES = 60
 function loadRenderer(window: BrowserWindow, url: string, attempt = 0): void {
 	window.loadURL(url).catch((error: unknown) => {
 		if (window.isDestroyed()) return
-		const devServer = !url.startsWith("file:")
+		const devServer = url.startsWith("http:") || url.startsWith("https:")
 		if (devServer && attempt < DEV_SERVER_MAX_RETRIES) {
 			if (attempt === 0) console.warn(`[window] dev server unavailable, retrying ${url}`)
 			setTimeout(() => loadRenderer(window, url, attempt + 1), DEV_SERVER_RETRY_MS)
@@ -130,7 +132,7 @@ export function createMainWindow(
 	bounds?: Electron.Rectangle,
 ): BrowserWindow {
 	const effectsEnabled = readNativeWindowEffectsEnabled()
-	const shared = sharedWindowOptions(preloadPath)
+	const shared = sharedWindowOptions(preloadPath, effectsEnabled)
 	const window = new BrowserWindow({
 		...shared,
 		width: bounds?.width ?? 1280,
@@ -143,24 +145,6 @@ export function createMainWindow(
 			backgroundMaterial: effectsEnabled ? "mica" : undefined,
 			titleBarOverlay: true,
 		}),
-	})
-
-	guardNavigation(window)
-	window.once("ready-to-show", () => window.show())
-	loadRenderer(window, loadUrl)
-	return window
-}
-
-export function createSettingsWindow(loadUrl: string, preloadPath: string): BrowserWindow {
-	const window = new BrowserWindow({
-		...sharedWindowOptions(preloadPath),
-		width: 880,
-		height: 640,
-		minWidth: 680,
-		minHeight: 480,
-		title: "Settings",
-		fullscreenable: false,
-		maximizable: false,
 	})
 
 	guardNavigation(window)

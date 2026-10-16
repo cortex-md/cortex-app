@@ -97,7 +97,7 @@ Full Apple-kit → primitive mapping lives in `CLAUDE.md`.
 
 - Context provider values should be stable when they wrap interactive primitives.
 - Prefer direct imports between UI primitives over package-barrel imports inside `@cortex/ui`.
-- IconPicker must not load the full generated icon catalog when callers provide `iconsList`.
+- `LucideIcon` renders names outside the static set from the lazy `lucide-lazy-icons` module; regenerate `lucide-icon-names.ts` and `lucide-lazy-icons.ts` with `node scripts/generate-lucide-icon-names.mjs` after upgrading `lucide-react`.
 - Shared Lucide rendering should use dynamic icon imports and name normalization instead of an eager
   namespace map of all icon components.
 - Avoid memo hooks that run before an early return when the computed content is cheap enough to

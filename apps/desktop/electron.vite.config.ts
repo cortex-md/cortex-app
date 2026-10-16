@@ -38,6 +38,7 @@ function productionCspPlugin(): Plugin {
 export default defineConfig({
 	main: {
 		build: {
+			minify: true,
 			rollupOptions: {
 				input: {
 					index: resolve(__dirname, "electron/main.ts"),
@@ -48,6 +49,7 @@ export default defineConfig({
 	},
 	preload: {
 		build: {
+			minify: true,
 			rollupOptions: {
 				input: {
 					index: resolve(__dirname, "electron/preload.ts"),
@@ -61,6 +63,8 @@ export default defineConfig({
 	renderer: {
 		root: ".",
 		build: {
+			minify: true,
+			cssMinify: true,
 			rollupOptions: {
 				input: {
 					index: resolve(__dirname, "index.html"),
@@ -75,10 +79,18 @@ export default defineConfig({
 		},
 		resolve: {
 			dedupe: ["yjs", "@codemirror/state", "@codemirror/view"],
-			alias: {
-				"@": resolve(__dirname, "src"),
-				"@cortex.md/api": resolve(__dirname, "../../packages/plugin-api/src/index.ts"),
-			},
+			alias: [
+				{ find: /^shiki$/, replacement: resolve(__dirname, "src/features/sync/shiki/bundle.ts") },
+				{
+					find: /^shiki\/wasm$/,
+					replacement: resolve(__dirname, "src/features/sync/shiki/wasm.ts"),
+				},
+				{ find: "@", replacement: resolve(__dirname, "src") },
+				{
+					find: "@cortex.md/api",
+					replacement: resolve(__dirname, "../../packages/plugin-api/src/index.ts"),
+				},
+			],
 		},
 		server: {
 			port: 1420,

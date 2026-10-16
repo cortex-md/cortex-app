@@ -6,8 +6,18 @@ directories:
   buildResources: build
 files:
   - out/**/*
+  - "!out/**/*.map"
   - package.json
 asar: true
+asarUnpack:
+  - node_modules/font-list/**
+compression: maximum
+electronLanguages:
+  - en
+  - en-US
+  - en-GB
+  - pt
+  - pt-BR
 electronFuses:
   runAsNode: false
   enableCookieEncryption: true

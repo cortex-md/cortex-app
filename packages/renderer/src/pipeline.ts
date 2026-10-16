@@ -1,3 +1,20 @@
+import bash from "highlight.js/lib/languages/bash"
+import c from "highlight.js/lib/languages/c"
+import cpp from "highlight.js/lib/languages/cpp"
+import csharp from "highlight.js/lib/languages/csharp"
+import css from "highlight.js/lib/languages/css"
+import diff from "highlight.js/lib/languages/diff"
+import go from "highlight.js/lib/languages/go"
+import java from "highlight.js/lib/languages/java"
+import javascript from "highlight.js/lib/languages/javascript"
+import json from "highlight.js/lib/languages/json"
+import markdown from "highlight.js/lib/languages/markdown"
+import python from "highlight.js/lib/languages/python"
+import rust from "highlight.js/lib/languages/rust"
+import sql from "highlight.js/lib/languages/sql"
+import typescript from "highlight.js/lib/languages/typescript"
+import xml from "highlight.js/lib/languages/xml"
+import yaml from "highlight.js/lib/languages/yaml"
 import rehypeHighlight from "rehype-highlight"
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize"
 import rehypeStringify from "rehype-stringify"
@@ -227,7 +244,7 @@ function applyProcessors(pipeline: unknown, entries: RegisteredMarkdownProcessor
 type RehypeHighlightTransformer = (tree: unknown, file: unknown) => unknown
 type RehypeHighlightPlugin = (
 	this: unknown,
-	options: { detect: boolean },
+	options: { detect: boolean; languages: Record<string, unknown> },
 ) => RehypeHighlightTransformer | undefined
 
 interface RehypeElementNode {
@@ -257,10 +274,45 @@ function removeNonKatexSpanStyles(node: RehypeElementNode, insideKatex = false):
 	for (const child of node.children ?? []) removeNonKatexSpanStyles(child, nextInsideKatex)
 }
 
+const HIGHLIGHT_LANGUAGES = {
+	bash,
+	c,
+	cpp,
+	csharp,
+	css,
+	diff,
+	go,
+	java,
+	javascript,
+	json,
+	markdown,
+	python,
+	rust,
+	sql,
+	typescript,
+	xml,
+	yaml,
+	html: xml,
+	js: javascript,
+	ts: typescript,
+	sh: bash,
+	shell: bash,
+	zsh: bash,
+	yml: yaml,
+	py: python,
+	rs: rust,
+	md: markdown,
+	"c++": cpp,
+	cs: csharp,
+	jsx: javascript,
+	tsx: typescript,
+}
+
 function createConditionalHighlight(): Plugin {
 	const plugin = function conditionalHighlight(this: unknown) {
 		const transformer = (rehypeHighlight as unknown as RehypeHighlightPlugin).call(this, {
-			detect: true,
+			detect: false,
+			languages: HIGHLIGHT_LANGUAGES,
 		})
 		if (typeof transformer !== "function") return
 		return function transformHighlightedCode(this: unknown, tree: unknown, file: unknown) {
