@@ -82,6 +82,7 @@ function itemFromRow(row: QueueRow): QueueItem | null {
 
 export class SyncQueue {
 	private items: QueueItem[] = []
+	private readonly byKey = new Map<string, QueueItem>()
 	private readonly running = new Set<string>()
 
 	constructor(private readonly db: SyncDb | null = null) {}
@@ -101,10 +102,9 @@ export class SyncQueue {
 				this.db.deleteQueueRow(row.id)
 				continue
 			}
-			this.items.push(item)
+			this.insert(item)
 			loaded += 1
 		}
-		this.sort()
 		return loaded
 	}
 
@@ -118,9 +118,8 @@ export class SyncQueue {
 				next = { ...next, version: Math.max(next.version, existing.version) }
 			}
 		}
-		for (const item of this.items) {
-			if (opKey(item.op) === key) merge(item.op, item.sourceEventId)
-		}
+		const queued = this.byKey.get(key)
+		if (queued) merge(queued.op, queued.sourceEventId)
 		for (const row of this.db?.queueRowsByKey(key) ?? []) {
 			const item = itemFromRow(row)
 			if (item) merge(item.op, item.sourceEventId)
@@ -133,7 +132,7 @@ export class SyncQueue {
 			sourceEventId: eventId,
 			retryCount: 0,
 		}
-		this.items = this.items.filter((existing) => opKey(existing.op) !== key)
+		if (queued) this.remove(queued)
 		this.db?.replaceQueueRow({
 			id: item.id,
 			opKey: key,
@@ -145,13 +144,15 @@ export class SyncQueue {
 			createdAt: nowSeconds(),
 			nextRetryAt: null,
 		})
-		this.items.push(item)
-		this.sort()
+		this.insert(item)
 	}
 
 	pop(): QueueItem | undefined {
 		const item = this.items.shift()
-		if (item) this.running.add(item.id)
+		if (item) {
+			this.byKey.delete(opKey(item.op))
+			this.running.add(item.id)
+		}
 		return item
 	}
 
@@ -159,7 +160,10 @@ export class SyncQueue {
 		let count = 0
 		while (count < limit && this.items[count]?.op.type === type) count += 1
 		const items = this.items.splice(0, count)
-		for (const item of items) this.running.add(item.id)
+		for (const item of items) {
+			this.byKey.delete(opKey(item.op))
+			this.running.add(item.id)
+		}
 		return items
 	}
 
@@ -178,7 +182,21 @@ export class SyncQueue {
 		return true
 	}
 
-	private sort(): void {
-		this.items.sort((left, right) => right.priority - left.priority)
+	private insert(item: QueueItem): void {
+		let low = 0
+		let high = this.items.length
+		while (low < high) {
+			const middle = (low + high) >>> 1
+			if ((this.items[middle]?.priority ?? 0) >= item.priority) low = middle + 1
+			else high = middle
+		}
+		this.items.splice(low, 0, item)
+		this.byKey.set(opKey(item.op), item)
+	}
+
+	private remove(item: QueueItem): void {
+		const index = this.items.indexOf(item)
+		if (index !== -1) this.items.splice(index, 1)
+		this.byKey.delete(opKey(item.op))
 	}
 }

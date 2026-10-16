@@ -1,12 +1,30 @@
 import type { AppUpdateStatus } from "@cortex/platform"
 import { app } from "electron"
-import electronUpdater from "electron-updater"
+import type { AppUpdater } from "electron-updater"
 import type { MainApi } from "../contract"
 import { emitToRenderer } from "../events"
 
-const { autoUpdater } = electronUpdater
+let updaterPromise: Promise<AppUpdater> | null = null
 
-autoUpdater.autoDownload = false
+function getUpdater(): Promise<AppUpdater> {
+	updaterPromise ??= import("electron-updater").then(({ default: electronUpdater }) => {
+		const { autoUpdater } = electronUpdater
+		autoUpdater.autoDownload = false
+		autoUpdater.on("download-progress", (progress) => {
+			status = { ...status, downloaded: progress.transferred, contentLength: progress.total }
+			emitToRenderer("app-update-install", {
+				event: "progress",
+				data: {
+					chunkLength: progress.delta,
+					downloaded: progress.transferred,
+					contentLength: progress.total,
+				},
+			})
+		})
+		return autoUpdater
+	})
+	return updaterPromise
+}
 
 let status: AppUpdateStatus = {
 	state: "idle",
@@ -17,18 +35,6 @@ let status: AppUpdateStatus = {
 	downloaded: 0,
 	contentLength: null,
 }
-
-autoUpdater.on("download-progress", (progress) => {
-	status = { ...status, downloaded: progress.transferred, contentLength: progress.total }
-	emitToRenderer("app-update-install", {
-		event: "progress",
-		data: {
-			chunkLength: progress.delta,
-			downloaded: progress.transferred,
-			contentLength: progress.total,
-		},
-	})
-})
 
 function getStatus(): AppUpdateStatus {
 	return { ...status, currentVersion: app.getVersion() }
@@ -41,7 +47,7 @@ function errorMessage(error: unknown): string {
 async function checkForUpdate(): Promise<AppUpdateStatus> {
 	status = { ...status, state: "checking", lastError: null }
 	try {
-		const result = await autoUpdater.checkForUpdates()
+		const result = await (await getUpdater()).checkForUpdates()
 		const update = result?.isUpdateAvailable ? result.updateInfo : null
 		status = {
 			...status,
@@ -69,6 +75,7 @@ async function checkForUpdate(): Promise<AppUpdateStatus> {
 async function installUpdate(): Promise<AppUpdateStatus> {
 	status = { ...status, state: "installing", lastError: null }
 	try {
+		const autoUpdater = await getUpdater()
 		emitToRenderer("app-update-install", { event: "started", data: { contentLength: null } })
 		await autoUpdater.downloadUpdate()
 		emitToRenderer("app-update-install", { event: "finished" })

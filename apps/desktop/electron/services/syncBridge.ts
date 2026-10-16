@@ -1,13 +1,20 @@
 import { access } from "node:fs/promises"
 import { join } from "node:path"
+import { DatabaseSync } from "node:sqlite"
 import type {
 	CollabFileSyncRole,
 	EffectiveAccess,
+	NoteSyncMetadata,
 	Sync,
 	SyncPreferences,
 	WatchEvent,
 } from "@cortex/platform"
-import { getVaultFilePath, isPathOrDescendant, VAULT_FILES } from "@cortex/platform/utils"
+import {
+	getVaultFilePath,
+	isPathOrDescendant,
+	toVaultRelativePath,
+	VAULT_FILES,
+} from "@cortex/platform/utils"
 import type { AccountIdentity } from "@cortex/sync-api"
 import {
 	createVaultKey,
@@ -186,6 +193,41 @@ async function hasSyncDb(vaultPath: string): Promise<boolean> {
 	}
 }
 
+interface NoteMetadataRow {
+	createdAt: string | null
+	createdBy: string | null
+	lastEditedAt: string | null
+	lastEditedBy: string | null
+	lastDeviceId: string | null
+	syncStatus: string | null
+}
+
+function readNoteMetadataFromDb(vaultPath: string, filePath: string): NoteSyncMetadata | null {
+	const relativePath = toVaultRelativePath(filePath, vaultPath) ?? filePath
+	const db = new DatabaseSync(getVaultFilePath(vaultPath, VAULT_FILES.syncDb), { readOnly: true })
+	try {
+		const row = db
+			.prepare(
+				`SELECT n.createdAt, n.createdBy, n.lastEditedAt, n.lastEditedBy, n.lastDeviceId, f.syncStatus
+				FROM noteMetadata n LEFT JOIN fileState f ON f.filePath = n.filePath WHERE n.filePath = ?`,
+			)
+			.get(relativePath) as NoteMetadataRow | undefined
+		if (!row) return null
+		return {
+			createdAt: row.createdAt,
+			createdBy: row.createdBy,
+			lastEditedAt: row.lastEditedAt,
+			lastEditedBy: row.lastEditedBy,
+			lastDeviceId: row.lastDeviceId,
+			synced: row.syncStatus === "synced",
+		}
+	} catch {
+		return null
+	} finally {
+		db.close()
+	}
+}
+
 export function notifyLocalFileChange(absolutePath: string, kind: WatchEvent["kind"]): void {
 	for (const session of sessions.values()) {
 		if (!session.worker || !session.vaultPath) continue
@@ -281,14 +323,19 @@ export const syncService = {
 	forceSyncFile: async (path) => command(currentSession(), { type: "forceSyncFile", path }),
 	resolveConflict: async (path, resolution) =>
 		command(currentSession(), { type: "resolveConflict", path, resolution }),
-	getConflicts: async (_vaultId, vaultPath) =>
-		(await hasSyncDb(vaultPath))
-			? await ensureWorker(currentSession()).rpc.call("getConflicts", { vaultPath })
-			: [],
-	getNoteMetadata: async (vaultPath, filePath) =>
-		(await hasSyncDb(vaultPath))
-			? await ensureWorker(currentSession()).rpc.call("getNoteMetadata", { vaultPath, filePath })
-			: null,
+	getConflicts: async (_vaultId, vaultPath) => {
+		const session = currentSession()
+		if (!session.worker || !(await hasSyncDb(vaultPath))) return []
+		return await session.worker.rpc.call("getConflicts", { vaultPath })
+	},
+	getNoteMetadata: async (vaultPath, filePath) => {
+		const session = currentSession()
+		if (!(await hasSyncDb(vaultPath))) return null
+		if (session.worker) {
+			return await session.worker.rpc.call("getNoteMetadata", { vaultPath, filePath })
+		}
+		return readNoteMetadataFromDb(vaultPath, filePath)
+	},
 	getVersionHistory: async (vaultId, vaultPath, filePath) =>
 		await ensureWorker(currentSession()).rpc.call("getVersionHistory", {
 			vault: await vaultRef(vaultId, vaultPath),

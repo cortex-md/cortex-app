@@ -6,14 +6,15 @@ import {
 	hasSameFingerprint,
 	isMarkdownPath,
 	isPathOrDescendant,
-	mapWithConcurrency,
 	VAULT_FILES,
 } from "@cortex/platform/utils"
 import { extractFrontmatterBody } from "@cortex/properties"
 import { extractWikiLinks, type WikiLink } from "@cortex/search"
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
+import { createDebouncedWriter } from "../utils/createDebouncedWriter"
 import type { WikiLinkResolver } from "../utils/links"
+import { readTextFilesInBatches } from "../utils/readTextFilesInBatches"
 
 export interface Backlink {
 	sourcePath: string
@@ -31,7 +32,6 @@ export interface LinksState {
 }
 
 const LINK_INDEX_VERSION = 1
-const LINK_INDEX_READ_CONCURRENCY = 4
 const LINK_INDEX_SERIALIZE_DELAY_MS = 5000
 
 interface PersistedLinkFile extends FileFingerprint {
@@ -43,7 +43,7 @@ interface PersistedLinkIndex {
 	files: Record<string, PersistedLinkFile>
 }
 
-let serializeTimer: ReturnType<typeof setTimeout> | null = null
+const indexWriter = createDebouncedWriter(LINK_INDEX_SERIALIZE_DELAY_MS)
 let indexGeneration = 0
 let indexedVaultPath: string | null = null
 let indexedFiles = new Map<string, PersistedLinkFile>()
@@ -80,9 +80,7 @@ async function loadPersistedLinkIndex(vaultPath: string): Promise<Map<string, Pe
 }
 
 function scheduleSerialize(vaultPath: string): void {
-	if (serializeTimer) clearTimeout(serializeTimer)
-	serializeTimer = setTimeout(() => {
-		serializeTimer = null
+	indexWriter.schedule(() => {
 		if (indexedVaultPath !== vaultPath) return
 		const persisted: PersistedLinkIndex = {
 			version: LINK_INDEX_VERSION,
@@ -91,7 +89,7 @@ function scheduleSerialize(vaultPath: string): void {
 		void getPlatform()
 			.fs.writeFile(getVaultFilePath(vaultPath, VAULT_FILES.linkIndex), JSON.stringify(persisted))
 			.catch(() => {})
-	}, LINK_INDEX_SERIALIZE_DELAY_MS)
+	})
 }
 
 function toOutgoing(files: ReadonlyMap<string, PersistedLinkFile>): Record<string, WikiLink[]> {
@@ -122,18 +120,11 @@ export const useLinksStore = create<LinksState>()(
 						changedFiles.push(file)
 					}
 				}
-				const readFiles = await mapWithConcurrency(
-					changedFiles,
-					LINK_INDEX_READ_CONCURRENCY,
-					async (file) => {
-						try {
-							const content = await getPlatform().fs.readFile(file.path)
-							return { file, links: extractNoteLinks(content) }
-						} catch {
-							return null
-						}
-					},
-				)
+				const reads = await readTextFilesInBatches(changedFiles.map((file) => file.path))
+				const readFiles = changedFiles.map((file, index) => {
+					const read = reads[index]
+					return read ? { file, links: extractNoteLinks(read.content) } : null
+				})
 				if (generation !== indexGeneration) return
 				for (const readFile of readFiles) {
 					if (!readFile) continue
@@ -189,8 +180,7 @@ export const useLinksStore = create<LinksState>()(
 
 			reset: () => {
 				indexGeneration++
-				if (serializeTimer) clearTimeout(serializeTimer)
-				serializeTimer = null
+				indexWriter.cancel()
 				indexedVaultPath = null
 				indexedFiles = new Map()
 				set({ outgoing: {} })

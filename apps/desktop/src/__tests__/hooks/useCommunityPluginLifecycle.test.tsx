@@ -131,6 +131,8 @@ describe("useCommunityPluginLifecycle", () => {
 			vi.advanceTimersByTime(350)
 		})
 
-		expect(lifecycleMocks.reloadCommunityPlugins).toHaveBeenCalledWith("/vault/.cortex/plugins")
+		expect(lifecycleMocks.reloadCommunityPlugins).toHaveBeenCalledWith("/vault/.cortex/plugins", [
+			"/vault/.cortex/plugins/note-pulse",
+		])
 	})
 })

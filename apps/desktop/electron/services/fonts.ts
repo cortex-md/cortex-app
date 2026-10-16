@@ -1,4 +1,3 @@
-import { getFonts } from "font-list"
 import type { MainApi } from "../contract"
 
 type SystemFonts = Awaited<ReturnType<MainApi["font"]["listSystemFonts"]>>
@@ -6,7 +5,7 @@ type SystemFonts = Awaited<ReturnType<MainApi["font"]["listSystemFonts"]>>
 let systemFonts: Promise<SystemFonts> | null = null
 
 async function loadSystemFonts(): Promise<SystemFonts> {
-	const families = await getFonts({ disableQuoting: true })
+	const families = await (await import("font-list")).getFonts({ disableQuoting: true })
 	return [...new Set(families.map((family) => family.trim()).filter(Boolean))]
 		.sort((a, b) => a.localeCompare(b))
 		.map((family) => ({ family, postscriptName: null }))

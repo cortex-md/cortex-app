@@ -5,7 +5,7 @@ import {
 	startTemplateDeepLinks,
 } from "@cortex/core"
 import { useEffect } from "react"
-import { resetPasswordModal } from "../features/auth/resetPasswordModal"
+import { resetPasswordModal } from "@/utils/modals"
 import { openMarketplaceView } from "../features/marketplace/openMarketplaceView"
 import { startSyncBillingDeepLinks } from "../features/sync/syncBillingDeepLink"
 

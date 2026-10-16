@@ -6,7 +6,6 @@ import {
 	hasSameFingerprint,
 	isMarkdownPath,
 	isPathOrDescendant,
-	mapWithConcurrency,
 	VAULT_FILES,
 } from "@cortex/platform/utils"
 import {
@@ -26,6 +25,8 @@ import {
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
 import { mutateNote } from "../notes/mutateNote"
+import { createDebouncedWriter } from "../utils/createDebouncedWriter"
+import { readTextFilesInBatches } from "../utils/readTextFilesInBatches"
 import { assertVaultPathWritable } from "./accessStore"
 
 export interface TaskLineEdit {
@@ -59,7 +60,6 @@ export interface TasksState {
 }
 
 const TASK_INDEX_VERSION = 2
-const TASK_INDEX_READ_CONCURRENCY = 4
 const TASK_INDEX_SERIALIZE_DELAY_MS = 5000
 
 interface PersistedTaskFile extends FileFingerprint {
@@ -71,7 +71,7 @@ interface PersistedTaskIndex {
 	files: Record<string, PersistedTaskFile>
 }
 
-let serializeTimer: ReturnType<typeof setTimeout> | null = null
+const indexWriter = createDebouncedWriter(TASK_INDEX_SERIALIZE_DELAY_MS)
 let indexGeneration = 0
 let indexedVaultPath: string | null = null
 let indexedFiles = new Map<string, PersistedTaskFile>()
@@ -104,9 +104,7 @@ async function loadPersistedTaskIndex(vaultPath: string): Promise<Map<string, Pe
 }
 
 function scheduleSerialize(vaultPath: string): void {
-	if (serializeTimer) clearTimeout(serializeTimer)
-	serializeTimer = setTimeout(() => {
-		serializeTimer = null
+	indexWriter.schedule(() => {
 		if (indexedVaultPath !== vaultPath) return
 		const persisted: PersistedTaskIndex = {
 			version: TASK_INDEX_VERSION,
@@ -115,7 +113,7 @@ function scheduleSerialize(vaultPath: string): void {
 		void getPlatform()
 			.fs.writeFile(getVaultFilePath(vaultPath, VAULT_FILES.taskIndex), JSON.stringify(persisted))
 			.catch(() => {})
-	}, TASK_INDEX_SERIALIZE_DELAY_MS)
+	})
 }
 
 function toTasksByPath(files: ReadonlyMap<string, PersistedTaskFile>): Record<string, Task[]> {
@@ -187,17 +185,14 @@ export const useTasksStore = create<TasksState>()(
 						}
 					}
 					const inboxPath = getVaultFilePath(vaultPath, VAULT_FILES.taskInbox)
-					const [readFiles, inboxTasks] = await Promise.all([
-						mapWithConcurrency(changedFiles, TASK_INDEX_READ_CONCURRENCY, async (file) => {
-							try {
-								const content = await getPlatform().fs.readFile(file.path)
-								return { file, tasks: parseTasks(file.path, content) }
-							} catch {
-								return null
-							}
-						}),
+					const [reads, inboxTasks] = await Promise.all([
+						readTextFilesInBatches(changedFiles.map((file) => file.path)),
 						readInboxTasks(inboxPath),
 					])
+					const readFiles = changedFiles.map((file, index) => {
+						const read = reads[index]
+						return read ? { file, tasks: parseTasks(file.path, read.content) } : null
+					})
 					if (generation !== indexGeneration) return
 					for (const readFile of readFiles) {
 						if (!readFile) continue
@@ -266,8 +261,7 @@ export const useTasksStore = create<TasksState>()(
 
 				reset: () => {
 					indexGeneration++
-					if (serializeTimer) clearTimeout(serializeTimer)
-					serializeTimer = null
+					indexWriter.cancel()
 					indexedVaultPath = null
 					indexedFiles = new Map()
 					set({ tasksByPath: {}, inboxPath: null })

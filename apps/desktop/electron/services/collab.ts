@@ -9,8 +9,13 @@ import { resolveMainWindowId } from "../windows"
 import { secrets, serverApi } from "./serverApi"
 import { clearCollabRoles, setCollabRole } from "./syncBridge"
 
-const transport = createCollabTransport({ secrets, decodeVek, serverApi })
+let transportInstance: ReturnType<typeof createCollabTransport> | null = null
 const trackedOwners = new Set<number>()
+
+function transport(): ReturnType<typeof createCollabTransport> {
+	transportInstance ??= createCollabTransport({ secrets, decodeVek, serverApi })
+	return transportInstance
+}
 
 function toOwner(contents: WebContents): CollabChannelOwner {
 	return {
@@ -22,7 +27,7 @@ function toOwner(contents: WebContents): CollabChannelOwner {
 }
 
 function closeOwnerChannels(ownerId: number): void {
-	transport.closeOwnerChannels(ownerId)
+	transportInstance?.closeOwnerChannels(ownerId)
 }
 
 function resetOwner(contents: WebContents): void {
@@ -58,18 +63,18 @@ function requireOwnerId(): number {
 }
 
 export const collabApi = {
-	availability: (vaultId) => transport.availability(vaultId),
+	availability: (vaultId) => transport().availability(vaultId),
 	open: async (channelId, vaultId, roomPath) => {
 		const owner = requireSender()
 		requireOwnerId()
 		trackOwner(owner)
-		await transport.open(channelId, vaultId, roomPath, toOwner(owner))
+		await transport().open(channelId, vaultId, roomPath, toOwner(owner))
 	},
 	send: (channelId, op: CollabFrameOp, payload) =>
-		transport.send(channelId, getInvokeSender()?.id, op, payload),
+		transport().send(channelId, getInvokeSender()?.id, op, payload),
 	compact: (channelId, state, upTo) =>
-		transport.compact(channelId, getInvokeSender()?.id, state, upTo),
-	close: (channelId) => transport.close(channelId, getInvokeSender()?.id),
+		transport().compact(channelId, getInvokeSender()?.id, state, upTo),
+	close: (channelId) => transport().close(channelId, getInvokeSender()?.id),
 	setFileSyncRole: async (_vaultId, roomPath, role) => {
 		const owner = requireSender()
 		const ownerId = requireOwnerId()

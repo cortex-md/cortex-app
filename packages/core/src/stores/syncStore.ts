@@ -5,6 +5,7 @@ import type {
 	InitialSyncProgressEvent,
 	KeyTrustIssue,
 	SyncEngineState,
+	SyncFileEvent,
 	SyncPreferences,
 	VaultEncryptionStatus,
 	VaultKeyRequestResult,
@@ -105,6 +106,7 @@ let lastSyncStart: {
 } | null = null
 
 const VAULT_KEY_RETRY_MS = 15_000
+const FILE_EVENT_BATCH_MS = 50
 let vaultKeyRetryTimer: ReturnType<typeof setTimeout> | null = null
 
 function clearVaultKeyRetry(): void {
@@ -394,6 +396,40 @@ export const useSyncStore = create<SyncState>()(
 
 			subscribeEvents: async () => {
 				const platform = getPlatform()
+				let pendingFileEvents: SyncFileEvent[] = []
+				let fileEventTimer: ReturnType<typeof setTimeout> | null = null
+				const flushFileEvents = () => {
+					fileEventTimer = null
+					const events = pendingFileEvents
+					pendingFileEvents = []
+					if (events.length === 0) return
+					set((state) => {
+						let synced = false
+						for (const event of events) {
+							if (
+								event.status === "synced" ||
+								event.status === "merged" ||
+								event.status === "deleted"
+							) {
+								delete state.syncingFiles[event.path]
+								synced = true
+								if (event.status !== "deleted") {
+									state.noteMetadataRevisions[event.path] =
+										(state.noteMetadataRevisions[event.path] ?? 0) + 1
+								}
+							} else if (event.status.startsWith("error:") || event.status === "conflict") {
+								delete state.syncingFiles[event.path]
+							} else {
+								state.syncingFiles[event.path] = event.status
+							}
+						}
+						if (synced) state.lastSyncedAt = Date.now()
+					})
+				}
+				const queueFileEvent = (event: SyncFileEvent) => {
+					pendingFileEvents.push(event)
+					fileEventTimer ??= setTimeout(flushFileEvents, FILE_EVENT_BATCH_MS)
+				}
 				const scheduleVaultKeyRetry = () => {
 					clearVaultKeyRetry()
 					vaultKeyRetryTimer = setTimeout(() => {
@@ -410,6 +446,11 @@ export const useSyncStore = create<SyncState>()(
 				}
 
 				const unlisteners = [
+					() => {
+						if (fileEventTimer) clearTimeout(fileEventTimer)
+						fileEventTimer = null
+						pendingFileEvents = []
+					},
 					platform.sync.onStateChanged((event) => {
 						set((state) => {
 							state.engineState = event.state
@@ -421,24 +462,7 @@ export const useSyncStore = create<SyncState>()(
 						})
 					}),
 					platform.sync.onFileEvent((event) => {
-						set((state) => {
-							if (
-								event.status === "synced" ||
-								event.status === "merged" ||
-								event.status === "deleted"
-							) {
-								delete state.syncingFiles[event.path]
-								state.lastSyncedAt = Date.now()
-								if (event.status !== "deleted") {
-									state.noteMetadataRevisions[event.path] =
-										(state.noteMetadataRevisions[event.path] ?? 0) + 1
-								}
-							} else if (event.status.startsWith("error:") || event.status === "conflict") {
-								delete state.syncingFiles[event.path]
-							} else {
-								state.syncingFiles[event.path] = event.status
-							}
-						})
+						queueFileEvent(event)
 
 						if (
 							event.path === VAULT_FILES.propertySchema &&

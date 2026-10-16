@@ -192,11 +192,14 @@ describe("syncStore preferences", () => {
 		const schemaListener = vi.fn()
 		const unsubscribeSchema = onVaultSchemaChange("/vault", schemaListener)
 
+		vi.useFakeTimers()
 		await useSyncStore.getState().subscribeEvents()
 		fileListener?.({ path: "note.md", status: "synced" })
 		fileListener?.({ path: "note.md", status: "merged" })
 		fileListener?.({ path: "note.md", status: "deleted" })
 		fileListener?.({ path: ".cortex/schema/properties.json", status: "synced" })
+		await vi.advanceTimersByTimeAsync(100)
+		vi.useRealTimers()
 
 		expect(hashFile).not.toHaveBeenCalled()
 		expect(useSyncStore.getState().noteMetadataRevisions).toEqual({

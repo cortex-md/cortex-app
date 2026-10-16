@@ -6,7 +6,7 @@ import {
 	extractInlineTags,
 	extractYamlArray,
 	hasFrontmatter,
-	parseFrontmatter,
+	parseNoteFrontmatter,
 	removeTagFromFrontmatter,
 	setTagsInFrontmatter,
 	updateFrontmatterField,
@@ -31,40 +31,40 @@ describe("hasFrontmatter", () => {
 	})
 })
 
-describe("parseFrontmatter", () => {
+describe("parseNoteFrontmatter", () => {
 	it("parses tags as inline array", () => {
 		const content = "---\ntags: [react, typescript]\n---\nBody"
-		const result = parseFrontmatter(content)
+		const result = parseNoteFrontmatter(content)
 		expect(result.hasFrontmatter).toBe(true)
 		expect(result.frontmatter?.tags).toEqual(["react", "typescript"])
 	})
 
 	it("parses tags as block array", () => {
 		const content = "---\ntags:\n  - react\n  - typescript\n---\nBody"
-		const result = parseFrontmatter(content)
+		const result = parseNoteFrontmatter(content)
 		expect(result.frontmatter?.tags).toEqual(["react", "typescript"])
 	})
 
 	it("parses created scalar field", () => {
 		const content = "---\ncreated: 2024-01-01T00:00:00.000Z\ntags: []\n---\n"
-		const result = parseFrontmatter(content)
+		const result = parseNoteFrontmatter(content)
 		expect(result.frontmatter?.created).toBe("2024-01-01T00:00:00.000Z")
 	})
 
 	it("parses date scalar field", () => {
 		const content = "---\ndate: 2024-01-01\ntags: []\n---\n"
-		const result = parseFrontmatter(content)
+		const result = parseNoteFrontmatter(content)
 		expect(result.frontmatter?.date).toBe("2024-01-01")
 	})
 
 	it("returns body without frontmatter block", () => {
 		const content = "---\ntags: []\n---\nHello world"
-		const result = parseFrontmatter(content)
+		const result = parseNoteFrontmatter(content)
 		expect(result.body).toBe("Hello world")
 	})
 
 	it("returns hasFrontmatter: false for plain text", () => {
-		const result = parseFrontmatter("No frontmatter here")
+		const result = parseNoteFrontmatter("No frontmatter here")
 		expect(result.hasFrontmatter).toBe(false)
 		expect(result.frontmatter).toBeNull()
 		expect(result.body).toBe("No frontmatter here")
@@ -72,7 +72,7 @@ describe("parseFrontmatter", () => {
 
 	it("handles effectively empty frontmatter block (only whitespace)", () => {
 		const content = "---\n \n---\nBody"
-		const result = parseFrontmatter(content)
+		const result = parseNoteFrontmatter(content)
 		expect(result.hasFrontmatter).toBe(true)
 		expect(result.frontmatter?.tags).toEqual([])
 		expect(result.frontmatter?.aliases).toEqual([])
@@ -80,7 +80,7 @@ describe("parseFrontmatter", () => {
 
 	it("returns empty body when no content after frontmatter", () => {
 		const content = "---\ntags: []\n---\n"
-		const result = parseFrontmatter(content)
+		const result = parseNoteFrontmatter(content)
 		expect(result.body).toBe("")
 	})
 })
@@ -255,7 +255,7 @@ describe("setTagsInFrontmatter", () => {
 	it("replaces tags and deduplicates case-insensitively", () => {
 		const content = "---\ntags: [old]\n---\nBody"
 		const result = setTagsInFrontmatter(content, ["AWS", "aws", "certificado"])
-		const parsed = parseFrontmatter(result)
+		const parsed = parseNoteFrontmatter(result)
 		expect(parsed.frontmatter?.tags).toEqual(["AWS", "certificado"])
 	})
 

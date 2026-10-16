@@ -76,12 +76,16 @@ export interface PluginHost {
 	isPluginInstalled(pluginId: string): boolean
 	getCommunityPluginsDir(): string | null
 	getCommunityPluginLoadError(pluginId: string): string | null
-	discoverCommunityPlugins(pluginsDir: string): Promise<void>
-	reloadCommunityPlugins(pluginsDir: string): Promise<void>
+	discoverCommunityPlugins(pluginsDir: string, pluginDirs?: readonly string[]): Promise<void>
+	reloadCommunityPlugins(pluginsDir: string, pluginDirs?: readonly string[]): Promise<void>
 	syncCommunityAccess(): Promise<void>
 	unregisterCommunityPlugin(pluginId: string): void
 	getPluginContext(pluginId: string): PluginContext | null
 	getPluginDefinition(pluginId: string): PluginDefinition | null
+}
+
+function normalizePluginDir(path: string): string {
+	return path.replace(/\\/g, "/").replace(/\/+$/, "")
 }
 
 function runInOrder(ids: string[], operation: (id: string) => Promise<void>): Promise<void> {
@@ -447,7 +451,10 @@ export function createPluginHost(services: PluginHostServices): PluginHost {
 		}
 	}
 
-	async function discoverCommunityPlugins(pluginsDir: string): Promise<void> {
+	async function discoverCommunityPlugins(
+		pluginsDir: string,
+		pluginDirs?: readonly string[],
+	): Promise<void> {
 		if (!services.community) throw new Error("Community plugins are not supported by this host")
 		if (!isCommunityAllowed()) return
 		let directories: FileEntry[]
@@ -455,6 +462,10 @@ export function createPluginHost(services: PluginHostServices): PluginHost {
 			directories = (await getPlatform().fs.listDir(pluginsDir)).filter((entry) => entry.isDir)
 		} catch {
 			return
+		}
+		const scopedDirs = pluginDirs ? new Set(pluginDirs.map(normalizePluginDir)) : null
+		if (scopedDirs) {
+			directories = directories.filter((entry) => scopedDirs.has(normalizePluginDir(entry.path)))
 		}
 		const discoveries = await Promise.all(directories.map(discoverCommunityPlugin))
 		const discoveredIds = new Set(discoveries.map((discovery) => discovery.pluginId))
@@ -470,7 +481,10 @@ export function createPluginHost(services: PluginHostServices): PluginHost {
 			})
 		}
 		const removedIds = getCommunityEntryIds(
-			(id, dirPath) => isPluginDirInside(dirPath, pluginsDir) && !discoveredIds.has(id),
+			(id, dirPath) =>
+				isPluginDirInside(dirPath, pluginsDir) &&
+				(!scopedDirs || scopedDirs.has(normalizePluginDir(dirPath))) &&
+				!discoveredIds.has(id),
 		)
 		await runInOrder(removedIds, async (pluginId) => {
 			await disablePlugin(pluginId)
@@ -478,12 +492,19 @@ export function createPluginHost(services: PluginHostServices): PluginHost {
 		})
 	}
 
-	async function reloadCommunityPlugins(pluginsDir: string): Promise<void> {
+	async function reloadCommunityPlugins(
+		pluginsDir: string,
+		pluginDirs?: readonly string[],
+	): Promise<void> {
+		const scopedDirs = pluginDirs ? new Set(pluginDirs.map(normalizePluginDir)) : null
 		const enabledIds = getCommunityEntryIds(
-			(id, dirPath) => active.has(id) && isPluginDirInside(dirPath, pluginsDir),
+			(id, dirPath) =>
+				active.has(id) &&
+				isPluginDirInside(dirPath, pluginsDir) &&
+				(!scopedDirs || scopedDirs.has(normalizePluginDir(dirPath))),
 		)
 		await runInOrder(enabledIds, disablePlugin)
-		await discoverCommunityPlugins(pluginsDir)
+		await discoverCommunityPlugins(pluginsDir, pluginDirs)
 		await runInOrder(enabledIds, async (pluginId) => {
 			if (!entries.has(pluginId)) return
 			try {

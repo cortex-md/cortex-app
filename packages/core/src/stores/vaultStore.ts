@@ -51,6 +51,7 @@ export type { VaultMetadata, VaultRegistryEntry }
 export interface VaultFileChange {
 	path: string
 	kind: WatchEvent["kind"]
+	entry?: FileEntry
 }
 
 type VaultFileChangeListener = (changes: VaultFileChange[]) => void
@@ -58,7 +59,7 @@ type VaultFileChangeListener = (changes: VaultFileChange[]) => void
 const WATCHER_BATCH_DELAY_MS = 200
 
 const vaultFileChangeListeners = new Set<VaultFileChangeListener>()
-const pendingWatchEvents = new Map<string, WatchEvent["kind"]>()
+const pendingWatchEvents = new Map<string, WatchEvent>()
 let watcherBatchTimer: ReturnType<typeof setTimeout> | null = null
 let watcherBatchQueue: Promise<void> = Promise.resolve()
 let watcherGeneration = 0
@@ -88,12 +89,23 @@ function removeDeletedEntries(files: FileEntry[], deletedPaths: string[]): FileE
 	return nextFiles.length === files.length ? files : nextFiles
 }
 
+function addCreatedEntries(files: FileEntry[], entries: FileEntry[]): FileEntry[] {
+	if (entries.length === 0) return files
+	const known = new Set(files.map((file) => file.path))
+	const added = entries.filter((entry) => !known.has(entry.path))
+	return added.length === 0 ? files : [...files, ...added]
+}
+
 function scheduleWatcherBatch(processBatch: (changes: VaultFileChange[]) => Promise<void>): void {
 	if (watcherBatchTimer) clearTimeout(watcherBatchTimer)
 	const generation = watcherGeneration
 	watcherBatchTimer = setTimeout(() => {
 		watcherBatchTimer = null
-		const changes = Array.from(pendingWatchEvents, ([path, kind]) => ({ path, kind }))
+		const changes = Array.from(pendingWatchEvents, ([path, event]) => ({
+			path,
+			kind: event.kind,
+			entry: event.entry ? { ...event.entry, path } : undefined,
+		}))
 		pendingWatchEvents.clear()
 		watcherBatchQueue = watcherBatchQueue
 			.then(() => (generation === watcherGeneration ? processBatch(changes) : undefined))
@@ -284,13 +296,19 @@ export const useVaultStore = create<VaultState>((set, get) => {
 					: change,
 			)
 		}
-		if (knownPaths && createdPaths.some((path) => !knownPaths.has(path))) {
+		const unknownCreated = knownPaths
+			? changes.filter((change) => change.kind === "created" && !knownPaths.has(change.path))
+			: []
+		if (unknownCreated.some((change) => !change.entry)) {
 			await get().refreshFiles()
 		} else {
 			const deletedPaths = changes.flatMap((change) =>
 				change.kind === "deleted" ? [change.path] : [],
 			)
-			const nextFiles = removeDeletedEntries(files, deletedPaths)
+			const createdEntries = unknownCreated.flatMap((change) =>
+				change.entry && !isHiddenVaultPath(change.path, vault.path) ? [change.entry] : [],
+			)
+			const nextFiles = addCreatedEntries(removeDeletedEntries(files, deletedPaths), createdEntries)
 			if (nextFiles !== files) set({ files: nextFiles })
 		}
 		if (get().vault === vault) notifyVaultFileChanges(changes)
@@ -306,7 +324,7 @@ export const useVaultStore = create<VaultState>((set, get) => {
 			void refreshOpenNote(event.path)
 		}
 		if (isHiddenVaultPath(event.path, vaultPath)) return
-		pendingWatchEvents.set(normalizePath(event.path), event.kind)
+		pendingWatchEvents.set(normalizePath(event.path), event)
 		scheduleWatcherBatch(processWatcherBatch)
 	}
 

@@ -10,7 +10,6 @@ import { toVaultRelativePath } from "@cortex/platform/utils"
 import { SyncError } from "@cortex/sync-api"
 import {
 	configureSyncRuntime,
-	mergeMarkdown,
 	normalizeRelativePath,
 	retryBackoffSecs,
 	SyncDb,
@@ -45,12 +44,6 @@ describe("paths", () => {
 		expect(toVaultRelativePath("C:\\Users\\Luiza\\Vault\\Note.md", "C:\\Users\\Luiza\\Vault")).toBe(
 			"Note.md",
 		)
-	})
-})
-
-describe("mergeMarkdown", () => {
-	it("returns remote when local matches ancestor", () => {
-		expect(mergeMarkdown("a", "a", "b")).toEqual({ kind: "clean", content: "b" })
 	})
 })
 

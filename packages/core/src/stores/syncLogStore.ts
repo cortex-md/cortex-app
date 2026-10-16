@@ -1,6 +1,5 @@
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
-import { immer } from "zustand/middleware/immer"
 
 const MAX_LOG_ENTRIES = 500
 
@@ -24,33 +23,19 @@ export interface SyncLogState {
 
 export const useSyncLogStore = create<SyncLogState>()(
 	devtools(
-		immer((set, get) => ({
+		(set, get) => ({
 			entries: [],
 			nextId: 0,
 
 			log: (level, message, metadata) => {
-				set((state) => {
-					const entry: SyncLogEntry = {
-						id: get().nextId,
-						timestamp: Date.now(),
-						level,
-						message,
-						metadata,
-					}
-					state.entries.push(entry)
-					if (state.entries.length > MAX_LOG_ENTRIES) {
-						state.entries = state.entries.slice(state.entries.length - MAX_LOG_ENTRIES)
-					}
-					state.nextId++
-				})
+				const { entries, nextId } = get()
+				const entry: SyncLogEntry = { id: nextId, timestamp: Date.now(), level, message, metadata }
+				const kept = entries.length >= MAX_LOG_ENTRIES ? entries.slice(1) : entries
+				set({ entries: [...kept, entry], nextId: nextId + 1 })
 			},
 
-			clear: () => {
-				set((state) => {
-					state.entries = []
-				})
-			},
-		})),
+			clear: () => set({ entries: [] }),
+		}),
 		{ name: "syncLogStore" },
 	),
 )

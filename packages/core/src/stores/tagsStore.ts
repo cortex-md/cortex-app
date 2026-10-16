@@ -12,6 +12,7 @@ import {
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
 import { mutateNote } from "../notes/mutateNote"
+import { createDebouncedWriter } from "../utils/createDebouncedWriter"
 import {
 	addTagToFrontmatter,
 	extractAllTags,
@@ -19,6 +20,7 @@ import {
 	renameTagInContent,
 	setTagsInFrontmatter,
 } from "../utils/frontmatter"
+import { readTextFilesInBatches } from "../utils/readTextFilesInBatches"
 import { isTagOrDescendant } from "../utils/tagHierarchy"
 import { assertVaultPathWritable, canWriteVaultPath } from "./accessStore"
 
@@ -58,6 +60,7 @@ export interface TagsState {
 }
 
 const TAG_INDEX_VERSION = 1
+const TAG_INDEX_SERIALIZE_DELAY_MS = 5000
 const TAG_INDEX_READ_CONCURRENCY = 4
 
 interface PersistedTagFile extends FileFingerprint {
@@ -69,7 +72,7 @@ interface PersistedTagIndex {
 	files: Record<string, PersistedTagFile>
 }
 
-let tagIndexSerializeTimer: ReturnType<typeof setTimeout> | null = null
+const indexWriter = createDebouncedWriter(TAG_INDEX_SERIALIZE_DELAY_MS)
 let tagIndexGeneration = 0
 let indexedVaultPath: string | null = null
 let indexedTagFiles = new Map<string, PersistedTagFile>()
@@ -153,9 +156,7 @@ async function loadPersistedTagIndex(vaultPath: string): Promise<Map<string, Per
 }
 
 function scheduleTagIndexSerialize(vaultPath: string): void {
-	if (tagIndexSerializeTimer) clearTimeout(tagIndexSerializeTimer)
-	tagIndexSerializeTimer = setTimeout(() => {
-		tagIndexSerializeTimer = null
+	indexWriter.schedule(() => {
 		if (indexedVaultPath !== vaultPath) return
 		const persisted: PersistedTagIndex = {
 			version: TAG_INDEX_VERSION,
@@ -164,7 +165,7 @@ function scheduleTagIndexSerialize(vaultPath: string): void {
 		void getPlatform()
 			.fs.writeFile(getVaultFilePath(vaultPath, VAULT_FILES.tagIndex), JSON.stringify(persisted))
 			.catch(() => {})
-	}, 5000)
+	})
 }
 
 function buildTagIndex(files: ReadonlyMap<string, PersistedTagFile>): {
@@ -221,18 +222,11 @@ export const useTagsStore = create<TagsState>()(
 						changedFiles.push(file)
 					}
 				}
-				const indexedFiles = await mapWithConcurrency(
-					changedFiles,
-					TAG_INDEX_READ_CONCURRENCY,
-					async (file) => {
-						try {
-							const content = await platform.fs.readFile(file.path)
-							return { file, tags: extractAllTags(content) }
-						} catch {
-							return null
-						}
-					},
-				)
+				const reads = await readTextFilesInBatches(changedFiles.map((file) => file.path))
+				const indexedFiles = changedFiles.map((file, index) => {
+					const read = reads[index]
+					return read ? { file, tags: extractAllTags(read.content) } : null
+				})
 				if (generation !== tagIndexGeneration) return
 				for (const indexedFile of indexedFiles) {
 					if (!indexedFile) continue
@@ -381,8 +375,7 @@ export const useTagsStore = create<TagsState>()(
 
 			reset: () => {
 				tagIndexGeneration++
-				if (tagIndexSerializeTimer) clearTimeout(tagIndexSerializeTimer)
-				tagIndexSerializeTimer = null
+				indexWriter.cancel()
 				indexedVaultPath = null
 				indexedTagFiles = new Map()
 				set({ tagIndex: {}, fileTags: {}, activeTagFilter: null })

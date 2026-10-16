@@ -13,7 +13,6 @@ import {
 	toFileEntry,
 	toFileMetadata,
 } from "@cortex/platform/vault"
-import AdmZip from "adm-zip"
 import writeFileAtomic from "write-file-atomic"
 import type { MainApi } from "../contract"
 import { assertAllowedPath } from "../security"
@@ -95,6 +94,7 @@ function archiveOutputPath(destination: string, entryName: string): string | nul
 }
 
 async function downloadAndExtract(url: string, destDir: string): Promise<void> {
+	const { default: AdmZip } = await import("adm-zip")
 	const archive = new AdmZip(Buffer.from(await (await fetchOk(url)).arrayBuffer()))
 	const destination = resolve(destDir)
 	await fs.mkdir(destination, { recursive: true })

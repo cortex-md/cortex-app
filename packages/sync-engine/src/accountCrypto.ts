@@ -1,4 +1,9 @@
-import type { AccountKeyCrypto, DerivedAccountKeys } from "@cortex/sync-api"
+import {
+	ACCOUNT_KDF,
+	ACCOUNT_KEY_INFO,
+	type AccountKeyCrypto,
+	type DerivedAccountKeys,
+} from "@cortex/sync-api"
 import { fromBase64 as decodeBase64, toBase64 as encodeBase64, toBase64Url } from "./bytes"
 import { decrypt, encrypt } from "./crypto"
 import {
@@ -15,23 +20,21 @@ import {
 import { syncRuntime } from "./runtime"
 
 const KDF_SALT_LENGTH = 16
-const AUTH_INFO = "cortex/auth/v1"
-const WRAP_INFO = "cortex/wrap/v1"
 
 export async function deriveAccountKeys(
 	password: string,
 	kdfSalt: Uint8Array,
 ): Promise<DerivedAccountKeys> {
 	const master = await syncRuntime().crypto.argon2id(password, {
-		memoryCost: 65536,
-		timeCost: 3,
-		parallelism: 1,
-		hashLength: 32,
+		memoryCost: ACCOUNT_KDF.memoryKib,
+		timeCost: ACCOUNT_KDF.iterations,
+		parallelism: ACCOUNT_KDF.parallelism,
+		hashLength: ACCOUNT_KDF.hashLength,
 		salt: Uint8Array.from(kdfSalt),
 	})
 	return {
-		authKey: toBase64Url(hkdf(master, AUTH_INFO)),
-		wrapKey: hkdf(master, WRAP_INFO),
+		authKey: toBase64Url(hkdf(master, ACCOUNT_KEY_INFO.auth)),
+		wrapKey: hkdf(master, ACCOUNT_KEY_INFO.wrap),
 	}
 }
 

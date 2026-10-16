@@ -1,10 +1,8 @@
-import { getPlatform } from "@cortex/platform"
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
 
 export type LeftSidebarView = string
-export type AuthView = "login" | "register"
 
 export interface LeftSidebarLayout {
 	collapsed: boolean
@@ -19,12 +17,6 @@ export interface RightSidebarLayout {
 	collapsed: boolean
 	panel: RightSidebarPanel
 }
-
-export type QuickFinderRequest =
-	| { kind: "open" }
-	| { kind: "relink-bookmark"; bookmarkPath: string; query: string }
-
-const DEFAULT_QUICK_FINDER_REQUEST: QuickFinderRequest = { kind: "open" }
 
 export interface UIState {
 	leftSidebarCollapsed: boolean
@@ -42,31 +34,8 @@ export interface UIState {
 	toggleRightSidebar: () => void
 	setRightSidebarLayout: (layout: Partial<RightSidebarLayout>) => void
 
-	quickFinderOpen: boolean
-	quickFinderRequest: QuickFinderRequest
 	quickFinderPreview: boolean
-	toggleQuickFinder: () => void
-	openQuickFinder: (request?: QuickFinderRequest) => void
 	setQuickFinderPreview: (preview: boolean) => void
-
-	commandPaletteOpen: boolean
-	toggleCommandPalette: () => void
-
-	tagPickerOpen: boolean
-	toggleTagPicker: () => void
-
-	createFromTemplateOpen: boolean
-	createFromTemplateId: string | null
-	openCreateFromTemplate: (templateId?: string) => void
-	closeCreateFromTemplate: () => void
-
-	openSettings: (section?: string, fieldId?: string) => void
-
-	authOpen: boolean
-	authInitialView: AuthView
-	authReturnTo: string | null
-	openAuth: (view?: AuthView, returnTo?: string | null) => void
-	closeAuth: () => void
 }
 
 export const LEFT_SIDEBAR_WIDTH_BOUNDS = {
@@ -141,75 +110,11 @@ export const useUIStore = create<UIState>()(
 					}
 				}),
 
-			quickFinderOpen: false,
-			quickFinderRequest: DEFAULT_QUICK_FINDER_REQUEST,
 			quickFinderPreview: false,
-
-			toggleQuickFinder: () =>
-				set((s) => {
-					s.quickFinderOpen = !s.quickFinderOpen
-					s.quickFinderRequest = DEFAULT_QUICK_FINDER_REQUEST
-				}),
-
-			openQuickFinder: (request = DEFAULT_QUICK_FINDER_REQUEST) =>
-				set((s) => {
-					s.quickFinderOpen = true
-					s.quickFinderRequest = request
-				}),
 
 			setQuickFinderPreview: (preview) =>
 				set((s) => {
 					s.quickFinderPreview = preview
-				}),
-
-			commandPaletteOpen: false,
-
-			toggleCommandPalette: () =>
-				set((s) => {
-					s.commandPaletteOpen = !s.commandPaletteOpen
-				}),
-
-			tagPickerOpen: false,
-
-			toggleTagPicker: () =>
-				set((s) => {
-					s.tagPickerOpen = !s.tagPickerOpen
-				}),
-
-			createFromTemplateOpen: false,
-			createFromTemplateId: null,
-
-			openCreateFromTemplate: (templateId) =>
-				set((s) => {
-					s.createFromTemplateOpen = true
-					s.createFromTemplateId = templateId ?? null
-				}),
-
-			closeCreateFromTemplate: () =>
-				set((s) => {
-					s.createFromTemplateOpen = false
-					s.createFromTemplateId = null
-				}),
-
-			openSettings: (section, fieldId) => {
-				void getPlatform().window.openSettings(section ?? null, fieldId ?? null)
-			},
-
-			authOpen: false,
-			authInitialView: "login" as AuthView,
-			authReturnTo: null,
-
-			openAuth: (view = "login", returnTo = null) =>
-				set((s) => {
-					s.authOpen = true
-					s.authInitialView = view
-					s.authReturnTo = returnTo
-				}),
-
-			closeAuth: () =>
-				set((s) => {
-					s.authOpen = false
-					s.authReturnTo = null
 				}),
 		})),
 		{ name: "uiStore" },

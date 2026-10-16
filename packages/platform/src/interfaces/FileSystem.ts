@@ -27,6 +27,7 @@ export interface WatchEvent {
 	path: string
 	kind: "created" | "modified" | "deleted" | "renamed"
 	watcherId?: string
+	entry?: FileEntry
 }
 
 export interface WatchOptions {
