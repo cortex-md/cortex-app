@@ -2,7 +2,6 @@ import { COMMUNITY_PLUGINS_WARNING } from "@cortex/marketplace"
 import { type PluginRecord, usePluginStore } from "@cortex/plugin-host-core"
 import { Button, Item, LucideIcon, Switch } from "@cortex/ui"
 import { ExternalLink, FolderOpen, Store } from "lucide-react"
-import { runInMainWindow } from "../../windows/runInMainWindow"
 import type { OpenMarketplaceHandler } from "../marketplace/openMarketplaceView"
 import {
 	setCommunityPluginsAllowed,
@@ -17,6 +16,7 @@ import {
 	SettingsPage,
 	SettingsSection,
 } from "./SettingsPrimitives"
+import { runSettingsAction } from "./settingsActions"
 
 interface PluginsSectionProps {
 	onBrowseMarketplace: OpenMarketplaceHandler
@@ -79,7 +79,7 @@ function PluginRow({
 			<Switch
 				checked={isEnabled}
 				onCheckedChange={(enabled) =>
-					runInMainWindow("setPluginEnabled", { pluginId: record.manifest.id, enabled })
+					runSettingsAction("setPluginEnabled", { pluginId: record.manifest.id, enabled })
 				}
 			/>
 		</SettingsListItem>
@@ -140,7 +140,7 @@ export function PluginsSection({ onBrowseMarketplace }: PluginsSectionProps) {
 							<Store size={12} />
 							Browse
 						</Button>
-						<Button variant="ghost" onClick={() => runInMainWindow("openCommunityPluginsFolder")}>
+						<Button variant="ghost" onClick={() => runSettingsAction("openCommunityPluginsFolder")}>
 							<FolderOpen size={12} />
 							Open folder
 						</Button>

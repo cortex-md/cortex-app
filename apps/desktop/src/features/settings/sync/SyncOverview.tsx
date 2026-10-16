@@ -5,7 +5,6 @@ import {
 	useDevicesStore,
 	useEditorStore,
 	useRemoteVaultStore,
-	useUIStore,
 } from "@cortex/core"
 import type { SyncEngineState } from "@cortex/platform"
 import { Badge, Button, Switch } from "@cortex/ui"
@@ -23,9 +22,10 @@ import {
 	Trash2Icon,
 } from "lucide-react"
 import { useState } from "react"
-import { runInMainWindow } from "../../../windows/runInMainWindow"
 import { useConfirmAction } from "../ConfirmActionDialog"
 import { SettingsField, SettingsGroup, SettingsPage, SettingsSection } from "../SettingsPrimitives"
+import { runSettingsAction } from "../settingsActions"
+import { openSettings } from "../settingsModal"
 import { SignedOutNotice } from "./SignedOutNotice"
 import { SubscriptionRequiredNotice } from "./SubscriptionRequiredNotice"
 
@@ -132,7 +132,11 @@ function SyncStatusHero({
 					<span>{serverLabel}</span>
 				</span>
 			</div>
-			<Button variant="secondary" disabled={syncing} onClick={() => runInMainWindow("restartSync")}>
+			<Button
+				variant="secondary"
+				disabled={syncing}
+				onClick={() => runSettingsAction("restartSync")}
+			>
 				{syncing ? "Syncing..." : "Sync now"}
 			</Button>
 			<div className="settings-sync-stats">
@@ -230,7 +234,7 @@ export function VaultLinkSection({
 									variant="ghost"
 									size="icon-xs"
 									aria-label="Server settings"
-									onClick={() => useUIStore.getState().openSettings("sync-self-host")}
+									onClick={() => openSettings("sync-self-host")}
 								>
 									<ChevronRightIcon />
 								</Button>
@@ -345,7 +349,7 @@ function HistorySection() {
 			label: "Sync logs",
 			description: "Every upload, download and conflict",
 			disabled: false,
-			open: () => runInMainWindow("openSyncLogs"),
+			open: () => runSettingsAction("openSyncLogs"),
 		},
 		{
 			icon: HistoryIcon,
@@ -355,7 +359,7 @@ function HistorySection() {
 				? "Restore earlier versions of a note"
 				: "Open a note to see its versions",
 			disabled: !activeFilePath,
-			open: () => runInMainWindow("openNoteHistory"),
+			open: () => runSettingsAction("openNoteHistory"),
 		},
 		{
 			icon: Trash2Icon,
@@ -363,7 +367,7 @@ function HistorySection() {
 			label: "Deleted notes",
 			description: "Bring back notes removed on any device",
 			disabled: false,
-			open: () => runInMainWindow("openDeletedNotes"),
+			open: () => runSettingsAction("openDeletedNotes"),
 		},
 	]
 	return (

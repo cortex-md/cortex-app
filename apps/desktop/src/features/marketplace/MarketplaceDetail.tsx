@@ -44,7 +44,7 @@ import {
 	TriangleAlert,
 } from "lucide-react"
 import { type ReactNode, useLayoutEffect, useRef } from "react"
-import { mainWindowActions } from "@/windows/mainWindowActions"
+import { runSettingsAction } from "@/features/settings/settingsActions"
 import { useCommunityPluginsAllowed } from "../plugins/communityPluginsAccess"
 import {
 	SettingsGroup,
@@ -170,7 +170,7 @@ function MarketplaceTrustNotices({
 							size="xs"
 							className="marketplace-notice-action"
 							onClick={() =>
-								void mainWindowActions.setPluginEnabled({ pluginId: entry.id, enabled: false })
+								runSettingsAction("setPluginEnabled", { pluginId: entry.id, enabled: false })
 							}
 						>
 							Disable plugin

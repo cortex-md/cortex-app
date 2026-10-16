@@ -3,13 +3,12 @@ import {
 	describeServerUrl,
 	resolveSyncServerUrl,
 	useRemoteVaultStore,
-	useUIStore,
 } from "@cortex/core"
 import { Alert, AlertDescription, AlertTitle, Button } from "@cortex/ui"
 import { LogIn } from "lucide-react"
+import { openAuth } from "@/utils/modals"
 
 export function SignedOutNotice() {
-	const openAuth = useUIStore((state) => state.openAuth)
 	const syncConfig = useRemoteVaultStore((state) => state.syncConfig)
 	const serverLabel = syncConfig.selfHosted
 		? describeServerUrl(resolveSyncServerUrl(syncConfig))

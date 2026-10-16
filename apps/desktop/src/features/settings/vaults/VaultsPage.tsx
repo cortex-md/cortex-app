@@ -2,6 +2,7 @@ import {
 	CLOUD_SERVER_LABEL,
 	deleteImpact,
 	forgetImpact,
+	getErrorMessage,
 	getSyncServerLabel,
 	getVaultDisplayPath,
 	leaveImpact,
@@ -13,7 +14,6 @@ import {
 	unlinkVaultFolder,
 	useAuthStore,
 	useRemoteVaultStore,
-	useUIStore,
 	useVaultStore,
 	type VaultListItem,
 } from "@cortex/core"
@@ -30,7 +30,6 @@ import {
 } from "@cortex/ui"
 import { Cloud, Laptop, MoreHorizontal, Pause, TriangleAlert } from "lucide-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
-import { runInMainWindow } from "@/windows/runInMainWindow"
 import { DEVICE_LABEL } from "../../vault/deviceLabel"
 import { VaultTile } from "../../vault/VaultTile"
 import {
@@ -41,15 +40,13 @@ import {
 	SettingsPage,
 	SettingsSection,
 } from "../SettingsPrimitives"
+import { runSettingsAction } from "../settingsActions"
+import { openSettings } from "../settingsModal"
 import { type VaultImpact, VaultImpactDialog } from "./VaultImpactDialog"
 
 interface PendingAction {
 	impact: VaultImpact
 	run: () => Promise<void>
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error)
 }
 
 function StatusLine({ item, remoteName }: { item: VaultListItem; remoteName: string | null }) {
@@ -125,12 +122,12 @@ export function VaultsPage() {
 		try {
 			await action.run()
 		} catch (error) {
-			toast.error(errorMessage(error))
+			toast.error(getErrorMessage(error))
 		}
 	}
 
 	const openVault = (item: VaultListItem) => {
-		runInMainWindow("openVaultHere", item.entry)
+		runSettingsAction("openVaultHere", item.entry)
 		void getPlatform().window.closeCurrent()
 	}
 
@@ -170,7 +167,7 @@ export function VaultsPage() {
 						onClick: () =>
 							void linkVaultFolder(item.entry.path, remoteVaultId)
 								.then(reload)
-								.catch((error) => toast.error(errorMessage(error))),
+								.catch((error) => toast.error(getErrorMessage(error))),
 					}
 				: undefined,
 		})
@@ -220,7 +217,7 @@ export function VaultsPage() {
 				<>
 					{showInFinder}
 					{isCurrent ? (
-						<DropdownMenuItem onSelect={() => useUIStore.getState().openSettings("sync")}>
+						<DropdownMenuItem onSelect={() => openSettings("sync")}>
 							Start syncing…
 						</DropdownMenuItem>
 					) : null}
@@ -233,9 +230,7 @@ export function VaultsPage() {
 			<>
 				{showInFinder}
 				{isCurrent ? (
-					<DropdownMenuItem onSelect={() => useUIStore.getState().openSettings("sync")}>
-						Sync settings…
-					</DropdownMenuItem>
+					<DropdownMenuItem onSelect={() => openSettings("sync")}>Sync settings…</DropdownMenuItem>
 				) : null}
 				<DropdownMenuSeparator />
 				<DropdownMenuItem
@@ -297,7 +292,7 @@ export function VaultsPage() {
 					<Button
 						variant="secondary"
 						size="xs"
-						onClick={() => runInMainWindow("openAddVault", { start: "choose" })}
+						onClick={() => runSettingsAction("openAddVault", { start: "choose" })}
 					>
 						Add a vault…
 					</Button>
@@ -381,7 +376,7 @@ export function VaultsPage() {
 											variant="ghost"
 											size="xs"
 											onClick={() =>
-												runInMainWindow("openAddVault", {
+												runSettingsAction("openAddVault", {
 													start: "download",
 													remoteVaultId: remote.id,
 												})

@@ -4,18 +4,15 @@ import { useSettingsStore } from "@cortex/settings"
 import { Button, Switch } from "@cortex/ui"
 import { LayoutTemplateIcon } from "lucide-react"
 import { useEffect } from "react"
-import { runInMainWindow } from "../../windows/runInMainWindow"
+import { formatCount } from "@/utils/format"
 import {
 	SettingsField,
 	SettingsGroup,
 	SettingsPage,
 	SettingsSection,
 } from "../settings/SettingsPrimitives"
+import { runSettingsAction } from "../settings/settingsActions"
 import { DailyNotesSettings } from "./DailyNotesSettings"
-
-function pluralize(count: number, word: string): string {
-	return `${count} ${word}${count === 1 ? "" : "s"}`
-}
 
 export function TemplatesSection() {
 	const vault = useVaultStore((state) => state.vault)
@@ -43,14 +40,14 @@ export function TemplatesSection() {
 						<LayoutTemplateIcon />
 					</span>
 					<div className="settings-sync-hero-copy">
-						<b>{pluralize(templates.length, "template")}</b>
+						<b>{formatCount(templates.length, "template")}</b>
 						<span>{breakdown}</span>
 					</div>
 					<div className="settings-sync-hero-actions">
-						<Button variant="secondary" onClick={() => runInMainWindow("openNewTemplate")}>
+						<Button variant="secondary" onClick={() => runSettingsAction("openNewTemplate")}>
 							New template
 						</Button>
-						<Button onClick={() => runInMainWindow("openTemplates")}>Open Templates</Button>
+						<Button onClick={() => runSettingsAction("openTemplates")}>Open Templates</Button>
 					</div>
 				</div>
 			</section>

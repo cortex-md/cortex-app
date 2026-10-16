@@ -43,7 +43,6 @@ import type {
 	Vault,
 	WatchEvent,
 	WatchOptions,
-	WindowMessage,
 } from "@cortex/platform"
 
 type SyncCommands = {
@@ -78,7 +77,7 @@ export interface MainApi {
 		openExternalUrl(url: string): Promise<void>
 		getAppearanceSnapshot(): Promise<Partial<NativeAppearanceSnapshot>>
 	}
-	window: Omit<NativeWindow, "onMessage">
+	window: NativeWindow
 	menu: NativeMenu
 	appUpdates: {
 		getStatus(): Promise<AppUpdateStatus>
@@ -135,7 +134,6 @@ export interface MainEvents {
 	"sync-key-trust-issue": KeyTrustIssue
 	"sync-log": { level: string; message: string }
 	"menu-command": { id: string; payload?: unknown }
-	"window-message": WindowMessage
 	"collab-event": { channelId: string; event: CollabChannelEvent }
 	"notification-activation": NotificationActivation
 }

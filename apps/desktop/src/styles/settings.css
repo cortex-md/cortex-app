@@ -1,37 +1,39 @@
-.settings-window {
+[data-slot="dialog-content"].settings-overlay {
 	display: flex;
-	height: 100vh;
+	width: min(1040px, calc(100vw - 3rem));
+	height: min(760px, calc(100vh - 3rem));
+	max-width: none;
 	flex-direction: column;
+	gap: 0;
+	padding: 0;
 	overflow: hidden;
 	background: var(--sidebar-bg);
 	color: var(--text-primary);
 }
 
-.settings-window-titlebar {
-	display: none;
+.settings-overlay-titlebar {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	height: 44px;
+	padding: 0 12px;
+	color: var(--text-secondary);
+	font-size: 13px;
+	font-weight: 600;
+	user-select: none;
+}
+
+.settings-overlay-titlebar > button {
+	position: absolute;
+	top: 8px;
+	right: 10px;
 }
 
 body[data-platform="macos"][data-window-active="false"] :is(.app-sidebar, .settings-sidebar) {
 	--accent: var(--text-muted);
 	--accent-text: var(--text-primary);
 	--fill-selected: var(--fill-quiet);
-}
-
-body[data-platform="macos"][data-window-active="false"] .settings-window-titlebar {
-	color: var(--text-muted);
-}
-
-body[data-platform="macos"] .settings-window-titlebar {
-	display: flex;
-	flex: none;
-	align-items: center;
-	justify-content: center;
-	height: 40px;
-	color: var(--text-secondary);
-	font-size: 13px;
-	font-weight: 600;
-	user-select: none;
-	-webkit-app-region: drag;
 }
 
 .settings-content {

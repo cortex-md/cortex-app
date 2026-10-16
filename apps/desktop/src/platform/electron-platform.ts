@@ -18,7 +18,6 @@ import type {
 	SyncStateEvent,
 	WatchEvent,
 	WatchOptions,
-	WindowMessage,
 } from "@cortex/platform"
 import { toMessageOptions } from "@cortex/platform/utils"
 import type { MainApi, MainDomain, MainEventName, MainEvents } from "../../electron/contract"
@@ -176,9 +175,7 @@ export const electronPlatform: Platform = {
 		},
 	},
 	menu: main.menu,
-	window: extend(main.window, {
-		onMessage: (listener: (message: WindowMessage) => void) => listen("window-message", listener),
-	}),
+	window: main.window,
 	fs: extend(main.fs, {
 		startWatching: async (
 			path: string,

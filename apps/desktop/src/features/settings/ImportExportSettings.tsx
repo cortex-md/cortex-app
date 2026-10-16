@@ -1,7 +1,7 @@
 import { Button } from "@cortex/ui"
 import { UploadIcon } from "lucide-react"
-import { runInMainWindow } from "../../windows/runInMainWindow"
 import { SettingsField, SettingsGroup, SettingsPage, SettingsSection } from "./SettingsPrimitives"
+import { runSettingsAction } from "./settingsActions"
 
 export function ImportExportSection() {
 	return (
@@ -9,7 +9,7 @@ export function ImportExportSection() {
 			<SettingsSection title="Import" description="Bring external documents into this vault.">
 				<SettingsGroup>
 					<SettingsField fieldId="import-export.batch-import">
-						<Button size="sm" type="button" onClick={() => runInMainWindow("importFiles")}>
+						<Button size="sm" type="button" onClick={() => runSettingsAction("importFiles")}>
 							<UploadIcon />
 							Import files
 						</Button>
@@ -19,7 +19,7 @@ export function ImportExportSection() {
 							size="sm"
 							type="button"
 							variant="outline"
-							onClick={() => runInMainWindow("importObsidian")}
+							onClick={() => runSettingsAction("importObsidian")}
 						>
 							<UploadIcon />
 							Import from Obsidian

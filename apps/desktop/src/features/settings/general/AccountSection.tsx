@@ -1,7 +1,8 @@
-import { useAccountStore, useAuthStore, useUIStore } from "@cortex/core"
+import { useAccountStore, useAuthStore } from "@cortex/core"
 import { Button } from "@cortex/ui"
 import { LogIn, LogOut, UserRound } from "lucide-react"
 import { useState } from "react"
+import { openAuth } from "@/utils/modals"
 import { UserAvatar } from "../../sync/UserAvatar"
 import { SettingsGroup, SettingsGroupContent, SettingsSection } from "../SettingsPrimitives"
 
@@ -29,7 +30,6 @@ export function AccountSection() {
 	const user = useAuthStore((state) => state.user)
 	const logout = useAuthStore((state) => state.logout)
 	const serverUrl = useAuthStore((state) => state.serverUrl)
-	const openAuth = useUIStore((state) => state.openAuth)
 	const avatarUrl = useAccountStore((state) =>
 		state.profile && state.profile.userId === user?.userId ? state.profile.avatarUrl : null,
 	)
