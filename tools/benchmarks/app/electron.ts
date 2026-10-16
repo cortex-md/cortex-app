@@ -47,7 +47,6 @@ async function waitForVaultWindow(app: ElectronApplication): Promise<Page> {
 	const deadline = Date.now() + 60_000
 	while (Date.now() < deadline) {
 		for (const page of app.windows()) {
-			if (page.url().includes("window=settings")) continue
 			if (await page.locator(".file-tree-item").first().isVisible().catch(() => false)) return page
 		}
 		await new Promise((resolve) => setTimeout(resolve, 100))

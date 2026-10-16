@@ -16,6 +16,12 @@ export const nativeOverlayMotion =
 export const nativeDialogContentMotion =
 	"data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
 
+export const nativeCommandSurfaceMotion =
+	"duration-100 ease-out data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
+
+export const nativeCommandSurface =
+	"border border-border/50 bg-popover shadow-[0_10px_24px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)]"
+
 export const nativePopupContentMotion = nativeOverlayMotion
 
 export const nativeMenuItemBase =

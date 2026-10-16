@@ -29,8 +29,14 @@ import {
 } from "@cortex/ui"
 import { PanelRightIcon } from "lucide-react"
 import type { KeyboardEvent } from "react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback"
+import {
+	type QuickFinderRequest,
+	quickFinderModal,
+	toggleCommandPalette,
+	toggleQuickFinder,
+} from "@/utils/modals"
 import { HighlightedSnippet } from "../search/HighlightedSnippet"
 import { QuickFinderPreview } from "./QuickFinderPreview"
 
@@ -138,21 +144,49 @@ function QuickFinderCreateRow({ item }: { item: QuickFinderCreateItem }) {
 	)
 }
 
+const QuickFinderRows = memo(function QuickFinderRows({
+	items,
+	modifiedTimes,
+	onSelect,
+}: {
+	items: QuickFinderItem[]
+	modifiedTimes: ReadonlyMap<string, number>
+	onSelect: (item: QuickFinderItem) => void
+}) {
+	return (
+		<CommandGroup>
+			{items.map((item) => (
+				<CommandItem key={item.value} value={item.value} onSelect={() => onSelect(item)}>
+					{item.type === "create" ? (
+						<QuickFinderCreateRow item={item} />
+					) : (
+						<QuickFinderOpenRow item={item} modifiedAt={modifiedTimes.get(item.filePath)} />
+					)}
+				</CommandItem>
+			))}
+		</CommandGroup>
+	)
+})
+
 export function QuickFinder() {
-	const quickFinderOpen = useUIStore((s) => s.quickFinderOpen)
+	const request = quickFinderModal.useTarget()
 	const vault = useVaultStore((s) => s.vault)
-	if (!quickFinderOpen || !vault) return null
-	return <QuickFinderDialog vault={vault} />
+	if (!request || !vault) return null
+	return <QuickFinderDialog vault={vault} request={request} />
 }
 
-function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
-	const toggleQuickFinder = useUIStore((s) => s.toggleQuickFinder)
+function QuickFinderDialog({
+	vault,
+	request,
+}: {
+	vault: VaultMetadata
+	request: QuickFinderRequest
+}) {
 	const createFile = useVaultStore((s) => s.createFile)
 	const openTab = useWorkspaceStore((s) => s.openTab)
 	const panes = useWorkspaceStore((s) => s.panes)
 	const recentlyClosed = useWorkspaceStore((s) => s.recentlyClosed)
 	const activePaneId = useWorkspaceStore((s) => s.activePaneId)
-	const request = useUIStore((s) => s.quickFinderRequest)
 	const preview = useUIStore((s) => s.quickFinderPreview)
 	const files = useVaultStore((s) => s.files)
 	const indexing = useSearchStore((s) => s.indexing)
@@ -161,8 +195,7 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 	const [query, setQuery] = useState(() =>
 		request.kind === "relink-bookmark" ? request.query : "",
 	)
-	const [selectedValue, setSelectedValue] = useState("")
-	const [selectionQuery, setSelectionQuery] = useState("")
+	const [selection, setSelection] = useState({ query: "", value: "" })
 	const [titleResults, setTitleResults] = useState(EMPTY_RESULTS)
 	const [contentResults, setContentResults] = useState(EMPTY_RESULTS)
 	const latestQueryRef = useRef("")
@@ -200,7 +233,7 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 	const handleQueryChange = (nextQuery: string) => {
 		if (nextQuery.startsWith(">")) {
 			toggleQuickFinder()
-			useUIStore.getState().toggleCommandPalette()
+			toggleCommandPalette()
 			return
 		}
 		pendingOpenRef.current = null
@@ -270,10 +303,12 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 		return openItems
 	}, [createItem, openItems])
 
-	if (selectionQuery !== searchQuery) {
-		setSelectionQuery(searchQuery)
-		setSelectedValue(displayItems[0]?.value ?? "")
-	}
+	const selectedValue =
+		selection.query === searchQuery ? selection.value : (displayItems[0]?.value ?? "")
+	const handleSelectedValueChange = useCallback(
+		(value: string) => setSelection({ query: searchQuery, value }),
+		[searchQuery],
+	)
 
 	const selectedItem =
 		displayItems.find((item) => item.value === selectedValue) ?? displayItems[0] ?? null
@@ -286,7 +321,7 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 			openTab(filePath)
 			toggleQuickFinder()
 		},
-		[vault, createFile, openTab, toggleQuickFinder],
+		[vault, createFile, openTab],
 	)
 
 	const handleOpenItem = useCallback(
@@ -300,7 +335,7 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 			}
 			toggleQuickFinder()
 		},
-		[activePaneId, openTab, request, toggleQuickFinder, vault.path],
+		[activePaneId, openTab, request, vault.path],
 	)
 
 	const handleSelectItem = useCallback(
@@ -312,6 +347,11 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 			handleOpenItem(item, newTab, split)
 		},
 		[handleCreateNote, handleOpenItem],
+	)
+
+	const handleRowSelect = useCallback(
+		(item: QuickFinderItem) => handleSelectItem(item),
+		[handleSelectItem],
 	)
 
 	const resultsPending = searchQuery !== trimmedQuery
@@ -369,7 +409,7 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 				shouldFilter: false,
 				onKeyDown: handleKeyDown,
 				value: selectedValue,
-				onValueChange: setSelectedValue,
+				onValueChange: handleSelectedValueChange,
 			}}
 		>
 			<CommandInput
@@ -400,31 +440,11 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 					{displayItems.length === 0 ? (
 						<CommandEmpty>No results found</CommandEmpty>
 					) : (
-						<CommandGroup>
-							{displayItems.map((item) => {
-								if (item.type === "create") {
-									return (
-										<CommandItem
-											key={item.value}
-											value={item.value}
-											onSelect={() => handleSelectItem(item)}
-										>
-											<QuickFinderCreateRow item={item} />
-										</CommandItem>
-									)
-								}
-
-								return (
-									<CommandItem
-										key={item.value}
-										value={item.value}
-										onSelect={() => handleSelectItem(item)}
-									>
-										<QuickFinderOpenRow item={item} modifiedAt={modifiedTimes.get(item.filePath)} />
-									</CommandItem>
-								)
-							})}
-						</CommandGroup>
+						<QuickFinderRows
+							items={displayItems}
+							modifiedTimes={modifiedTimes}
+							onSelect={handleRowSelect}
+						/>
 					)}
 				</CommandList>
 				{preview && selectedPreviewPath && (

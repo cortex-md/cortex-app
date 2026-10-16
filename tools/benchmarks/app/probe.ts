@@ -4,6 +4,7 @@ export type ProbeCondition =
 	| { kind: "editor-has"; text: string }
 	| { kind: "selector"; selector: string }
 	| { kind: "db-filtered"; text: string }
+	| { kind: "focused"; selector: string }
 
 interface PerfProbe {
 	start: number | null
@@ -44,6 +45,10 @@ export async function installProbe(page: Page): Promise<void> {
 				}
 				if (condition.kind === "selector") {
 					return [...document.querySelectorAll(condition.selector)].some(visible)
+				}
+				if (condition.kind === "focused") {
+					const active = document.activeElement
+					return active !== null && active.matches(condition.selector) && visible(active)
 				}
 				const rows = [...document.querySelectorAll(".db-row")].filter(visible)
 				return rows.length > 0 && rows.every((row) => row.textContent?.includes(condition.text))

@@ -53,5 +53,5 @@ export const expoPlatform: Platform = {
 	templateShares: templateSharesApi,
 	vault: vaultApi,
 	window: windowApi,
-	menu: { setState: async () => {} },
+	menu: { setCommands: async () => {}, setItemStates: async () => {} },
 }

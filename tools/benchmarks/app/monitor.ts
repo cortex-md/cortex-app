@@ -99,7 +99,7 @@ setInterval(async () => {
 	const cpu = metrics.reduce((sum, metric) => sum + metric.cpu, 0)
 	let index = 0
 	for (const page of pages) {
-		if (page.isClosed() || page.url().includes("window=settings")) {
+		if (page.isClosed()) {
 			pages.delete(page)
 			continue
 		}

@@ -138,9 +138,10 @@ export type {
 export type {
 	NativeMenu,
 	NativeMenuCommand,
+	NativeMenuItemStates,
 	NativeMenuState,
 } from "./interfaces/NativeMenu"
-export type { NativeWindow, WindowMessage } from "./interfaces/NativeWindow"
+export type { NativeWindow } from "./interfaces/NativeWindow"
 export type {
 	NativeNotificationAction,
 	NativeNotificationCapabilities,

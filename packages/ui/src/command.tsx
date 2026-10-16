@@ -44,6 +44,7 @@ function CommandDialog({
 			</DialogHeader>
 			<DialogContent
 				data-command-surface=""
+				motion="fade"
 				className={cn("overflow-hidden p-0 sm:max-w-[680px]", className)}
 				showCloseButton={showCloseButton}
 			>

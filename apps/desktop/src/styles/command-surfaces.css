@@ -138,9 +138,9 @@
 	pointer-events: none;
 }
 
-.quick-finder-preview-body .reading-view {
-	padding: 0;
-	font-size: 13px;
+.quick-finder-preview-body p {
+	margin: 0 0 10px;
+	color: var(--text-secondary);
 }
 
 .quick-finder-path {
