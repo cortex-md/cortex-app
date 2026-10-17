@@ -3,7 +3,7 @@
 	"framework": "tanstack-start",
 	"installCommand": "cd ../.. && bun install --frozen-lockfile",
 	"buildCommand": "bun run build",
-	"ignoreCommand": "git diff --quiet ${VERCEL_GIT_PREVIOUS_SHA:-HEAD^} HEAD -- . ../../packages/ui ../../packages/sync-api ../../packages/platform ../../tsconfig.base.json",
+	"ignoreCommand": "sh scripts/vercel-ignore-build.sh",
 	"headers": [
 		{
 			"source": "/(.*)",
