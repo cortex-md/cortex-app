@@ -224,15 +224,16 @@
 
 .file-tree-inline-input {
 	flex: 1 1 auto;
-	height: calc(var(--file-tree-row-height, 36px) - 4px);
-	min-height: calc(var(--file-tree-row-height, 36px) - 4px);
-	width: calc(100% + 4px);
+	width: calc(100% + 8px);
+	height: calc(var(--file-tree-row-height, 32px) - 6px);
+	min-height: 0;
 	min-width: 0;
-	margin-left: -4px;
-	padding: 0 3px;
-	border: 1px solid color-mix(in srgb, var(--border-focus) 82%, transparent);
-	border-radius: 4px;
-	background: var(--bg-primary);
+	margin-left: -8px;
+	padding: 0 7px;
+	border: 0;
+	border-radius: 7px;
+	background: var(--surface-raised);
+	box-shadow: var(--shadow-raised);
 	color: var(--text-primary);
 	font-size: 13px;
 	line-height: 17px;
@@ -327,6 +328,47 @@
 
 .app-sidebar--collapsed .sidebar-rail {
 	width: 100%;
+}
+
+.app-sidebar--no-ribbon .sidebar-panel {
+	padding-left: 8px;
+}
+
+.app-sidebar--no-ribbon.app-sidebar--collapsed {
+	padding-inline: 0;
+	border: 0;
+}
+
+.sidebar-view-strip {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px;
+	margin-top: 10px;
+	padding: 0 4px 6px 8px;
+}
+
+.sidebar-view-strip-button {
+	width: 32px;
+	height: 32px;
+	min-height: 32px;
+	padding: 0;
+	border-radius: var(--control-pill-radius);
+	color: var(--text-muted);
+	transition-property: background-color, color, box-shadow;
+	transition-duration: 120ms;
+	scale: none;
+}
+
+.sidebar-view-strip-button:hover {
+	background: var(--fill-quiet);
+	color: var(--text-primary);
+}
+
+.sidebar-view-strip-button[data-active="true"] {
+	background: var(--surface-raised);
+	box-shadow: var(--shadow-raised);
+	color: var(--text-primary);
 }
 
 .sidebar-tool-view {
@@ -1154,4 +1196,28 @@
 .tag-page-rename {
 	display: flex;
 	gap: 6px;
+}
+.sidebar-panel-top {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+}
+
+.sidebar-panel-top > .vault-switcher {
+	flex: 1;
+	min-width: 0;
+}
+
+.sidebar-panel-top-action[data-slot="button"] {
+	flex: none;
+	width: 30px;
+	height: 30px;
+	min-height: 30px;
+	color: var(--text-muted);
+	scale: none;
+}
+
+.sidebar-panel-top-action[data-slot="button"]:hover {
+	color: var(--text-primary);
 }

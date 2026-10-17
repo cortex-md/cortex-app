@@ -118,6 +118,14 @@ body[data-platform="macos"]
 	--tab-bar-padding-left: var(--app-collapsed-tabbar-start-padding);
 }
 
+body[data-platform="macos"]
+	.app-main[data-left-sidebar-collapsed="true"][data-ribbon="hidden"]
+	.split-leaf[data-split-start-pane="true"]
+	> .pane-view
+	> .tab-bar-row {
+	--tab-bar-padding-left: calc(var(--app-collapsed-tabbar-start-padding) + 56px);
+}
+
 body[data-platform="windows"]
 	.app-main[data-left-sidebar-collapsed="true"]
 	.split-leaf[data-split-start-pane="true"]
@@ -149,6 +157,7 @@ body[data-platform="macos"] .sidebar-action-button {
 
 body[data-platform="macos"] .vault-switcher-button:hover,
 body[data-platform="macos"] .sidebar-rail-button:not([data-active="true"]):hover,
+body[data-platform="macos"] .sidebar-view-strip-button:not([data-active="true"]):hover,
 body[data-platform="macos"] .sidebar-action-button:hover {
 	background: var(--fill-quiet);
 	color: var(--text-primary);

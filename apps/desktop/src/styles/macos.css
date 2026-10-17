@@ -499,6 +499,7 @@ body[data-platform="macos"][data-reduced-motion="true"]
 		[data-command-surface],
 		.tab-trigger,
 		.sidebar-rail-button,
+		.sidebar-view-strip-button,
 		.sidebar-view-panel--current,
 		.sidebar-view-panel--previous,
 		.file-tree-item,

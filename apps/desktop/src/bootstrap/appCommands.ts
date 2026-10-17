@@ -79,6 +79,7 @@ import {
 import { importObsidianVaultFromDialog } from "../features/import-export/obsidianImport"
 import { openMarketplaceView } from "../features/marketplace/openMarketplaceView"
 import { openSettings } from "../features/settings/settingsModal"
+import { toggleRibbon } from "../features/sidebar/ribbon"
 import { deletedNotesModal, syncLogsModal } from "../features/sync/syncDialogStores"
 import { openTasksSidebar, openTodayView } from "../features/tasks/taskModel"
 import { openNewTemplate, openTemplatesView } from "../features/templates/templateActions"
@@ -537,6 +538,14 @@ const appCommands: CommandEntry[] = [
 		icon: PanelLeftIcon,
 		hotkey: { defaultKeys: "mod+[", scope: "global" },
 		execute: () => useUIStore.getState().toggleLeftSidebar(),
+	},
+	{
+		id: "view.toggle-ribbon",
+		label: "Toggle Ribbon",
+		category: "View",
+		aliases: ["ribbon", "rail", "hide-ribbon", "show-ribbon"],
+		icon: PanelLeftIcon,
+		execute: toggleRibbon,
 	},
 	{
 		id: "view.files",

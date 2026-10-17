@@ -172,6 +172,10 @@ export function AppearanceSection({
 		setNativeWindowEffectsRestartPending(true)
 	}
 
+	const handleShowRibbonChange = (visible: boolean) => {
+		onUpdate("appearance", "showRibbon", visible)
+	}
+
 	const handleEditorFontFamilyChange = (fontFamily: string) => {
 		onUpdate("appearance", "editorFontFamily", fontFamily)
 		applyOverrides({ editorFontFamily: fontFamily })
@@ -317,6 +321,14 @@ export function AppearanceSection({
 								onCheckedChange={handleNativeWindowEffectsChange}
 							/>
 						</div>
+					</SettingsField>
+
+					<SettingsField fieldId="appearance.show-ribbon" htmlFor="show-ribbon">
+						<Switch
+							id="show-ribbon"
+							checked={settings.showRibbon}
+							onCheckedChange={handleShowRibbonChange}
+						/>
 					</SettingsField>
 				</SettingsGroup>
 			</SettingsSection>

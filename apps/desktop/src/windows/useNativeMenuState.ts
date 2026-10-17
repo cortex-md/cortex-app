@@ -49,6 +49,7 @@ function buildItemStates(): NativeMenuItemStates {
 	const checked: Record<string, boolean> = {
 		leftSidebar: !ui.leftSidebarCollapsed,
 		rightSidebar: !ui.rightSidebarCollapsed,
+		ribbon: appearance.showRibbon,
 		[`sidebar:${ui.leftSidebarView}`]: true,
 		[`mode:${mode}`]: true,
 		[`colorscheme:${appearance.colorscheme}`]: true,
@@ -126,7 +127,8 @@ export function useNativeMenuState(): void {
 			useSettingsStore.subscribe((state, previous) => {
 				if (
 					state.settings.editor !== previous.settings.editor ||
-					state.settings.appearance.colorscheme !== previous.settings.appearance.colorscheme
+					state.settings.appearance.colorscheme !== previous.settings.appearance.colorscheme ||
+					state.settings.appearance.showRibbon !== previous.settings.appearance.showRibbon
 				) {
 					states.schedule()
 				}

@@ -19,6 +19,7 @@ const AppearanceSettingsInputSchema = z.object({
 	uiFontSize: z.number().min(10).max(24).default(DEFAULT_APPEARANCE_SETTINGS.uiFontSize),
 	nativeWindowEffects: z.boolean().optional(),
 	nativeContentSurface: z.boolean().optional(),
+	showRibbon: z.boolean().default(DEFAULT_APPEARANCE_SETTINGS.showRibbon),
 	editorFontFamily: z.string().default(DEFAULT_APPEARANCE_SETTINGS.editorFontFamily),
 	editorFontSize: z.number().min(10).max(24).default(DEFAULT_APPEARANCE_SETTINGS.editorFontSize),
 	lineHeight: z.number().min(1).max(2).default(DEFAULT_APPEARANCE_SETTINGS.lineHeight),

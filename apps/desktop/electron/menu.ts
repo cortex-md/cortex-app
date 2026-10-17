@@ -357,6 +357,12 @@ function viewMenu(context: MenuContext): MenuItemConstructorOptions {
 				type: "checkbox",
 				checked: "leftSidebar",
 			}),
+			commandItem(context, "view.toggle-ribbon", {
+				label: "Ribbon",
+				requires: "vault",
+				type: "checkbox",
+				checked: "ribbon",
+			}),
 			commandItem(context, "view.toggle-right-sidebar", {
 				label: "Right Sidebar",
 				requires: "vault",

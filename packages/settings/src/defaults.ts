@@ -14,6 +14,7 @@ export const DEFAULT_APPEARANCE_SETTINGS = {
 	uiFontFamily: SYSTEM_FONT_FAMILY,
 	uiFontSize: 14,
 	nativeWindowEffects: true,
+	showRibbon: true,
 	editorFontFamily: SYSTEM_FONT_FAMILY,
 	editorFontSize: 16,
 	lineHeight: 1.5,

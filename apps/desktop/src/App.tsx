@@ -8,7 +8,7 @@ import { getPlatform } from "@cortex/platform"
 import { CORE_OWNER, usePluginStore } from "@cortex/plugin-host-core"
 import { useSettingsStore } from "@cortex/settings"
 import { Button, SimpleTooltip, Toaster, TooltipProvider } from "@cortex/ui"
-import { PanelLeftIcon } from "lucide-react"
+import { PanelLeftIcon, SettingsIcon } from "lucide-react"
 import {
 	type ComponentType,
 	type CSSProperties,
@@ -49,7 +49,9 @@ import { PluginModalHost } from "./features/plugins/rendering/PluginModalHost"
 import { PluginViewRenderer } from "./features/plugins/rendering/PluginViewRenderer"
 import { RightSidebar } from "./features/right-sidebar/RightSidebar"
 import { openSettings, settingsModal } from "./features/settings/settingsModal"
+import { useRibbonVisible } from "./features/sidebar/ribbon"
 import { SidebarRail } from "./features/sidebar/SidebarRail"
+import { SidebarViewStrip } from "./features/sidebar/SidebarViewStrip"
 import { DragPreview } from "./features/split-view/DragPreview"
 import { PaneView } from "./features/split-view/PaneView"
 import { StatusBar } from "./features/statusbar/StatusBar"
@@ -152,7 +154,11 @@ function preloadOverlays(): () => void {
 	})
 }
 
-const COLLAPSED_SIDEBAR_WIDTH = 56
+const RIBBON_WIDTH = 56
+
+function useCollapsedSidebarWidth(): number {
+	return useRibbonVisible() ? RIBBON_WIDTH : 0
+}
 
 function toggleLeftSidebar() {
 	useUIStore.getState().toggleLeftSidebar()
@@ -201,9 +207,11 @@ function SplitPaneLeaf({ paneId }: SplitPaneLeafProps) {
 const AppTitlebar = memo(function AppTitlebar({ hasVault }: AppShellProps) {
 	const leftSidebarCollapsed = useUIStore((s) => s.leftSidebarCollapsed)
 	const leftSidebarWidth = useUIStore((s) => s.leftSidebarWidth)
+	const collapsedWidth = useCollapsedSidebarWidth()
+	const sidebarWidth = leftSidebarCollapsed ? collapsedWidth : leftSidebarWidth
 	const titlebarStyle = {
-		"--app-titlebar-drag-width": `${leftSidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH : leftSidebarWidth}px`,
-		"--app-sidebar-width": `${leftSidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH : leftSidebarWidth}px`,
+		"--app-titlebar-drag-width": `${sidebarWidth}px`,
+		"--app-sidebar-width": `${sidebarWidth}px`,
 	} as CSSProperties
 
 	return (
@@ -249,20 +257,46 @@ const SidebarViews = memo(function SidebarViews() {
 	const sidebarViews = useSidebarViews()
 	const leftSidebarView = useUIStore((s) => s.leftSidebarView)
 	const leftSidebarCollapsed = useUIStore((s) => s.leftSidebarCollapsed)
+	const showRibbon = useRibbonVisible()
 	const activeSidebarView = getAvailableSidebarViewId(sidebarViews, leftSidebarView)
 
 	return (
 		<div className="sidebar-body">
-			<SidebarRail
-				items={sidebarViews}
-				activeId={activeSidebarView}
-				collapsed={leftSidebarCollapsed}
-				onSelect={selectSidebarView}
-				onOpenMarketplace={openPluginMarketplace}
-				onOpenSettings={openGeneralSettings}
-			/>
+			{showRibbon && (
+				<SidebarRail
+					items={sidebarViews}
+					activeId={activeSidebarView}
+					collapsed={leftSidebarCollapsed}
+					onSelect={selectSidebarView}
+					onOpenMarketplace={openPluginMarketplace}
+					onOpenSettings={openGeneralSettings}
+				/>
+			)}
 			<div className="sidebar-panel" inert={leftSidebarCollapsed}>
-				<VaultSwitcher />
+				<div className="sidebar-panel-top">
+					<VaultSwitcher />
+					{!showRibbon && (
+						<SimpleTooltip label="Settings" side="bottom">
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon-sm"
+								className="sidebar-panel-top-action"
+								aria-label="Settings"
+								onClick={openGeneralSettings}
+							>
+								<SettingsIcon size={16} strokeWidth={2} />
+							</Button>
+						</SimpleTooltip>
+					)}
+				</div>
+				{!showRibbon && (
+					<SidebarViewStrip
+						items={sidebarViews}
+						activeId={activeSidebarView}
+						onSelect={selectSidebarView}
+					/>
+				)}
 				<div className="min-h-0 flex-1 overflow-hidden">
 					<SidebarViewStage
 						activeId={activeSidebarView}
@@ -279,6 +313,7 @@ function SidebarShell() {
 	const leftSidebarCollapsed = useUIStore((s) => s.leftSidebarCollapsed)
 	const leftSidebarWidth = useUIStore((s) => s.leftSidebarWidth)
 	const setLeftSidebarWidth = useUIStore((s) => s.setLeftSidebarWidth)
+	const collapsedWidth = useCollapsedSidebarWidth()
 	const { sidebarElementRef, handleSidebarResizeStart } = useSidebarResize(
 		leftSidebarCollapsed,
 		leftSidebarWidth,
@@ -291,11 +326,11 @@ function SidebarShell() {
 				ref={sidebarElementRef}
 				className={`app-sidebar flex-shrink-0 flex flex-col overflow-hidden ${
 					leftSidebarCollapsed ? "app-sidebar--collapsed" : ""
-				}`}
+				} ${collapsedWidth === 0 ? "app-sidebar--no-ribbon" : ""}`}
 				style={{
-					width: leftSidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH : leftSidebarWidth,
-					minWidth: leftSidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH : LEFT_SIDEBAR_WIDTH_BOUNDS.min,
-					maxWidth: leftSidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH : LEFT_SIDEBAR_WIDTH_BOUNDS.max,
+					width: leftSidebarCollapsed ? collapsedWidth : leftSidebarWidth,
+					minWidth: leftSidebarCollapsed ? collapsedWidth : LEFT_SIDEBAR_WIDTH_BOUNDS.min,
+					maxWidth: leftSidebarCollapsed ? collapsedWidth : LEFT_SIDEBAR_WIDTH_BOUNDS.max,
 				}}
 				aria-label="Sidebar panel"
 			>
@@ -315,11 +350,13 @@ function SidebarShell() {
 function WorkspaceShell() {
 	const leftSidebarCollapsed = useUIStore((s) => s.leftSidebarCollapsed)
 	const splitTree = useWorkspaceStore((s) => s.splitTree)
+	const showRibbon = useRibbonVisible()
 
 	return (
 		<main
 			className="app-main flex-1 overflow-hidden flex flex-col min-w-0"
 			data-left-sidebar-collapsed={leftSidebarCollapsed ? "true" : undefined}
+			data-ribbon={showRibbon ? undefined : "hidden"}
 		>
 			<div className="workspace-body">
 				<div className="workspace-split">

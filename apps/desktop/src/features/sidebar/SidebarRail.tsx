@@ -1,12 +1,14 @@
 import { useMarketplaceStore } from "@cortex/marketplace"
 import { Button, LucideIcon, SimpleTooltip } from "@cortex/ui"
 import { LayoutTemplateIcon, SettingsIcon, StoreIcon } from "lucide-react"
-import { type KeyboardEvent, useRef } from "react"
+import { type KeyboardEvent, type MouseEvent, useRef } from "react"
+import { useContextMenu } from "../context-menu/useContextMenu"
 import type { SidebarViewItem } from "../file-explorer/sidebarViewUtils"
 import { useInternalDragSource } from "../split-view/useInternalDragSource"
 import { TasksRailBadge } from "../tasks/TasksSidebar"
 import { TASKS_SIDEBAR_VIEW_ID } from "../tasks/taskModel"
 import { openTemplatesView } from "../templates/templateActions"
+import { ribbonMenuItems } from "./ribbon"
 
 interface SidebarRailProps {
 	items: SidebarViewItem[]
@@ -114,6 +116,12 @@ export function SidebarRail({
 	onOpenSettings,
 }: SidebarRailProps) {
 	const buttonRefs = useRef<Array<HTMLButtonElement | null>>([])
+	const { showMenu, menu } = useContextMenu()
+
+	const handleContextMenu = (event: MouseEvent<HTMLElement>) => {
+		event.preventDefault()
+		showMenu(ribbonMenuItems(), { x: event.clientX, y: event.clientY })
+	}
 
 	const handleKeyDown = (index: number, event: KeyboardEvent<HTMLButtonElement>) => {
 		let targetIndex: number | null = null
@@ -127,7 +135,7 @@ export function SidebarRail({
 	}
 
 	return (
-		<nav className="sidebar-rail" aria-label="Sidebar views">
+		<nav className="sidebar-rail" aria-label="Sidebar views" onContextMenu={handleContextMenu}>
 			<div className="sidebar-rail-views" role="tablist" aria-orientation="vertical">
 				{items.map((item, index) => (
 					<SidebarRailViewButton
@@ -168,6 +176,7 @@ export function SidebarRail({
 					<SettingsIcon size={19} strokeWidth={2} />
 				</Button>
 			</SimpleTooltip>
+			{menu}
 		</nav>
 	)
 }

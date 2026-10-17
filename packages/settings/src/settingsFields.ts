@@ -91,6 +91,14 @@ export const SETTINGS_FIELDS: readonly SettingsFieldEntry[] = [
 		keywords: ["vibrancy", "mica", "transparency", "blur", "translucent"],
 	},
 	{
+		id: "appearance.show-ribbon",
+		pageKey: "appearance",
+		section: "Interface",
+		label: "Show ribbon",
+		description: "The strip of view icons on the left edge of the sidebar.",
+		keywords: ["rail", "sidebar icons", "activity bar", "hide ribbon"],
+	},
+	{
 		id: "appearance.editor-font",
 		pageKey: "appearance",
 		section: "Editor",
