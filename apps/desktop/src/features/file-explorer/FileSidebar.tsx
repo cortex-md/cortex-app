@@ -1,4 +1,3 @@
-import { executeCommand } from "@cortex/commands"
 import { useHotkeysStore } from "@cortex/commands/hotkeys"
 import {
 	selectActiveTabFilePath,
@@ -11,28 +10,45 @@ import {
 	Button,
 	DropdownMenu,
 	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuShortcut,
 	DropdownMenuTrigger,
 	SimpleTooltip,
 } from "@cortex/ui"
+import { FolderPlusIcon, PlusIcon } from "lucide-react"
 import {
-	FilePlusIcon,
-	FolderPlusIcon,
-	LayoutTemplateIcon,
-	PlusIcon,
-	RepeatIcon,
-	Table2Icon,
-} from "lucide-react"
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
-import { useCommandHotkey } from "../../hooks/useCommandHotkey"
-import { useContextMenu } from "../context-menu/useContextMenu"
+	type RefObject,
+	useCallback,
+	useEffect,
+	useEffectEvent,
+	useMemo,
+	useRef,
+	useState,
+} from "react"
+import type { MenuItem } from "@/utils/context-menu"
+import { MenuItemList, useContextMenu } from "../context-menu/useContextMenu"
 import { FileSidebarTree } from "./FileSidebarTree"
 import { type FileExplorerCommandId, setFileExplorerCommandHandler } from "./fileExplorerCommands"
 import { createFileExplorerHotkeyBindings } from "./fileExplorerKeyboard"
+import { buildCreateMenuItems } from "./fileMenu"
 import { type FileCreateType, useFileSidebarActions } from "./useFileSidebarActions"
 import { useFileSidebarTreeModel } from "./useFileSidebarTreeModel"
+
+function deferMenuActions(
+	items: MenuItem[],
+	pendingRef: RefObject<(() => void) | null>,
+): MenuItem[] {
+	return items.map((item) => {
+		if (item.type === "separator" || item.type === "label" || item.type === "submenu") return item
+		const action = item.action
+		return action
+			? {
+					...item,
+					action: () => {
+						pendingRef.current = () => void action()
+					},
+				}
+			: item
+	})
+}
 
 interface FileSidebarHeaderProps {
 	vaultPath: string
@@ -41,17 +57,21 @@ interface FileSidebarHeaderProps {
 
 function FileSidebarHeader({ vaultPath, onCreate }: FileSidebarHeaderProps) {
 	const canCreateAtRoot = useCanWriteVaultPath(vaultPath, true)
-	const newNoteKeys = useCommandHotkey("file.new")
-	const newDatabaseKeys = useCommandHotkey("database.new")
-	const fromTemplateKeys = useCommandHotkey("templates.create-note")
 	const pendingCreateRef = useRef<(() => void) | null>(null)
+	const createItems = deferMenuActions(
+		buildCreateMenuItems({
+			onNewNote: () => onCreate(vaultPath, "file"),
+			onNewFolder: () => onCreate(vaultPath, "folder"),
+		}),
+		pendingCreateRef,
+	)
 	return (
 		<div className="file-sidebar-header flex items-center flex-shrink-0 gap-0.5">
 			<span className="file-sidebar-title mr-auto">Files</span>
 			{canCreateAtRoot && (
 				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<SimpleTooltip label="Create" side="bottom">
+					<SimpleTooltip label="Create" side="bottom">
+						<DropdownMenuTrigger asChild>
 							<Button
 								type="button"
 								variant="ghost"
@@ -61,8 +81,8 @@ function FileSidebarHeader({ vaultPath, onCreate }: FileSidebarHeaderProps) {
 							>
 								<PlusIcon size={14} />
 							</Button>
-						</SimpleTooltip>
-					</DropdownMenuTrigger>
+						</DropdownMenuTrigger>
+					</SimpleTooltip>
 					<DropdownMenuContent
 						align="end"
 						onCloseAutoFocus={(event) => {
@@ -73,59 +93,7 @@ function FileSidebarHeader({ vaultPath, onCreate }: FileSidebarHeaderProps) {
 							action()
 						}}
 					>
-						<DropdownMenuItem
-							onSelect={() => {
-								pendingCreateRef.current = () => onCreate(vaultPath, "file")
-							}}
-						>
-							<FilePlusIcon />
-							Note
-							{newNoteKeys && <DropdownMenuShortcut>{newNoteKeys}</DropdownMenuShortcut>}
-						</DropdownMenuItem>
-						<DropdownMenuItem
-							onSelect={() => {
-								pendingCreateRef.current = () => executeCommand("templates.create-note")
-							}}
-						>
-							<LayoutTemplateIcon />
-							Note from a template…
-							{fromTemplateKeys && <DropdownMenuShortcut>{fromTemplateKeys}</DropdownMenuShortcut>}
-						</DropdownMenuItem>
-						<DropdownMenuItem
-							onSelect={() => {
-								pendingCreateRef.current = () => executeCommand("database.new")
-							}}
-						>
-							<Table2Icon />
-							Database
-							{newDatabaseKeys && <DropdownMenuShortcut>{newDatabaseKeys}</DropdownMenuShortcut>}
-						</DropdownMenuItem>
-						<DropdownMenuItem
-							onSelect={() => {
-								pendingCreateRef.current = () => onCreate(vaultPath, "folder")
-							}}
-						>
-							<FolderPlusIcon />
-							Folder
-						</DropdownMenuItem>
-						<DropdownMenuSeparator />
-						<DropdownMenuItem
-							onSelect={() => {
-								pendingCreateRef.current = () => executeCommand("database.convert-folder")
-							}}
-						>
-							<RepeatIcon />
-							Turn a folder into a database
-						</DropdownMenuItem>
-						<DropdownMenuSeparator />
-						<DropdownMenuItem
-							onSelect={() => {
-								pendingCreateRef.current = () => executeCommand("templates.new")
-							}}
-						>
-							<PlusIcon />
-							New template…
-						</DropdownMenuItem>
+						<MenuItemList items={createItems} />
 					</DropdownMenuContent>
 				</DropdownMenu>
 			)}

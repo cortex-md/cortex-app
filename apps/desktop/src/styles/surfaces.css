@@ -263,3 +263,38 @@ body[data-platform="windows"] ::-webkit-scrollbar-thumb {
 	margin: 4px 0;
 	background: var(--compact-menu-hairline);
 }
+
+[data-slot="popover-content"] [data-slot="command-input-wrapper"] {
+	height: 34px;
+	gap: 8px;
+	margin: 5px 5px 2px;
+	padding: 0 10px;
+	border: 0;
+	border-radius: var(--popup-item-radius, 9px);
+	background: var(--fill-quiet);
+}
+
+[data-slot="popover-content"] [data-slot="command-input-icon"] {
+	width: 15px;
+	height: 15px;
+}
+
+[data-slot="popover-content"] [data-slot="command-input"] {
+	font-size: 13.5px;
+}
+
+[data-slot="popover-content"] [data-slot="command-list"] {
+	padding: 2px 5px 5px;
+}
+
+[data-slot="popover-content"] [data-slot="command-item"] {
+	min-height: 30px;
+	padding: 5px 9px;
+	font-size: 13.5px;
+}
+
+[data-slot="popover-content"] [data-slot="command-group-heading"],
+[data-slot="popover-content"] [cmdk-group-heading] {
+	padding: 8px 9px 4px;
+	font-size: 11.5px;
+}

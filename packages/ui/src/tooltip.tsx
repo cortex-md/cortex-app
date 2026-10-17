@@ -1,4 +1,4 @@
-import { Tooltip as TooltipPrimitive } from "radix-ui"
+import { Slot, Tooltip as TooltipPrimitive } from "radix-ui"
 import type * as React from "react"
 
 import { Kbd } from "./kbd"
@@ -49,7 +49,8 @@ function TooltipContent({
 	)
 }
 
-interface SimpleTooltipProps {
+interface SimpleTooltipProps
+	extends Omit<React.ComponentProps<typeof TooltipPrimitive.Trigger>, "children"> {
 	label: React.ReactNode
 	shortcut?: string
 	side?: React.ComponentProps<typeof TooltipPrimitive.Content>["side"]
@@ -67,13 +68,16 @@ function SimpleTooltip({
 	sideOffset = 6,
 	disabled = false,
 	children,
+	...triggerProps
 }: SimpleTooltipProps) {
 	if (disabled || label === null || label === undefined || label === false || label === "") {
-		return children
+		return <Slot.Root {...triggerProps}>{children}</Slot.Root>
 	}
 	return (
 		<Tooltip>
-			<TooltipTrigger asChild>{children}</TooltipTrigger>
+			<TooltipTrigger asChild {...triggerProps}>
+				{children}
+			</TooltipTrigger>
 			<TooltipContent
 				side={side}
 				align={align}

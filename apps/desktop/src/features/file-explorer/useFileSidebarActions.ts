@@ -8,11 +8,10 @@ import {
 	useVaultStore,
 	useWorkspaceStore,
 } from "@cortex/core"
-import { FilePlusIcon, FolderPlusIcon } from "lucide-react"
 import { type RefObject, useMemo, useReducer } from "react"
 import type { MenuPosition } from "@/utils/context-menu"
 import { FILE_EXPLORER_COMMAND_IDS, type FileExplorerCommandId } from "./fileExplorerCommands"
-import { buildFileMenuItems } from "./fileMenu"
+import { buildCreateMenuItems, buildFileMenuItems } from "./fileMenu"
 import { getFileTreeItemId, getKeyboardMenuPosition } from "./fileTreeDom"
 
 export type FileCreateType = "file" | "folder"
@@ -156,20 +155,10 @@ export function useFileSidebarActions({
 			showRootMenu: (position) => {
 				if (!vaultPath || !canWriteVaultPath(vaultPath, true)) return
 				showMenu(
-					[
-						{
-							id: "new-file",
-							text: "New Note",
-							icon: FilePlusIcon,
-							action: () => startCreate(vaultPath, "file"),
-						},
-						{
-							id: "new-folder",
-							text: "New Folder",
-							icon: FolderPlusIcon,
-							action: () => startCreate(vaultPath, "folder"),
-						},
-					],
+					buildCreateMenuItems({
+						onNewNote: () => startCreate(vaultPath, "file"),
+						onNewFolder: () => startCreate(vaultPath, "folder"),
+					}),
 					position,
 				)
 			},

@@ -8,7 +8,7 @@ export const nativeDialogSurface =
 	"border border-border/50 bg-popover shadow-[0_8px_40px_rgba(0,0,0,0.12)]"
 
 export const nativePopupSurface =
-	"border border-border/35 bg-popover shadow-[0_10px_24px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)]"
+	"border-0 bg-[var(--surface-raised,var(--popover))] shadow-[var(--shadow-floating-pill,0_10px_24px_rgba(0,0,0,0.12))]"
 
 export const nativeOverlayMotion =
 	"duration-150 ease-out data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"

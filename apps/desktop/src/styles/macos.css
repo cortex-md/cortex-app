@@ -25,8 +25,8 @@ body[data-platform="macos"] {
 		0 18px 36px -30px color-mix(in srgb, black 42%, transparent),
 		0 8px 18px -16px color-mix(in srgb, black 18%, transparent);
 	--dialog-radius: var(--macos-radius-xl);
-	--popup-radius: var(--macos-radius-lg);
-	--popup-item-radius: var(--macos-radius-md);
+	--popup-radius: 14px;
+	--popup-item-radius: 9px;
 }
 
 body[data-platform="macos"][data-theme-scheme="dark"] {
@@ -262,10 +262,8 @@ body[data-platform="macos"]
 	:where(.slash-command-menu, .note-property-popover, .comment-mention-menu) {
 	border-color: transparent;
 	border-radius: var(--popup-radius);
-	background: var(--macos-surface-bg);
-	box-shadow:
-		0 0 0 1px var(--macos-surface-border),
-		var(--macos-shadow-floating);
+	background: var(--surface-raised, var(--macos-surface-bg));
+	box-shadow: var(--shadow-floating-pill, var(--macos-shadow-floating));
 	backdrop-filter: none;
 	animation-duration: var(--macos-duration-base);
 	animation-timing-function: var(--macos-ease);
@@ -303,7 +301,7 @@ body[data-platform="macos"]
 		.slash-command-menu [data-slot="command-item"],
 		.note-property-popover [data-slot="command-item"]
 	) {
-	border-radius: var(--macos-radius-md);
+	border-radius: var(--popup-item-radius);
 	font-family: var(--font-ui);
 	transition-property: background-color, border-color, color;
 	transition-duration: var(--macos-duration-base);

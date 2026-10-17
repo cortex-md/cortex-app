@@ -25,12 +25,15 @@ import {
 	FolderPlusIcon,
 	LayoutTemplateIcon,
 	PencilIcon,
+	PlusIcon,
+	RepeatIcon,
 	Table2Icon,
 	TableIcon,
 } from "lucide-react"
 import {
 	commandMenuItem,
 	compactMenuItems,
+	getCommandHotkey,
 	getPluginMenuItems,
 	MENU_SEPARATOR,
 	type MenuItem,
@@ -250,5 +253,37 @@ export function buildFileMenuItems(
 		MENU_SEPARATOR,
 		entryItems.delete,
 		...getPluginMenuItems({ location: "file", filePath }),
+	])
+}
+
+export interface CreateMenuActions {
+	onNewNote: () => void
+	onNewFolder: () => void
+}
+
+export function buildCreateMenuItems({ onNewNote, onNewFolder }: CreateMenuActions): MenuItem[] {
+	return compactMenuItems([
+		{
+			id: "new-file",
+			text: "Note",
+			icon: FilePlusIcon,
+			hotkey: getCommandHotkey("file.new"),
+			action: onNewNote,
+		},
+		commandMenuItem("templates.create-note", {
+			id: "new-from-template",
+			text: "Note from a template…",
+			icon: LayoutTemplateIcon,
+		}),
+		commandMenuItem("database.new", { id: "new-database", text: "Database", icon: Table2Icon }),
+		{ id: "new-folder", text: "Folder", icon: FolderPlusIcon, action: onNewFolder },
+		MENU_SEPARATOR,
+		commandMenuItem("database.convert-folder", {
+			id: "convert-database",
+			text: "Turn a folder into a database",
+			icon: RepeatIcon,
+		}),
+		MENU_SEPARATOR,
+		commandMenuItem("templates.new", { id: "new-template", text: "New template…", icon: PlusIcon }),
 	])
 }

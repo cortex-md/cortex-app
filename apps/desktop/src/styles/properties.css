@@ -401,9 +401,9 @@
 .note-property-popover [data-slot="input"] {
 	height: 30px;
 	padding: 0 10px;
-	border: 1px solid var(--property-popover-hairline);
-	border-radius: var(--control-radius);
-	background: var(--property-popover-field-bg);
+	border: 0;
+	border-radius: var(--popup-item-radius, 9px);
+	background: var(--fill-quiet);
 	box-shadow: none;
 	color: var(--text-primary);
 	font-size: 13px;

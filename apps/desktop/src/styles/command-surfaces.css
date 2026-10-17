@@ -16,26 +16,26 @@
 }
 
 [data-command-surface] [data-slot="command-input-wrapper"] {
-	height: 56px;
-	min-height: 56px;
-	gap: 12px;
-	padding: 0 12px 0 18px;
+	height: 48px;
+	min-height: 48px;
+	gap: 10px;
+	padding: 0 10px 0 16px;
 	border-color: var(--hairline);
 	background: transparent;
 	color: var(--text-muted);
 }
 
 [data-command-surface] [data-slot="command-input-icon"] {
-	width: 18px;
-	height: 18px;
+	width: 16px;
+	height: 16px;
 	opacity: 1;
 }
 
 [data-command-surface] [data-slot="command-input"] {
-	height: 56px;
+	height: 48px;
 	color: var(--text-primary);
-	font-size: 17px;
-	line-height: 22px;
+	font-size: 15px;
+	line-height: 20px;
 }
 
 [data-command-surface] [data-slot="command-input"]::placeholder {
@@ -43,7 +43,7 @@
 }
 
 [data-command-surface] [data-slot="command-list"] {
-	padding: 6px 8px 8px;
+	padding: 4px 6px 6px;
 }
 
 [data-command-surface][data-slot="dialog-content"] [data-slot="command-list"] {
@@ -55,9 +55,9 @@
 }
 
 [data-command-surface] [cmdk-group-heading] {
-	padding: 12px 10px 6px;
+	padding: 10px 10px 4px;
 	color: var(--text-muted);
-	font-size: 12px;
+	font-size: 11.5px;
 	font-weight: 500;
 	letter-spacing: 0;
 	line-height: 16px;
@@ -80,10 +80,10 @@
 }
 
 [data-command-surface][data-slot="dialog-content"] [data-slot="command-item"] {
-	min-height: 40px;
-	padding: 0 12px;
+	min-height: 34px;
+	padding: 0 10px;
 	border-radius: 10px;
-	font-size: 14px;
+	font-size: 13.5px;
 	line-height: 20px;
 }
 
@@ -135,16 +135,16 @@
 }
 
 [data-command-surface][data-slot="dialog-content"] [data-slot="command-footer"] {
-	min-height: 42px;
-	column-gap: 18px;
-	padding: 0 16px;
+	min-height: 36px;
+	column-gap: 16px;
+	padding: 0 14px;
 	font-weight: 500;
 }
 
 [data-command-surface][data-slot="dialog-content"] [data-slot="command-footer-hint"] {
 	gap: 7px;
 	color: var(--text-muted);
-	font-size: 12px;
+	font-size: 11.5px;
 	font-weight: 500;
 }
 
@@ -237,13 +237,13 @@
 }
 
 [data-command-surface][data-slot="dialog-content"] .quick-finder-row {
-	min-height: 52px;
+	min-height: 42px;
 }
 
 .quick-finder-icon {
 	display: inline-flex;
-	width: 32px;
-	height: 32px;
+	width: 28px;
+	height: 28px;
 	flex: none;
 	align-items: center;
 	justify-content: center;
@@ -344,9 +344,9 @@
 	margin: 8px 0 8px;
 	color: var(--text-primary);
 	font-family: var(--font-editor);
-	font-size: 22px;
+	font-size: 20px;
 	font-weight: 650;
-	line-height: 28px;
+	line-height: 26px;
 	letter-spacing: -0.015em;
 }
 

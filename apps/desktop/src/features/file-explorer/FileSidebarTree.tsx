@@ -1,5 +1,13 @@
 import type { FileTreeNode, FileTreeRow, FileTreeVisibleNodeRow } from "@cortex/core"
-import { getFileKind, getFileTreeNodeTitle, getParentPath, useDragStore } from "@cortex/core"
+import {
+	ensureMarkdownExtension,
+	getFileKind,
+	getFileTreeNodeTitle,
+	getParentPath,
+	isMarkdownPath,
+	stripMarkdownExtension,
+	useDragStore,
+} from "@cortex/core"
 import { Button, Input, SimpleTooltip } from "@cortex/ui"
 import type { Virtualizer } from "@tanstack/react-virtual"
 import { ChevronRightIcon, FilePlusIcon, FolderIcon, FolderPlusIcon } from "lucide-react"
@@ -272,6 +280,7 @@ function TreeNodeRow({
 	actions,
 }: TreeNodeRowProps) {
 	const parentIsDatabase = useIsDatabaseFolder(parentPath)
+	const isNote = !node.isDir && isMarkdownPath(node.path)
 	const canDragEntry = !visualState.renaming
 	const dragProps = useInternalDragSource(
 		() => ({
@@ -346,10 +355,15 @@ function TreeNodeRow({
 			{visualState.renaming ? (
 				<SimpleTooltip label={node.name} side="right">
 					<InlineInput
-						defaultValue={node.name}
-						onConfirm={(newName) => void actions.confirmRename(node.path, newName)}
+						defaultValue={isNote ? stripMarkdownExtension(node.name) : node.name}
+						onConfirm={(newName) =>
+							void actions.confirmRename(
+								node.path,
+								isNote ? ensureMarkdownExtension(newName) : newName,
+							)
+						}
 						onCancel={actions.cancelRename}
-						selectBaseName={!node.isDir}
+						selectBaseName={!node.isDir && !isNote}
 					/>
 				</SimpleTooltip>
 			) : (

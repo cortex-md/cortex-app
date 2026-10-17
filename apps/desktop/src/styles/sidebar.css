@@ -226,7 +226,7 @@
 	padding-left: calc(var(--file-tree-indent, 8px) + 22px);
 }
 
-.file-tree-inline-input {
+.file-tree-inline-input[data-slot="input"] {
 	flex: 1 1 auto;
 	width: calc(100% + 8px);
 	height: calc(var(--file-tree-row-height, 32px) - 6px);
@@ -239,8 +239,18 @@
 	background: var(--surface-raised);
 	box-shadow: var(--shadow-raised);
 	color: var(--text-primary);
-	font-size: 13px;
-	line-height: 17px;
+	font: inherit;
+	font-size: 13.5px;
+	line-height: 18px;
+	outline: none;
+}
+
+.file-tree-inline-input[data-slot="input"]:focus,
+.file-tree-inline-input[data-slot="input"]:focus-visible {
+	border-color: transparent;
+	box-shadow:
+		var(--shadow-raised),
+		0 0 0 1px var(--hairline);
 }
 
 .sidebar-body {
