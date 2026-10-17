@@ -19,7 +19,7 @@ export function ProductsSection() {
 				quiet={productsGroup.quiet}
 				className={cn("text-center", revealClass)}
 			/>
-			<div className="mt-14 grid grid-cols-3 gap-3.5 max-[1000px]:grid-cols-2 max-sm:grid-cols-1">
+			<div className="mt-14 grid grid-cols-3 gap-3.5 max-[1000px]:grid-cols-2 max-sm:grid-cols-1 [&>:first-child]:col-span-2 max-sm:[&>:first-child]:col-span-1">
 				{productCards.map((card) => {
 					const body = (
 						<>

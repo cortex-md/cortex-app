@@ -1,4 +1,4 @@
-export type ProductIcon = "desktop" | "mobile" | "cli" | "sync" | "publish" | "marketplace"
+export type ProductIcon = "desktop" | "mobile" | "cli" | "sync" | "marketplace"
 
 export interface ProductNavItem {
 	label: string
@@ -53,12 +53,6 @@ export const productNavGroups: ReadonlyArray<{ title: string; items: ProductNavI
 				href: "/sync",
 			},
 			{
-				label: "Publish",
-				description: "Share a note as a web page",
-				icon: "publish",
-				pill: { label: "Soon", tone: "soon" },
-			},
-			{
 				label: "Marketplace",
 				description: "Plugins and themes",
 				icon: "marketplace",
@@ -97,7 +91,6 @@ export const mobileNavLinks: ReadonlyArray<{ label: string; href?: string; pill?
 	{ label: "Mobile", href: "/mobile", pill: "In development" },
 	{ label: "Sync", href: "/sync" },
 	{ label: "Marketplace", href: "/marketplace" },
-	{ label: "Publish", pill: "Soon" },
 	{ label: "CLI", href: "/cli" },
 	{ label: "Pricing", href: "/#pricing" },
 ]
@@ -128,7 +121,6 @@ export const footerLinkGroups: ReadonlyArray<{ title: string; links: FooterLinkI
 			{ label: "Mobile", href: "/mobile" },
 			{ label: "Sync", href: "/sync" },
 			{ label: "Marketplace", href: "/marketplace" },
-			{ label: "Publish" },
 			{ label: "CLI", href: "/cli" },
 		],
 	},

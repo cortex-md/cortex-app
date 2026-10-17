@@ -20,7 +20,7 @@ import {
 	ArrowUpRight,
 	ChevronDown,
 	Cloud,
-	Globe,
+	Github,
 	Laptop,
 	type LucideIcon,
 	Menu,
@@ -52,13 +52,16 @@ const productIcons: Record<ProductIcon, LucideIcon> = {
 	mobile: Smartphone,
 	cli: Terminal,
 	sync: Cloud,
-	publish: Globe,
 	marketplace: Store,
 }
 
 const focusRing = "outline-none focus-visible:shadow-focus"
 const navLinkClass = cn(
-	"group inline-flex min-h-10 items-center gap-1 rounded-lg px-3 py-2 text-[13px] leading-5 font-medium text-text-secondary transition-[background-color,color] duration-150 ease-out hover:bg-site-hover hover:text-text-primary aria-[current=page]:text-text-primary data-[current]:text-text-primary aria-expanded:bg-site-hover aria-expanded:text-text-primary data-[state=open]:bg-site-hover data-[state=open]:text-text-primary",
+	"group inline-flex h-8 items-center gap-1 rounded-full px-3 text-[13px] leading-5 font-medium text-text-secondary transition-[background-color,color] duration-150 ease-out hover:text-text-primary aria-[current=page]:bg-site-hover aria-[current=page]:text-text-primary data-[current]:bg-site-hover data-[current]:text-text-primary aria-expanded:text-text-primary data-[state=open]:text-text-primary",
+	focusRing,
+)
+const iconButtonClass = cn(
+	"inline-grid size-8 place-items-center rounded-full text-text-secondary transition-[background-color,color] duration-150 ease-out hover:bg-site-hover hover:text-text-primary",
 	focusRing,
 )
 const panelClass =
@@ -269,7 +272,7 @@ function AccountLink({
 		return (
 			<a
 				className={cn(
-					"inline-flex min-h-9 items-center gap-2 rounded-lg pr-1 pl-3 text-[13px] leading-none font-medium text-text-primary hover:bg-site-hover",
+					"inline-flex h-8 items-center gap-2 rounded-full pr-1 pl-3 text-[13px] leading-none font-medium text-text-secondary hover:text-text-primary",
 					surface === "sheet" &&
 						"h-11 justify-center text-[15px] shadow-[inset_0_0_0_1px_var(--site-sep)]",
 					focusRing,
@@ -291,7 +294,7 @@ function AccountLink({
 	return (
 		<a
 			className={cn(
-				"inline-flex min-h-9 items-center gap-2 rounded-lg px-3 text-[13px] leading-none font-medium text-text-primary hover:bg-site-hover",
+				"inline-flex h-8 items-center gap-2 rounded-full px-3 text-[13px] leading-none font-medium text-text-secondary hover:text-text-primary",
 				surface === "sheet" &&
 					"h-11 justify-center text-[15px] shadow-[inset_0_0_0_1px_var(--site-sep)]",
 				focusRing,
@@ -331,7 +334,7 @@ function MobileNavigation({ session }: { session: HeaderSession }) {
 		<Sheet open={isOpen} onOpenChange={setIsOpen}>
 			<SheetTrigger
 				className={cn(
-					"hidden size-9 items-center justify-center rounded-lg text-text-secondary hover:bg-site-hover hover:text-text-primary max-[1000px]:inline-flex",
+					"hidden size-9 items-center justify-center rounded-full text-text-secondary hover:bg-site-hover hover:text-text-primary max-[1000px]:inline-flex",
 					focusRing,
 				)}
 				aria-label={isOpen ? "Close navigation" : "Open navigation"}
@@ -345,7 +348,7 @@ function MobileNavigation({ session }: { session: HeaderSession }) {
 			<SheetContent
 				side="top"
 				showCloseButton={false}
-				className="top-[76px] right-3 left-3 grid max-h-[calc(100dvh-96px)] gap-1 overflow-auto rounded-[14px] border-0 bg-site-panel p-4 text-text-primary shadow-panel backdrop-blur-none max-sm:top-[68px] max-sm:right-2 max-sm:left-2"
+				className="top-[64px] right-3 left-3 grid max-h-[calc(100dvh-96px)] gap-1 overflow-auto rounded-[14px] border-0 bg-site-panel p-4 text-text-primary shadow-panel backdrop-blur-none max-sm:top-[60px] max-sm:right-2 max-sm:left-2"
 			>
 				<div>
 					<SheetTitle className="text-[17px] leading-[1.3] font-semibold">
@@ -425,22 +428,22 @@ export function SiteHeader({ sessionLoader = loadHeaderSession }: SiteHeaderProp
 	const isProductMenuPath = ["/mobile", "/cli"].some((href) => isCurrentPath(pathname, href))
 
 	return (
-		<header className="pointer-events-none sticky top-0 z-40 px-3 pt-3 max-sm:px-2 max-sm:pt-2">
-			<div className="pointer-events-auto relative mx-auto flex h-14 w-[min(1040px,calc(100%-24px))] items-center gap-2 rounded-xl bg-site-glass px-3 text-left shadow-glass backdrop-blur-[24px] backdrop-saturate-[1.4] max-[1000px]:justify-between max-sm:h-[52px] max-sm:w-full max-sm:px-2">
+		<header className="sticky top-0 z-40 border-sep border-b bg-bg-primary/85 backdrop-blur-md backdrop-saturate-150">
+			<div className="mx-auto flex h-14 w-[min(1120px,calc(100%-32px))] items-center gap-6 max-sm:h-[52px] max-sm:w-[calc(100%-24px)]">
 				<a
 					className={cn(
-						"inline-flex min-h-10 shrink-0 items-center gap-2.5 rounded-lg px-1.5 py-1 text-[16px] leading-none font-semibold tracking-[-0.01em] text-text-primary",
+						"inline-flex shrink-0 items-center gap-2 rounded-lg py-1 text-[15px] leading-none font-semibold tracking-[-0.01em] text-text-primary",
 						focusRing,
 					)}
 					href="/"
 					aria-label="Cortex home"
 				>
-					<CortexMark className="size-[30px]" />
+					<CortexMark className="size-6" />
 					Cortex
 				</a>
 
 				<nav
-					className="mx-auto flex items-center gap-0.5 max-[1000px]:hidden"
+					className="flex items-center gap-0.5 max-[1000px]:hidden"
 					aria-label="Primary navigation"
 				>
 					<ProductMenu isCurrent={isProductMenuPath} />
@@ -460,25 +463,25 @@ export function SiteHeader({ sessionLoader = loadHeaderSession }: SiteHeaderProp
 							</a>
 						)
 					})}
-					<span className="mx-1 h-5 w-px bg-sep" aria-hidden="true" />
 					<ResourcesMenu pathname={pathname} />
+				</nav>
+
+				<div className="ml-auto flex shrink-0 items-center gap-1">
 					<a
-						className={navLinkClass}
+						className={cn(iconButtonClass, "max-[1000px]:hidden")}
 						href={siteConfig.githubUrl}
 						target="_blank"
 						rel="noreferrer"
+						aria-label="Cortex on GitHub"
 						onClick={() => trackEvent({ name: "github_clicked", location: "header" })}
 					>
-						GitHub
+						<Github className="size-4" aria-hidden="true" />
 					</a>
-				</nav>
-
-				<div className="flex shrink-0 items-center gap-1 max-[1000px]:ml-auto">
-					<ThemeToggle className="max-[1000px]:hidden" />
+					<ThemeToggle className="size-8 rounded-full max-[1000px]:hidden" />
 					<span className="max-[1000px]:hidden">
 						<AccountLink session={session} surface="header" />
 					</span>
-					<DownloadLink className="max-sm:hidden" surface="header" />
+					<DownloadLink className="ml-1 max-sm:hidden" surface="header" />
 					<MobileNavigation session={session} />
 				</div>
 			</div>

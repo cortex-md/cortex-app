@@ -1,4 +1,3 @@
-import { Lock } from "lucide-react"
 import {
 	type ProductCardArt as ProductCardArtKind,
 	productsGroup,
@@ -50,27 +49,6 @@ export function ProductCardArt({ art }: { art: ProductCardArtKind }) {
 				</div>
 				<i className="absolute top-1/2 left-[28%] -mt-[5px] size-2.5 rounded-full bg-brand shadow-[0_0_0_5px_var(--accent-subtle)] animate-home-packet motion-reduce:animate-none" />
 			</>
-		)
-	}
-
-	if (art === "publish") {
-		return (
-			<div
-				className={`absolute inset-x-[22px] top-[18px] bottom-0 rounded-t-xl px-3.5 py-2.5 ${raisedClass}`}
-			>
-				<div className="flex items-center gap-1.5 rounded-lg bg-cell px-2.5 py-[5px] font-app text-[11.5px] leading-none text-text-secondary">
-					<Lock className="size-3 shrink-0" aria-hidden="true" />
-					<span>
-						{productsGroup.publishUrl}
-						<b className="font-medium text-text-primary">{productsGroup.publishSlug}</b>
-					</span>
-				</div>
-				<div className="mt-3.5 mb-1.5 font-app text-[16px] leading-[1.2] font-bold">
-					{productsGroup.publishTitle}
-				</div>
-				<span className="mt-[7px] block h-2 rounded bg-cell" />
-				<span className="mt-[7px] block h-2 w-[70%] rounded bg-cell" />
-			</div>
 		)
 	}
 

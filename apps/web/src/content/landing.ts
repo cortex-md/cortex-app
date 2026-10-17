@@ -418,7 +418,7 @@ export const realWorkGroup = {
 	},
 } as const
 
-export type ProductCardArt = "desktop" | "mobile" | "sync" | "publish" | "marketplace" | "cli"
+export type ProductCardArt = "desktop" | "mobile" | "sync" | "marketplace" | "cli"
 
 export const productCards: ReadonlyArray<{
 	art: ProductCardArt
@@ -459,14 +459,6 @@ export const productCards: ReadonlyArray<{
 		position: "center 50%",
 	},
 	{
-		art: "publish",
-		title: "Publish",
-		description: "Share a note as a web page, with expiry and one-click revoke.",
-		pill: { label: "Soon", tone: "soon" },
-		painting: "wheat",
-		position: "center 60%",
-	},
-	{
 		art: "marketplace",
 		title: "Marketplace",
 		description: "Plugins and themes, reviewed before they’re listed.",
@@ -490,9 +482,6 @@ export const productsGroup = {
 	id: "products",
 	title: "One vault,",
 	quiet: "wherever you write.",
-	publishUrl: "cortex-md.tech/p/",
-	publishSlug: "launch-plan",
-	publishTitle: "Launch plan",
 	desktopTitle: "Roadmap",
 	cliCommand: "cortex plugin create",
 	cliResult: "✓ Created word-count",
