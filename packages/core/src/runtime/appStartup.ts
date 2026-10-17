@@ -1,4 +1,5 @@
 import type { VaultMetadata, VaultRegistryEntry } from "@cortex/platform"
+import { flushStateFiles } from "@cortex/platform/vault-state"
 import { useSettingsStore } from "@cortex/settings"
 import { noteCache } from "../noteCache"
 import { useAppStore } from "../stores/appStore"
@@ -53,4 +54,5 @@ export async function openLastVault(): Promise<VaultMetadata | null> {
 
 export async function flushPendingWrites(): Promise<void> {
 	await Promise.all([noteCache.flushAll(), useEditorStore.getState().flushActive()])
+	await flushStateFiles()
 }
