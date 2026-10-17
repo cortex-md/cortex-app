@@ -27,7 +27,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       is_prerelease: ${{ steps.version.outputs.is_prerelease }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -79,7 +79,7 @@ jobs:
             platform: ubuntu-22.04
             electron_args: --linux --x64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -87,7 +87,7 @@ jobs:
           bun-version: 1.3.3
 
       - name: Cache Bun dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
@@ -98,7 +98,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Cache Electron downloads
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ${{ runner.temp }}/electron
@@ -177,7 +177,7 @@ jobs:
           fi
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cortex-${{ matrix.platform }}
           path: |
@@ -199,13 +199,13 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: |
             release-notes
             scripts/release
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -221,7 +221,7 @@ jobs:
         run: node scripts/release/create-update-manifest.mjs
 
       - name: Create release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.release-metadata.outputs.tag_name }}
           name: Cortex ${{ needs.release-metadata.outputs.version }}
