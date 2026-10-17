@@ -272,6 +272,44 @@ export function stopSyncWorkers(): void {
 	for (const ownerId of [...sessions.keys()]) disposeSyncSession(ownerId)
 }
 
+function waitForExit(child: UtilityProcess, timeoutMs: number): Promise<void> {
+	return new Promise((resolve) => {
+		const timer = setTimeout(resolve, timeoutMs)
+		child.once("exit", () => {
+			clearTimeout(timer)
+			resolve()
+		})
+	})
+}
+
+/** Asks each worker to drain and close `sync.db` before it is killed, so no file stays locked. */
+export async function stopSyncWorkersGracefully(timeoutMs: number): Promise<void> {
+	const workers = [...sessions.values()].flatMap((session) =>
+		session.worker ? [session.worker] : [],
+	)
+	await Promise.all(
+		workers.map(async (worker) => {
+			const exited = waitForExit(worker.process, timeoutMs)
+			let timer: NodeJS.Timeout | undefined
+			try {
+				await Promise.race([
+					worker.rpc.call("shutdown", {}),
+					new Promise((_, reject) => {
+						timer = setTimeout(() => reject(new Error("shutdown timed out")), timeoutMs)
+					}),
+				])
+			} catch (error) {
+				console.warn("[sync] worker did not shut down cleanly:", error)
+			} finally {
+				clearTimeout(timer)
+			}
+			worker.process.kill()
+			await exited
+		}),
+	)
+	stopSyncWorkers()
+}
+
 export const syncService = {
 	updateSyncPreferences: async (next) => {
 		const session = currentSession()

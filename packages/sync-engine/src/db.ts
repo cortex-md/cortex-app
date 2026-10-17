@@ -362,6 +362,8 @@ export class SyncDb {
 	}
 
 	close(): void {
-		if (this.db.isOpen) this.db.close()
+		if (!this.db.isOpen) return
+		this.db.exec("PRAGMA wal_checkpoint(TRUNCATE);")
+		this.db.close()
 	}
 }

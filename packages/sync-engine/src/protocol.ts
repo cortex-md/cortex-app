@@ -51,6 +51,7 @@ export type WorkerMethods = {
 	restoreDeletedFile: { args: { vault: VaultRef; filePath: string }; result: null }
 	getKeyTrustIssues: { args: { vaultId: string }; result: KeyTrustIssue[] }
 	trustMemberKey: { args: { vaultId: string; userId: string; fingerprint: string }; result: null }
+	shutdown: { args: Record<string, never>; result: null }
 }
 
 export type MainMethods = {

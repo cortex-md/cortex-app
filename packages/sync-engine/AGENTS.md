@@ -87,6 +87,8 @@ and runs the engine in Electron's UtilityProcess from `apps/desktop/electron/syn
   unchanged since the adopted base, or read-only → apply the remote; local file gone → delete
   remotely; otherwise upload against the adopted base
 - `protocol.ts`: typed worker ⇄ main messages and RPC correlation
+- `shutdown` (worker RPC, `SyncEngine.shutdown`) waits for the serial lane, closes the session, and
+  closes every open `sync.db` after a WAL checkpoint; desktop main calls it before an update quits
 
 ## Boundaries
 

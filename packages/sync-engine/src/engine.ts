@@ -1023,7 +1023,19 @@ export class SyncEngine {
 				this.trustMemberKey(vaultId, userId, fingerprint)
 				return null
 			}
+			case "shutdown":
+				await this.shutdown()
+				return null
 		}
+	}
+
+	/** Lets queued work settle, then checkpoints and closes every open `sync.db`. */
+	async shutdown(): Promise<void> {
+		await this.lane
+		this.closeSession()
+		this.cachedDb?.close()
+		this.cachedDb = null
+		this.setState("idle")
 	}
 
 	private async contextFor(vault: VaultRef): Promise<SyncContext> {
