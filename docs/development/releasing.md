@@ -10,7 +10,7 @@ workflows in `.github/workflows` expect.
 1. The commit must be on `main`. `scripts/release/resolve-desktop-release-metadata.mjs` validates
    the version. A version with a suffix, such as `0.2.0-beta.1`, becomes a prerelease. The run
    stops here unless `release-notes/<version>.md` exists.
-2. Each platform (macOS Apple Silicon and Intel, Windows, Ubuntu) installs with
+2. Each platform (macOS 26 Apple Silicon and Intel, Windows, Ubuntu) installs with
    `bun install --frozen-lockfile` and runs the main-process tests. It then applies the version
    (`apply-desktop-release-version.mjs`), validates the sync server config
    (`validate-desktop-sync-config.mjs`), and builds and packages with electron-builder
@@ -35,7 +35,7 @@ The notes file is the single source for the GitHub release, the site changelog (
 
 App icons live in `apps/desktop/build/`: `icon.icon` is the Icon Composer source for macOS (Liquid
 Glass, dark and tinted variants, plus a generated `.icns` for older macOS), compiled in CI with
-Xcode 26 (`-c.mac.icon=icon.icon`); `icon.png` (1024 px) is the source electron-builder converts for
+Xcode 26 on macOS 26 runners (`-c.mac.icon=icon.icon`); `icon.png` (1024 px) is the source electron-builder converts for
 Windows, Linux, and local macOS builds, which skip the `.icon` because they lack Xcode 26.
 
 Artifacts are named `Cortex-<os>-<arch>.<ext>` without the version, so

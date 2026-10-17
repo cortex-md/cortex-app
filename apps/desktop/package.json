@@ -1,6 +1,12 @@
 {
 	"name": "@cortex/desktop",
 	"productName": "Cortex",
+	"description": "Local-first Markdown workspace",
+	"homepage": "https://cortex-md.tech",
+	"author": {
+		"name": "Cortex",
+		"email": "lucashernandes401@gmail.com"
+	},
 	"license": "AGPL-3.0-or-later",
 	"private": true,
 	"version": "0.1.1",
