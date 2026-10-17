@@ -139,9 +139,11 @@ const rehypeShikiCodeBlocks: Plugin = () => {
 					if (!highlightedPre) return
 
 					const meta = getCodeMeta(codeNode)
+					const language = getCodeLanguage(codeNode) ?? ""
 					highlightedPre.properties = {
 						...(highlightedPre.properties ?? {}),
 						"data-code-meta": meta,
+						"data-language": language,
 					}
 					parent.children[index] = highlightedPre
 				})(),

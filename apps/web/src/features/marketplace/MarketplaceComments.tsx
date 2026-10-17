@@ -4,6 +4,7 @@ import { marketplaceCopy } from "../../content/marketplace"
 import { trackEvent } from "../../lib/analytics"
 import type { DiscussionComment, DiscussionCommentsResult } from "../../server/discussions"
 import type { MarketplaceItem } from "../../server/marketplace"
+import { RenderedMarkdown } from "../docs/components/RenderedMarkdown"
 import { formatDate } from "./marketplaceModel"
 
 const copy = marketplaceCopy.comments
@@ -103,10 +104,9 @@ export function MarketplaceComments({
 									<time dateTime={comment.createdAt}>{formatDate(comment.createdAt)}</time>
 								</a>
 							</div>
-							<div
+							<RenderedMarkdown
 								className="markdown-surface docs-markdown mt-2.5 pl-[38px] text-[14.5px] max-sm:pl-0 [&>:first-child]:mt-0 [&>:last-child]:mb-0"
-								// biome-ignore lint/security/noDangerouslySetInnerHtml: comment HTML is sanitized by renderReleaseMarkdown on the server.
-								dangerouslySetInnerHTML={{ __html: comment.bodyHtml }}
+								html={comment.bodyHtml}
 							/>
 							{comment.replies > 0 ? (
 								<a

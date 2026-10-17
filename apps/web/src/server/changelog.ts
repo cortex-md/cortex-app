@@ -8,6 +8,7 @@ import remarkRehype from "remark-rehype"
 import { type Plugin, unified } from "unified"
 import { visit } from "unist-util-visit"
 import { z } from "zod"
+import { codeBarClass, codeFrameClass } from "../lib/codeFrame"
 import { highlightDocsCode } from "../lib/highlight"
 import { withCache } from "./cache"
 import { githubApiHeaders, githubFetch, githubRepo } from "./github"
@@ -198,11 +199,28 @@ const rehypeShikiCodeBlocks: Plugin = () => {
 					if (!highlightedPre) return
 
 					const meta = getCodeMeta(codeNode)
+					const language = getCodeLanguage(codeNode) ?? ""
+					const preClassName = highlightedPre.properties?.className
 					highlightedPre.properties = {
 						...(highlightedPre.properties ?? {}),
+						className: [...(Array.isArray(preClassName) ? preClassName : []), "overflow-x-auto"],
 						"data-code-meta": meta,
+						"data-language": language,
 					}
-					parent.children[index] = highlightedPre
+					parent.children[index] = {
+						type: "element",
+						tagName: "div",
+						properties: { className: codeFrameClass.split(" "), dataCodeFrame: "" },
+						children: [
+							{
+								type: "element",
+								tagName: "div",
+								properties: { className: codeBarClass.split(" "), dataCodeBar: "" },
+								children: language ? [{ type: "text", value: language }] : [],
+							},
+							highlightedPre,
+						],
+					}
 				})(),
 			)
 		})
@@ -230,9 +248,16 @@ function sanitizeUrl(value: unknown, allowedProtocols: readonly string[]) {
 	}
 }
 
-function removeUnsafeProperties(properties: Record<string, unknown>) {
+const shikiTokenStyle = /^(?:\s*--shiki-(?:light|dark)(?:-[a-z-]+)?:\s*[#\w-]+\s*;?)+\s*$/u
+
+function removeUnsafeProperties(properties: Record<string, unknown>, tagName?: string) {
 	for (const key of Object.keys(properties)) {
-		if (/^on/iu.test(key) || key === "style" || key === "srcSet") {
+		const isShikiToken =
+			key === "style" &&
+			tagName === "span" &&
+			typeof properties[key] === "string" &&
+			shikiTokenStyle.test(properties[key])
+		if (/^on/iu.test(key) || (key === "style" && !isShikiToken) || key === "srcSet") {
 			delete properties[key]
 		}
 	}
@@ -242,7 +267,7 @@ const rehypeHardenReleaseHtml: Plugin = () => {
 	return (tree) => {
 		visit(tree, "element", (node: HastNode) => {
 			node.properties ??= {}
-			removeUnsafeProperties(node.properties)
+			removeUnsafeProperties(node.properties, node.tagName)
 
 			if (node.tagName === "a") {
 				const href = sanitizeUrl(node.properties.href, ["http:", "https:", "mailto:"])

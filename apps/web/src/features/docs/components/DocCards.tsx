@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { type ComponentProps, type ReactNode, useRef, useState } from "react"
 import { docsCopy } from "../../../content/docs"
+import { codeBarClass, codeFrameClass } from "../../../lib/codeFrame"
 
 const sectionIcons: Array<[string, LucideIcon]> = [
 	["/docs/get-started/", Zap],
@@ -78,12 +79,11 @@ export function Callout({ title, children }: { title?: string; children: ReactNo
 	)
 }
 
-export function CodeBlock({ className, children, ...props }: ComponentProps<"pre">) {
-	const preRef = useRef<HTMLPreElement | null>(null)
+export function CopyCodeButton({ getText }: { getText: () => string }) {
 	const [copied, setCopied] = useState(false)
 
 	async function handleCopy() {
-		const text = preRef.current?.innerText ?? ""
+		const text = getText()
 		try {
 			await navigator.clipboard.writeText(text)
 			setCopied(true)
@@ -94,22 +94,38 @@ export function CodeBlock({ className, children, ...props }: ComponentProps<"pre
 	}
 
 	return (
-		<div className="group/code relative my-5 overflow-hidden rounded-[14px] bg-bg-elevated shadow-ring">
+		<button
+			type="button"
+			className="ml-auto inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[12px] leading-none font-medium text-text-secondary outline-none transition-colors duration-150 hover:bg-site-hover hover:text-text-primary focus-visible:shadow-focus"
+			onClick={handleCopy}
+		>
+			{copied ? (
+				<Check className="size-3.5" aria-hidden="true" />
+			) : (
+				<Copy className="size-3.5" aria-hidden="true" />
+			)}
+			{copied ? docsCopy.copiedCode : docsCopy.copyCode}
+		</button>
+	)
+}
+
+export function CodeBlock({
+	className,
+	children,
+	"data-language": language,
+	...props
+}: ComponentProps<"pre"> & { "data-language"?: string }) {
+	const preRef = useRef<HTMLPreElement | null>(null)
+
+	return (
+		<div className={codeFrameClass}>
+			<div className={codeBarClass}>
+				{language}
+				<CopyCodeButton getText={() => preRef.current?.innerText ?? ""} />
+			</div>
 			<pre ref={preRef} className={cn(className, "overflow-x-auto")} {...props}>
 				{children}
 			</pre>
-			<button
-				type="button"
-				className="absolute top-2 right-2 inline-flex h-7 items-center gap-1.5 rounded-full bg-bg-elevated px-2.5 text-[12px] leading-none font-medium text-text-secondary opacity-0 shadow-ring outline-none transition-opacity duration-150 group-hover/code:opacity-100 hover:text-text-primary focus-visible:opacity-100 focus-visible:shadow-focus max-[1000px]:opacity-100"
-				onClick={handleCopy}
-			>
-				{copied ? (
-					<Check className="size-3.5" aria-hidden="true" />
-				) : (
-					<Copy className="size-3.5" aria-hidden="true" />
-				)}
-				{copied ? docsCopy.copiedCode : docsCopy.copyCode}
-			</button>
 		</div>
 	)
 }

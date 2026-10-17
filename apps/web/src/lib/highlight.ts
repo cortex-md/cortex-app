@@ -162,7 +162,8 @@ export async function highlightCode(code: string, lang: "ts" | "tsx" = "tsx") {
 		.replace(/<\/span>\n<span class="line"/gu, '</span><span class="line"')
 }
 
-export async function highlightDocsCode(code: string, lang: string | undefined) {
+export async function highlightDocsCode(rawCode: string, lang: string | undefined) {
+	const code = rawCode.replace(/\n+$/u, "")
 	const normalizedLanguage = normalizeLanguage(lang)
 	if (normalizedLanguage === "text") {
 		return `<pre class="shiki cortex-shiki cortex-docs-shiki" style="background-color: transparent;"><code>${escapeHtml(

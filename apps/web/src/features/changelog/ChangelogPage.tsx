@@ -16,6 +16,7 @@ import type {
 	ReleaseDownload,
 	ReleaseNoteGroup,
 } from "../../server/changelog"
+import { RenderedMarkdown } from "../docs/components/RenderedMarkdown"
 
 interface ChangelogPageProps {
 	changelog: ChangelogResult
@@ -236,10 +237,9 @@ function ReleaseEntry({
 						)}
 					</>
 				) : (
-					<div
+					<RenderedMarkdown
 						className="markdown-surface docs-markdown mt-4"
-						// biome-ignore lint/security/noDangerouslySetInnerHtml: release HTML is sanitized by renderReleaseMarkdown on the server.
-						dangerouslySetInnerHTML={{ __html: release.bodyHtml }}
+						html={release.bodyHtml}
 					/>
 				)}
 				{filter === "All" && downloads.length > 0 ? (

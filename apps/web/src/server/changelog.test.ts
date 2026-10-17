@@ -121,4 +121,11 @@ describe("changelog releases", () => {
 			'<a href="https://example.com/release" target="_blank" rel="noreferrer">safe</a>',
 		)
 	})
+	it("keeps Shiki token colors inside a code frame and strips every other inline style", async () => {
+		const html = await renderReleaseMarkdown('```ts\nconst version = "0.1.0"\n```')
+
+		expect(html).toContain("data-code-frame")
+		expect(html).toMatch(/<span style="--shiki-light:#[0-9a-f]+;--shiki-dark:#[0-9a-f]+"/iu)
+		expect(html).not.toContain("background-color")
+	})
 })
