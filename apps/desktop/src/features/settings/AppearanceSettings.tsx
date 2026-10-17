@@ -9,6 +9,7 @@ import {
 	type ColorPickerOption,
 	NativeSelect,
 	NativeSelectOption,
+	SimpleTooltip,
 	Slider,
 	Switch,
 } from "@cortex/ui"
@@ -211,15 +212,20 @@ export function AppearanceSection({
 									</NativeSelectOption>
 								))}
 							</NativeSelect>
-							<Button
-								variant="ghost"
-								disabled={!canOpenSelectedThemeInMarketplace}
-								onClick={handleOpenSelectedThemeInMarketplace}
-								title={canOpenSelectedThemeInMarketplace ? undefined : "Built-in theme"}
+							<SimpleTooltip
+								label={canOpenSelectedThemeInMarketplace ? undefined : "Built-in theme"}
 							>
-								<Store size={12} />
-								View
-							</Button>
+								<span className="inline-flex">
+									<Button
+										variant="ghost"
+										disabled={!canOpenSelectedThemeInMarketplace}
+										onClick={handleOpenSelectedThemeInMarketplace}
+									>
+										<Store size={12} />
+										View
+									</Button>
+								</span>
+							</SimpleTooltip>
 						</div>
 					</SettingsField>
 

@@ -1,5 +1,5 @@
 import type { SyncPreferences } from "./interfaces/Sync"
-import { VAULT_CONFIG_DIR } from "./utils"
+import { isImagePath, VAULT_CONFIG_DIR } from "./utils"
 
 type SyncPreferenceFlag = Exclude<keyof SyncPreferences, "excludedPaths">
 
@@ -15,29 +15,14 @@ export const CORTEX_SYNCABLE_FILES: Readonly<Record<string, SyncPreferenceFlag>>
 	"app.json": "syncSettings",
 	"hotkeys.json": "syncHotkeys",
 	"workspace.json": "syncWorkspace",
-	"sync-plugins.json": "syncPluginMetadata",
-	"sync-themes.json": "syncThemeMetadata",
+	"plugins.sync.json": "syncPluginMetadata",
+	"themes.sync.json": "syncThemeMetadata",
 	"bookmarks.json": "syncBookmarks",
 }
 
 const ALWAYS_SYNCED_CORTEX_FILES = new Set(["schema/properties.json", "inbox.md"])
 const ALWAYS_SYNCED_CORTEX_DIRECTORIES = ["schema", "comments"] as const
 const IGNORED_FILE_NAMES = new Set([".DS_Store", "Thumbs.db", "desktop.ini"])
-const SYNC_IMAGE_EXTENSIONS = new Set([
-	"png",
-	"jpg",
-	"jpeg",
-	"gif",
-	"webp",
-	"avif",
-	"bmp",
-	"tif",
-	"tiff",
-	"heic",
-	"heif",
-	"ico",
-	"svg",
-])
 
 export function createDefaultSyncPreferences(): SyncPreferences {
 	return {
@@ -61,10 +46,7 @@ function splitSyncPathSegments(path: string): string[] {
 }
 
 export function isSyncImagePath(relativePath: string): boolean {
-	const filename = splitSyncPathSegments(relativePath).at(-1) ?? ""
-	const dotIndex = filename.lastIndexOf(".")
-	if (dotIndex < 0 || dotIndex === filename.length - 1) return false
-	return SYNC_IMAGE_EXTENSIONS.has(filename.slice(dotIndex + 1).toLowerCase())
+	return isImagePath(splitSyncPathSegments(relativePath).at(-1) ?? "")
 }
 
 export function normalizeSyncPathPattern(pattern: string): string {

@@ -51,6 +51,25 @@ export async function fetchLatestRelease(repo: string): Promise<GitHubRelease> {
 	return (await response.json()) as GitHubRelease
 }
 
+export async function fetchReleaseForVersion(
+	repo: string,
+	version: string | null | undefined,
+): Promise<GitHubRelease> {
+	if (version) {
+		for (const tag of [`v${version.replace(/^v/, "")}`, version.replace(/^v/, "")]) {
+			const response = await getPlatform().http.fetch(
+				`https://api.github.com/repos/${repo}/releases/tags/${encodeURIComponent(tag)}`,
+				{ headers: { Accept: "application/vnd.github+json" } },
+			)
+			if (response.ok) return (await response.json()) as GitHubRelease
+			if (response.status !== 404) {
+				throw new Error(`Failed to fetch release for ${repo}: ${response.status}`)
+			}
+		}
+	}
+	return await fetchLatestRelease(repo)
+}
+
 const readmeBranches = ["main", "master"] as const
 
 async function fetchGitHubRaw(

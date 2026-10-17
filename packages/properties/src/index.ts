@@ -20,6 +20,7 @@ export {
 export { getObservedPropertyDefinitions } from "./discovery/observed"
 export {
 	getPropertyValueUsage,
+	invalidatePropertySuggestionSchema,
 	invalidatePropertySuggestions,
 	type PropertyValueUsage,
 	suggestProperties,
@@ -65,6 +66,7 @@ export {
 	initializeProperties,
 	resetPropertiesRuntime,
 } from "./runtime"
+export { invalidateVaultSchemaCache } from "./schemaPersistence"
 export {
 	getVaultSchema,
 	notifyVaultSchemaChanged,
@@ -92,8 +94,11 @@ export type {
 	PropertiesFileService,
 	PropertiesIdentityService,
 	PropertiesMetadataService,
+	PropertiesNoteIndexService,
+	PropertiesNoteIndexSnapshot,
 	PropertiesNoteService,
 	PropertiesRuntime,
+	PropertiesUiStateService,
 	PropertyAuthorContext,
 	PropertyColor,
 	PropertyDefinition,

@@ -1,14 +1,17 @@
-import { noteCache } from "@cortex/core"
+import { formatRelativeTime, noteCache } from "@cortex/core"
 import { projectRawNote } from "@cortex/properties"
 import { stripMarkdown } from "@cortex/search"
 import { useEffect, useState } from "react"
+import { useMinuteNow } from "@/hooks/useMinuteNow"
 import { getSidebarNotePresentation } from "../sidebar/sidebarNotePresentation"
+import { formatFolderLabel } from "./quickFinderText"
 
 const PREVIEW_BODY_LIMIT = 1500
 
 interface QuickFinderPreviewProps {
 	filePath: string
 	vaultPath: string
+	modifiedAt: number | undefined
 }
 
 interface PreviewParagraph {
@@ -40,10 +43,14 @@ function toParagraphs(body: string): PreviewParagraph[] {
 		})
 }
 
-export function QuickFinderPreview({ filePath, vaultPath }: QuickFinderPreviewProps) {
+export function QuickFinderPreview({ filePath, vaultPath, modifiedAt }: QuickFinderPreviewProps) {
 	const [content, setContent] = useState<PreviewContent | null>(null)
+	const now = useMinuteNow()
 	const notePath = getSidebarNotePresentation(filePath, vaultPath)
-	const folder = notePath.folder
+	const edited = formatRelativeTime(modifiedAt, "long", now)
+	const crumb = [formatFolderLabel(notePath.folder), edited && `edited ${edited}`]
+		.filter(Boolean)
+		.join(" · ")
 
 	useEffect(() => {
 		let cancelled = false
@@ -70,7 +77,7 @@ export function QuickFinderPreview({ filePath, vaultPath }: QuickFinderPreviewPr
 
 	return (
 		<section className="quick-finder-preview" aria-label="Preview">
-			{folder && <div className="quick-finder-preview-path">{folder}</div>}
+			{crumb && <div className="quick-finder-preview-path">{crumb}</div>}
 			<h2>{notePath.title}</h2>
 			{current && current.tags.length > 0 && (
 				<div className="quick-finder-preview-tags">

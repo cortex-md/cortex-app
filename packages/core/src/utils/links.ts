@@ -5,6 +5,7 @@ export type WikiLinkResolver = (target: string) => string | null
 
 interface ResolverIndex {
 	byRelativePath: Map<string, string>
+	bySuffix: Map<string, string>
 	byName: Map<string, string>
 }
 
@@ -28,6 +29,7 @@ function getBaseName(relativePath: string): string {
 
 function buildResolverIndex(files: readonly FileEntry[], vaultPath: string): ResolverIndex {
 	const byRelativePath = new Map<string, string>()
+	const bySuffix = new Map<string, string>()
 	const byName = new Map<string, string>()
 	const notes = files
 		.filter((file) => !file.isDir && isMarkdownPath(file.path))
@@ -40,8 +42,13 @@ function buildResolverIndex(files: readonly FileEntry[], vaultPath: string): Res
 		byRelativePath.set(note.relative, note.path)
 		const name = getBaseName(note.relative)
 		if (!byName.has(name)) byName.set(name, note.path)
+		for (let slash = note.relative.indexOf("/"); slash !== -1; ) {
+			const suffix = note.relative.slice(slash + 1)
+			if (suffix.includes("/") && !bySuffix.has(suffix)) bySuffix.set(suffix, note.path)
+			slash = note.relative.indexOf("/", slash + 1)
+		}
 	}
-	return { byRelativePath, byName }
+	return { byRelativePath, bySuffix, byName }
 }
 
 function getResolverIndex(files: readonly FileEntry[], vaultPath: string): ResolverIndex {
@@ -69,9 +76,8 @@ export function createWikiLinkResolver(
 		const direct = index.byRelativePath.get(normalized)
 		if (direct) return direct
 		if (normalized.includes("/")) {
-			for (const [relative, path] of index.byRelativePath) {
-				if (relative.endsWith(`/${normalized}`)) return path
-			}
+			const suffixMatch = index.bySuffix.get(normalized)
+			if (suffixMatch) return suffixMatch
 		}
 		return index.byName.get(getBaseName(normalized)) ?? null
 	}

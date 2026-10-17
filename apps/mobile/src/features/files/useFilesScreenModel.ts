@@ -3,10 +3,11 @@ import {
 	formatLastSyncedAt,
 	getFileTreeNodeTitle,
 	useDatabaseStore,
+	useFolderEntries,
 	useVaultStore,
 } from "@cortex/core"
 import type { FileEntry } from "@cortex/platform"
-import { getParentPath, isMarkdownPath, normalizePath } from "@cortex/platform/utils"
+import { isMarkdownPath, normalizePath } from "@cortex/platform/utils"
 import type { DatabaseRow } from "@cortex/properties/database"
 import { useMemo } from "react"
 
@@ -72,22 +73,20 @@ function describeNote(entry: FileEntry): string {
 
 export function useFilesScreenModel(folderPath: string | null) {
 	const vault = useVaultStore((state) => state.vault)
-	const files = useVaultStore((state) => state.files)
 	const databases = useDatabaseStore((state) => state.databases)
 	const rowsByFolder = useDatabaseStore((state) => state.rowsByFolder)
 	const sortOrder = useFilesSortOrder()
 	const vaultName = useVaultDisplayName()
 	const currentPath = normalizePath(folderPath ?? vault?.path ?? "")
 	const isRoot = !folderPath || normalizePath(folderPath) === normalizePath(vault?.path ?? "")
+	const folderEntries = useFolderEntries(currentPath)
 	const title = isRoot
 		? vaultName
 		: getFileTreeNodeTitle({ name: currentPath.split("/").at(-1) ?? "", isDir: true })
 
 	const sections = useMemo<FilesSection[]>(() => {
 		const compare = compareEntries(sortOrder)
-		const children = files.filter(
-			(entry) => !isHidden(entry) && normalizePath(getParentPath(entry.path)) === currentPath,
-		)
+		const children = folderEntries.filter((entry) => !isHidden(entry))
 		const databaseItems: FilesDatabaseItem[] = []
 		const folderItems: FilesFolderItem[] = []
 		const noteItems: FilesNoteItem[] = []
@@ -126,16 +125,11 @@ export function useFilesScreenModel(folderPath: string | null) {
 		if (folderItems.length > 0) result.push({ key: "folders", title: "Folders", data: folderItems })
 		if (noteItems.length > 0) result.push({ key: "notes", title: "Notes", data: noteItems })
 		return result
-	}, [currentPath, databases, files, rowsByFolder, sortOrder])
+	}, [databases, folderEntries, rowsByFolder, sortOrder])
 
 	const siblingNames = useMemo(
-		() =>
-			new Set(
-				files
-					.filter((entry) => normalizePath(getParentPath(entry.path)) === currentPath)
-					.map((entry) => entry.name.toLocaleLowerCase()),
-			),
-		[currentPath, files],
+		() => new Set(folderEntries.map((entry) => entry.name.toLocaleLowerCase())),
+		[folderEntries],
 	)
 
 	return { currentPath, isRoot, sections, siblingNames, sortOrder, title, vault }

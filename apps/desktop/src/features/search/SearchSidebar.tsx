@@ -13,7 +13,7 @@ import {
 	type SearchResult,
 	useSearchStore,
 } from "@cortex/search"
-import { Button, Spinner } from "@cortex/ui"
+import { Button, SimpleTooltip, Spinner } from "@cortex/ui"
 import { ChevronDownIcon, ChevronsDownUpIcon, SearchIcon } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback"
@@ -207,20 +207,21 @@ export function SearchSidebar() {
 			}
 			headerAction={
 				visibleResults.length > 0 && (
-					<Button
-						variant="ghost"
-						size="icon-xs"
-						className="sidebar-tool-action"
-						aria-label={allCollapsed ? "Expand all" : "Collapse all"}
-						title={allCollapsed ? "Expand all" : "Collapse all"}
-						onClick={() =>
-							setCollapsedIds(
-								allCollapsed ? new Set() : new Set(visibleResults.map((result) => result.id)),
-							)
-						}
-					>
-						<ChevronsDownUpIcon />
-					</Button>
+					<SimpleTooltip label={allCollapsed ? "Expand all" : "Collapse all"} side="bottom">
+						<Button
+							variant="ghost"
+							size="icon-xs"
+							className="sidebar-tool-action"
+							aria-label={allCollapsed ? "Expand all" : "Collapse all"}
+							onClick={() =>
+								setCollapsedIds(
+									allCollapsed ? new Set() : new Set(visibleResults.map((result) => result.id)),
+								)
+							}
+						>
+							<ChevronsDownUpIcon />
+						</Button>
+					</SimpleTooltip>
 				)
 			}
 			count={

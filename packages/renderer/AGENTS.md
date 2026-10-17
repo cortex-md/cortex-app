@@ -49,6 +49,17 @@
 - Frontmatter fields are parsed through `@cortex/properties/frontmatter`; do not add a second YAML
   frontmatter parser here.
 
+## Inline Marks and Code Chrome
+
+- `rehypeInlineMarks` renders `#tag` as `<span class="markdown-tag" data-tag>` and `==text==` as
+  `<mark class="markdown-highlight">`, skipping code, links, math, and mentions. Tags use
+  `findInlineTags` from `@cortex/properties/tags`; highlights use `findInlineHighlights`, which Live
+  Preview shares. Both are gated by the `hasInlineTags` / `hasHighlights` feature flags.
+- `rehypeCodeChrome` wraps fenced `pre` blocks in `.markdown-code-block` with a language label and a
+  `data-code-copy` button; Reading View owns the click.
+- Callout definitions carry an `icon` name from `CALLOUT_ICON_PATHS`; Reading View and Live Preview
+  draw the same inline SVG. Unknown icons fall back to the note icon.
+
 ## Mentions
 
 - `rehypeWikiLinks` renders `@[[Name]]` as `<span data-mention class="mention">` instead of a wiki

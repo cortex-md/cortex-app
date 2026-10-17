@@ -7,7 +7,7 @@ import {
 	useRemoteVaultStore,
 } from "@cortex/core"
 import type { SyncEngineState } from "@cortex/platform"
-import { Badge, Button, Switch } from "@cortex/ui"
+import { Badge, Button, SimpleTooltip, Switch } from "@cortex/ui"
 import {
 	ChevronRightIcon,
 	Cloud,
@@ -122,7 +122,9 @@ function SyncStatusHero({
 				{status.tone === "success" ? <CloudCheck /> : <Cloud />}
 			</span>
 			<div className="settings-sync-hero-copy">
-				<b title={vaultName}>{title}</b>
+				<SimpleTooltip label={vaultName !== title ? vaultName : undefined} side="bottom">
+					<b>{title}</b>
+				</SimpleTooltip>
 				<span>
 					<span className={`settings-sync-dot ${statusToneClassNames[status.tone]}`} />
 					<span>
@@ -208,7 +210,7 @@ export function VaultLinkSection({
 					<>
 						<SettingsField
 							icon={<Cloud />}
-							label={<span title={vaultName}>{vaultName}</span>}
+							label={vaultName}
 							description={summary || "Linked remote vault"}
 						>
 							<Button variant="ghost" size="xs" onClick={onOpenLink}>

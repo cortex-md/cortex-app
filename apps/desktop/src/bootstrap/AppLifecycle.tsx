@@ -16,6 +16,7 @@ import {
 import { loadEditorRuntime, loadVimRuntime } from "@cortex/editor/runtime"
 import { useSettingsStore } from "@cortex/settings"
 import { useEffect } from "react"
+import { startDesktopExtensionSync } from "../features/extensions/extensionSync"
 import { useTeamTemplates } from "../features/templates/useTeamTemplates"
 import { useAppUpdateLifecycle } from "../hooks/useAppUpdates"
 import { useCommunityPluginLifecycle } from "../hooks/useCommunityPluginLifecycle"
@@ -76,12 +77,14 @@ function useAppRuntime() {
 			},
 			onWorkspacePersistError: reportWorkspacePersistError,
 		})
+		const stopExtensionSync = startDesktopExtensionSync()
 		const handleBeforeUnload = () => {
 			void flushPendingWrites()
 		}
 		window.addEventListener("beforeunload", handleBeforeUnload)
 		return () => {
 			window.removeEventListener("beforeunload", handleBeforeUnload)
+			stopExtensionSync()
 			stopAppRuntime()
 		}
 	}, [])

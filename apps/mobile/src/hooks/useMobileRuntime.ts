@@ -12,6 +12,7 @@ import { useEffect, useState } from "react"
 import { AppState } from "react-native"
 
 import { startAccountServerSync } from "@/features/account/accountServer"
+import { startMobileExtensionSync } from "@/features/extensions/extensionSync"
 import { startSyncAlerts } from "@/features/sync/syncAlerts"
 import { startMobileThemeSync } from "@/features/themes/themeSync"
 import { startReminderIndexing } from "@/features/today/reminderIndexing"
@@ -47,6 +48,7 @@ export function useMobileRuntime(): MobileRuntimeState {
 		const stopReminderIndexing = startReminderIndexing()
 		const stopExternalVaultRefresh = startExternalVaultRefresh()
 		const stopThemeSync = startMobileThemeSync()
+		const stopExtensionSync = startMobileExtensionSync()
 		const appStateSubscription = AppState.addEventListener("change", (appState) => {
 			if (appState === "background" || appState === "inactive") void flushPendingWrites()
 		})
@@ -64,6 +66,7 @@ export function useMobileRuntime(): MobileRuntimeState {
 		return () => {
 			canceled = true
 			appStateSubscription.remove()
+			stopExtensionSync()
 			stopThemeSync()
 			stopSyncAlerts()
 			stopAccountServerSync()

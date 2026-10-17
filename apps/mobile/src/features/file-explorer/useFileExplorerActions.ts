@@ -1,4 +1,9 @@
-import { createFileTreeViewModel, useDatabaseStore, useVaultStore } from "@cortex/core"
+import {
+	createFileTreeViewModelFromTree,
+	useVaultFileTree,
+	useVaultFolderPaths,
+	useVaultStore,
+} from "@cortex/core"
 import { useMemo } from "react"
 
 import { useEntryMenuGroups } from "@/features/file-explorer/useEntryMenuGroups"
@@ -7,17 +12,12 @@ import type { SidebarUi } from "@/features/sidebar/sidebarUiState"
 import { triggerSelectionHaptic } from "@/utils/haptics"
 
 export function useFileExplorerActions({ closeSidebar, dispatchUi, uiState }: SidebarUi) {
-	const vault = useVaultStore((state) => state.vault)
-	const files = useVaultStore((state) => state.files)
 	const refreshFiles = useVaultStore((state) => state.refreshFiles)
-	const databases = useDatabaseStore((state) => state.databases)
-	const vaultPath = vault?.path ?? null
+	const tree = useVaultFileTree()
+	const folderPaths = useVaultFolderPaths()
 	const treeView = useMemo(
-		() =>
-			createFileTreeViewModel(files, vaultPath, uiState.expandedFolders, {
-				databaseFolderPaths: new Set(Object.keys(databases)),
-			}),
-		[databases, files, vaultPath, uiState.expandedFolders],
+		() => createFileTreeViewModelFromTree(tree, folderPaths, uiState.expandedFolders),
+		[folderPaths, tree, uiState.expandedFolders],
 	)
 	const entryMenuGroups = useEntryMenuGroups(closeSidebar)
 

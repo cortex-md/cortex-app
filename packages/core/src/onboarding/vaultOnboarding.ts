@@ -1,6 +1,7 @@
 import { getPlatform } from "@cortex/platform"
-import { getVaultFilePath, toVaultRelativePath, VAULT_CONFIG_DIR } from "@cortex/platform/utils"
+import { toVaultRelativePath } from "@cortex/platform/utils"
 import { createNoteWithPropertyDefaults } from "@cortex/properties"
+import { getLocalVaultState } from "../vault/vaultStateFiles"
 import { DEFAULT_VAULT_ONBOARDING_NOTE } from "./defaultVaultOnboardingNote"
 
 export interface VaultOnboardingMarker {
@@ -14,7 +15,6 @@ export interface VaultOnboardingResult {
 	notePath: string | null
 }
 
-const vaultOnboardingMarkerFileName = "onboarding.json"
 const onboardingNoteBaseName = "Welcome to Cortex"
 const onboardingNoteExtension = ".md"
 
@@ -45,17 +45,8 @@ async function resolveOnboardingNotePath(vaultPath: string): Promise<string> {
 	return candidate
 }
 
-function getVaultOnboardingMarkerPath(vaultPath: string): string {
-	return getVaultFilePath(vaultPath, `${VAULT_CONFIG_DIR}/${vaultOnboardingMarkerFileName}`)
-}
-
 async function hasVaultOnboardingMarker(vaultPath: string): Promise<boolean> {
-	try {
-		await getPlatform().fs.readFile(getVaultOnboardingMarkerPath(vaultPath))
-		return true
-	} catch {
-		return false
-	}
+	return (await getLocalVaultState(vaultPath).read()).onboarding !== null
 }
 
 export async function ensureVaultOnboardingNote(
@@ -77,13 +68,9 @@ export async function ensureVaultOnboardingNote(
 		createdAt: now.toISOString(),
 	}
 
-	await Promise.all([
-		platform.fs.writeFile(notePath, content),
-		platform.fs.createDir(getVaultFilePath(vaultPath, VAULT_CONFIG_DIR)),
-	])
-	await platform.fs.writeFile(
-		getVaultOnboardingMarkerPath(vaultPath),
-		JSON.stringify(marker, null, 2),
-	)
+	await platform.fs.writeFile(notePath, content)
+	await getLocalVaultState(vaultPath).update((state) => ({ ...state, onboarding: { ...marker } }), {
+		immediate: true,
+	})
 	return { created: true, notePath }
 }

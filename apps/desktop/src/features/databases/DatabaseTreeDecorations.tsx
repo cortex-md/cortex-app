@@ -1,6 +1,7 @@
 import { retainDatabase, useDatabaseStore } from "@cortex/core"
 import { getPropertyValueList, resolvePropertyOption } from "@cortex/properties"
 import { getPropertyBaseType } from "@cortex/properties/database"
+import { SimpleTooltip } from "@cortex/ui"
 import { useEffect } from "react"
 import { useVaultSchemaSnapshot } from "./useVaultSchemaSnapshot"
 
@@ -28,11 +29,8 @@ export function DatabaseRowDot({ folderPath, path }: { folderPath: string; path:
 	const value = definition ? getPropertyValueList(meta[definition.key])[0] : undefined
 	const option = definition && value !== undefined ? resolvePropertyOption(definition, value) : null
 	return (
-		<span
-			className="file-tree-db-dot"
-			data-color={option?.color}
-			title={option ? `${definition?.name}: ${option.label}` : undefined}
-			aria-hidden="true"
-		/>
+		<SimpleTooltip label={option ? `${definition?.name}: ${option.label}` : undefined} side="right">
+			<span className="file-tree-db-dot" data-color={option?.color} aria-hidden="true" />
+		</SimpleTooltip>
 	)
 }

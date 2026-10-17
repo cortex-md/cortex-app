@@ -137,7 +137,7 @@ export const useHotkeysStore = create<HotkeysState>((set, get) => ({
 		set({ overrides })
 
 		try {
-			await getPlatform().fs.writeFile(
+			await getPlatform().fs.atomicWriteFile(
 				getHotkeysPath(vaultPath),
 				JSON.stringify(overrides, null, "\t"),
 			)

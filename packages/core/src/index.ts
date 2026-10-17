@@ -1,12 +1,16 @@
 export {
+	compareFileEntryNames,
 	ensureMarkdownExtension,
 	type FileFingerprint,
+	type FileKind,
 	getBaseName,
 	getExtension,
+	getFileKind,
 	getNoteTitle,
 	getParentPath,
 	getRelativePath,
 	getVaultFilePath,
+	isImagePath,
 	isMarkdownPath,
 	isPathOrDescendant,
 	isPdfPath,
@@ -76,6 +80,13 @@ export {
 	readCurrentNoteContent,
 	restoreLocalVersion,
 } from "./history/restoreLocalVersion"
+export {
+	extractNoteMetadata,
+	type IndexedNoteMetadata,
+	type NoteMetadata,
+	type NoteMetadataUpdate,
+	noteMetadataIndex,
+} from "./indexing/noteMetadataIndex"
 export {
 	type ExternalChangeEvent,
 	type LiveDocumentHandler,
@@ -443,8 +454,11 @@ export {
 	useUIStore,
 } from "./stores/uiStore"
 export {
+	getVaultIndex,
 	type OpenVaultOptions,
 	subscribeVaultFileChanges,
+	subscribeVaultIndexChanges,
+	trackCreatedFiles,
 	useVaultStore,
 	type VaultFileChange,
 	type VaultMetadata,
@@ -555,12 +569,6 @@ export {
 	type VaultKeyFlow,
 	type VaultKeyFlowOptions,
 } from "./sync/vaultKeyFlow"
-export type {
-	SyncPluginEntry,
-	SyncPluginsManifest,
-	SyncThemeEntry,
-	SyncThemesManifest,
-} from "./types/syncMetadata"
 export {
 	type EntryNameKind,
 	getEditableEntryName,
@@ -579,6 +587,7 @@ export {
 	buildFileTree,
 	canMoveEntryTo,
 	createFileTreeViewModel,
+	createFileTreeViewModelFromTree,
 	type FileTreeCreateRow,
 	type FileTreeNode,
 	type FileTreeNodeRow,
@@ -623,14 +632,6 @@ export {
 } from "./utils/navigationHistory"
 export { type AppOperationError, getErrorMessage, reportAppError } from "./utils/reportAppError"
 export {
-	generatePluginMetadata,
-	generateThemeMetadata,
-	readSyncPluginMetadata,
-	readSyncThemeMetadata,
-	writeSyncPluginMetadata,
-	writeSyncThemeMetadata,
-} from "./utils/syncMetadata"
-export {
 	buildTagTree,
 	getTagPageModel,
 	isTagOrDescendant,
@@ -653,3 +654,19 @@ export {
 	getFileModifiedTimes,
 	type RelativeTimeStyle,
 } from "./utils/time"
+export {
+	isEmptyVaultIndexDelta,
+	isStructuralVaultIndexDelta,
+	VaultIndex,
+	type VaultIndexChange,
+	type VaultIndexDelta,
+} from "./vault/vaultIndex"
+export {
+	useFolderEntries,
+	useVaultEntry,
+	useVaultEntryLookup,
+	useVaultFileTree,
+	useVaultFolderPaths,
+	useVaultModifiedTime,
+	useVaultModifiedTimes,
+} from "./vault/vaultIndexHooks"

@@ -3,10 +3,14 @@ import {
 	hasSameFingerprint,
 	isPathOrDescendant,
 } from "@cortex/platform/utils"
+import { extractFrontmatterBody } from "@cortex/properties"
+import { buildSearchMatches, type SearchMatches } from "./matches"
+import { stripMarkdown } from "./preprocessor"
 import { SearchEngine } from "./searchEngine"
 import type { SearchOptions, SearchResult } from "./types"
 
 const INDEX_VERSION = 2
+const NOTE_CONTENT_CACHE_LIMIT = 200
 
 export interface SearchIndexEntry {
 	id: string
@@ -25,6 +29,22 @@ export interface SearchIndexPlan {
 	documentCount: number
 }
 
+export interface NoteContentRequest {
+	id: string
+	raw?: string
+}
+
+export interface NoteMatchOptions {
+	requiredText?: string
+}
+
+export type NoteMatchResult =
+	| { status: "missing" }
+	| { status: "unmatched" }
+	| { status: "matched"; matches: SearchMatches }
+
+export type NoteExcerptResult = { status: "missing" } | { status: "read"; text: string }
+
 export interface SearchBackend {
 	load(persistedIndex: string | null): Promise<number>
 	planIndex(entries: SearchIndexEntry[]): Promise<SearchIndexPlan>
@@ -32,6 +52,12 @@ export interface SearchBackend {
 	removePaths(ids: string[]): Promise<number>
 	search(query: string, options?: SearchOptions): Promise<SearchResult[]>
 	searchTitles(query: string): Promise<SearchResult[]>
+	matchNotes(
+		query: string,
+		notes: NoteContentRequest[],
+		options?: NoteMatchOptions,
+	): Promise<NoteMatchResult[]>
+	readNoteExcerpts(notes: NoteContentRequest[], maxLength: number): Promise<NoteExcerptResult[]>
 	serialize(): Promise<string>
 	clear(): Promise<void>
 }
@@ -83,9 +109,47 @@ function parsePersistedIndex(persistedIndex: string | null): {
 	return { engine: new SearchEngine(), fingerprints: new Map() }
 }
 
+function toExcerpt(content: string, maxLength: number): string {
+	const text = content.replace(/\s+/g, " ").trim()
+	return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text
+}
+
+function createNoteContentCache() {
+	const contents = new Map<string, string>()
+
+	const remember = (id: string, content: string) => {
+		contents.delete(id)
+		contents.set(id, content)
+		if (contents.size <= NOTE_CONTENT_CACHE_LIMIT) return
+		const oldestId = contents.keys().next().value
+		if (oldestId !== undefined) contents.delete(oldestId)
+	}
+
+	return {
+		resolve: (note: NoteContentRequest): string | null => {
+			if (note.raw !== undefined) {
+				const content = stripMarkdown(extractFrontmatterBody(note.raw))
+				remember(note.id, content)
+				return content
+			}
+			const cached = contents.get(note.id)
+			if (cached === undefined) return null
+			remember(note.id, cached)
+			return cached
+		},
+		forget: (ids: readonly string[]) => {
+			for (const cachedId of Array.from(contents.keys())) {
+				if (ids.some((id) => isPathOrDescendant(cachedId, id))) contents.delete(cachedId)
+			}
+		},
+		clear: () => contents.clear(),
+	}
+}
+
 export function createLocalSearchBackend(): SearchBackend {
 	let engine = new SearchEngine()
 	let fingerprints = new Map<string, FileFingerprint>()
+	const noteContents = createNoteContentCache()
 
 	const removeDocument = (id: string) => {
 		engine.removeDocument(id)
@@ -97,6 +161,7 @@ export function createLocalSearchBackend(): SearchBackend {
 			const loaded = parsePersistedIndex(persistedIndex)
 			engine = loaded.engine
 			fingerprints = loaded.fingerprints
+			noteContents.clear()
 			return engine.documentCount
 		},
 
@@ -117,6 +182,7 @@ export function createLocalSearchBackend(): SearchBackend {
 		},
 
 		addDocuments: async (documents) => {
+			noteContents.forget(documents.map((document) => document.id))
 			for (const document of documents) {
 				engine.addDocument(
 					document.id,
@@ -131,6 +197,7 @@ export function createLocalSearchBackend(): SearchBackend {
 		},
 
 		removePaths: async (ids) => {
+			noteContents.forget(ids)
 			for (const documentId of engine.getDocumentIds()) {
 				if (ids.some((id) => isPathOrDescendant(documentId, id))) removeDocument(documentId)
 			}
@@ -140,6 +207,26 @@ export function createLocalSearchBackend(): SearchBackend {
 		search: async (query, options) => engine.search(query, options),
 
 		searchTitles: async (query) => engine.searchTitles(query),
+
+		matchNotes: async (query, notes, options) => {
+			const requiredText = options?.requiredText?.trim().toLowerCase()
+			return notes.map((note): NoteMatchResult => {
+				const content = noteContents.resolve(note)
+				if (content === null) return { status: "missing" }
+				if (requiredText && !content.toLowerCase().includes(requiredText)) {
+					return { status: "unmatched" }
+				}
+				return { status: "matched", matches: buildSearchMatches(content, query) }
+			})
+		},
+
+		readNoteExcerpts: async (notes, maxLength) =>
+			notes.map((note): NoteExcerptResult => {
+				const content = noteContents.resolve(note)
+				return content === null
+					? { status: "missing" }
+					: { status: "read", text: toExcerpt(content, maxLength) }
+			}),
 
 		serialize: async () => {
 			const persisted: PersistedSearchIndex = {
@@ -153,6 +240,7 @@ export function createLocalSearchBackend(): SearchBackend {
 		clear: async () => {
 			engine = new SearchEngine()
 			fingerprints = new Map()
+			noteContents.clear()
 		},
 	}
 }

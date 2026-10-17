@@ -57,7 +57,7 @@ export function MermaidDiagramSurface({
 	}
 
 	return (
-		<div className={surfaceClassName} title={title}>
+		<div className={surfaceClassName} role="img" aria-label={title}>
 			<MermaidDiagramSurfaceContent source={source} />
 		</div>
 	)

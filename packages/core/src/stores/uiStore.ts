@@ -1,3 +1,4 @@
+import { normalizeRecentCommandIds, pushRecentCommandId } from "@cortex/commands"
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
@@ -36,6 +37,10 @@ export interface UIState {
 
 	quickFinderPreview: boolean
 	setQuickFinderPreview: (preview: boolean) => void
+
+	recentCommandIds: string[]
+	recordRecentCommand: (commandId: string) => void
+	setRecentCommandIds: (ids: unknown) => void
 }
 
 export const LEFT_SIDEBAR_WIDTH_BOUNDS = {
@@ -115,6 +120,18 @@ export const useUIStore = create<UIState>()(
 			setQuickFinderPreview: (preview) =>
 				set((s) => {
 					s.quickFinderPreview = preview
+				}),
+
+			recentCommandIds: [],
+
+			recordRecentCommand: (commandId) =>
+				set((s) => {
+					s.recentCommandIds = pushRecentCommandId(s.recentCommandIds, commandId)
+				}),
+
+			setRecentCommandIds: (ids) =>
+				set((s) => {
+					s.recentCommandIds = normalizeRecentCommandIds(ids)
 				}),
 		})),
 		{ name: "uiStore" },

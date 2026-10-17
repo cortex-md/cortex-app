@@ -1,17 +1,17 @@
-import { promises as fs, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs"
+import { promises as fs, readFileSync } from "node:fs"
 import { dirname } from "node:path"
 import type { VaultRegistryEntry } from "@cortex/platform"
-import { getVaultFilePath, VAULT_FILES } from "@cortex/platform/utils"
 import {
 	parseVaultRegistry,
 	patchRegistryEntry,
 	removeRegistryEntry,
-	serializeVaultMetadata,
 	upsertRegistryEntry,
 } from "@cortex/platform/vault"
+import writeFileAtomic from "write-file-atomic"
 import type { MainApi } from "../contract"
 import { vaultsRegistryPath } from "../paths"
 import { assertAllowedPath } from "../security"
+import { writeVaultFileName } from "./vaultFile"
 
 let cache: VaultRegistryEntry[] | null = null
 const registryChangedListeners = new Set<() => void>()
@@ -34,22 +34,21 @@ function readEntries(): VaultRegistryEntry[] {
 	return cache
 }
 
-function writeEntries(entries: VaultRegistryEntry[]): void {
-	cache = entries
-	const path = vaultsRegistryPath()
-	mkdirSync(dirname(path), { recursive: true })
-	writeFileSync(`${path}.tmp`, JSON.stringify(entries, null, 2), "utf8")
-	renameSync(`${path}.tmp`, path)
-	for (const listener of registryChangedListeners) listener()
-}
+let pendingWrite: Promise<void> = Promise.resolve()
 
-async function writeVaultMetadataName(vaultPath: string, name: string, nowMs: number) {
-	const metadataPath = getVaultFilePath(vaultPath, VAULT_FILES.vaultMetadata)
-	const existing = await fs.readFile(metadataPath, "utf8").catch(() => null)
-	const next = serializeVaultMetadata(name, existing, nowMs)
-	if (next === existing) return
-	await fs.mkdir(dirname(metadataPath), { recursive: true })
-	await fs.writeFile(metadataPath, next, "utf8")
+function writeEntries(entries: VaultRegistryEntry[]): Promise<void> {
+	cache = entries
+	for (const listener of registryChangedListeners) listener()
+	const path = vaultsRegistryPath()
+	const write = pendingWrite.then(async () => {
+		if (cache !== entries) return
+		await fs.mkdir(dirname(path), { recursive: true })
+		await writeFileAtomic(path, JSON.stringify(entries, null, 2), "utf8")
+	})
+	pendingWrite = write.catch((error) => {
+		console.error("[registry] failed to write vault registry:", error)
+	})
+	return write
 }
 
 export function readVaultRegistry(): VaultRegistryEntry[] {
@@ -65,16 +64,18 @@ export const vaultRegistryApi = {
 	updateVaultRegistry: async (uuid, path, name, icon) => {
 		const vaultPath = assertAllowedPath(path)
 		const now = Date.now()
-		writeEntries(upsertRegistryEntry(readEntries(), { uuid, path, name, icon }, now))
-		await writeVaultMetadataName(vaultPath, name, now)
+		await Promise.all([
+			writeEntries(upsertRegistryEntry(readEntries(), { uuid, path, name, icon }, now)),
+			writeVaultFileName(vaultPath, name),
+		])
 	},
 	removeFromVaultRegistry: async (uuid) => {
-		writeEntries(removeRegistryEntry(readEntries(), uuid))
+		await writeEntries(removeRegistryEntry(readEntries(), uuid))
 	},
 	patchVaultRegistry: async (uuid, patch) => {
 		const nextPatch =
 			patch.path === undefined ? patch : { ...patch, path: assertAllowedPath(patch.path) }
-		writeEntries(patchRegistryEntry(readEntries(), uuid, nextPatch))
+		await writeEntries(patchRegistryEntry(readEntries(), uuid, nextPatch))
 	},
 } satisfies Pick<
 	Required<MainApi["vault"]>,

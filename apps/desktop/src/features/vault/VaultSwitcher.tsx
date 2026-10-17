@@ -21,6 +21,7 @@ import {
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
+	SimpleTooltip,
 	toast,
 } from "@cortex/ui"
 import {
@@ -154,16 +155,15 @@ export function VaultSwitcher() {
 		<div className="vault-switcher">
 			<Popover open={open} onOpenChange={setOpen}>
 				<PopoverTrigger asChild>
-					<Button
-						size="sm"
-						variant="ghost"
-						className="vault-switcher-button w-full justify-between gap-2"
-					>
-						<span className="flex min-w-0 items-center gap-2">
-							<VaultTile name={currentName} color={currentColor} size="sm" />
-							<span className="truncate">{currentName}</span>
-						</span>
-						<ChevronsUpDown size={14} className="shrink-0 text-text-muted" />
+					<Button size="sm" variant="ghost" className="vault-switcher-button max-w-full">
+						<VaultTile
+							name={currentName}
+							color={currentColor}
+							size="sm"
+							className="size-6 rounded-lg text-[12px]"
+						/>
+						<span className="min-w-0 truncate">{currentName}</span>
+						<ChevronsUpDown size={13} className="shrink-0 text-text-muted" />
 					</Button>
 				</PopoverTrigger>
 				<PopoverContent align="start" className="vault-switcher-menu w-[300px] p-0">
@@ -180,66 +180,73 @@ export function VaultSwitcher() {
 									)
 									const remoteName = remote && remote.name !== item.entry.name ? remote.name : null
 									return (
-										<CommandItem
+										<SimpleTooltip
 											key={item.entry.uuid}
-											value={item.entry.uuid}
-											keywords={[item.entry.name, remoteName ?? ""]}
-											title={`${VAULT_STATUS_TITLE[item.status]}${remoteName ? ` with “${remoteName}”` : ""}`}
-											onPointerDown={(event) => {
-												altKeyRef.current = event.altKey
-											}}
-											onSelect={() => {
-												openItem(item, altKeyRef.current ? "current-window" : "auto")
-												altKeyRef.current = false
-											}}
-											onContextMenu={(event) => {
-												if (isCurrent) return
-												event.preventDefault()
-												showMenu(vaultMenuItems(item.entry), { x: event.clientX, y: event.clientY })
-											}}
+											label={`${VAULT_STATUS_TITLE[item.status]}${remoteName ? ` with “${remoteName}”` : ""}`}
+											side="right"
 										>
-											<VaultTile name={item.entry.name} color={item.color} size="sm" />
-											<span className="min-w-0 flex-1 truncate">
-												{item.entry.name}
-												{remoteName ? (
-													<span className="ml-1.5 text-text-secondary">→ {remoteName}</span>
+											<CommandItem
+												value={item.entry.uuid}
+												keywords={[item.entry.name, remoteName ?? ""]}
+												onPointerDown={(event) => {
+													altKeyRef.current = event.altKey
+												}}
+												onSelect={() => {
+													openItem(item, altKeyRef.current ? "current-window" : "auto")
+													altKeyRef.current = false
+												}}
+												onContextMenu={(event) => {
+													if (isCurrent) return
+													event.preventDefault()
+													showMenu(vaultMenuItems(item.entry), {
+														x: event.clientX,
+														y: event.clientY,
+													})
+												}}
+											>
+												<VaultTile name={item.entry.name} color={item.color} size="sm" />
+												<span className="min-w-0 flex-1 truncate">
+													{item.entry.name}
+													{remoteName ? (
+														<span className="ml-1.5 text-text-secondary">→ {remoteName}</span>
+													) : null}
+												</span>
+												{STATUS_ICON[item.status]}
+												{isCurrent ? (
+													<Check
+														className="size-3.5 text-brand"
+														strokeWidth={2.5}
+														aria-hidden="true"
+													/>
 												) : null}
-											</span>
-											{STATUS_ICON[item.status]}
-											{isCurrent ? (
-												<Check
-													className="size-3.5 text-brand"
-													strokeWidth={2.5}
-													aria-hidden="true"
-												/>
-											) : null}
-											{shortcut ? <CommandShortcut>{shortcut}</CommandShortcut> : null}
-										</CommandItem>
+												{shortcut ? <CommandShortcut>{shortcut}</CommandShortcut> : null}
+											</CommandItem>
+										</SimpleTooltip>
 									)
 								})}
 							</CommandGroup>
 							{remoteOnly.length > 0 ? (
 								<CommandGroup heading="In your account">
 									{remoteOnly.map((remote) => (
-										<CommandItem
-											key={remote.id}
-											value={`remote:${remote.id}`}
-											keywords={[remote.name]}
-											title="Download to this Mac"
-											onSelect={() => {
-												close()
-												openAddVault({ start: "download", remoteVaultId: remote.id })
-											}}
-										>
-											<VaultTile
-												name={remote.name}
-												color={resolveVaultColor({ uuid: remote.id, color: null })}
-												size="sm"
-												className="opacity-60"
-											/>
-											<span className="min-w-0 flex-1 truncate">{remote.name}</span>
-											<Download className="size-3.5 text-text-secondary" aria-hidden="true" />
-										</CommandItem>
+										<SimpleTooltip key={remote.id} label="Download to this Mac" side="right">
+											<CommandItem
+												value={`remote:${remote.id}`}
+												keywords={[remote.name]}
+												onSelect={() => {
+													close()
+													openAddVault({ start: "download", remoteVaultId: remote.id })
+												}}
+											>
+												<VaultTile
+													name={remote.name}
+													color={resolveVaultColor({ uuid: remote.id, color: null })}
+													size="sm"
+													className="opacity-60"
+												/>
+												<span className="min-w-0 flex-1 truncate">{remote.name}</span>
+												<Download className="size-3.5 text-text-secondary" aria-hidden="true" />
+											</CommandItem>
+										</SimpleTooltip>
 									))}
 								</CommandGroup>
 							) : null}

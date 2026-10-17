@@ -1,7 +1,7 @@
 import type { SharedNoteBundle } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
 import { getBaseName, joinPath } from "@cortex/platform/utils"
-import { useVaultStore } from "../stores/vaultStore"
+import { getVaultIndex, trackCreatedFiles } from "../stores/vaultStore"
 import { rewriteAttachmentLinks } from "./sharedNote"
 
 export interface SharedNoteNaming {
@@ -19,7 +19,11 @@ export async function saveSharedNoteCopy(
 	{ sanitizeFileStem, reserveUniquePath }: SharedNoteNaming,
 ): Promise<string> {
 	const fs = getPlatform().fs
-	const existing = new Set(useVaultStore.getState().files.map((file) => file.path))
+	const existing = new Set(
+		getVaultIndex()
+			.getFiles()
+			.map((file) => file.path),
+	)
 	const stem = sanitizeFileStem(bundle.title) || "Shared note"
 	const notePath = reserveUniquePath(vaultPath, `${stem}.md`, existing)
 	const assetsFolder = `${getBaseName(notePath).replace(/\.md$/, "")} files`
@@ -41,6 +45,9 @@ export async function saveSharedNoteCopy(
 		notePath,
 		rewriteAttachmentLinks(bundle, (index) => relativePaths[index] ?? ""),
 	)
-	await useVaultStore.getState().refreshFiles()
+	trackCreatedFiles(
+		[notePath, ...relativePaths.flatMap((path) => (path ? [joinPath(vaultPath, path)] : []))],
+		bundle.attachments.length > 0 ? [joinPath(vaultPath, assetsFolder)] : [],
+	)
 	return notePath
 }

@@ -3,10 +3,11 @@ import {
 	resolveBookmarkPath,
 	selectActiveTabFilePath,
 	useBookmarksStore,
+	useVaultEntryLookup,
 	useVaultStore,
 	useWorkspaceStore,
 } from "@cortex/core"
-import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@cortex/ui"
+import { Button, SimpleTooltip } from "@cortex/ui"
 import { BookmarkIcon, FileTextIcon, GripVerticalIcon, SearchIcon } from "lucide-react"
 import { useCallback, useDeferredValue, useMemo, useState } from "react"
 import { useCommandHotkey } from "@/hooks/useCommandHotkey"
@@ -54,25 +55,26 @@ function BookmarkRow({ row, sortableProps, onOpen, onRemove }: BookmarkRowProps)
 					<GripVerticalIcon />
 				</span>
 			)}
-			<Button
-				size="sm"
-				variant="ghost"
-				className="sidebar-bookmark-open"
-				disabled={row.missing}
-				onClick={() => onOpen(row.filePath)}
-				aria-label={`Open ${row.title}`}
-				title={row.missing ? "This note is no longer in the vault" : row.filePath}
-			>
-				<FileTextIcon className="sidebar-bookmark-icon" aria-hidden="true" />
-				<span className="sidebar-bookmark-copy">
-					<span className="sidebar-bookmark-title">{row.title}</span>
-					{row.missing ? (
-						<span className="sidebar-bookmark-status">Moved or deleted</span>
-					) : (
-						row.folder && <span className="sidebar-bookmark-path">{row.folder}</span>
-					)}
-				</span>
-			</Button>
+			<SimpleTooltip label={row.missing ? undefined : row.filePath} side="right">
+				<Button
+					size="sm"
+					variant="ghost"
+					className="sidebar-bookmark-open"
+					disabled={row.missing}
+					onClick={() => onOpen(row.filePath)}
+					aria-label={`Open ${row.title}`}
+				>
+					<FileTextIcon className="sidebar-bookmark-icon" aria-hidden="true" />
+					<span className="sidebar-bookmark-copy">
+						<span className="sidebar-bookmark-title">{row.title}</span>
+						{row.missing ? (
+							<span className="sidebar-bookmark-status">Moved or deleted</span>
+						) : (
+							row.folder && <span className="sidebar-bookmark-path">{row.folder}</span>
+						)}
+					</span>
+				</Button>
+			</SimpleTooltip>
 			{row.missing && (
 				<span className="sidebar-bookmark-fix">
 					<Button variant="secondary" size="xs" onClick={() => findMovedNote(row)}>
@@ -83,22 +85,17 @@ function BookmarkRow({ row, sortableProps, onOpen, onRemove }: BookmarkRowProps)
 					</Button>
 				</span>
 			)}
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<Button
-						variant="ghost"
-						size="icon"
-						className="sidebar-bookmark-action"
-						onClick={() => onRemove(row.bookmark.path)}
-						aria-label={`Remove ${row.title} from bookmarks`}
-					>
-						<BookmarkIcon className="sidebar-bookmark-remove-icon" aria-hidden="true" />
-					</Button>
-				</TooltipTrigger>
-				<TooltipContent side="left" sideOffset={6}>
-					Remove bookmark
-				</TooltipContent>
-			</Tooltip>
+			<SimpleTooltip label="Remove bookmark" side="left">
+				<Button
+					variant="ghost"
+					size="icon"
+					className="sidebar-bookmark-action"
+					onClick={() => onRemove(row.bookmark.path)}
+					aria-label={`Remove ${row.title} from bookmarks`}
+				>
+					<BookmarkIcon className="sidebar-bookmark-remove-icon" aria-hidden="true" />
+				</Button>
+			</SimpleTooltip>
 		</div>
 	)
 }
@@ -110,7 +107,6 @@ function getBookmarkHint(hotkey: string | null): string {
 
 export function BookmarksSidebar() {
 	const vault = useVaultStore((state) => state.vault)
-	const files = useVaultStore((state) => state.files)
 	const bookmarks = useBookmarksStore((state) => state.bookmarks)
 	const removeBookmark = useBookmarksStore((state) => state.removeBookmark)
 	const openTab = useWorkspaceStore((state) => state.openTab)
@@ -119,10 +115,7 @@ export function BookmarksSidebar() {
 	const [filterQuery, setFilterQuery] = useState("")
 	const deferredFilterQuery = useDeferredValue(filterQuery)
 
-	const filePaths = useMemo(
-		() => new Set(files.flatMap((file) => (file.isDir ? [] : [file.path]))),
-		[files],
-	)
+	const lookupEntry = useVaultEntryLookup()
 
 	const rows = useMemo(() => {
 		if (!vault) return []
@@ -138,12 +131,12 @@ export function BookmarksSidebar() {
 					filePath,
 					title,
 					folder,
-					missing: !filePaths.has(filePath),
+					missing: lookupEntry(filePath)?.isDir !== false,
 					active: filePath === activeFilePath,
 				},
 			]
 		})
-	}, [activeFilePath, bookmarks, deferredFilterQuery, filePaths, vault])
+	}, [activeFilePath, bookmarks, deferredFilterQuery, lookupEntry, vault])
 
 	const handleRemove = useCallback(
 		(path: string) => {
@@ -168,44 +161,37 @@ export function BookmarksSidebar() {
 	if (!vault) return <SidebarNoVaultState />
 
 	return (
-		<TooltipProvider delayDuration={320}>
-			<SidebarToolView
-				title="Bookmarks"
-				filterLabel="Filter bookmarks"
-				filterIcon={<SearchIcon />}
-				filterPlaceholder="Filter bookmarks..."
-				filterValue={filterQuery}
-				onFilterChange={setFilterQuery}
-				count={bookmarks.length === 0 ? "No bookmarks" : formatCount(bookmarks.length, "bookmark")}
-				meta={reorderable && <span className="sidebar-tool-filters">Drag to reorder</span>}
-				empty={
-					rows.length === 0
-						? {
-								icon: <BookmarkIcon className="size-6 text-muted-foreground" />,
-								message: filterQuery ? "No bookmarks match your filter" : "No bookmarks yet",
-								description: getBookmarkHint(toggleBookmarkHotkey),
-								clearable: Boolean(filterQuery),
-							}
-						: null
-				}
-			>
-				<div
-					ref={sortable.listRef}
-					className="sidebar-tool-list"
-					role="tree"
-					aria-label="Bookmarks"
-				>
-					{rows.map((row, index) => (
-						<BookmarkRow
-							key={row.bookmark.path}
-							row={row}
-							sortableProps={reorderable ? sortable.getItemProps(index) : undefined}
-							onOpen={openTab}
-							onRemove={handleRemove}
-						/>
-					))}
-				</div>
-			</SidebarToolView>
-		</TooltipProvider>
+		<SidebarToolView
+			title="Bookmarks"
+			filterLabel="Filter bookmarks"
+			filterIcon={<SearchIcon />}
+			filterPlaceholder="Filter bookmarks..."
+			filterValue={filterQuery}
+			onFilterChange={setFilterQuery}
+			count={bookmarks.length === 0 ? "No bookmarks" : formatCount(bookmarks.length, "bookmark")}
+			meta={reorderable && <span className="sidebar-tool-filters">Drag to reorder</span>}
+			empty={
+				rows.length === 0
+					? {
+							icon: <BookmarkIcon className="size-6 text-muted-foreground" />,
+							message: filterQuery ? "No bookmarks match your filter" : "No bookmarks yet",
+							description: getBookmarkHint(toggleBookmarkHotkey),
+							clearable: Boolean(filterQuery),
+						}
+					: null
+			}
+		>
+			<div ref={sortable.listRef} className="sidebar-tool-list" role="tree" aria-label="Bookmarks">
+				{rows.map((row, index) => (
+					<BookmarkRow
+						key={row.bookmark.path}
+						row={row}
+						sortableProps={reorderable ? sortable.getItemProps(index) : undefined}
+						onOpen={openTab}
+						onRemove={handleRemove}
+					/>
+				))}
+			</div>
+		</SidebarToolView>
 	)
 }

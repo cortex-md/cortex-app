@@ -18,6 +18,7 @@ import {
 	InputGroup,
 	InputGroupAddon,
 	InputGroupInput,
+	SimpleTooltip,
 	Tabs,
 	TabsList,
 	TabsTrigger,
@@ -127,8 +128,10 @@ function SyncLogRow({ item }: { item: SyncLogItem }) {
 				<Icon className="size-3.5" aria-hidden="true" />
 			</span>
 			<div className="sync-log-message">
-				<b>{item.title}</b>
-				{paths && <code title={item.paths.join("\n")}>{paths}</code>}
+				<SimpleTooltip label={item.paths.join(", ")}>
+					<b>{item.title}</b>
+				</SimpleTooltip>
+				{paths && <code>{paths}</code>}
 				{item.detail && (
 					<div className="sync-log-detail" data-tone={item.tone}>
 						{item.detail}

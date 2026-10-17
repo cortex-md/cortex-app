@@ -46,7 +46,7 @@ plugin code (mobile native) mirrors the host's plugin UI over one JSON channel:
 
 - `bridge/protocol.ts` is the single message set. Host → UI (`PluginHostMessage`): `register`
   (`serializePluginDefinition`: manifest, settings schema, function-free commands/views/items),
-  `unregister`, `records` (all plugin records + load errors), `settings` (one owner's values or
+  `unregister`, `records` (all plugin records + load errors + `loadedVaultPath`), `settings` (one owner's values or
   `null`), `modals` (plugin modal instances), `viewUpdate`, and `result`. UI → host
   (`PluginUiMessage`): `invoke` (`command`, `viewOpen`, `viewAction`, `viewClose`) and `control`
   (`enable`, `disable`, `unregister`, `setSetting`, `discover`, `reload`, `saveEnabled`,
@@ -93,8 +93,15 @@ plugin code (mobile native) mirrors the host's plugin UI over one JSON channel:
   contributions (`assertCommunityStyles`). Load errors live in `usePluginStore().loadErrors`.
 - Shared execution helpers live in `pluginRuntime.ts` (`activatePluginDefinition`,
   `getCommandHandler`, `bindPluginView`).
-- Invalid `.cortex/plugins.json` fails closed. Missing files default-enable bundled plugins only.
+- Enabled plugin ids live in `enabledPlugins` of `.cortex/local.json` (`getLocalVaultState`). A
+  missing list default-enables bundled plugins only. Enabled plugins' `settings.json` files are prefetched in
+  parallel before plugins are enabled in order.
 - Reload phases stay ordered: disable enabled community plugins, rediscover, re-enable survivors.
+- `usePluginStore().loadedVaultPath` is the vault whose plugins finished `loadEnabledPlugins()`
+  (null after `disableAllPlugins()`); the bridge mirrors it. `selectPluginSyncSnapshot(state)` is
+  the memoized `{ vaultPath, plugins: [{ id, version, enabled, community }] }` view (load errors
+  count as installed community plugins with no version) that extension sync reads. Consumers must
+  not treat the plugin list as complete before `loadedVaultPath` matches the open vault.
 - Restricted mode lives only here: `services.community.isAllowed()` (hosts read the app-level
   `plugins.allowCommunity` setting). While it is false, `discoverCommunityPlugins` (and so
   `reloadCommunityPlugins`) is a no-op, `enablePlugin` rejects community entries, and

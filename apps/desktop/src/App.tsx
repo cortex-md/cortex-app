@@ -7,7 +7,7 @@ import {
 import { getPlatform } from "@cortex/platform"
 import { CORE_OWNER, usePluginStore } from "@cortex/plugin-host-core"
 import { useSettingsStore } from "@cortex/settings"
-import { Button, Toaster } from "@cortex/ui"
+import { Button, SimpleTooltip, Toaster, TooltipProvider } from "@cortex/ui"
 import { PanelLeftIcon } from "lucide-react"
 import {
 	type ComponentType,
@@ -210,20 +210,21 @@ const AppTitlebar = memo(function AppTitlebar({ hasVault }: AppShellProps) {
 		<div className="app-titlebar h-[var(--titlebar-height)] flex-shrink-0" style={titlebarStyle}>
 			<div className="app-titlebar-drag-region" aria-hidden="true" />
 			{hasVault && (
-				<Button
-					type="button"
-					variant="secondary"
-					size="icon-sm"
-					className={`app-sidebar-toggle ${
-						leftSidebarCollapsed ? "app-sidebar-toggle--collapsed" : ""
-					}`}
-					aria-label={leftSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar"}
-					aria-pressed={!leftSidebarCollapsed}
-					title={leftSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar"}
-					onClick={toggleLeftSidebar}
-				>
-					<PanelLeftIcon size={17} strokeWidth={2} />
-				</Button>
+				<SimpleTooltip label={leftSidebarCollapsed ? "Show sidebar" : "Hide sidebar"} side="bottom">
+					<Button
+						type="button"
+						variant="secondary"
+						size="icon-sm"
+						className={`app-sidebar-toggle ${
+							leftSidebarCollapsed ? "app-sidebar-toggle--collapsed" : ""
+						}`}
+						aria-label={leftSidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+						aria-pressed={!leftSidebarCollapsed}
+						onClick={toggleLeftSidebar}
+					>
+						<PanelLeftIcon size={17} strokeWidth={2} />
+					</Button>
+				</SimpleTooltip>
 			)}
 		</div>
 	)
@@ -448,15 +449,17 @@ export default function App() {
 	const nativeWindowEffects = useSettingsStore((s) => s.settings.appearance.nativeWindowEffects)
 
 	return (
-		<div
-			className="app-shell flex flex-col h-screen bg-bg-primary text-text-primary"
-			data-native-window-effects={nativeWindowEffects ? "enabled" : "disabled"}
-		>
-			<AppLifecycle />
-			<AppContent hasVault={hasVault} />
-			<AppTitlebar hasVault={hasVault} />
-			<AppOverlays />
-			<MainWindowReady />
-		</div>
+		<TooltipProvider delayDuration={400} skipDelayDuration={200}>
+			<div
+				className="app-shell flex flex-col h-screen bg-bg-primary text-text-primary"
+				data-native-window-effects={nativeWindowEffects ? "enabled" : "disabled"}
+			>
+				<AppLifecycle />
+				<AppContent hasVault={hasVault} />
+				<AppTitlebar hasVault={hasVault} />
+				<AppOverlays />
+				<MainWindowReady />
+			</div>
+		</TooltipProvider>
 	)
 }

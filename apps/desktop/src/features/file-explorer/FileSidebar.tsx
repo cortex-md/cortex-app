@@ -15,6 +15,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuShortcut,
 	DropdownMenuTrigger,
+	SimpleTooltip,
 } from "@cortex/ui"
 import {
 	FilePlusIcon,
@@ -45,21 +46,22 @@ function FileSidebarHeader({ vaultPath, onCreate }: FileSidebarHeaderProps) {
 	const fromTemplateKeys = useCommandHotkey("templates.create-note")
 	const pendingCreateRef = useRef<(() => void) | null>(null)
 	return (
-		<div className="file-sidebar-header flex items-center justify-between flex-shrink-0">
-			<span className="file-sidebar-title">Files</span>
+		<div className="file-sidebar-header flex items-center flex-shrink-0 gap-0.5">
+			<span className="file-sidebar-title mr-auto">Files</span>
 			{canCreateAtRoot && (
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon-sm"
-							className="sidebar-action-button text-text-muted hover:text-text-primary hover:bg-bg-hover"
-							title="Create"
-							aria-label="Create"
-						>
-							<PlusIcon size={16} />
-						</Button>
+						<SimpleTooltip label="Create" side="bottom">
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon-sm"
+								className="file-sidebar-header-action"
+								aria-label="Create"
+							>
+								<PlusIcon size={14} />
+							</Button>
+						</SimpleTooltip>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent
 						align="end"
@@ -127,13 +129,26 @@ function FileSidebarHeader({ vaultPath, onCreate }: FileSidebarHeaderProps) {
 					</DropdownMenuContent>
 				</DropdownMenu>
 			)}
+			{canCreateAtRoot && (
+				<SimpleTooltip label="New folder" side="bottom">
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon-sm"
+						className="file-sidebar-header-action"
+						aria-label="New folder"
+						onClick={() => onCreate(vaultPath, "folder")}
+					>
+						<FolderPlusIcon size={14} />
+					</Button>
+				</SimpleTooltip>
+			)}
 		</div>
 	)
 }
 
 export function FileSidebar() {
 	const vault = useVaultStore((s) => s.vault)
-	const files = useVaultStore((s) => s.files)
 	const activeFilePath = useWorkspaceStore(selectActiveTabFilePath)
 	const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
 	const [focusedPathOverride, setFocusedPathOverride] = useState<string | null>(null)
@@ -178,7 +193,6 @@ export function FileSidebar() {
 
 	const { tree, rows, nodeRows, nodeRowIndexByPath, nodeByPath, focusedPath, rowVirtualizer } =
 		useFileSidebarTreeModel({
-			files,
 			vaultPath,
 			hasVault: Boolean(vault),
 			expanded,

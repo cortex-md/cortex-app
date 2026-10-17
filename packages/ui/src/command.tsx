@@ -64,12 +64,16 @@ function CommandDialog({
 
 function CommandInput({
 	className,
+	icon: Icon = SearchIcon,
 	trailing,
 	...props
-}: React.ComponentProps<typeof CommandPrimitive.Input> & { trailing?: React.ReactNode }) {
+}: React.ComponentProps<typeof CommandPrimitive.Input> & {
+	icon?: React.ComponentType<React.SVGProps<SVGSVGElement>>
+	trailing?: React.ReactNode
+}) {
 	return (
 		<div data-slot="command-input-wrapper" className="flex h-10 items-center gap-3 border-b px-4">
-			<SearchIcon data-slot="command-input-icon" className="size-5 shrink-0 opacity-55" />
+			<Icon data-slot="command-input-icon" className="size-5 shrink-0 opacity-55" aria-hidden />
 			<CommandPrimitive.Input
 				data-slot="command-input"
 				className={cn(
@@ -191,6 +195,7 @@ function CommandFooterKey({ className, ...props }: React.ComponentProps<"kbd">) 
 interface CommandFooterHintItem {
 	keys: readonly string[]
 	label: string
+	align?: "end"
 }
 
 function CommandFooterHints({
@@ -200,7 +205,11 @@ function CommandFooterHints({
 	return (
 		<CommandFooter {...props}>
 			{hints.map((hint) => (
-				<CommandFooterHint key={`${hint.keys.join("-")}-${hint.label}`}>
+				<CommandFooterHint
+					key={`${hint.keys.join("-")}-${hint.label}`}
+					data-align={hint.align}
+					className={hint.align === "end" ? "ml-auto" : undefined}
+				>
 					{hint.keys.map((key) => (
 						<CommandFooterKey key={key}>{key}</CommandFooterKey>
 					))}

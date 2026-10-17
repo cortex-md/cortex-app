@@ -34,6 +34,7 @@ export default defineConfig({
 			project("editor", "packages/editor", domProject),
 			project("import-export", "packages/import-export"),
 			project("marketplace", "packages/marketplace"),
+			project("platform", "packages/platform"),
 			project("plugin-host-core", "packages/plugin-host-core"),
 			project("properties", "packages/properties", domProject),
 			project("renderer", "packages/renderer"),

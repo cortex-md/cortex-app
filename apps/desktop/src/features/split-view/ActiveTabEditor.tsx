@@ -10,6 +10,7 @@ import {
 import { clipboardImageExtension } from "@cortex/editor/clipboard"
 import { readOnlyDocumentExtension } from "@cortex/editor/collab"
 import { EditorView } from "@cortex/editor/editor-view"
+import { inlineTagClickExtension } from "@cortex/editor/inline-tags"
 import { reconfigureMarkdownKeymap } from "@cortex/editor/keymap"
 import {
 	type MentionMenuState,
@@ -48,6 +49,7 @@ import {
 } from "../comments/MentionMenu"
 import { useCommentEditorAnchors } from "../comments/useCommentEditorAnchors"
 import { NotePropertiesPanel } from "../properties/NotePropertiesPanel"
+import { openTagView } from "../tags/tagWorkspaceView"
 import { toggleTaskInNote } from "../tasks/taskModel"
 import { insertTemplateIntoNote, TEMPLATE_SLASH_PREFIX } from "../templates/insertTemplate"
 import { EditorContextMenu } from "./EditorContextMenu"
@@ -145,6 +147,7 @@ export function ActiveTabEditor({
 			(runtime) => mentionHoverExtension(runtime, { getPerson: getMentionPersonPreview }),
 			commentAnchorsExtension,
 			searchHighlightExtension,
+			inlineTagClickExtension(openNoteTag),
 			(runtime) =>
 				selectionToolbarExtension(runtime, {
 					keepOpen: () => selectionToolbarMenuOpenRef.current,
@@ -260,6 +263,7 @@ export function ActiveTabEditor({
 										codeBlockEmbeds={codeBlockEmbeds}
 										onExternalLinkClick={handleExternalLinkClick}
 										onWikiLinkClick={handleWikiLinkClick}
+										onTagClick={openNoteTag}
 										onTaskCheckboxToggle={handleTaskCheckboxToggle}
 									/>
 								) : mode === "side-by-side" ? (
@@ -279,6 +283,7 @@ export function ActiveTabEditor({
 										onViewReady={handleViewReady}
 										onExternalLinkClick={handleExternalLinkClick}
 										onWikiLinkClick={handleWikiLinkClick}
+										onTagClick={openNoteTag}
 									/>
 								) : (
 									<EditorView
@@ -324,6 +329,10 @@ export function ActiveTabEditor({
 			)}
 		</>
 	)
+}
+
+function openNoteTag(tag: string): void {
+	openTagView(tag.toLowerCase())
 }
 
 function executeSlashCommand(commandId: string, view: EditorRuntimeView): void {

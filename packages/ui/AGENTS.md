@@ -67,9 +67,11 @@ Full Apple-kit → primitive mapping lives in `CLAUDE.md`.
   community themes can restyle overlays without component forks.
 - High-use primitive geometry and typography should use public CSS variables with fallbacks instead
   of fixed arbitrary values when the rendered default can stay unchanged.
-- Command surfaces expose `CommandFooterHints` (a `{ keys, label }[]` list) on top of
-  `CommandFooter`, `CommandFooterHint`, and `CommandFooterKey` for compact keyboard hints. Keep them generic and presentational; feature-specific command behavior stays in
-  desktop feature modules.
+- Command surfaces expose `CommandFooterHints` (a `{ keys, label, align? }[]` list; `align: "end"`
+  pushes that hint and the ones after it to the right) on top of `CommandFooter`,
+  `CommandFooterHint`, and `CommandFooterKey` for compact keyboard hints. `CommandInput` takes an
+  optional leading `icon` (search by default) and a `trailing` slot. Keep them generic and
+  presentational; feature-specific command behavior stays in desktop feature modules.
 - Combobox-style primitives keep `aria-expanded` and `aria-controls` wired to their popup state.
 - Prefer native semantic containers for listbox/list-like primitives. Do not add default generic
   `role="group"`/`role="list"` to visual wrappers unless the component can provide complete,

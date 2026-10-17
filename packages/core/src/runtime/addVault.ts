@@ -6,10 +6,10 @@ import {
 	type VaultRegistryEntry,
 } from "@cortex/platform"
 import { normalizeSyncPreferences } from "@cortex/platform/sync-rules"
-import { getVaultFilePath, VAULT_FILES } from "@cortex/platform/utils"
 import { useAuthStore } from "../stores/authStore"
 import { useRemoteVaultStore } from "../stores/remoteVaultStore"
 import { useSubscriptionStore } from "../stores/subscriptionStore"
+import { writeSyncPreferences } from "../stores/syncStore"
 import { useVaultStore } from "../stores/vaultStore"
 import { requiresCloudEntitlement, resolveSyncServerUrl } from "../sync/serverConfig"
 import { readSyncConfig, unlinkRemoteVault, updateSyncConfig } from "../sync/syncConfig"
@@ -98,10 +98,7 @@ export async function registerVaultFolder(
 	await platform.vault.updateVaultRegistry(metadata.uuid, metadata.path, vaultName, icon)
 	if (color) await platform.vault.patchVaultRegistry?.(metadata.uuid, { color })
 	if (syncPreferences) {
-		await platform.fs.writeFile(
-			getVaultFilePath(metadata.path, VAULT_FILES.syncPreferences),
-			JSON.stringify(normalizeSyncPreferences(syncPreferences), null, "\t"),
-		)
+		await writeSyncPreferences(metadata.path, normalizeSyncPreferences(syncPreferences))
 	}
 	await useVaultStore.getState().loadRecentVaults()
 	const entry = useVaultStore.getState().recentVaults.find((item) => item.uuid === metadata.uuid)

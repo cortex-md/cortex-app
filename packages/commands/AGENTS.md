@@ -34,6 +34,12 @@ must all originate here.
 - Use `context.payload` when menus or context actions need an explicit target. Do not add command
   variants solely to smuggle local UI state.
 
+## Recent Commands
+
+- `pushRecentCommandId`, `normalizeRecentCommandIds`, and `resolveRecentCommands` are the shared MRU
+  rules for command surfaces (cap `RECENT_COMMAND_LIMIT`). Hosts store the id list; resolving
+  against the current registry snapshot silently skips commands that were unregistered.
+
 ## Vim Names
 
 - Vim command names are derived from aliases, labels, and IDs.

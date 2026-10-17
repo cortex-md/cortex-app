@@ -633,7 +633,7 @@ Sync logs follow a **single-source-of-truth** model — the sync-engine UtilityP
   available and unchanged.
 
 ### Sync Ignore Preferences
-Vault-scoped sync ignore preferences live in `<vault>/.cortex/sync-preferences.json`.
+Vault-scoped sync ignore preferences live in the `preferences` section of `<vault>/.cortex/sync.json`.
 `excludedPaths` handles explicit file/folder ignores and `ignoreImages` skips image file paths
 globally. `@cortex/platform/sync-rules` is the single policy: the sync engine uses it for local
 watcher events, remote events, initial sync, reconciliation, and queued operations, and `syncStore`

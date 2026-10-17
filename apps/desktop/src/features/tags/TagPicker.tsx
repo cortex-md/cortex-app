@@ -10,6 +10,7 @@ import {
 	CommandItem,
 	CommandList,
 	CommandShortcut,
+	SimpleTooltip,
 } from "@cortex/ui"
 import { useCallback, useState } from "react"
 import { formatCount } from "@/utils/format"
@@ -132,18 +133,19 @@ function TagPickerDialog({ activeFilePath }: { activeFilePath: string }) {
 											{formatCount(entry.filePaths.length, "note")}
 										</span>
 									</span>
-									<Button
-										variant="ghost"
-										size="icon-xs"
-										aria-label={`Set color for ${entry.tag}`}
-										className="tag-picker-color-button"
-										style={{ backgroundColor: entry.color ?? "transparent" }}
-										title="Set tag color"
-										onClick={(e) => {
-											e.stopPropagation()
-											setEditingColorFor(editingColorFor === entry.tag ? null : entry.tag)
-										}}
-									/>
+									<SimpleTooltip label="Set tag color">
+										<Button
+											variant="ghost"
+											size="icon-xs"
+											aria-label={`Set color for ${entry.tag}`}
+											className="tag-picker-color-button"
+											style={{ backgroundColor: entry.color ?? "transparent" }}
+											onClick={(e) => {
+												e.stopPropagation()
+												setEditingColorFor(editingColorFor === entry.tag ? null : entry.tag)
+											}}
+										/>
+									</SimpleTooltip>
 									{isActive && <CommandShortcut>Added</CommandShortcut>}
 								</CommandItem>
 							)

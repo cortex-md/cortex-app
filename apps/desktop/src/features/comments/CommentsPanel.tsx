@@ -6,7 +6,7 @@ import {
 	useCommentsStore,
 	useVaultStore,
 } from "@cortex/core"
-import { Button, Kbd, TooltipProvider } from "@cortex/ui"
+import { Button, Kbd } from "@cortex/ui"
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useCommandHotkey } from "@/hooks/useCommandHotkey"
@@ -99,10 +99,34 @@ export default function CommentsPanel({ filePath }: CommentsPanelProps) {
 	}
 
 	return (
-		<TooltipProvider delayDuration={300}>
-			<div className="comments-panel">
-				{canWrite && <CommentDraftCard vaultPath={vaultPath} filePath={filePath} people={people} />}
-				{openThreads.map((thread) => (
+		<div className="comments-panel">
+			{canWrite && <CommentDraftCard vaultPath={vaultPath} filePath={filePath} people={people} />}
+			{openThreads.map((thread) => (
+				<CommentThreadCard
+					key={thread.id}
+					vaultPath={vaultPath}
+					notePath={filePath}
+					threadId={thread.id}
+					people={people}
+					canWrite={canWrite}
+					orphaned={ranges !== null && !ranges[thread.id]}
+					focused={thread.id === focusedThreadId}
+				/>
+			))}
+			{resolvedThreads.length > 0 && (
+				<Button
+					variant="ghost"
+					size="xs"
+					className="comments-resolved-toggle"
+					aria-expanded={showResolved}
+					onClick={() => setShowResolved((value) => !value)}
+				>
+					{showResolved ? <ChevronDownIcon /> : <ChevronRightIcon />}
+					{showResolved ? "Hide resolved" : "Show resolved"} ({resolvedThreads.length})
+				</Button>
+			)}
+			{showResolved &&
+				resolvedThreads.map((thread) => (
 					<CommentThreadCard
 						key={thread.id}
 						vaultPath={vaultPath}
@@ -111,35 +135,9 @@ export default function CommentsPanel({ filePath }: CommentsPanelProps) {
 						people={people}
 						canWrite={canWrite}
 						orphaned={ranges !== null && !ranges[thread.id]}
-						focused={thread.id === focusedThreadId}
+						focused={false}
 					/>
 				))}
-				{resolvedThreads.length > 0 && (
-					<Button
-						variant="ghost"
-						size="xs"
-						className="comments-resolved-toggle"
-						aria-expanded={showResolved}
-						onClick={() => setShowResolved((value) => !value)}
-					>
-						{showResolved ? <ChevronDownIcon /> : <ChevronRightIcon />}
-						{showResolved ? "Hide resolved" : "Show resolved"} ({resolvedThreads.length})
-					</Button>
-				)}
-				{showResolved &&
-					resolvedThreads.map((thread) => (
-						<CommentThreadCard
-							key={thread.id}
-							vaultPath={vaultPath}
-							notePath={filePath}
-							threadId={thread.id}
-							people={people}
-							canWrite={canWrite}
-							orphaned={ranges !== null && !ranges[thread.id]}
-							focused={false}
-						/>
-					))}
-			</div>
-		</TooltipProvider>
+		</div>
 	)
 }

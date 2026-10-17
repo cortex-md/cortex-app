@@ -3,8 +3,12 @@ import type { ObsidianImportTarget } from "@cortex/import-export"
 import { createModalStore } from "./createModalStore"
 
 export type QuickFinderRequest =
-	| { kind: "open" }
+	| { kind: "open"; query?: string }
 	| { kind: "relink-bookmark"; bookmarkPath: string; query: string }
+
+export interface CommandPaletteRequest {
+	query: string
+}
 
 export type AuthView = "login" | "register"
 
@@ -34,7 +38,7 @@ export type { ObsidianImportTarget, ResetPasswordTarget }
 const DEFAULT_QUICK_FINDER_REQUEST: QuickFinderRequest = { kind: "open" }
 
 export const quickFinderModal = createModalStore<QuickFinderRequest>()
-export const commandPaletteModal = createModalStore<true>()
+export const commandPaletteModal = createModalStore<CommandPaletteRequest>()
 export const tagPickerModal = createModalStore<true>()
 export const createFromTemplateModal = createModalStore<CreateFromTemplateTarget>()
 export const authModal = createModalStore<AuthTarget>()
@@ -55,7 +59,17 @@ export function openQuickFinder(request: QuickFinderRequest = DEFAULT_QUICK_FIND
 
 export function toggleCommandPalette(): void {
 	if (commandPaletteModal.getTarget()) commandPaletteModal.close()
-	else commandPaletteModal.open(true)
+	else commandPaletteModal.open({ query: "" })
+}
+
+export function openCommandPaletteFromQuickFinder(query: string): void {
+	quickFinderModal.close()
+	commandPaletteModal.open({ query })
+}
+
+export function openQuickFinderFromCommandPalette(query: string): void {
+	commandPaletteModal.close()
+	quickFinderModal.open({ kind: "open", query })
 }
 
 export function toggleTagPicker(): void {

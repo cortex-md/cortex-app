@@ -1,11 +1,11 @@
 import {
 	formatRelativeTime,
-	getFileModifiedTimes,
 	getTagPageModel,
 	type TagPageNote,
 	toVaultRelativePath,
 	useTagsStore,
 	useUIStore,
+	useVaultModifiedTimes,
 	useVaultStore,
 	useWorkspaceStore,
 } from "@cortex/core"
@@ -153,13 +153,13 @@ function TagNoteRow({
 export function TagPageView({ viewState, onStateChange }: CoreViewProps) {
 	const { tag, childTag } = readTagViewState(viewState)
 	const vault = useVaultStore((state) => state.vault)
-	const files = useVaultStore((state) => state.files)
+	const modifiedTimes = useVaultModifiedTimes()
 	const tagIndex = useTagsStore((state) => state.tagIndex)
 	const fileTags = useTagsStore((state) => state.fileTags)
 	const color = useTagsStore((state) => state.tagColors[tag] ?? null)
 	const model = useMemo(
-		() => getTagPageModel(tag, tagIndex, fileTags, getFileModifiedTimes(files), { childTag }),
-		[childTag, fileTags, files, tag, tagIndex],
+		() => getTagPageModel(tag, tagIndex, fileTags, modifiedTimes, { childTag }),
+		[childTag, fileTags, modifiedTimes, tag, tagIndex],
 	)
 	const excerpts = useNoteExcerpts(
 		vault?.path,

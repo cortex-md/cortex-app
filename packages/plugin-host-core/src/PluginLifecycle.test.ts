@@ -1,5 +1,6 @@
 import { commandRegistry } from "@cortex/commands"
 import { getPlatform } from "@cortex/platform"
+import { resetStateFiles } from "@cortex/platform/state-file"
 import { resetCustomPropertyTypes } from "@cortex/properties"
 import type { PluginDefinition } from "@cortex.md/api"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -22,6 +23,7 @@ const platform = {
 	fs: {
 		readFile: vi.fn(),
 		writeFile: vi.fn(),
+		atomicWriteFile: vi.fn(),
 		createDir: vi.fn(),
 		deleteFile: vi.fn(),
 	},
@@ -78,6 +80,8 @@ beforeEach(() => {
 	vi.mocked(getPlatform).mockReturnValue(platform as never)
 	platform.fs.readFile.mockReset()
 	platform.fs.writeFile.mockReset()
+	platform.fs.atomicWriteFile.mockReset()
+	resetStateFiles()
 	platform.fs.createDir.mockReset()
 	platform.notifications.send.mockClear()
 	resetNotificationRateLimits()
@@ -92,23 +96,18 @@ afterEach(() => {
 })
 
 describe("plugin host lifecycle", () => {
-	it("does not enable every plugin when plugins.json is invalid", async () => {
+	it("keeps plugins disabled when the vault lists none", async () => {
 		const activate = vi.fn()
 		const host = createPluginHost(createServices())
 		host.registerBundledPlugins([
-			createPlugin("invalid-json-plugin", { activation: "startup", activate }),
+			createPlugin("disabled-plugin", { activation: "startup", activate }),
 		])
-		platform.fs.readFile.mockResolvedValue("{")
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+		platform.fs.readFile.mockResolvedValue(JSON.stringify({ enabledPlugins: [] }))
 
 		await host.loadEnabledPlugins()
 
 		expect(activate).not.toHaveBeenCalled()
-		expect(platform.fs.writeFile).not.toHaveBeenCalled()
-		expect(usePluginStore.getState().plugins["invalid-json-plugin"]?.status).toBe("loaded")
-		expect(errorSpy).toHaveBeenCalledWith(
-			"[Plugin operation failed]",
-			expect.objectContaining({ operation: "read-enabled", pluginId: "registry" }),
-		)
+		expect(platform.fs.atomicWriteFile).not.toHaveBeenCalled()
+		expect(usePluginStore.getState().plugins["disabled-plugin"]?.status).toBe("loaded")
 	})
 })

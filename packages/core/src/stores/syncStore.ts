@@ -18,11 +18,12 @@ import {
 	normalizeSyncPreferences,
 	shouldIgnoreSyncPath,
 } from "@cortex/platform/sync-rules"
-import { getVaultFilePath, VAULT_FILES } from "@cortex/platform/utils"
+import { VAULT_FILES } from "@cortex/platform/utils"
 import { notifyVaultSchemaChanged } from "@cortex/properties"
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
+import { getVaultSyncState } from "../vault/vaultStateFiles"
 import { useAccessStore } from "./accessStore"
 import { useSubscriptionStore } from "./subscriptionStore"
 import { useSyncLogStore } from "./syncLogStore"
@@ -105,6 +106,16 @@ let lastSyncStart: {
 	requiresEntitlement: boolean
 } | null = null
 
+export function writeSyncPreferences(
+	vaultPath: string,
+	preferences: SyncPreferences,
+): Promise<void> {
+	return getVaultSyncState(vaultPath).update(
+		(state) => ({ ...state, preferences: { ...preferences } }),
+		{ immediate: true },
+	)
+}
+
 const VAULT_KEY_RETRY_MS = 15_000
 const FILE_EVENT_BATCH_MS = 50
 let vaultKeyRetryTimer: ReturnType<typeof setTimeout> | null = null
@@ -140,29 +151,20 @@ export const useSyncStore = create<SyncState>()(
 
 			loadSyncPreferences: async (vaultPath) => {
 				const platform = getPlatform()
-				const filePath = getVaultFilePath(vaultPath, VAULT_FILES.syncPreferences)
-				try {
-					const content = await platform.fs.readFile(filePath)
-					const parsed = JSON.parse(content) as Partial<SyncPreferences>
-					const prefs = normalizeSyncPreferences(parsed)
-					set((state) => {
-						state.syncPreferences = prefs
-					})
-					await platform.sync.updateSyncPreferences(prefs)
-				} catch {
-					const defaults = createDefaultSyncPreferences()
-					set((state) => {
-						state.syncPreferences = defaults
-					})
-					await platform.sync.updateSyncPreferences(defaults)
-				}
+				const { preferences } = await getVaultSyncState(vaultPath).read()
+				const prefs = preferences
+					? normalizeSyncPreferences(preferences as Partial<SyncPreferences>)
+					: createDefaultSyncPreferences()
+				set((state) => {
+					state.syncPreferences = prefs
+				})
+				await platform.sync.updateSyncPreferences(prefs)
 			},
 
 			saveSyncPreferences: async (vaultPath, preferences) => {
 				const platform = getPlatform()
 				const prefs = normalizeSyncPreferences(preferences)
-				const filePath = getVaultFilePath(vaultPath, VAULT_FILES.syncPreferences)
-				await platform.fs.writeFile(filePath, JSON.stringify(prefs, null, "\t"))
+				await writeSyncPreferences(vaultPath, prefs)
 				set((state) => {
 					state.syncPreferences = prefs
 				})
@@ -176,10 +178,7 @@ export const useSyncStore = create<SyncState>()(
 				})
 				const prefs = get().syncPreferences
 				const vaultPath = getCurrentVaultPath()
-				if (vaultPath) {
-					const filePath = getVaultFilePath(vaultPath, VAULT_FILES.syncPreferences)
-					await platform.fs.writeFile(filePath, JSON.stringify(prefs, null, "\t"))
-				}
+				if (vaultPath) await writeSyncPreferences(vaultPath, prefs)
 				await platform.sync.updateSyncPreferences(prefs)
 			},
 
@@ -199,10 +198,7 @@ export const useSyncStore = create<SyncState>()(
 				})
 				const prefs = get().syncPreferences
 				const vaultPath = getCurrentVaultPath()
-				if (vaultPath) {
-					const filePath = getVaultFilePath(vaultPath, VAULT_FILES.syncPreferences)
-					await platform.fs.writeFile(filePath, JSON.stringify(prefs, null, "\t"))
-				}
+				if (vaultPath) await writeSyncPreferences(vaultPath, prefs)
 				await platform.sync.updateSyncPreferences(prefs)
 			},
 

@@ -9,6 +9,7 @@ import { getPlatform } from "@cortex/platform"
 import {
 	ensureMarkdownExtension,
 	getBaseName,
+	getContentFingerprint,
 	getParentPath,
 	isMarkdownPath,
 	isPathOrDescendant,
@@ -37,6 +38,14 @@ import { formatTemplateDate } from "../templates"
 import { pathExists, resolveUniquePath, writeCleanNote } from "../utils/createdNote"
 import { getPortableFileNameError } from "../utils/fileName"
 import { createDefaultFrontmatter } from "../utils/frontmatter"
+import {
+	isEmptyVaultIndexDelta,
+	isStructuralVaultIndexDelta,
+	VaultIndex,
+	type VaultIndexChange,
+	type VaultIndexDelta,
+} from "../vault/vaultIndex"
+import { closeVaultStateFiles } from "../vault/vaultStateFiles"
 import { assertVaultPathWritable, assertVaultTreeWritable, useAccessStore } from "./accessStore"
 import { useBookmarksStore } from "./bookmarksStore"
 import { useCommentsStore } from "./commentsStore"
@@ -55,10 +64,14 @@ export interface VaultFileChange {
 }
 
 type VaultFileChangeListener = (changes: VaultFileChange[]) => void
+type VaultIndexListener = (delta: VaultIndexDelta) => void
 
 const WATCHER_BATCH_DELAY_MS = 200
 
 const vaultFileChangeListeners = new Set<VaultFileChangeListener>()
+const vaultIndexListeners = new Set<VaultIndexListener>()
+let vaultIndex = new VaultIndex("")
+let indexedFiles: readonly FileEntry[] = vaultIndex.getFiles()
 const pendingWatchEvents = new Map<string, WatchEvent>()
 let watcherBatchTimer: ReturnType<typeof setTimeout> | null = null
 let watcherBatchQueue: Promise<void> = Promise.resolve()
@@ -76,24 +89,109 @@ export function subscribeVaultFileChanges(listener: VaultFileChangeListener): ()
 	return () => vaultFileChangeListeners.delete(listener)
 }
 
+export function subscribeVaultIndexChanges(listener: VaultIndexListener): () => void {
+	vaultIndexListeners.add(listener)
+	return () => vaultIndexListeners.delete(listener)
+}
+
+function createVaultIndex(rootPath: string, files: readonly FileEntry[]): VaultIndex {
+	const index = new VaultIndex(rootPath, files)
+	index.setDatabaseViewNotes(useDatabaseStore.getState().viewNotePaths)
+	return index
+}
+
+export function getVaultIndex(): VaultIndex {
+	const { vault, files } = useVaultStore.getState()
+	const rootPath = normalizePath(vault?.path ?? "")
+	if (vaultIndex.rootPath !== rootPath || files !== indexedFiles) {
+		vaultIndex = createVaultIndex(rootPath, files)
+		indexedFiles = files
+	}
+	return vaultIndex
+}
+
+function resetVaultIndex(rootPath: string, files: readonly FileEntry[]) {
+	vaultIndex = createVaultIndex(rootPath, files)
+	indexedFiles = vaultIndex.getFiles()
+	return {
+		files: vaultIndex.getFiles(),
+		fileTreeVersion: vaultIndex.treeVersion,
+		fileEntryVersion: vaultIndex.entryVersion,
+	}
+}
+
+function findScanRoot(index: VaultIndex, path: string): string {
+	let current = normalizePath(path)
+	while (current && current !== index.rootPath && !index.isFolder(current)) {
+		const parent = getParentPath(current)
+		if (parent === current) break
+		current = parent
+	}
+	return current || index.rootPath
+}
+
+function commitVaultIndexDelta(index: VaultIndex, delta: VaultIndexDelta): void {
+	if (index !== vaultIndex) return
+	if (!isEmptyVaultIndexDelta(delta)) {
+		if (isStructuralVaultIndexDelta(delta)) indexedFiles = index.getFiles()
+		useVaultStore.setState((state) => ({
+			files: isStructuralVaultIndexDelta(delta) ? index.getFiles() : state.files,
+			fileTreeVersion: index.treeVersion,
+			fileEntryVersion: index.entryVersion,
+		}))
+		for (const listener of vaultIndexListeners) listener(delta)
+	}
+	const scanRoots = new Set(delta.missingParents.map((path) => findScanRoot(index, path)))
+	for (const root of scanRoots) void useVaultStore.getState().scanFolder(root)
+}
+
+function collectNewFolderRoots(delta: VaultIndexDelta): string[] {
+	const folders = delta.added.flatMap((entry) => (entry.isDir ? [entry.path] : []))
+	return folders.filter(
+		(folder) => !folders.some((other) => other !== folder && isPathOrDescendant(folder, other)),
+	)
+}
+
+function createdFileEntry(filePath: string, content: string): FileEntry {
+	const modifiedAt = noteCache.getEntry(filePath)?.metadata?.modifiedAt ?? Date.now()
+	return {
+		path: normalizePath(filePath),
+		name: getBaseName(filePath),
+		isDir: false,
+		...getContentFingerprint(content, modifiedAt),
+	}
+}
+
+function createdFolderEntry(folderPath: string): FileEntry {
+	return {
+		path: normalizePath(folderPath),
+		name: getBaseName(folderPath),
+		isDir: true,
+		mtime: Math.floor(Date.now() / 1000),
+		size: 0,
+	}
+}
+
+export function trackCreatedFiles(
+	notePaths: readonly string[],
+	folderPaths: readonly string[] = [],
+): void {
+	useVaultStore.getState().applyFileChanges([
+		...folderPaths.map(
+			(path): VaultIndexChange => ({ kind: "upsert", entry: createdFolderEntry(path) }),
+		),
+		...notePaths.map(
+			(path): VaultIndexChange => ({
+				kind: "upsert",
+				entry: createdFileEntry(path, noteCache.getEntry(path)?.content ?? ""),
+			}),
+		),
+	])
+}
+
 function isHiddenVaultPath(path: string, vaultPath: string): boolean {
 	const relativePath = toVaultRelativePath(path, vaultPath)
 	return relativePath === null || relativePath.split("/").some((segment) => segment.startsWith("."))
-}
-
-function removeDeletedEntries(files: FileEntry[], deletedPaths: string[]): FileEntry[] {
-	if (deletedPaths.length === 0) return files
-	const nextFiles = files.filter(
-		(file) => !deletedPaths.some((deletedPath) => isPathOrDescendant(file.path, deletedPath)),
-	)
-	return nextFiles.length === files.length ? files : nextFiles
-}
-
-function addCreatedEntries(files: FileEntry[], entries: FileEntry[]): FileEntry[] {
-	if (entries.length === 0) return files
-	const known = new Set(files.map((file) => file.path))
-	const added = entries.filter((entry) => !known.has(entry.path))
-	return added.length === 0 ? files : [...files, ...added]
 }
 
 function scheduleWatcherBatch(processBatch: (changes: VaultFileChange[]) => Promise<void>): void {
@@ -125,13 +223,18 @@ function notifyVaultFileChanges(changes: VaultFileChange[]): void {
 	for (const listener of vaultFileChangeListeners) listener(changes)
 }
 
-async function writeCleanNoteAndRefreshFiles(
+async function writeCleanNoteAndTrack(
 	filePath: string,
 	content: string,
-	refreshFiles: () => Promise<void>,
+	extraChanges: VaultIndexChange[] = [],
 ): Promise<void> {
 	await writeCleanNote(filePath, content)
-	await refreshFiles()
+	useVaultStore
+		.getState()
+		.applyFileChanges([
+			...extraChanges,
+			{ kind: "upsert", entry: createdFileEntry(filePath, content) },
+		])
 }
 
 async function createDailyNoteContent(
@@ -171,23 +274,22 @@ function resolveDailyNotePath(vaultPath: string, now: Date): string {
 	return ensureMarkdownExtension(joinPath(directory, formatTemplateDate(now, format)))
 }
 
-function getAffectedNotePaths(files: FileEntry[], oldPath: string): string[] {
-	const paths = files.flatMap((file) =>
-		!file.isDir && isPathOrDescendant(file.path, oldPath) ? [file.path] : [],
-	)
+function getAffectedNotePaths(oldPath: string): string[] {
+	const index = getVaultIndex()
+	if (!index.get(oldPath)?.isDir) return [oldPath]
+	const paths = index.collectSubtree(oldPath).flatMap((file) => (file.isDir ? [] : [file.path]))
 	return paths.length > 0 ? paths : [oldPath]
 }
 
-async function flushAffectedNotes(files: FileEntry[], oldPath: string): Promise<void> {
-	await Promise.all(getAffectedNotePaths(files, oldPath).map((path) => noteCache.flush(path)))
+async function flushAffectedNotes(oldPath: string): Promise<void> {
+	await Promise.all(getAffectedNotePaths(oldPath).map((path) => noteCache.flush(path)))
 }
 
 async function renameAfterFlushingAffectedNotes(
-	files: FileEntry[],
 	oldPath: string,
 	newPath: string,
 ): Promise<string[]> {
-	const affectedNotePaths = getAffectedNotePaths(files, oldPath)
+	const affectedNotePaths = getAffectedNotePaths(oldPath)
 	await Promise.all(affectedNotePaths.map((path) => noteCache.flush(path)))
 	await getPlatform().fs.renameFile(oldPath, newPath)
 	return affectedNotePaths
@@ -212,16 +314,18 @@ async function renameDatabaseViewNote(
 	vaultPath: string,
 	oldFolderPath: string,
 	newFolderPath: string,
-): Promise<void> {
-	if (!useDatabaseStore.getState().databases[normalizePath(oldFolderPath)]) return
+): Promise<VaultIndexChange | null> {
+	if (!useDatabaseStore.getState().databases[normalizePath(oldFolderPath)]) return null
 	const movedNotePath = joinPath(newFolderPath, `${getBaseName(oldFolderPath)}.md`)
 	const renamedNotePath = joinPath(newFolderPath, `${getBaseName(newFolderPath)}.md`)
-	if (movedNotePath === renamedNotePath || (await pathExists(renamedNotePath))) return
+	if (movedNotePath === renamedNotePath || (await pathExists(renamedNotePath))) return null
 	try {
 		await getPlatform().fs.renameFile(movedNotePath, renamedNotePath)
 		await migrateVaultPathReferences(vaultPath, movedNotePath, renamedNotePath)
+		return { kind: "rename", from: movedNotePath, to: renamedNotePath }
 	} catch (error) {
 		console.error("[Database view note rename failed]", { path: movedNotePath, error })
+		return null
 	}
 }
 
@@ -255,6 +359,8 @@ async function refreshOpenNote(filePath: string): Promise<void> {
 export interface VaultState {
 	vault: VaultMetadata | null
 	files: FileEntry[]
+	fileTreeVersion: number
+	fileEntryVersion: number
 	recentVaults: VaultRegistryEntry[]
 	loading: boolean
 	error: string | null
@@ -267,6 +373,8 @@ export interface VaultState {
 	loadVaultSnapshot: (path: string) => Promise<void>
 	closeVault: () => Promise<void>
 	refreshFiles: () => Promise<void>
+	scanFolder: (folderPath: string) => Promise<void>
+	applyFileChanges: (changes: readonly VaultIndexChange[]) => void
 	loadRecentVaults: () => Promise<void>
 	clearPendingOnboardingNotePath: () => void
 	removeRecentVault: (uuid: string) => Promise<void>
@@ -283,33 +391,31 @@ export interface VaultState {
 
 export const useVaultStore = create<VaultState>((set, get) => {
 	const processWatcherBatch = async (changes: VaultFileChange[]): Promise<void> => {
-		const { vault, files } = get()
+		const { vault } = get()
 		if (!vault) return
-		const createdPaths = changes.flatMap((change) =>
-			change.kind === "created" || change.kind === "renamed" ? [change.path] : [],
+		const index = getVaultIndex()
+		changes = changes.map((change) =>
+			change.kind === "created" && index.has(change.path)
+				? { ...change, kind: "modified" }
+				: change,
 		)
-		const knownPaths = createdPaths.length > 0 ? new Set(files.map((file) => file.path)) : null
-		if (knownPaths) {
-			changes = changes.map((change) =>
-				change.kind === "created" && knownPaths.has(change.path)
-					? { ...change, kind: "modified" }
-					: change,
+		if (
+			changes.some(
+				(change) => (change.kind === "created" || change.kind === "renamed") && !change.entry,
 			)
-		}
-		const unknownCreated = knownPaths
-			? changes.filter((change) => change.kind === "created" && !knownPaths.has(change.path))
-			: []
-		if (unknownCreated.some((change) => !change.entry)) {
+		) {
 			await get().refreshFiles()
 		} else {
-			const deletedPaths = changes.flatMap((change) =>
-				change.kind === "deleted" ? [change.path] : [],
-			)
-			const createdEntries = unknownCreated.flatMap((change) =>
-				change.entry && !isHiddenVaultPath(change.path, vault.path) ? [change.entry] : [],
-			)
-			const nextFiles = addCreatedEntries(removeDeletedEntries(files, deletedPaths), createdEntries)
-			if (nextFiles !== files) set({ files: nextFiles })
+			const patch: VaultIndexChange[] = []
+			for (const change of changes) {
+				if (change.kind === "deleted") patch.push({ kind: "remove", path: change.path })
+				else if (change.entry && !isHiddenVaultPath(change.path, vault.path)) {
+					patch.push({ kind: "upsert", entry: change.entry })
+				}
+			}
+			const delta = index.apply(patch)
+			commitVaultIndexDelta(index, delta)
+			for (const folder of collectNewFolderRoots(delta)) void get().scanFolder(folder)
 		}
 		if (get().vault === vault) notifyVaultFileChanges(changes)
 	}
@@ -331,6 +437,8 @@ export const useVaultStore = create<VaultState>((set, get) => {
 	return {
 		vault: null,
 		files: [],
+		fileTreeVersion: 0,
+		fileEntryVersion: 0,
 		recentVaults: [],
 		loading: false,
 		error: null,
@@ -368,7 +476,7 @@ export const useVaultStore = create<VaultState>((set, get) => {
 
 				set({
 					vault: metadata,
-					files,
+					...resetVaultIndex(metadata.path, files),
 					loading: false,
 					stopWatcher,
 					pendingOnboardingNotePath,
@@ -408,7 +516,7 @@ export const useVaultStore = create<VaultState>((set, get) => {
 
 				set({
 					vault: metadata,
-					files,
+					...resetVaultIndex(metadata.path, files),
 					loading: false,
 					pendingOnboardingNotePath: null,
 				})
@@ -422,12 +530,15 @@ export const useVaultStore = create<VaultState>((set, get) => {
 			stopWatcher?.()
 			clearWatcherBatch()
 			useAccessStore.getState().resetAccess()
-			await getSettingsManager().flush()
+			await Promise.all([
+				getSettingsManager().flush(),
+				vault ? closeVaultStateFiles(vault.path) : undefined,
+			])
 			useBookmarksStore.getState().reset()
 			useTemplateStore.getState().reset()
 			set({
 				vault: null,
-				files: [],
+				...resetVaultIndex("", []),
 				stopWatcher: null,
 				error: null,
 				pendingOnboardingNotePath: null,
@@ -438,13 +549,40 @@ export const useVaultStore = create<VaultState>((set, get) => {
 		refreshFiles: async () => {
 			const { vault } = get()
 			if (!vault) return
+			const index = getVaultIndex()
 			try {
 				const files = await getPlatform().vault.scanVault(vault.path)
-				set({ files })
+				if (get().vault !== vault) return
+				commitVaultIndexDelta(index, index.replaceAll(files))
 			} catch (error) {
 				console.error("[Vault refresh failed]", { vaultPath: vault.path, error })
 				set({ error: String(error) })
 			}
+		},
+
+		scanFolder: async (folderPath) => {
+			const { vault } = get()
+			if (!vault) return
+			const folder = normalizePath(folderPath)
+			if (folder === normalizePath(vault.path)) return get().refreshFiles()
+			const index = getVaultIndex()
+			try {
+				const entries = await getPlatform().vault.scanVault(folder)
+				if (get().vault !== vault) return
+				const descendants = entries.filter(
+					(entry) =>
+						isPathOrDescendant(entry.path, folder) && !isHiddenVaultPath(entry.path, vault.path),
+				)
+				commitVaultIndexDelta(index, index.replaceSubtree(folder, descendants))
+			} catch (error) {
+				console.error("[Vault folder scan failed]", { folderPath: folder, error })
+			}
+		},
+
+		applyFileChanges: (changes) => {
+			if (changes.length === 0) return
+			const index = getVaultIndex()
+			commitVaultIndexDelta(index, index.apply(changes))
 		},
 
 		loadRecentVaults: async () => {
@@ -489,7 +627,7 @@ export const useVaultStore = create<VaultState>((set, get) => {
 				resolveUniquePath(parentPath, fileName),
 				createNoteWithPropertyDefaults(vaultPath ?? parentPath, createDefaultFrontmatter()),
 			])
-			await writeCleanNoteAndRefreshFiles(filePath, content, get().refreshFiles)
+			await writeCleanNoteAndTrack(filePath, content)
 			invalidatePropertySuggestions(vaultPath)
 			return filePath
 		},
@@ -500,7 +638,7 @@ export const useVaultStore = create<VaultState>((set, get) => {
 			if (validationError) throw new Error(validationError)
 			assertVaultPathWritable(parentPath, true)
 			const filePath = await resolveUniquePath(parentPath, fileName)
-			await writeCleanNoteAndRefreshFiles(filePath, content, get().refreshFiles)
+			await writeCleanNoteAndTrack(filePath, content)
 			return filePath
 		},
 
@@ -511,18 +649,19 @@ export const useVaultStore = create<VaultState>((set, get) => {
 			assertVaultPathWritable(parentPath, true)
 			const folderPath = await resolveUniquePath(parentPath, name)
 			await platform.fs.createDir(folderPath)
-			await get().refreshFiles()
+			get().applyFileChanges([{ kind: "upsert", entry: createdFolderEntry(folderPath) }])
 			return folderPath
 		},
 
 		deleteFile: async (filePath) => {
 			const platform = getPlatform()
 			const vaultPath = get().vault?.path
-			const deletedEntry = get().files.find((file) => file.path === filePath)
+			const deletedEntry = getVaultIndex().get(filePath)
 			assertVaultTreeWritable(filePath, deletedEntry?.isDir ?? false)
 			await platform.fs.deleteFile(filePath)
 			noteCache.forget(filePath, { descendants: deletedEntry?.isDir ?? false })
 			useWorkspaceStore.getState().closeTabsByPath(filePath)
+			get().applyFileChanges([{ kind: "remove", path: filePath }])
 			await Promise.all([
 				vaultPath
 					? useBookmarksStore.getState().removeBookmarksUnderPath(vaultPath, filePath)
@@ -531,7 +670,6 @@ export const useVaultStore = create<VaultState>((set, get) => {
 					? removeNotePropertiesUiState(vaultPath, filePath)
 					: undefined,
 				vaultPath ? useCommentsStore.getState().removeNoteComments(vaultPath, filePath) : undefined,
-				get().refreshFiles(),
 			])
 			if (vaultPath && isMarkdownPath(filePath)) invalidatePropertySuggestions(vaultPath)
 		},
@@ -543,17 +681,22 @@ export const useVaultStore = create<VaultState>((set, get) => {
 			const newPath = joinPath(getParentPath(oldPath), newName)
 			if (oldPath === newPath) return oldPath
 
-			const files = get().files
-			assertVaultTreeWritable(oldPath, files.find((file) => file.path === oldPath)?.isDir ?? false)
+			const known = getVaultIndex().get(oldPath)
+			assertVaultTreeWritable(oldPath, known?.isDir ?? false)
 			const databaseActions = await import("../runtime/databaseActions")
 			await databaseActions.flushDatabaseConfigWrites()
-			await flushAffectedNotes(files, oldPath)
+			await flushAffectedNotes(oldPath)
 			await platform.fs.renameFile(oldPath, newPath)
 			const vaultPath = get().vault?.path
+			const changes: VaultIndexChange[] = [{ kind: "rename", from: oldPath, to: newPath }]
 			if (vaultPath) await migrateVaultPathReferences(vaultPath, oldPath, newPath)
-			if (vaultPath) await renameDatabaseViewNote(vaultPath, oldPath, newPath)
+			const viewNoteRename = vaultPath
+				? await renameDatabaseViewNote(vaultPath, oldPath, newPath)
+				: null
+			if (viewNoteRename) changes.push(viewNoteRename)
 			if (isMarkdownPath(oldPath)) databaseActions.renameDatabaseRowOrder(oldPath, newPath)
-			await get().refreshFiles()
+			if (known) get().applyFileChanges(changes)
+			else await get().refreshFiles()
 			if (vaultPath && (isMarkdownPath(oldPath) || isMarkdownPath(newPath))) {
 				invalidatePropertySuggestions(vaultPath)
 			}
@@ -561,20 +704,20 @@ export const useVaultStore = create<VaultState>((set, get) => {
 		},
 
 		moveFile: async (oldPath, targetParentPath) => {
-			const { files, vault } = get()
+			const { vault } = get()
 			if (!vault) throw new Error("No vault is open")
 			if (oldPath === vault.path) throw new Error("The vault root cannot be moved")
 
-			const sourceEntry = files.find((file) => file.path === oldPath)
+			const index = getVaultIndex()
+			const sourceEntry = index.get(oldPath)
 			if (!sourceEntry) throw new Error("Source file or folder was not found")
 
 			const normalizedTargetParent = normalizePath(targetParentPath)
 			if (!isPathOrDescendant(normalizedTargetParent, vault.path)) {
 				throw new Error("Destination must be inside the current vault")
 			}
-			if (normalizedTargetParent !== vault.path) {
-				const targetParent = files.find((file) => file.path === normalizedTargetParent)
-				if (!targetParent?.isDir) throw new Error("Destination folder was not found")
+			if (normalizedTargetParent !== vault.path && !index.isFolder(normalizedTargetParent)) {
+				throw new Error("Destination folder was not found")
 			}
 			if (sourceEntry.isDir && isPathOrDescendant(normalizedTargetParent, oldPath)) {
 				throw new Error("A folder cannot be moved into itself")
@@ -584,17 +727,15 @@ export const useVaultStore = create<VaultState>((set, get) => {
 
 			const newPath = joinPath(normalizedTargetParent, getBaseName(oldPath))
 			if (newPath === oldPath) return oldPath
-			if (files.some((file) => file.path === newPath)) {
+			if (index.has(newPath)) {
 				throw new Error("Destination already exists")
 			}
 
 			const { flushDatabaseConfigWrites } = await import("../runtime/databaseActions")
 			await flushDatabaseConfigWrites()
-			const affectedNotePaths = await renameAfterFlushingAffectedNotes(files, oldPath, newPath)
-			await Promise.all([
-				migrateVaultPathReferences(vault.path, oldPath, newPath),
-				get().refreshFiles(),
-			])
+			const affectedNotePaths = await renameAfterFlushingAffectedNotes(oldPath, newPath)
+			get().applyFileChanges([{ kind: "rename", from: oldPath, to: newPath }])
+			await migrateVaultPathReferences(vault.path, oldPath, newPath)
 			if (
 				isMarkdownPath(oldPath) ||
 				isMarkdownPath(newPath) ||
@@ -617,30 +758,34 @@ export const useVaultStore = create<VaultState>((set, get) => {
 			const duplicatedContent = vaultPath
 				? await prepareDuplicatedNote(vaultPath, content)
 				: content
-			await writeCleanNoteAndRefreshFiles(newPath, duplicatedContent, get().refreshFiles)
+			await writeCleanNoteAndTrack(newPath, duplicatedContent)
 			if (vaultPath && isMarkdownPath(newPath)) invalidatePropertySuggestions(vaultPath)
 			return newPath
 		},
 
 		openDailyNote: async () => {
-			const { vault, files } = get()
+			const { vault } = get()
 			if (!vault) return null
 
+			const index = getVaultIndex()
 			const now = new Date()
 			const filePath = resolveDailyNotePath(vault.path, now)
-			if (files.some((file) => file.path === filePath)) return filePath
+			if (index.has(filePath)) return filePath
 			if (await pathExists(filePath)) return filePath
 
 			const dailyDir = getParentPath(filePath)
-			const dailyDirExists =
-				dailyDir === vault.path || files.some((file) => file.isDir && file.path === dailyDir)
+			const dailyDirExists = dailyDir === vault.path || index.isFolder(dailyDir)
 			assertVaultPathWritable(dailyDirExists ? dailyDir : vault.path, true)
 			const { templateId } = useSettingsStore.getState().settings.dailyNotes
 			const [content] = await Promise.all([
 				createDailyNoteContent(vault, filePath, now, templateId),
 				dailyDirExists ? Promise.resolve() : getPlatform().fs.createDir(dailyDir),
 			])
-			await writeCleanNoteAndRefreshFiles(filePath, content, get().refreshFiles)
+			await writeCleanNoteAndTrack(
+				filePath,
+				content,
+				dailyDirExists ? [] : [{ kind: "upsert", entry: createdFolderEntry(dailyDir) }],
+			)
 			invalidatePropertySuggestions(vault.path)
 			return filePath
 		},
@@ -649,6 +794,12 @@ export const useVaultStore = create<VaultState>((set, get) => {
 
 useVaultStore.subscribe((state) => {
 	setVaultRuntimeState(state.vault?.path ?? null, state.refreshFiles)
+})
+
+useDatabaseStore.subscribe((state, previous) => {
+	if (state.viewNotePaths === previous.viewNotePaths) return
+	const index = getVaultIndex()
+	commitVaultIndexDelta(index, index.setDatabaseViewNotes(state.viewNotePaths))
 })
 
 const initialVaultState = useVaultStore.getState()

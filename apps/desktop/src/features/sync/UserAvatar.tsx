@@ -5,10 +5,7 @@ import {
 	AvatarGroupCount,
 	AvatarImage,
 	cn,
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
+	SimpleTooltip,
 } from "@cortex/ui"
 import type { ComponentProps } from "react"
 import { getInitials } from "@/utils/format"
@@ -55,33 +52,21 @@ export function UserFacepile({ users, max = 3, size = "sm", className, label }: 
 	const visible = users.slice(0, max)
 	const hiddenUsers = users.slice(max)
 	return (
-		<TooltipProvider delayDuration={300} skipDelayDuration={150}>
-			<AvatarGroup
-				className={cn("user-facepile", className)}
-				role="group"
-				aria-label={label ?? users.map((user) => user.name).join(", ")}
-			>
-				{visible.map((user) => (
-					<Tooltip key={user.userId}>
-						<TooltipTrigger asChild>
-							<UserAvatar name={user.name} avatarUrl={user.avatarUrl} size={size} />
-						</TooltipTrigger>
-						<TooltipContent side="bottom" sideOffset={4}>
-							{user.name}
-						</TooltipContent>
-					</Tooltip>
-				))}
-				{hiddenUsers.length > 0 && (
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<AvatarGroupCount>+{hiddenUsers.length}</AvatarGroupCount>
-						</TooltipTrigger>
-						<TooltipContent side="bottom" sideOffset={4}>
-							{hiddenUsers.map((user) => user.name).join(", ")}
-						</TooltipContent>
-					</Tooltip>
-				)}
-			</AvatarGroup>
-		</TooltipProvider>
+		<AvatarGroup
+			className={cn("user-facepile", className)}
+			role="group"
+			aria-label={label ?? users.map((user) => user.name).join(", ")}
+		>
+			{visible.map((user) => (
+				<SimpleTooltip key={user.userId} label={user.name} side="bottom">
+					<UserAvatar name={user.name} avatarUrl={user.avatarUrl} size={size} />
+				</SimpleTooltip>
+			))}
+			{hiddenUsers.length > 0 && (
+				<SimpleTooltip label={hiddenUsers.map((user) => user.name).join(", ")} side="bottom">
+					<AvatarGroupCount>+{hiddenUsers.length}</AvatarGroupCount>
+				</SimpleTooltip>
+			)}
+		</AvatarGroup>
 	)
 }

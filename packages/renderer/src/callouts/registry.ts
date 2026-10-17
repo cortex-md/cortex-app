@@ -6,6 +6,7 @@ export interface CalloutTypeDefinition {
 	label: string
 	color?: string
 	backgroundColor?: string
+	icon?: string
 	fallbackType?: string
 }
 
@@ -15,6 +16,7 @@ export interface CalloutTypeRegistration {
 	label?: string
 	color?: string
 	backgroundColor?: string
+	icon?: string
 }
 
 interface CalloutRegistrationEntry {
@@ -24,19 +26,19 @@ interface CalloutRegistrationEntry {
 }
 
 const builtinCalloutTypes: CalloutTypeDefinition[] = [
-	{ type: "note", aliases: [], label: "Note" },
-	{ type: "abstract", aliases: ["summary", "tldr"], label: "Abstract" },
-	{ type: "info", aliases: [], label: "Info" },
-	{ type: "todo", aliases: [], label: "Todo" },
-	{ type: "tip", aliases: ["hint", "important"], label: "Tip" },
-	{ type: "success", aliases: ["check", "done"], label: "Success" },
-	{ type: "question", aliases: ["help", "faq"], label: "Question" },
-	{ type: "warning", aliases: ["caution", "attention"], label: "Warning" },
-	{ type: "failure", aliases: ["fail", "missing"], label: "Failure" },
-	{ type: "danger", aliases: ["error"], label: "Danger" },
-	{ type: "bug", aliases: [], label: "Bug" },
-	{ type: "example", aliases: [], label: "Example" },
-	{ type: "quote", aliases: ["cite"], label: "Quote" },
+	{ type: "note", aliases: [], label: "Note", icon: "pencil" },
+	{ type: "abstract", aliases: ["summary", "tldr"], label: "Abstract", icon: "clipboard-list" },
+	{ type: "info", aliases: [], label: "Info", icon: "info" },
+	{ type: "todo", aliases: [], label: "Todo", icon: "circle-check" },
+	{ type: "tip", aliases: ["hint", "important"], label: "Tip", icon: "flame" },
+	{ type: "success", aliases: ["check", "done"], label: "Success", icon: "check" },
+	{ type: "question", aliases: ["help", "faq"], label: "Question", icon: "circle-help" },
+	{ type: "warning", aliases: ["caution", "attention"], label: "Warning", icon: "triangle-alert" },
+	{ type: "failure", aliases: ["fail", "missing"], label: "Failure", icon: "x" },
+	{ type: "danger", aliases: ["error"], label: "Danger", icon: "zap" },
+	{ type: "bug", aliases: [], label: "Bug", icon: "bug" },
+	{ type: "example", aliases: [], label: "Example", icon: "list" },
+	{ type: "quote", aliases: ["cite"], label: "Quote", icon: "quote" },
 ]
 
 const registrations: CalloutRegistrationEntry[] = []
@@ -78,6 +80,7 @@ function buildEffectiveCalloutTypes(): CalloutTypeDefinition[] {
 				entry.registration.label?.trim() || existing?.label || formatCalloutLabel(canonicalType),
 			color: entry.registration.color ?? existing?.color,
 			backgroundColor: entry.registration.backgroundColor ?? existing?.backgroundColor,
+			icon: entry.registration.icon ?? existing?.icon,
 		}
 
 		if (existing) {

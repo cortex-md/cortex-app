@@ -14,6 +14,7 @@ vi.mock("@cortex/platform", () => ({
 		fs: {
 			readFile: vi.fn(),
 			writeFile: vi.fn(),
+			atomicWriteFile: vi.fn(),
 		},
 		storage: {
 			getAppDataDir: vi.fn(),
@@ -25,6 +26,7 @@ const mockPlatform = {
 	fs: {
 		readFile: vi.fn(),
 		writeFile: vi.fn(),
+		atomicWriteFile: vi.fn(),
 	},
 	storage: {
 		getAppDataDir: vi.fn(),
@@ -34,7 +36,7 @@ const mockPlatform = {
 beforeEach(() => {
 	vi.mocked(getPlatform).mockReturnValue(mockPlatform as never)
 	mockPlatform.fs.readFile.mockReset()
-	mockPlatform.fs.writeFile.mockResolvedValue(undefined)
+	mockPlatform.fs.atomicWriteFile.mockResolvedValue(undefined)
 	mockPlatform.storage.getAppDataDir.mockResolvedValue("/home/user/.cortex")
 	vi.useFakeTimers()
 })
@@ -160,7 +162,7 @@ describe("set()", () => {
 		const manager = new SettingsManager()
 		await manager.loadFromVault("/vault")
 		await manager.set("editor", "wordWrap", false)
-		expect(mockPlatform.fs.writeFile).not.toHaveBeenCalled()
+		expect(mockPlatform.fs.atomicWriteFile).not.toHaveBeenCalled()
 	})
 
 	it("notifies subscribers with change event", async () => {
@@ -186,14 +188,14 @@ describe("set()", () => {
 		await manager.set("editor", "tabSize", 8)
 		vi.advanceTimersByTime(1001)
 		await vi.runAllTimersAsync()
-		expect(mockPlatform.fs.writeFile).toHaveBeenCalledTimes(1)
+		expect(mockPlatform.fs.atomicWriteFile).toHaveBeenCalledTimes(1)
 	})
 
 	it("writes native window effects to global settings immediately", async () => {
 		const manager = new SettingsManager()
 		await manager.set("appearance", "nativeWindowEffects", false)
 
-		expect(mockPlatform.fs.writeFile).toHaveBeenCalledWith(
+		expect(mockPlatform.fs.atomicWriteFile).toHaveBeenCalledWith(
 			"/home/user/.cortex/settings.json",
 			expect.stringContaining('"nativeWindowEffects": false'),
 		)
@@ -211,7 +213,7 @@ describe("set()", () => {
 		expect(listener).not.toHaveBeenCalled()
 		vi.advanceTimersByTime(1001)
 		await vi.runAllTimersAsync()
-		expect(mockPlatform.fs.writeFile).not.toHaveBeenCalled()
+		expect(mockPlatform.fs.atomicWriteFile).not.toHaveBeenCalled()
 	})
 })
 
@@ -240,7 +242,7 @@ describe("flush()", () => {
 		const manager = new SettingsManager()
 		await manager.loadFromVault("/my/vault")
 		await manager.flush()
-		expect(mockPlatform.fs.writeFile).toHaveBeenCalledWith(
+		expect(mockPlatform.fs.atomicWriteFile).toHaveBeenCalledWith(
 			"/my/vault/.cortex/app.json",
 			expect.stringContaining('"editor"'),
 		)
@@ -249,7 +251,7 @@ describe("flush()", () => {
 	it("is a no-op when no vault path is set", async () => {
 		const manager = new SettingsManager()
 		await manager.flush()
-		expect(mockPlatform.fs.writeFile).not.toHaveBeenCalled()
+		expect(mockPlatform.fs.atomicWriteFile).not.toHaveBeenCalled()
 	})
 
 	it("writes valid JSON that can be round-tripped", async () => {
@@ -258,7 +260,7 @@ describe("flush()", () => {
 		await manager.set("editor", "tabSize", 4)
 		vi.advanceTimersByTime(1001)
 		await vi.runAllTimersAsync()
-		const writtenContent = mockPlatform.fs.writeFile.mock.calls[0][1]
+		const writtenContent = mockPlatform.fs.atomicWriteFile.mock.calls[0][1]
 		const parsed = JSON.parse(writtenContent)
 		expect(parsed.editor.tabSize).toBe(4)
 		expect(parsed.appearance.nativeWindowEffects).toBeUndefined()

@@ -5,7 +5,7 @@ import {
 	selectVisibleStatusBarItems,
 	usePluginStore,
 } from "@cortex/plugin-host-core"
-import { Button, LucideIcon } from "@cortex/ui"
+import { Button, LucideIcon, SimpleTooltip } from "@cortex/ui"
 import { type ComponentType, useMemo } from "react"
 
 const MODE_LABELS: Record<EditorMode, string> = {
@@ -38,15 +38,16 @@ export function StatusBarCursor() {
 export function StatusBarModeButton() {
 	const mode = useEditorStore((s) => s.mode)
 	return (
-		<Button
-			variant="ghost"
-			size="xs"
-			className="statusbar-item statusbar-btn gap-1.5 tracking-normal active:scale-100"
-			onClick={() => executeCommand("editor.toggle-mode", { source: "menu" })}
-			title="Cycle editor mode"
-		>
-			{MODE_LABELS[mode]}
-		</Button>
+		<SimpleTooltip label="Cycle editor mode">
+			<Button
+				variant="ghost"
+				size="xs"
+				className="statusbar-item statusbar-btn gap-1.5 tracking-normal active:scale-100"
+				onClick={() => executeCommand("editor.toggle-mode", { source: "menu" })}
+			>
+				{MODE_LABELS[mode]}
+			</Button>
+		</SimpleTooltip>
 	)
 }
 
@@ -56,16 +57,17 @@ function StatusBarItem({ item }: { item: RegisteredStatusBarItem }) {
 		return <ItemComponent />
 	}
 	return (
-		<Button
-			variant="ghost"
-			size="xs"
-			className="statusbar-item statusbar-btn gap-1.5 tracking-normal active:scale-100"
-			onClick={item.onClick}
-			title={item.tooltip}
-		>
-			{item.icon && <LucideIcon name={item.icon} size={12} />}
-			{item.text && <span>{item.text}</span>}
-		</Button>
+		<SimpleTooltip label={item.tooltip}>
+			<Button
+				variant="ghost"
+				size="xs"
+				className="statusbar-item statusbar-btn gap-1.5 tracking-normal active:scale-100"
+				onClick={item.onClick}
+			>
+				{item.icon && <LucideIcon name={item.icon} size={12} />}
+				{item.text && <span>{item.text}</span>}
+			</Button>
+		</SimpleTooltip>
 	)
 }
 

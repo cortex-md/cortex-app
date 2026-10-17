@@ -122,7 +122,7 @@ export class SettingsManager {
 		try {
 			const platform = getPlatform()
 			const content = JSON.stringify(this.getVaultSettingsSnapshot(), null, 2)
-			await platform.fs.writeFile(
+			await platform.fs.atomicWriteFile(
 				getVaultFilePath(this.vaultPath, VAULT_FILES.appSettings),
 				content,
 			)
@@ -136,7 +136,7 @@ export class SettingsManager {
 			const platform = getPlatform()
 			const path = await this.getGlobalSettingsPath()
 			const content = JSON.stringify(this.globalSettings, null, 2)
-			await platform.fs.writeFile(path, content)
+			await platform.fs.atomicWriteFile(path, content)
 			this.globalSettingsLoadedFromFile = true
 		} catch (error) {
 			console.error("Failed to save global settings:", error)

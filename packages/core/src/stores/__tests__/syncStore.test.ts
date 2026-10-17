@@ -1,4 +1,5 @@
 import { getPlatform } from "@cortex/platform"
+import { resetStateFiles } from "@cortex/platform/state-file"
 import { onVaultSchemaChange } from "@cortex/properties"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
@@ -16,7 +17,7 @@ function mockPlatform({
 	vi.mocked(getPlatform).mockReturnValue({
 		fs: {
 			readFile,
-			writeFile,
+			atomicWriteFile: writeFile,
 		},
 		sync: {
 			updateSyncPreferences,
@@ -37,6 +38,7 @@ beforeEach(() => {
 		files: [],
 	})
 	vi.clearAllMocks()
+	resetStateFiles()
 })
 
 describe("syncStore preferences", () => {
@@ -44,8 +46,10 @@ describe("syncStore preferences", () => {
 		const { updateSyncPreferences } = mockPlatform({
 			readFile: vi.fn().mockResolvedValue(
 				JSON.stringify({
-					syncSettings: true,
-					excludedPaths: ["private/"],
+					preferences: {
+						syncSettings: true,
+						excludedPaths: ["private/"],
+					},
 				}),
 			),
 		})
@@ -82,11 +86,8 @@ describe("syncStore preferences", () => {
 
 		await useSyncStore.getState().updateSyncPreference("ignoreImages", true)
 
-		expect(writeFile).toHaveBeenCalledWith(
-			"/vault/.cortex/sync-preferences.json",
-			expect.any(String),
-		)
-		expect(JSON.parse(writeFile.mock.calls[0][1])).toEqual(
+		expect(writeFile).toHaveBeenCalledWith("/vault/.cortex/sync.json", expect.any(String))
+		expect(JSON.parse(writeFile.mock.calls[0][1]).preferences).toEqual(
 			expect.objectContaining({ ignoreImages: true }),
 		)
 		expect(updateSyncPreferences).toHaveBeenCalledWith(
@@ -136,7 +137,7 @@ describe("syncStore preferences", () => {
 
 		await useSyncStore.getState().updateSyncPreference("syncBookmarks", true)
 
-		expect(JSON.parse(writeFile.mock.calls[0][1])).toEqual(
+		expect(JSON.parse(writeFile.mock.calls[0][1]).preferences).toEqual(
 			expect.objectContaining({ syncBookmarks: true }),
 		)
 		expect(updateSyncPreferences).toHaveBeenCalledWith(

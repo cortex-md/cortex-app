@@ -7,18 +7,21 @@ import {
 } from "@cortex/platform/utils"
 import { useSearchStore } from "@cortex/search"
 import { startCollabRuntime } from "../collab/collabRuntime"
+import { type NoteMetadataUpdate, noteMetadataIndex } from "../indexing/noteMetadataIndex"
 import { noteCache } from "../noteCache"
 import { useAuthStore } from "../stores/authStore"
 import { useEditorStore } from "../stores/editorStore"
-import { useLinksStore } from "../stores/linksStore"
 import { useRemoteVaultStore } from "../stores/remoteVaultStore"
 import { useSubscriptionStore } from "../stores/subscriptionStore"
 import { useSyncLogStore } from "../stores/syncLogStore"
 import { useSyncStore } from "../stores/syncStore"
 import { useTagsStore } from "../stores/tagsStore"
-import { useTasksStore } from "../stores/tasksStore"
 import { useUIStore } from "../stores/uiStore"
-import { subscribeVaultFileChanges, useVaultStore } from "../stores/vaultStore"
+import {
+	subscribeVaultFileChanges,
+	subscribeVaultIndexChanges,
+	useVaultStore,
+} from "../stores/vaultStore"
 import { inferFileTabKind, useWorkspaceStore, type WorkspaceState } from "../stores/workspaceStore"
 import { requiresCloudEntitlement, resolveSyncServerUrl } from "../sync/serverConfig"
 import { completeFirstRunOnboarding } from "./appStartup"
@@ -106,7 +109,8 @@ function startWorkspacePersistence(
 			state.leftSidebarWidth !== previousState.leftSidebarWidth ||
 			state.rightSidebarCollapsed !== previousState.rightSidebarCollapsed ||
 			state.rightSidebarPanel !== previousState.rightSidebarPanel ||
-			state.quickFinderPreview !== previousState.quickFinderPreview
+			state.quickFinderPreview !== previousState.quickFinderPreview ||
+			state.recentCommandIds !== previousState.recentCommandIds
 		) {
 			schedulePersist()
 		}
@@ -181,9 +185,7 @@ function startVaultSession(options: AppRuntimeOptions): () => void {
 		}
 		useWorkspaceStore.getState().reset()
 		useSearchStore.getState().reset()
-		useTagsStore.getState().reset()
-		useLinksStore.getState().reset()
-		useTasksStore.getState().reset()
+		noteMetadataIndex.reset()
 	})
 
 	return () => {
@@ -206,17 +208,12 @@ function indexNoteContent(
 	modifiedAt: number,
 ): void {
 	void useSearchStore.getState().indexFile(vaultPath, filePath, { content, modifiedAt })
-	const fingerprint = getContentFingerprint(content, modifiedAt)
-	useTagsStore.getState().updateFileInIndex(filePath, content, fingerprint)
-	useLinksStore.getState().updateFileInIndex(filePath, content, fingerprint)
-	useTasksStore.getState().updateFileInIndex(filePath, content, fingerprint)
+	noteMetadataIndex.update(filePath, content, getContentFingerprint(content, modifiedAt))
 }
 
 function removeIndexedPath(vaultPath: string, filePath: string): void {
 	void useSearchStore.getState().removeFile(vaultPath, filePath)
-	useTagsStore.getState().removeFileFromIndex(filePath)
-	useLinksStore.getState().removeFileFromIndex(filePath)
-	useTasksStore.getState().removeFileFromIndex(filePath)
+	noteMetadataIndex.remove(filePath)
 }
 
 function startVaultIndexing(scheduleIdleWork: ScheduleIdleWork): () => void {
@@ -237,15 +234,25 @@ function startVaultIndexing(scheduleIdleWork: ScheduleIdleWork): () => void {
 		queuedRemovePaths.clear()
 		queuedIndexPaths.clear()
 		for (const path of removedPaths) removeIndexedPath(vault.path, path)
+		const updates: NoteMetadataUpdate[] = []
 		await mapWithConcurrency(changedPaths, INCREMENTAL_INDEX_READ_CONCURRENCY, async (path) => {
 			try {
 				const snapshot = await getPlatform().fs.readFileSnapshot(path)
 				if (currentVault !== vault) return
-				indexNoteContent(vault.path, path, snapshot.content, snapshot.metadata.modifiedAt)
+				const { content, metadata } = snapshot
+				void useSearchStore
+					.getState()
+					.indexFile(vault.path, path, { content, modifiedAt: metadata.modifiedAt })
+				updates.push({
+					path,
+					content,
+					fingerprint: getContentFingerprint(content, metadata.modifiedAt),
+				})
 			} catch {
 				if (currentVault === vault) removeIndexedPath(vault.path, path)
 			}
 		})
+		if (currentVault === vault && updates.length > 0) noteMetadataIndex.updateMany(updates)
 	}
 
 	const scheduleIncrementalFlush = () => {
@@ -284,9 +291,7 @@ function startVaultIndexing(scheduleIdleWork: ScheduleIdleWork): () => void {
 		ready = false
 		indexedPaths = new Set()
 		useSearchStore.getState().cancelIndexing()
-		useTagsStore.getState().cancelIndexing()
-		useLinksStore.getState().cancelIndexing()
-		useTasksStore.getState().cancelIndexing()
+		noteMetadataIndex.cancel()
 	}
 
 	const startFullIndex = (vault: VaultMetadata) => {
@@ -296,11 +301,7 @@ function startVaultIndexing(scheduleIdleWork: ScheduleIdleWork): () => void {
 				const files = useVaultStore.getState().files
 				await useSearchStore.getState().indexVault(vault.path, files)
 				if (currentVault !== vault) return
-				await useTagsStore.getState().buildIndexFromFiles(vault.path, files)
-				if (currentVault !== vault) return
-				await useLinksStore.getState().buildIndexFromFiles(vault.path, files)
-				if (currentVault !== vault) return
-				await useTasksStore.getState().buildIndexFromFiles(vault.path, files)
+				await noteMetadataIndex.build(vault.path, files)
 				if (currentVault !== vault) return
 				indexedPaths = collectMarkdownPaths(files)
 				ready = true
@@ -317,13 +318,23 @@ function startVaultIndexing(scheduleIdleWork: ScheduleIdleWork): () => void {
 			if (vault) startFullIndex(vault)
 			return
 		}
-		if (vault && ready) syncIndexedPaths(vault)
 	}
 
 	handleVaultState()
 	const unsubscribeVault = useVaultStore.subscribe((state, previousState) => {
-		if (state.vault !== previousState.vault || state.files !== previousState.files) {
-			handleVaultState()
+		if (state.vault !== previousState.vault) handleVaultState()
+	})
+	const unsubscribeIndex = subscribeVaultIndexChanges((delta) => {
+		const vault = currentVault
+		if (!ready || !vault || useVaultStore.getState().vault !== vault) return
+		for (const entry of delta.removed) {
+			if (entry.isDir || !indexedPaths.delete(entry.path)) continue
+			queueRemoval(entry.path)
+		}
+		for (const entry of delta.added) {
+			if (entry.isDir || !isMarkdownPath(entry.path) || indexedPaths.has(entry.path)) continue
+			indexedPaths.add(entry.path)
+			queueIndex(entry.path)
 		}
 	})
 	const unsubscribeFileChanges = subscribeVaultFileChanges((changes) => {
@@ -347,6 +358,7 @@ function startVaultIndexing(scheduleIdleWork: ScheduleIdleWork): () => void {
 
 	return () => {
 		unsubscribeVault()
+		unsubscribeIndex()
 		unsubscribeFileChanges()
 		unsubscribeDiskContent()
 		stopVaultIndexing()

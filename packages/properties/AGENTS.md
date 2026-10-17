@@ -52,7 +52,15 @@
   Property is open.
 - Suggestion indexing is single-flight per vault. Query changes share the active build, invalidation
   only increments its generation, and an invalidation during a build permits one serialized rebuild.
-- Suggestion indexing may read independent notes concurrently, but keep note reads bounded and merge
+- When the runtime provides `noteIndex.getNoteProperties(vaultPath)`, suggestions aggregate the
+  indexed frontmatter in memory and are fresh while its `version` and the schema generation
+  (`invalidatePropertySuggestionSchema`, called by `notifyVaultSchemaChanged`) are unchanged; Markdown
+  watcher invalidations only matter for the read fallback used when the host has no index yet.
+- `getVaultSchema` is cached per vault (as validated JSON text, parsed per call so callers never share
+  objects). `notifyVaultSchemaChanged` (watcher, sync, own writes) invalidates it and
+  `updateVaultSchema` primes it with the written schema; external edits must go through that
+  notification.
+- Fallback suggestion indexing may read independent notes concurrently, but keep note reads bounded and merge
   compact observed property entries into the index afterward. Keep generation checks after awaited
   builds so stale results are never published.
 - Bounded suggestion readers should use `Promise.all` worker pools without `await` inside loops so

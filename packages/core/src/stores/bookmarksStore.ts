@@ -120,7 +120,7 @@ export interface BookmarksState {
 
 async function persistBookmarks(vaultPath: string, bookmarks: BookmarkEntry[]) {
 	const platform = getPlatform()
-	await platform.fs.writeFile(
+	await platform.fs.atomicWriteFile(
 		`${vaultPath}/${BOOKMARKS_FILE}`,
 		JSON.stringify(createBookmarksDocument(bookmarks), null, "\t"),
 	)

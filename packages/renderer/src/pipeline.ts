@@ -32,7 +32,9 @@ import {
 } from "./features"
 import { normalizeMathDelimiters } from "./mathSyntax"
 import { rehypeCallouts } from "./plugins/callouts"
+import { rehypeCodeChrome } from "./plugins/codeChrome"
 import { remarkStripFrontmatter } from "./plugins/frontmatter"
+import { rehypeInlineMarks } from "./plugins/inlineMarks"
 import { createRehypeSemanticRegistrations } from "./plugins/semanticRegistrations"
 import { remarkFastTables } from "./plugins/tables"
 import { rehypeTaskList } from "./plugins/taskList"
@@ -77,6 +79,8 @@ const markdownSanitizeSchema = {
 		...(defaultSchema.tagNames ?? []),
 		"annotation",
 		"aside",
+		"button",
+		"mark",
 		"math",
 		"menclose",
 		"mfrac",
@@ -111,6 +115,8 @@ const markdownSanitizeSchema = {
 		"*": [...(defaultSchema.attributes?.["*"] ?? []), "className"],
 		a: [...(defaultSchema.attributes?.a ?? []), "data-wiki-link"],
 		aside: ["className", "data-callout", "data-callout-fold", "style"],
+		button: ["className", "type", "data-code-copy", "ariaLabel", "title"],
+		mark: ["className"],
 		details: [
 			...(defaultSchema.attributes?.details ?? []),
 			"className",
@@ -149,13 +155,14 @@ const markdownSanitizeSchema = {
 			"aria-checked",
 			"className",
 			"data-state",
+			"data-tag",
 			"data-task-checkbox",
 			"role",
 			"style",
 			"title",
 		],
 		summary: [...(defaultSchema.attributes?.summary ?? []), "className", "data-callout-toggle"],
-		svg: ["aria-hidden", "className", "focusable", "viewBox"],
+		svg: ["aria-hidden", "ariaHidden", "className", "focusable", "viewBox"],
 	},
 	protocols: {
 		...defaultSchema.protocols,
@@ -449,8 +456,10 @@ function createRenderPipeline(
 		.use(createRehypeSemanticRegistrations(surface))
 		.use(rehypeCallouts)
 		.use(rehypeWikiLinks)
+		.use(rehypeInlineMarks)
 		.use(rehypeTaskList)
 		.use(createConditionalHighlight())
+		.use(rehypeCodeChrome)
 		.use(rehypeMarkdownUrlPolicy)
 		.use(rehypeLimitMathStyles())
 		.use(rehypeSanitize, markdownSanitizeSchema)

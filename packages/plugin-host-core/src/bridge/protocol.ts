@@ -67,7 +67,12 @@ export type PluginViewUpdateMessage = {
 export type PluginHostMessage =
 	| { type: "register"; definition: SerializedPluginDefinition }
 	| { type: "unregister"; pluginId: string }
-	| { type: "records"; plugins: Record<string, PluginRecord>; loadErrors: Record<string, string> }
+	| {
+			type: "records"
+			plugins: Record<string, PluginRecord>
+			loadErrors: Record<string, string>
+			loadedVaultPath: string | null
+	  }
 	| { type: "settings"; pluginId: string; values: Record<string, unknown> | null }
 	| { type: "modals"; instances: PluginModalInstance[] }
 	| PluginViewUpdateMessage

@@ -34,6 +34,7 @@ import {
 	DropdownMenuContent,
 	DropdownMenuTrigger,
 	Input,
+	SimpleTooltip,
 } from "@cortex/ui"
 import { BookmarkIcon, LockIcon, MoreHorizontal, Table2Icon } from "lucide-react"
 import { Fragment, memo, type Ref, useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -88,25 +89,27 @@ function NoteHeaderAttribution({ attribution }: NoteHeaderAttributionProps) {
 		state.profile?.userId === attribution.actorId ? state.profile.avatarUrl : null,
 	)
 	return (
-		<div
-			className="note-header-attribution"
-			title={
+		<SimpleTooltip
+			label={
 				attribution.email
 					? `${attribution.displayName} · ${attribution.email}`
 					: attribution.displayName
 			}
+			side="bottom"
 		>
-			<UserAvatar
-				size="sm"
-				name={attribution.displayName}
-				avatarUrl={attribution.avatarUrl ?? ownAvatarUrl}
-				className="note-header-avatar"
-			/>
-			<span className="note-header-attribution-text">
-				Edited {formatNoteEditedAt(attribution.editedAt, () => currentTime)} by{" "}
-				<strong>{attribution.displayName}</strong>
-			</span>
-		</div>
+			<div className="note-header-attribution">
+				<UserAvatar
+					size="sm"
+					name={attribution.displayName}
+					avatarUrl={attribution.avatarUrl ?? ownAvatarUrl}
+					className="note-header-avatar"
+				/>
+				<span className="note-header-attribution-text">
+					Edited {formatNoteEditedAt(attribution.editedAt, () => currentTime)} by{" "}
+					<strong>{attribution.displayName}</strong>
+				</span>
+			</div>
+		</SimpleTooltip>
 	)
 }
 
@@ -128,17 +131,19 @@ function DatabaseViewNoteAction({ filePath }: { filePath: string }) {
 
 function NoteReadOnlyBadge({ noAccess }: { noAccess: boolean }) {
 	return (
-		<span
-			className="note-header-read-only"
-			title={
+		<SimpleTooltip
+			label={
 				noAccess
 					? "This folder is restricted to other members. Changes here stay on this device and are not synced."
 					: "You can view this note but not change it. Ask a vault admin for edit access."
 			}
+			side="bottom"
 		>
-			<LockIcon className="size-[11px]" />
-			{noAccess ? "No access · not synced" : "Read only"}
-		</span>
+			<span className="note-header-read-only">
+				<LockIcon className="size-[11px]" />
+				{noAccess ? "No access · not synced" : "Read only"}
+			</span>
+		</SimpleTooltip>
 	)
 }
 
@@ -223,19 +228,22 @@ function NoteBookmarkButton({ filePath }: { filePath: string }) {
 	)
 	const label = bookmarked ? "Remove bookmark" : "Add bookmark"
 	return (
-		<Button
-			type="button"
-			variant="ghost"
-			size="icon-xs"
-			className="note-header-actions-button"
-			data-active={bookmarked || undefined}
-			aria-label={label}
-			aria-pressed={bookmarked}
-			title={label}
-			onClick={() => executeCommand("bookmarks.toggle", { source: "menu", payload: { filePath } })}
-		>
-			<BookmarkIcon />
-		</Button>
+		<SimpleTooltip label={label} side="bottom">
+			<Button
+				type="button"
+				variant="ghost"
+				size="icon-xs"
+				className="note-header-actions-button"
+				data-active={bookmarked || undefined}
+				aria-label={label}
+				aria-pressed={bookmarked}
+				onClick={() =>
+					executeCommand("bookmarks.toggle", { source: "menu", payload: { filePath } })
+				}
+			>
+				<BookmarkIcon />
+			</Button>
+		</SimpleTooltip>
 	)
 }
 
@@ -255,18 +263,19 @@ function NoteHeaderActions({ filePath, paneId, onRename }: NoteHeaderActionsProp
 					)
 				}
 			>
-				<DropdownMenuTrigger asChild>
-					<Button
-						type="button"
-						variant="ghost"
-						size="icon-xs"
-						className="note-header-actions-button"
-						aria-label="Note actions"
-						title="Note actions"
-					>
-						<MoreHorizontal />
-					</Button>
-				</DropdownMenuTrigger>
+				<SimpleTooltip label="Note actions" side="bottom">
+					<DropdownMenuTrigger asChild>
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon-xs"
+							className="note-header-actions-button"
+							aria-label="Note actions"
+						>
+							<MoreHorizontal />
+						</Button>
+					</DropdownMenuTrigger>
+				</SimpleTooltip>
 				<DropdownMenuContent align="end" sideOffset={4} className="w-56">
 					{items && <MenuItemList items={items} />}
 				</DropdownMenuContent>

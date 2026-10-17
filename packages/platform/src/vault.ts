@@ -2,6 +2,7 @@ import { hashBytes } from "./hash"
 import type { FileEntry, FileMetadata, FileSnapshot } from "./interfaces/FileSystem"
 import type { VaultRegistryEntry, VaultRegistryPatch } from "./interfaces/Vault"
 import {
+	compareFileEntryNames,
 	getBaseName,
 	getParentPath,
 	getVaultFilePath,
@@ -28,6 +29,7 @@ export interface VaultTextIo {
 	writeText(path: string, text: string): Promise<void>
 	isNotFound(error: unknown): boolean
 	createId(): string
+	now?(): number
 }
 
 export interface VaultRegistryInput {
@@ -39,11 +41,14 @@ export interface VaultRegistryInput {
 	displayPath?: string | null
 }
 
-export interface VaultMetadataFile {
+export interface VaultFile {
 	version: number
-	name: string
+	id: string
+	name: string | null
 	createdAt: string
 }
+
+export const VAULT_FILE_VERSION = 1
 
 export interface DeviceIdStore {
 	get(key: string): string | null
@@ -73,11 +78,8 @@ export function toFileMetadata({ mtimeMs, birthtimeMs }: FileTimesInput): FileMe
 	return { createdAt: birthtimeMs > 0 ? Math.floor(birthtimeMs) : modifiedAt, modifiedAt }
 }
 
-const fileNameCollator = new Intl.Collator(undefined, { sensitivity: "base" })
-
 export function compareFileEntries(left: FileEntry, right: FileEntry): number {
-	if (left.isDir !== right.isDir) return left.isDir ? -1 : 1
-	return fileNameCollator.compare(left.name, right.name)
+	return compareFileEntryNames(left, right)
 }
 
 export function snapshotFromContent(content: string, metadata: FileMetadata): FileSnapshot {
@@ -86,7 +88,8 @@ export function snapshotFromContent(content: string, metadata: FileMetadata): Fi
 
 export function isInternalVaultFile(relativePath: string): boolean {
 	return (
-		relativePath === VAULT_FILES.searchIndex ||
+		relativePath === VAULT_FILES.cache ||
+		relativePath.startsWith(`${VAULT_FILES.cache}/`) ||
 		relativePath.startsWith(VAULT_FILES.syncDb) ||
 		relativePath.startsWith(`${VAULT_FILES.history}/`)
 	)
@@ -124,60 +127,77 @@ export function archiveEntrySegments(entryName: string): string[] {
 	return parts.slice(1).filter((part) => part && part !== ".")
 }
 
-export function parseVaultIdentity(text: string): string | null {
+function parseJsonObject(text: string | null): Record<string, unknown> | null {
+	if (!text) return null
 	try {
-		const uuid = (JSON.parse(text) as { uuid?: unknown } | null)?.uuid
-		return typeof uuid === "string" && uuid.trim() ? uuid : null
+		const parsed = JSON.parse(text) as unknown
+		return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+			? (parsed as Record<string, unknown>)
+			: null
 	} catch {
 		return null
 	}
 }
 
-export async function readOrCreateVaultId(vaultPath: string, io: VaultTextIo): Promise<string> {
-	const identityPath = getVaultFilePath(vaultPath, VAULT_FILES.vaultId)
-	let text: string
+function readTrimmedString(value: unknown): string | null {
+	return typeof value === "string" && value.trim() ? value.trim() : null
+}
+
+export function parseVaultFile(text: string | null): VaultFile | null {
+	const parsed = parseJsonObject(text)
+	const id = readTrimmedString(parsed?.id)
+	if (!parsed || !id) return null
+	return {
+		version: typeof parsed.version === "number" ? parsed.version : VAULT_FILE_VERSION,
+		id,
+		name: readTrimmedString(parsed.name),
+		createdAt: typeof parsed.createdAt === "string" ? parsed.createdAt : new Date(0).toISOString(),
+	}
+}
+
+export function serializeVaultFile(file: VaultFile): string {
+	return JSON.stringify(file, null, 2)
+}
+
+async function readOptionalText(io: VaultTextIo, path: string): Promise<string | null> {
 	try {
-		text = await io.readText(identityPath)
+		return await io.readText(path)
 	} catch (error) {
-		if (!io.isNotFound(error)) throw error
-		const uuid = io.createId()
-		await io.writeText(identityPath, JSON.stringify({ uuid }, null, 2))
-		return uuid
-	}
-	const uuid = parseVaultIdentity(text)
-	if (!uuid) throw new Error(`Invalid vault identity file: ${identityPath}`)
-	return uuid
-}
-
-function parseVaultMetadata(metadataJson: string | null): Partial<VaultMetadataFile> | null {
-	if (!metadataJson) return null
-	try {
-		const parsed = JSON.parse(metadataJson) as unknown
-		return parsed && typeof parsed === "object" ? (parsed as Partial<VaultMetadataFile>) : null
-	} catch {
-		return null
+		if (io.isNotFound(error)) return null
+		throw error
 	}
 }
 
-export function resolveVaultName(metadataJson: string | null, folderPath: string): string {
-	const name = parseVaultMetadata(metadataJson)?.name
-	if (typeof name === "string" && name.trim()) return name.trim()
-	return getBaseName(folderPath) || "Vault"
+export async function readOrCreateVaultFile(
+	vaultPath: string,
+	io: VaultTextIo,
+): Promise<VaultFile> {
+	const vaultFilePath = getVaultFilePath(vaultPath, VAULT_FILES.vault)
+	const current = await readOptionalText(io, vaultFilePath)
+	const parsed = parseVaultFile(current)
+	if (parsed) return parsed
+	if (current !== null) throw new Error(`Invalid vault file: ${vaultFilePath}`)
+	const file: VaultFile = {
+		version: VAULT_FILE_VERSION,
+		id: io.createId(),
+		name: null,
+		createdAt: new Date(io.now?.() ?? Date.now()).toISOString(),
+	}
+	await io.writeText(vaultFilePath, serializeVaultFile(file))
+	return file
 }
 
-export function serializeVaultMetadata(
-	name: string,
-	existingJson: string | null,
-	nowMs: number,
-): string {
-	const existing = parseVaultMetadata(existingJson)
-	const metadata: VaultMetadataFile = {
-		version: typeof existing?.version === "number" ? existing.version : 1,
-		name,
-		createdAt:
-			typeof existing?.createdAt === "string" ? existing.createdAt : new Date(nowMs).toISOString(),
-	}
-	return JSON.stringify(metadata, null, 2)
+export function resolveVaultName(file: Pick<VaultFile, "name"> | null, folderPath: string): string {
+	return file?.name || getBaseName(folderPath) || "Vault"
+}
+
+export function resolveStoredVaultName(vaultFileText: string | null, folderPath: string): string {
+	return resolveVaultName(parseVaultFile(vaultFileText), folderPath)
+}
+
+export function renameVaultFile(file: VaultFile, name: string): VaultFile | null {
+	const nextName = readTrimmedString(name)
+	return nextName === file.name ? null : { ...file, name: nextName }
 }
 
 function toLastOpenedMs(lastOpened: unknown): number {

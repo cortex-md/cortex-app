@@ -194,6 +194,9 @@ weights and line heights.
 --markdown-block-spacing
 --markdown-code-font-family
 --markdown-code-font-size
+--markdown-inline-code-color
+--markdown-link-mark-color
+--markdown-highlight-color
 --markdown-code-padding-inline
 --markdown-code-padding-block
 --markdown-callout-padding-block

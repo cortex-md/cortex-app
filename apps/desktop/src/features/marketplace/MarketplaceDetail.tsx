@@ -27,6 +27,7 @@ import {
 	EmptyDescription,
 	EmptyMedia,
 	ScrollArea,
+	SimpleTooltip,
 	Skeleton,
 	Spinner,
 } from "@cortex/ui"
@@ -94,18 +95,19 @@ function MarketplaceRepositoryValue({
 	repositoryUrl: string
 }) {
 	return (
-		<Button
-			size="sm"
-			variant="link"
-			className="marketplace-repository-button"
-			title={entry.repo}
-			onClick={() => openExternalUrl(repositoryUrl)}
-		>
-			<span className="marketplace-repository-path">
-				{getRepositoryLabel(entry.repo)}
-				<ExternalLink size={11} />
-			</span>
-		</Button>
+		<SimpleTooltip label={entry.repo}>
+			<Button
+				size="sm"
+				variant="link"
+				className="marketplace-repository-button"
+				onClick={() => openExternalUrl(repositoryUrl)}
+			>
+				<span className="marketplace-repository-path">
+					{getRepositoryLabel(entry.repo)}
+					<ExternalLink size={11} />
+				</span>
+			</Button>
+		</SimpleTooltip>
 	)
 }
 
@@ -322,7 +324,7 @@ export function MarketplaceDetail({ tab, entry, hasVault }: MarketplaceDetailPro
 					<header className="marketplace-detail-hero">
 						<MarketplaceDetailArtwork entry={entry} />
 						<div className="marketplace-detail-hero-copy">
-							<h2 title={entry.name}>
+							<h2>
 								{entry.name}
 								{entryState?.verified && (
 									<BadgeCheck
@@ -354,14 +356,12 @@ export function MarketplaceDetail({ tab, entry, hasVault }: MarketplaceDetailPro
 						</div>
 						<div className="marketplace-detail-actions">
 							{voteUrl && (
-								<Button
-									variant="ghost"
-									title="Votes are upvotes on GitHub Discussions; counts refresh every 30 minutes"
-									onClick={() => openExternalUrl(voteUrl)}
-								>
-									<ArrowBigUp size={13} />
-									Vote on GitHub
-								</Button>
+								<SimpleTooltip label="Votes are upvotes on GitHub Discussions; counts refresh every 30 minutes">
+									<Button variant="ghost" onClick={() => openExternalUrl(voteUrl)}>
+										<ArrowBigUp size={13} />
+										Vote on GitHub
+									</Button>
+								</SimpleTooltip>
 							)}
 							{!hasVault ? (
 								<Button variant="secondary" disabled>
@@ -449,17 +449,19 @@ export function MarketplaceDetail({ tab, entry, hasVault }: MarketplaceDetailPro
 					{entry.screenshots && entry.screenshots.length > 0 && (
 						<ul className="marketplace-screenshots" aria-label="Screenshots">
 							{entry.screenshots.map((url, index) => (
-								<li key={url}>
-									<button type="button" onClick={() => openExternalUrl(url)} title="Open full size">
-										<img
-											src={url}
-											alt={`${entry.name} screenshot ${index + 1}`}
-											loading="lazy"
-											decoding="async"
-											referrerPolicy="no-referrer"
-										/>
-									</button>
-								</li>
+								<SimpleTooltip key={url} label="Open full size">
+									<li>
+										<button type="button" onClick={() => openExternalUrl(url)}>
+											<img
+												src={url}
+												alt={`${entry.name} screenshot ${index + 1}`}
+												loading="lazy"
+												decoding="async"
+												referrerPolicy="no-referrer"
+											/>
+										</button>
+									</li>
+								</SimpleTooltip>
 							))}
 						</ul>
 					)}

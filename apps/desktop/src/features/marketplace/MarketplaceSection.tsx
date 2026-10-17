@@ -33,6 +33,7 @@ import {
 	InputGroupAddon,
 	InputGroupInput,
 	ScrollArea,
+	SimpleTooltip,
 	Skeleton,
 	Spinner,
 	Tabs,
@@ -159,44 +160,52 @@ function MarketplaceCatalogRow({
 
 	return (
 		<div className="marketplace-catalog-item" data-active={isActive}>
-			<Button
-				size="sm"
-				ref={rowRef}
-				variant="ghost"
-				type="button"
-				className="marketplace-catalog-row"
-				aria-current={isActive ? "true" : undefined}
-				data-active={isActive}
-				data-installed={isInstalled}
-				title={entry.description}
-				onClick={onSelect}
-			>
-				<MarketplaceArtwork entry={entry} />
-				<span className="marketplace-catalog-copy">
-					<span className="marketplace-catalog-title">
-						{entry.name}
-						{verified && (
-							<BadgeCheck className="marketplace-verified-badge" aria-label="Verified by Cortex" />
+			<SimpleTooltip label={entry.description} side="right">
+				<Button
+					size="sm"
+					ref={rowRef}
+					variant="ghost"
+					type="button"
+					className="marketplace-catalog-row"
+					aria-current={isActive ? "true" : undefined}
+					data-active={isActive}
+					data-installed={isInstalled}
+					onClick={onSelect}
+				>
+					<MarketplaceArtwork entry={entry} />
+					<span className="marketplace-catalog-copy">
+						<span className="marketplace-catalog-title">
+							{entry.name}
+							{verified && (
+								<BadgeCheck
+									className="marketplace-verified-badge"
+									aria-label="Verified by Cortex"
+								/>
+							)}
+						</span>
+						<span className="marketplace-catalog-meta">
+							{entry.author}
+							{formattedReleaseDate && ` · ${formattedReleaseDate}`}
+						</span>
+						{stats && (stats.votes !== undefined || stats.downloads !== undefined) && (
+							<SimpleTooltip label="Votes on GitHub">
+								<span className="marketplace-catalog-stats">
+									<span>
+										<SimpleTooltip label="Downloads">
+											<ArrowBigUp aria-hidden="true" />
+										</SimpleTooltip>
+										{formatCount(stats.votes)}
+									</span>
+									<span>
+										<Download aria-hidden="true" />
+										{formatCount(stats.downloads)}
+									</span>
+								</span>
+							</SimpleTooltip>
 						)}
 					</span>
-					<span className="marketplace-catalog-meta">
-						{entry.author}
-						{formattedReleaseDate && ` · ${formattedReleaseDate}`}
-					</span>
-					{stats && (stats.votes !== undefined || stats.downloads !== undefined) && (
-						<span className="marketplace-catalog-stats">
-							<span title="Votes on GitHub">
-								<ArrowBigUp aria-hidden="true" />
-								{formatCount(stats.votes)}
-							</span>
-							<span title="Downloads">
-								<Download aria-hidden="true" />
-								{formatCount(stats.downloads)}
-							</span>
-						</span>
-					)}
-				</span>
-			</Button>
+				</Button>
+			</SimpleTooltip>
 			<span className="marketplace-catalog-action">
 				<MarketplaceRowAction
 					entry={entry}

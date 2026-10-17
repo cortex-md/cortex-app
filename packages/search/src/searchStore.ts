@@ -7,25 +7,27 @@ import {
 	getParentPath,
 	getVaultFilePath,
 	isMarkdownPath,
-	isPathOrDescendant,
-	mapWithConcurrency,
 	toVaultRelativePath,
 	VAULT_FILES,
 } from "@cortex/platform/utils"
-import { extractFrontmatterBody } from "@cortex/properties"
+import { getLocalVaultState } from "@cortex/platform/vault-state"
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
-import type { SearchBackend, SearchIndexDocument, SearchIndexEntry } from "./backend"
-import { buildSearchMatches } from "./matches"
-import { stripMarkdown } from "./preprocessor"
+import type {
+	NoteContentRequest,
+	NoteMatchOptions,
+	NoteMatchResult,
+	SearchBackend,
+	SearchIndexDocument,
+	SearchIndexEntry,
+} from "./backend"
+import type { SearchMatches } from "./matches"
 import { parseSearchQuery, toSearchRequest } from "./query"
 import type { SearchOptions, SearchResult } from "./types"
 
 const SERIALIZE_DEBOUNCE_MS = 5000
 const VAULT_INDEX_READ_BATCH_SIZE = 200
-const SNIPPET_READ_CONCURRENCY = 8
 const SNIPPET_RESULT_LIMIT = 100
-const SNIPPET_CACHE_LIMIT = 200
 const RECENT_QUERY_LIMIT = 10
 const PHRASE_CANDIDATE_LIMIT = 60
 const EXCERPT_LENGTH = 160
@@ -86,17 +88,51 @@ let serializeTimer: ReturnType<typeof setTimeout> | null = null
 let indexVaultGeneration = 0
 let searchGeneration = 0
 let historyVaultPath: string | null = null
-const snippetContents = new Map<string, string>()
 
-function withMatches(result: SearchResult, content: string | null, query: string): SearchResult {
-	if (!content) return result
-	const matches = buildSearchMatches(content, query)
+function withMatches(result: SearchResult, matches: SearchMatches | null): SearchResult {
+	if (!matches) return result
 	return { ...result, matchCount: matches.count, snippets: matches.snippets }
 }
 
-function toExcerpt(content: string): string {
-	const text = content.replace(/\s+/g, " ").trim()
-	return text.length > EXCERPT_LENGTH ? `${text.slice(0, EXCERPT_LENGTH - 1)}…` : text
+async function resolveNoteContents<Result extends { status: string }>(
+	vaultPath: string,
+	ids: readonly string[],
+	run: (notes: NoteContentRequest[]) => Promise<(Result | { status: "missing" })[]>,
+): Promise<(Result | null)[]> {
+	const first = await run(ids.map((id) => ({ id })))
+	const resolved = first.map((result) => (result.status === "missing" ? null : (result as Result)))
+	const missingIndexes = first.flatMap((result, index) =>
+		result.status === "missing" ? [index] : [],
+	)
+	if (missingIndexes.length === 0) return resolved
+	const reads = await getPlatform().fs.readTextFiles(
+		missingIndexes.map((index) => getVaultFilePath(vaultPath, ids[index] ?? "")),
+	)
+	const readable = missingIndexes.flatMap((index, readIndex) => {
+		const read = reads[readIndex]
+		return read ? [{ index, raw: read.content }] : []
+	})
+	if (readable.length === 0) return resolved
+	const second = await run(readable.map(({ index, raw }) => ({ id: ids[index] ?? "", raw })))
+	readable.forEach(({ index }, readIndex) => {
+		const result = second[readIndex]
+		resolved[index] = result && result.status !== "missing" ? (result as Result) : null
+	})
+	return resolved
+}
+
+async function matchNoteContents(
+	vaultPath: string,
+	ids: readonly string[],
+	query: string,
+	options?: NoteMatchOptions,
+): Promise<(NoteMatchResult | null)[]> {
+	const backend = await getBackend()
+	return resolveNoteContents(vaultPath, ids, (notes) => backend.matchNotes(query, notes, options))
+}
+
+function getMatches(result: NoteMatchResult | null | undefined): SearchMatches | null {
+	return result?.status === "matched" ? result.matches : null
 }
 
 function scheduleSerialize(vaultPath: string) {
@@ -123,33 +159,6 @@ function getDocumentId(filePath: string, vaultPath: string): string {
 async function readPersistedSearchIndex(vaultPath: string): Promise<string | null> {
 	try {
 		return await getPlatform().fs.readFile(getVaultFilePath(vaultPath, VAULT_FILES.searchIndex))
-	} catch {
-		return null
-	}
-}
-
-function rememberSnippetContent(id: string, content: string): void {
-	snippetContents.delete(id)
-	snippetContents.set(id, content)
-	if (snippetContents.size <= SNIPPET_CACHE_LIMIT) return
-	const oldestId = snippetContents.keys().next().value
-	if (oldestId !== undefined) snippetContents.delete(oldestId)
-}
-
-function forgetSnippetContents(id: string): void {
-	for (const cachedId of Array.from(snippetContents.keys())) {
-		if (isPathOrDescendant(cachedId, id)) snippetContents.delete(cachedId)
-	}
-}
-
-async function readSnippetContent(vaultPath: string, id: string): Promise<string | null> {
-	const cached = snippetContents.get(id)
-	if (cached !== undefined) return cached
-	try {
-		const raw = await getPlatform().fs.readFile(getVaultFilePath(vaultPath, id))
-		const content = stripMarkdown(extractFrontmatterBody(raw))
-		rememberSnippetContent(id, content)
-		return content
 	} catch {
 		return null
 	}
@@ -188,13 +197,15 @@ export const useSearchStore = create<SearchState>()(
 				const vaultPath = indexedVaultPath
 				if (!vaultPath || results.length === 0) return
 				const targets = results.slice(0, SNIPPET_RESULT_LIMIT)
-				const contents = await mapWithConcurrency(targets, SNIPPET_READ_CONCURRENCY, (result) =>
-					readSnippetContent(vaultPath, result.id),
+				const matches = await matchNoteContents(
+					vaultPath,
+					targets.map((result) => result.id),
+					query,
 				)
 				if (generation !== searchGeneration) return
 				set((state) => ({
 					results: state.results.map((result, index) =>
-						withMatches(result, contents[index] ?? null, query),
+						withMatches(result, getMatches(matches[index])),
 					),
 				}))
 			}
@@ -237,10 +248,12 @@ export const useSearchStore = create<SearchState>()(
 				loadMatches: async (results, query) => {
 					const vaultPath = indexedVaultPath
 					if (!vaultPath || results.length === 0) return results
-					const contents = await mapWithConcurrency(results, SNIPPET_READ_CONCURRENCY, (result) =>
-						readSnippetContent(vaultPath, result.id),
+					const matches = await matchNoteContents(
+						vaultPath,
+						results.map((result) => result.id),
+						query,
 					)
-					return results.map((result, index) => withMatches(result, contents[index] ?? null, query))
+					return results.map((result, index) => withMatches(result, getMatches(matches[index])))
 				},
 
 				findPhrase: async (phrase, options) => {
@@ -250,16 +263,16 @@ export const useSearchStore = create<SearchState>()(
 					const candidates = (
 						await (await getBackend()).search(phrase, { limit: PHRASE_CANDIDATE_LIMIT })
 					).filter((result) => !options?.excludeIds?.has(result.id))
-					const contents = await mapWithConcurrency(
-						candidates,
-						SNIPPET_READ_CONCURRENCY,
-						(result) => readSnippetContent(vaultPath, result.id),
+					const matches = await matchNoteContents(
+						vaultPath,
+						candidates.map((result) => result.id),
+						phrase,
+						{ requiredText: needle },
 					)
 					return candidates
 						.flatMap((result, index) => {
-							const content = contents[index]
-							if (!content?.toLowerCase().includes(needle)) return []
-							return [withMatches(result, content, phrase)]
+							const resultMatches = getMatches(matches[index])
+							return resultMatches ? [withMatches(result, resultMatches)] : []
 						})
 						.slice(0, options?.limit ?? PHRASE_CANDIDATE_LIMIT)
 				},
@@ -267,25 +280,18 @@ export const useSearchStore = create<SearchState>()(
 				readNoteExcerpt: async (id) => {
 					const vaultPath = indexedVaultPath
 					if (!vaultPath) return null
-					const content = await readSnippetContent(vaultPath, id)
-					return content === null ? null : toExcerpt(content)
+					const backend = await getBackend()
+					const [excerpt] = await resolveNoteContents(vaultPath, [id], (notes) =>
+						backend.readNoteExcerpts(notes, EXCERPT_LENGTH),
+					)
+					return excerpt?.status === "read" ? excerpt.text : null
 				},
 
 				loadRecentQueries: async (vaultPath) => {
 					historyVaultPath = vaultPath
-					try {
-						const raw = await getPlatform().fs.readFile(
-							getVaultFilePath(vaultPath, VAULT_FILES.searchHistory),
-						)
-						const parsed = JSON.parse(raw) as unknown
-						const recentQueries = Array.isArray(parsed)
-							? parsed.filter((query): query is string => typeof query === "string")
-							: []
-						if (historyVaultPath === vaultPath) {
-							set({ recentQueries: recentQueries.slice(0, RECENT_QUERY_LIMIT) })
-						}
-					} catch {
-						if (historyVaultPath === vaultPath) set({ recentQueries: [] })
+					const { searchHistory } = await getLocalVaultState(vaultPath).read()
+					if (historyVaultPath === vaultPath) {
+						set({ recentQueries: searchHistory.slice(0, RECENT_QUERY_LIMIT) })
 					}
 				},
 
@@ -298,11 +304,8 @@ export const useSearchStore = create<SearchState>()(
 					].slice(0, RECENT_QUERY_LIMIT)
 					set({ recentQueries })
 					if (!historyVaultPath) return
-					void getPlatform()
-						.fs.writeFile(
-							getVaultFilePath(historyVaultPath, VAULT_FILES.searchHistory),
-							JSON.stringify(recentQueries),
-						)
+					void getLocalVaultState(historyVaultPath)
+						.update((state) => ({ ...state, searchHistory: recentQueries }))
 						.catch(() => {})
 				},
 
@@ -347,7 +350,6 @@ export const useSearchStore = create<SearchState>()(
 						if (!isCurrent()) return
 						const documents: SearchIndexDocument[] = []
 						batch.forEach(({ id, file }, index) => {
-							snippetContents.delete(id)
 							const read = reads[index]
 							if (!read) {
 								unreadableIds.push(id)
@@ -381,7 +383,6 @@ export const useSearchStore = create<SearchState>()(
 						const nextSnapshot = snapshot ?? (await readIndexedFileSnapshot(filePath))
 						if (indexedVaultPath !== vaultPath) return
 						const document = toIndexDocument(vaultPath, filePath, nextSnapshot)
-						snippetContents.delete(document.id)
 						const documentCount = await (await getBackend()).addDocuments([document])
 						if (indexedVaultPath !== vaultPath) return
 						set({ documentCount })
@@ -395,7 +396,6 @@ export const useSearchStore = create<SearchState>()(
 				removeFile: async (vaultPath, filePath) => {
 					if (indexedVaultPath !== vaultPath) return
 					const id = getDocumentId(filePath, vaultPath)
-					forgetSnippetContents(id)
 					scheduleSerialize(vaultPath)
 					const documentCount = await (await getBackend()).removePaths([id])
 					if (indexedVaultPath === vaultPath) set({ documentCount })
@@ -413,7 +413,6 @@ export const useSearchStore = create<SearchState>()(
 					serializeTimer = null
 					void getBackend().then((backend) => backend.clear())
 					indexedVaultPath = null
-					snippetContents.clear()
 					historyVaultPath = null
 					set({
 						query: "",

@@ -29,23 +29,27 @@ body.theme-warm-notes-light {
 }
 ```
 
-Markdown code spans and fenced code blocks use editor typography by default. Smaller typography
-belongs on code block chrome, not necessarily the code itself.
+Fenced code blocks use `--markdown-code-font-family`. Inline code spans use `--font-mono` at 0.86em
+with no box, colored by `--markdown-inline-code-color`. Wiki and external links sit on a
+highlighter stroke colored by `--markdown-link-mark-color`, and `==highlights==` use
+`--markdown-highlight-color`. Inline `#tags` render as `.markdown-tag` (Reading View) and `.cm-tag`
+(Live Preview).
 
 ## Headings
 
 ```css
 body.theme-warm-notes-light {
 	--heading-font-weight: 650;
-	--h1-font-size: 1.45em;
-	--h2-font-size: 1.25em;
+	--h1-font-size: 1.4em;
+	--h2-font-size: 1.22em;
 	--h3-font-size: 1.08em;
-	--h1-color: var(--syntax-heading);
-	--h2-color: var(--syntax-heading);
+	--h1-color: var(--text-primary);
+	--h2-color: var(--text-primary);
 }
 ```
 
-Keep heading scale compact enough that editing remains calm and dense.
+Built-in themes keep headings in `--text-primary`; H2 and H3 get small margin marks (an accent bar
+and a muted dot) drawn by the editor CSS.
 
 ## Callouts
 
@@ -62,6 +66,9 @@ body.theme-warm-notes-light {
 
 Common built-in callout names include `note`, `abstract`, `info`, `todo`, `tip`, `success`,
 `question`, `warning`, `failure`, `danger`, `bug`, `example`, and `quote`.
+
+Each built-in type has an icon drawn in `--callout-color`; the callout background is
+`--callout-<type>-bg` with a hairline mixed from the callout color.
 
 Plugins can register or override callout types. Explicit plugin colors take precedence over theme
 defaults for those registered callouts.

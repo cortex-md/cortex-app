@@ -1,22 +1,15 @@
-import type { useVaultStore } from "@cortex/core"
 import {
-	buildFileTree,
 	type FileTreeNode,
 	type FileTreeRow,
 	type FileTreeVisibleNodeRow,
-	getParentPath,
 	projectVisibleFileTree,
-	selectViewNotePaths,
-	useDatabaseStore,
+	useVaultFileTree,
 } from "@cortex/core"
 import { type Rect, useVirtualizer, type Virtualizer } from "@tanstack/react-virtual"
 import { type RefObject, useMemo } from "react"
 import { FILE_TREE_ROW_STEP } from "./fileTreeLayout"
 
-type VaultFiles = ReturnType<typeof useVaultStore.getState>["files"]
-
 interface FileSidebarTreeModelOptions {
-	files: VaultFiles
 	vaultPath: string
 	hasVault: boolean
 	expanded: Set<string>
@@ -28,7 +21,7 @@ interface FileSidebarTreeModelOptions {
 }
 
 interface FileSidebarTreeModel {
-	tree: FileTreeNode[]
+	tree: readonly FileTreeNode[]
 	rows: FileTreeRow[]
 	nodeRows: FileTreeVisibleNodeRow[]
 	nodeRowIndexByPath: Map<string, number>
@@ -39,7 +32,6 @@ interface FileSidebarTreeModel {
 }
 
 export function useFileSidebarTreeModel({
-	files,
 	vaultPath,
 	hasVault,
 	expanded,
@@ -49,15 +41,7 @@ export function useFileSidebarTreeModel({
 	focusedPathOverride,
 	treeScrollRef,
 }: FileSidebarTreeModelOptions): FileSidebarTreeModel {
-	const viewNotePaths = useDatabaseStore(selectViewNotePaths)
-	const tree = useMemo(
-		() =>
-			buildFileTree(files, vaultPath, {
-				hiddenPaths: new Set(viewNotePaths),
-				databaseFolderPaths: new Set(viewNotePaths.map(getParentPath)),
-			}),
-		[files, vaultPath, viewNotePaths],
-	)
+	const tree = useVaultFileTree()
 	const projection = useMemo(() => {
 		if (!hasVault) {
 			return {

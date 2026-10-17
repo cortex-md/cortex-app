@@ -8,7 +8,7 @@ import {
 	type ResolvedAuthorConfig,
 	resolvePropertyOption,
 } from "@cortex/properties"
-import { StatusBadge } from "@cortex/ui"
+import { SimpleTooltip, StatusBadge } from "@cortex/ui"
 import { CheckIcon } from "lucide-react"
 import { getInitials } from "@/utils/format"
 import { PropertyValueDisplay } from "../properties/PropertyValueDisplay"
@@ -54,9 +54,15 @@ function hashTone(value: string): number {
 
 export function DatabaseAvatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }) {
 	return (
-		<span className="db-av" data-tone={hashTone(name)} title={name} aria-hidden="true">
-			{avatarUrl ? <img src={avatarUrl} alt="" referrerPolicy="no-referrer" /> : getInitials(name)}
-		</span>
+		<SimpleTooltip label={name}>
+			<span className="db-av" data-tone={hashTone(name)} aria-hidden="true">
+				{avatarUrl ? (
+					<img src={avatarUrl} alt="" referrerPolicy="no-referrer" />
+				) : (
+					getInitials(name)
+				)}
+			</span>
+		</SimpleTooltip>
 	)
 }
 
@@ -126,9 +132,11 @@ export function DatabaseValue({
 		const relative = formatRelativeDate(value, today)
 		if (relative) {
 			return (
-				<span className="db-when" data-tone={relative.tone || undefined} title={relative.full}>
-					{relative.label}
-				</span>
+				<SimpleTooltip label={relative.full}>
+					<span className="db-when" data-tone={relative.tone || undefined}>
+						{relative.label}
+					</span>
+				</SimpleTooltip>
 			)
 		}
 	}

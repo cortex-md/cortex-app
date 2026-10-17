@@ -60,18 +60,27 @@
   languages, but do not enable code-editor suggestion panels or completion helpers inside note code
   fences unless this becomes an explicit editor feature with lazy loading and tests.
 - Fenced code block chrome belongs in an absolute overlay anchored to the opening fence line:
-  raw language slug badge when idle, copy button on hover. Keep it out of source text flow and do
-  not add left padding to code lines just to make room for chrome.
+  a lowercase mono language label, plus a round icon copy button (or host action) on hover. Reading
+  View renders the same label and copy button through the renderer's code chrome plugin. Keep it
+  out of source text flow and do not add left padding to code lines just to make room for chrome.
+  Shell fences (`sh`, `bash`, `shell`, `zsh`, `console`, `terminal`) render dark; `diff` fences mark
+  `+`/`-` lines with an inset 2px bar instead of painted rows.
 - Fenced code block content uses `--markdown-code-font-family` and
-  `--markdown-code-font-size`; inline code keeps `--font-editor`. Keep
-  `--markdown-code-padding-inline` applied symmetrically in Reading View and Live Preview.
+  `--markdown-code-font-size`; inline code uses `--font-mono` at 0.86em in
+  `--markdown-inline-code-color`, with no box. Keep `--markdown-code-padding-inline` applied
+  symmetrically in Reading View and Live Preview.
+- Inline `#tags` and `==highlights==` are decorated in Live Preview (`.cm-tag[data-tag]`,
+  `.cm-highlight`) and rendered in Reading View (`.markdown-tag[data-tag]`, `mark`). Both use the
+  shared `@cortex/properties/tags` rule that the tag index uses, so a decorated tag is always an
+  indexed tag. Reading View tag clicks call `onTagClick`; Live Preview uses Mod-click through
+  `inlineTagClickExtension` (`@cortex/editor/inline-tags`).
 - Markdown list markers and task checkboxes must stay visually aligned between Reading View and
   Live Preview. Share task checkbox styling through markdown CSS variables and keep Live Preview
   widgets backed by Markdown source changes instead of separate checkbox state.
 - Markdown heading typography must stay aligned across Reading View, Live Preview, and CodeMirror
-  syntax highlighting. Built-in themes use a compact Minimal-style scale where H1/H2 are only
-  slightly larger than body text, H3 stays near body size, H4-H6 may step down, and CodeMirror
-  heading tags use `--heading-font-weight` rather than hard-coded weights.
+  syntax highlighting. Built-in themes use the Markdown v3 scale from `@cortex/theme`; H2 and H3
+  get margin marks (`::before` on `h2`/`h3` and `.cm-line.cm-h2`/`.cm-h3`), and CodeMirror heading
+  tags use `--heading-font-weight` rather than hard-coded weights.
 - Scroll listeners that only mirror scroll position should be passive.
 - Production CodeMirror value imports must stay behind `loadEditorRuntime()` in `runtime.ts`.
   Editor React components, commands, keymaps, Live Preview, Vim, and clipboard helpers receive the
@@ -200,9 +209,9 @@
 - Table drag feedback belongs in the transient affordance overlay. Use animated preview/indicator
   elements and temporary row/column classes, not layout mutations, persisted metadata, or source
   rewrites before pointerup.
-- Live Preview table borders should be a connected grid: the wrapper owns the outer perimeter and
-  cells own internal dividers. Do not reintroduce per-cell outer borders that create disconnected
-  corners or stray right-side lines.
+- Tables are frameless in Reading View and Live Preview: muted 12px headers, hairline row dividers,
+  no outer perimeter and no vertical dividers. Do not reintroduce per-cell borders that create
+  disconnected corners or stray right-side lines.
 
 ## Selection Toolbar, Search Highlight, and Reveal
 

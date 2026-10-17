@@ -2,6 +2,12 @@ import { CommandRegistry } from "./CommandRegistry"
 import type { CommandEntry, CommandExecutionContext } from "./types"
 
 export { CommandRegistry } from "./CommandRegistry"
+export {
+	normalizeRecentCommandIds,
+	pushRecentCommandId,
+	RECENT_COMMAND_LIMIT,
+	resolveRecentCommands,
+} from "./recentCommands"
 export type {
 	CommandEntry,
 	CommandExecutionContext,

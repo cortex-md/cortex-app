@@ -10,6 +10,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 	Input,
+	SimpleTooltip,
 	Spinner,
 	StatusBadge,
 	toast,
@@ -157,16 +158,15 @@ function MemberRow({
 			</div>
 			<div className="settings-row-trail">
 				{!member.hasKey && (
-					<Badge
-						variant="outline"
-						title={
+					<SimpleTooltip
+						label={
 							member.publicKey
 								? "An admin device grants access automatically the next time it is online."
 								: "This member has not set up encryption yet."
 						}
 					>
-						Waiting for access
-					</Badge>
+						<Badge variant="outline">Waiting for access</Badge>
+					</SimpleTooltip>
 				)}
 				{editable ? (
 					<RoleMenu

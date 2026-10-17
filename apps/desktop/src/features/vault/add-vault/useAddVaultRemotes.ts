@@ -10,6 +10,7 @@ import {
 	useVaultStore,
 	type VaultListItem,
 } from "@cortex/core"
+import { toast } from "@cortex/ui"
 import { useEffect, useState } from "react"
 import { DEVICE_LABEL } from "../deviceLabel"
 
@@ -52,6 +53,7 @@ export function useAddVaultRemotes() {
 		syncConfig,
 		serverLabel: getSyncServerLabel(syncConfig),
 		locked: requiresCloudEntitlement(syncConfig) && block !== null,
-		openBillingPage: () => void openBillingPage().catch(() => {}),
+		openBillingPage: () =>
+			void openBillingPage().catch(() => toast.error("Could not open the billing page")),
 	}
 }

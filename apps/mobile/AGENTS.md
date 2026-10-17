@@ -237,8 +237,8 @@ stores, note sessions, and draws plugin UI from a mirror.
   `/vault`, and `/hash`.
 - `vault.openVault` does not scan (core scans once); `getVaultMetadata` scans to count files.
   `fs.writeFileSnapshot` and `fs.readFileSnapshot` resolve the SAF file once and hash in memory.
-  Path-missing errors are `MobilePathNotFoundError`; only those let `readOrCreateVaultId` create a
-  new id, so transient provider failures never overwrite `vault-id.json`.
+  Path-missing errors are `MobilePathNotFoundError`; only those let `readOrCreateVaultFile` create a
+  new id, so transient provider failures never overwrite `.cortex/vault.json`.
 - `keychain` uses `expo-secure-store` with keys encoded to SecureStore's `[\w.-]` alphabet;
   `clipboard` uses `expo-clipboard`; the device id is a persisted UUID from `getOrCreateDeviceId`.
 - `auth`, `devices`, `members`, `subscription`, `remoteVault`, and `sync.checkVaultEncryption` come
@@ -327,7 +327,8 @@ stores, note sessions, and draws plugin UI from a mirror.
   targets use `getMoveDestinations`, and errors use `reportAppError`/`getErrorMessage`.
 - `NoteEditorScreen` uses `openNoteDocumentSession`; the properties runtime comes from
   `initializeCoreProperties({ deviceType: "mobile" })`, and the sidebar tree uses core
-  `createFileTreeViewModel`.
+  `createFileTreeViewModelFromTree` over `useVaultFileTree()`/`useVaultFolderPaths()`; the Files
+  screen lists a folder through `useFolderEntries(path)`.
 
 ## Plugin UI
 
@@ -396,6 +397,10 @@ stores, note sessions, and draws plugin UI from a mirror.
   `Stack.SearchBar`, a segmented kind control and a filter/sort toolbar menu, pull to refresh, `tab`
   param. `MarketplaceDetailScreen` is one `NativeForm` per kind with the install/update/uninstall
   actions; the README pushes `marketplace-readme` (`MarkdownBlock`).
+- `features/extensions/extensionSync.ts` (`startMobileExtensionSync`, started by
+  `useMobileRuntime`) wires `@cortex/marketplace` `startExtensionSync` with `mobilePluginHost`; the
+  plugin list is ready once the mirrored `loadedVaultPath` matches the open vault. Sync preferences
+  show the status as the toggle subtitle and a "Review plugins/themes" row when needed.
 - Install never enables a plugin; uninstall confirms through `dialog.showConfirm`. Plugin installed state
   reads `usePluginStore`; themes are the real registry entries, installed when `findThemeFamily` matches
   a loaded family (`useThemeFamilies()`), and "Use theme" writes `appearance.theme = family.name`.
@@ -495,7 +500,9 @@ stores, note sessions, and draws plugin UI from a mirror.
 ## Search, Quick Finder, Bookmarks and Tags
 
 - Indexing stays lazy at boot. `features/search/vaultIndexing.ts` `useEnsureVaultIndexed()` runs
-  `useSearchStore.indexVault` then `useTagsStore.buildIndexFromFiles` once per vault file list.
+  `useSearchStore.indexVault` then core `noteMetadataIndex.build` (tags, links, tasks and property
+  suggestions in one pass) once per vault, then applies
+  `subscribeVaultIndexChanges` deltas (added, modified and removed notes) incrementally.
 - Search tab: `Stack.SearchBar`; typed `tag:`/`path:`/`file:` words become filters shown in a header
   scope menu (no chips). Results come from `useSearchStore.runQuery`, one grouped row per note.
 - `quick-finder` sheet: native title, `Stack.SearchBar`, filters (folder, tags, titles only, sort,

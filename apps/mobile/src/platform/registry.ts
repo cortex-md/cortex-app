@@ -1,10 +1,12 @@
 import type { Platform, VaultRegistryEntry } from "@cortex/platform"
 import { getVaultFilePath, VAULT_FILES } from "@cortex/platform/utils"
 import {
+	parseVaultFile,
 	parseVaultRegistry,
 	patchRegistryEntry,
 	removeRegistryEntry,
-	serializeVaultMetadata,
+	renameVaultFile,
+	serializeVaultFile,
 	upsertRegistryEntry,
 } from "@cortex/platform/vault"
 
@@ -120,10 +122,10 @@ export const vaultRegistryApi = {
 			upsertRegistryEntry(entries, { displayPath, icon, name, path: vaultPath, uuid }, now),
 		)
 
-		const metadataPath = getVaultFilePath(vaultPath, VAULT_FILES.vaultMetadata)
-		const existingMetadata = await readOptionalTextFile(metadataPath)
-		const nextMetadata = serializeVaultMetadata(name, existingMetadata, now)
-		if (nextMetadata !== existingMetadata) await writeTextFile(metadataPath, nextMetadata)
+		const vaultFilePath = getVaultFilePath(vaultPath, VAULT_FILES.vault)
+		const vaultFile = parseVaultFile(await readOptionalTextFile(vaultFilePath))
+		const nextVaultFile = vaultFile && renameVaultFile(vaultFile, name)
+		if (nextVaultFile) await writeTextFile(vaultFilePath, serializeVaultFile(nextVaultFile))
 	},
 	patchVaultRegistry: async (uuid, patch) => {
 		const path =

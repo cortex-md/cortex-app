@@ -41,13 +41,18 @@
   should stay graphite-neutral, close to Minimal-style `#1e1e1e`, `#282828`, and `#373737`
   surfaces, without blue or purple drift. `rose` is the accent family for actions, selection,
   focus, and explicit accent states, not the general app surface.
-- Built-in Markdown heading tokens should follow a compact Minimal-style scale: H1/H2 are only
-  slightly larger than body text, H3 stays near body size, and H4-H6 may step down. Heading colors
-  should stay restrained but visibly colored enough that Markdown structure does not collapse into a
-  neutral text field.
+- Built-in Markdown headings (Markdown v3) use ink (`text.primary`) on a real scale: H1 1.4em,
+  H2 1.22em, H3 1.08em, H4 1em, H5-H6 0.9em. Structure comes from margin marks drawn by the editor
+  CSS (an accent bar for H2, a muted dot for H3), not from per-level heading colors.
+- `fonts.mono` must be a real monospace stack; anything reading `--font-mono` (inline code, list
+  numbers, code labels, paths) relies on it.
 - Built-in codeblock typography uses `--markdown-code-font-family` and
   `--markdown-code-font-size`, defaulting to Menlo at 14px. Community themes may override those CSS
   variables directly without manifest changes.
+- `markdown.inlineCodeColor`, `markdown.linkMarkColor`, and `markdown.highlightColor` feed
+  `--markdown-inline-code-color`, `--markdown-link-mark-color`, and `--markdown-highlight-color`.
+  Built-in callouts use eight color families (blue, teal, green, amber, orange, red, violet, gray)
+  with a soft background mixed from the family color over `bg.primary`.
 - Feedback states require solid, background, foreground, border, and on-solid values.
 - Settings groups use `settingsGroupBg`, `settingsGroupBorder`, and `settingsGroupDivider`.
 - Sidebar hierarchy guides use `sidebarGuide`, exposed as `--sidebar-tree-guide`.

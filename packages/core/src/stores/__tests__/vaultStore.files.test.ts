@@ -73,6 +73,9 @@ function mockFilePlatform(files = new Map<string, string>()) {
 			readFileSnapshot,
 			writeFileSnapshot,
 			writeFile,
+			atomicWriteFile: vi.fn(async (path: string, content: string) => {
+				files.set(path, content)
+			}),
 			deleteFile,
 			renameFile,
 			hashFile,
@@ -191,21 +194,16 @@ describe("vaultStore file creation and cache ownership", () => {
 		expect(platform.createDir).toHaveBeenCalledWith("/vault/New Folder 2")
 	})
 
-	it("keeps a created folder when the post-create refresh fails", async () => {
-		const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
-		try {
-			const platform = mockFilePlatform()
-			platform.scanVault.mockRejectedValueOnce(new Error("scan is temporarily unavailable"))
+	it("adds a created folder to the vault index without rescanning", async () => {
+		const platform = mockFilePlatform()
 
-			await expect(useVaultStore.getState().createFolder("/vault", "New Folder")).resolves.toBe(
-				"/vault/New Folder",
-			)
+		await expect(useVaultStore.getState().createFolder("/vault", "New Folder")).resolves.toBe(
+			"/vault/New Folder",
+		)
 
-			expect(platform.createDir).toHaveBeenCalledWith("/vault/New Folder")
-			expect(useVaultStore.getState().error).toBe("Error: scan is temporarily unavailable")
-		} finally {
-			consoleError.mockRestore()
-		}
+		expect(platform.createDir).toHaveBeenCalledWith("/vault/New Folder")
+		expect(platform.scanVault).not.toHaveBeenCalled()
+		expect(useVaultStore.getState().files.map((file) => file.path)).toContain("/vault/New Folder")
 	})
 
 	it("removes bookmarks for deleted notes", async () => {

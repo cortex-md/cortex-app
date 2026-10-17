@@ -12,6 +12,7 @@ import {
 	Input,
 	NativeSelect,
 	NativeSelectOption,
+	SimpleTooltip,
 	Switch,
 } from "@cortex/ui"
 import {
@@ -89,16 +90,18 @@ function EnvironmentControl({ field, value, onChange }: EnvironmentControlProps)
 	}
 	return (
 		<div className="settings-env-control">
-			<Input
-				id={field.key}
-				size="sm"
-				type={field.secret ? "password" : "text"}
-				value={value}
-				onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(event.target.value)}
-				placeholder={field.defaultValue}
-			/>
+			<SimpleTooltip label="Stored in the OS keychain">
+				<Input
+					id={field.key}
+					size="sm"
+					type={field.secret ? "password" : "text"}
+					value={value}
+					onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(event.target.value)}
+					placeholder={field.defaultValue}
+				/>
+			</SimpleTooltip>
 			{field.secret && (
-				<span className="settings-env-secret" title="Stored in the OS keychain">
+				<span className="settings-env-secret">
 					<LockIcon />
 				</span>
 			)}
@@ -151,7 +154,7 @@ function EnvironmentDisclosure({
 										fieldId={`${ENVIRONMENT_FIELD_PREFIX}${field.key}`}
 										className="settings-env-field"
 										label={field.label}
-										description={<code title={field.key}>{field.key}</code>}
+										description={<code>{field.key}</code>}
 										htmlFor={field.key}
 										controlClassName="settings-env-control-column"
 									>

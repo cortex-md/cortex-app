@@ -1,7 +1,7 @@
 import type { Tab, ViewTabState } from "@cortex/core"
 import { useWorkspaceStore } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
-import { Button, ButtonGroup, Input, Progress, Spinner } from "@cortex/ui"
+import { Button, ButtonGroup, Input, Progress, SimpleTooltip, Spinner } from "@cortex/ui"
 import {
 	AlertCircleIcon,
 	ChevronLeftIcon,
@@ -126,70 +126,72 @@ export function PdfTabView({ tab, paneId, isActive }: PdfTabViewProps) {
 			style={{ display: isActive ? "flex" : "none" }}
 			aria-hidden={!isActive}
 		>
-			<div className="pdf-viewer-toolbar">
-				<div className="pdf-viewer-title" title={tab.filePath}>
-					{tab.title}
+			<SimpleTooltip label={tab.filePath} side="bottom">
+				<div className="pdf-viewer-toolbar">
+					<div className="pdf-viewer-title">{tab.title}</div>
+					<fieldset className="pdf-viewer-controls" aria-label="PDF page controls">
+						<Button
+							variant="ghost"
+							size="icon"
+							aria-label="Previous page"
+							disabled={documentStatus.type !== "ready" || pageNumber <= 1}
+							onClick={handlePreviousPage}
+						>
+							<ChevronLeftIcon className="size-4" />
+						</Button>
+						<Input
+							size="sm"
+							inputMode="numeric"
+							aria-label="Page number"
+							value={pageInputValue}
+							disabled={documentStatus.type !== "ready"}
+							className="pdf-viewer-page-input"
+							onChange={handlePageInputChange}
+						/>
+						<span className="pdf-viewer-page-total">/ {pageCount || "-"}</span>
+						<Button
+							variant="ghost"
+							size="icon"
+							aria-label="Next page"
+							disabled={
+								documentStatus.type !== "ready" || pageCount === 0 || pageNumber >= pageCount
+							}
+							onClick={handleNextPage}
+						>
+							<ChevronRightIcon className="size-4" />
+						</Button>
+					</fieldset>
+					<ButtonGroup role="group" aria-label="PDF zoom controls">
+						<Button
+							variant="ghost"
+							size="icon"
+							aria-label="Zoom out"
+							disabled={documentStatus.type !== "ready" || viewState.zoom <= MIN_ZOOM}
+							onClick={handleZoomOut}
+						>
+							<MinusIcon />
+						</Button>
+						<Button
+							variant="ghost"
+							className="pdf-viewer-zoom-reset"
+							disabled={documentStatus.type !== "ready"}
+							onClick={handleZoomReset}
+						>
+							<RotateCcwIcon className="size-4" />
+							{Math.round(viewState.zoom * 100)}%
+						</Button>
+						<Button
+							variant="ghost"
+							size="icon"
+							aria-label="Zoom in"
+							disabled={documentStatus.type !== "ready" || viewState.zoom >= MAX_ZOOM}
+							onClick={handleZoomIn}
+						>
+							<PlusIcon />
+						</Button>
+					</ButtonGroup>
 				</div>
-				<fieldset className="pdf-viewer-controls" aria-label="PDF page controls">
-					<Button
-						variant="ghost"
-						size="icon"
-						aria-label="Previous page"
-						disabled={documentStatus.type !== "ready" || pageNumber <= 1}
-						onClick={handlePreviousPage}
-					>
-						<ChevronLeftIcon className="size-4" />
-					</Button>
-					<Input
-						size="sm"
-						inputMode="numeric"
-						aria-label="Page number"
-						value={pageInputValue}
-						disabled={documentStatus.type !== "ready"}
-						className="pdf-viewer-page-input"
-						onChange={handlePageInputChange}
-					/>
-					<span className="pdf-viewer-page-total">/ {pageCount || "-"}</span>
-					<Button
-						variant="ghost"
-						size="icon"
-						aria-label="Next page"
-						disabled={documentStatus.type !== "ready" || pageCount === 0 || pageNumber >= pageCount}
-						onClick={handleNextPage}
-					>
-						<ChevronRightIcon className="size-4" />
-					</Button>
-				</fieldset>
-				<ButtonGroup role="group" aria-label="PDF zoom controls">
-					<Button
-						variant="ghost"
-						size="icon"
-						aria-label="Zoom out"
-						disabled={documentStatus.type !== "ready" || viewState.zoom <= MIN_ZOOM}
-						onClick={handleZoomOut}
-					>
-						<MinusIcon />
-					</Button>
-					<Button
-						variant="ghost"
-						className="pdf-viewer-zoom-reset"
-						disabled={documentStatus.type !== "ready"}
-						onClick={handleZoomReset}
-					>
-						<RotateCcwIcon className="size-4" />
-						{Math.round(viewState.zoom * 100)}%
-					</Button>
-					<Button
-						variant="ghost"
-						size="icon"
-						aria-label="Zoom in"
-						disabled={documentStatus.type !== "ready" || viewState.zoom >= MAX_ZOOM}
-						onClick={handleZoomIn}
-					>
-						<PlusIcon />
-					</Button>
-				</ButtonGroup>
-			</div>
+			</SimpleTooltip>
 
 			<div className="pdf-viewer-scroll">
 				{documentStatus.type === "loading" && (

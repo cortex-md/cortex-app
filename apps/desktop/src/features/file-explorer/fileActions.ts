@@ -1,10 +1,6 @@
-import {
-	sendCoreNotification,
-	toVaultRelativePath,
-	useSyncStore,
-	useVaultStore,
-} from "@cortex/core"
+import { toVaultRelativePath, useSyncStore, useVaultStore } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
+import { toast } from "@cortex/ui"
 
 export type FilePathKind = "relative" | "absolute"
 
@@ -16,7 +12,7 @@ function getVaultRelativePath(filePath: string): string {
 export async function copyFilePath(filePath: string, kind: FilePathKind): Promise<void> {
 	const value = kind === "relative" ? getVaultRelativePath(filePath) : filePath
 	await getPlatform().clipboard.writeText(value)
-	await sendCoreNotification({ title: "Path copied", body: value })
+	toast("Path copied", { description: value })
 }
 
 export function getSyncExclusionPattern(filePath: string, isDirectory: boolean): string {

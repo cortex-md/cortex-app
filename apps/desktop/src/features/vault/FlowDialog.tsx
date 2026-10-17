@@ -4,6 +4,7 @@ import {
 	DialogContent,
 	DialogDescription,
 	DialogTitle,
+	SimpleTooltip,
 	Stepper,
 	StepperItem,
 	type StepperState,
@@ -151,16 +152,16 @@ export function FlowLocation({
 	disabled?: boolean
 }) {
 	return (
-		<div className="flex items-center justify-between gap-2.5 rounded-[10px] bg-bg-hover py-1.5 pr-1.5 pl-3 font-mono text-[12.5px] leading-none">
-			<span className="truncate" title={path}>
-				{path}
-			</span>
-			{onChange ? (
-				<Button variant="ghost" size="xs" onClick={onChange} disabled={disabled}>
-					Change…
-				</Button>
-			) : null}
-		</div>
+		<SimpleTooltip label={path}>
+			<div className="flex items-center justify-between gap-2.5 rounded-[10px] bg-bg-hover py-1.5 pr-1.5 pl-3 font-mono text-[12.5px] leading-none">
+				<span className="truncate">{path}</span>
+				{onChange ? (
+					<Button variant="ghost" size="xs" onClick={onChange} disabled={disabled}>
+						Change…
+					</Button>
+				) : null}
+			</div>
+		</SimpleTooltip>
 	)
 }
 

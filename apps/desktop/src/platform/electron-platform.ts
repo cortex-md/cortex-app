@@ -160,6 +160,8 @@ function extend<T extends object, O extends object>(base: T, overrides: O): Omit
 	return Object.assign(Object.create(base) as T, overrides)
 }
 
+let appDataDir: Promise<string> | null = null
+
 export const electronPlatform: Platform = {
 	appearance: {
 		getSnapshot: getAppearanceSnapshot,
@@ -207,7 +209,13 @@ export const electronPlatform: Platform = {
 	documentExport: { exportHtmlToPdf: (options) => main.documents.exportHtmlToPdf(options) },
 	vault: main.vault,
 	storage: {
-		getAppDataDir: () => main.app.getDataDir(),
+		getAppDataDir: () => {
+			appDataDir ??= main.app.getDataDir().catch((error) => {
+				appDataDir = null
+				throw error
+			})
+			return appDataDir
+		},
 	},
 	app: {
 		getCurrentAppVersion: () => main.app.getVersion(),

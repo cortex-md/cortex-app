@@ -19,24 +19,24 @@ function replacePathPrefix(path: string, oldPath: string, newPath: string): stri
 	return `${newPath}${path.slice(oldPath.length)}`
 }
 
+const memoryUiState = new Map<string, Record<string, boolean>>()
+
 async function readUiState(vaultPath: string): Promise<NotePropertiesUiState> {
+	const service = getPropertiesRuntime().uiState
 	try {
-		const raw = await getPropertiesRuntime().files.readFile(`${vaultPath}/.cortex/ui-state.json`)
-		const parsed = JSON.parse(raw) as Partial<NotePropertiesUiState>
-		return {
-			version: 1,
-			expanded: parsed.expanded && typeof parsed.expanded === "object" ? parsed.expanded : {},
-		}
+		const expanded = service
+			? await service.readExpanded(vaultPath)
+			: (memoryUiState.get(vaultPath) ?? {})
+		return { version: 1, expanded: { ...expanded } }
 	} catch {
 		return defaultUiState()
 	}
 }
 
 async function writeUiState(vaultPath: string, state: NotePropertiesUiState): Promise<void> {
-	await getPropertiesRuntime().files.atomicWriteFile(
-		`${vaultPath}/.cortex/ui-state.json`,
-		JSON.stringify(state, null, "\t"),
-	)
+	const service = getPropertiesRuntime().uiState
+	if (service) await service.writeExpanded(vaultPath, state.expanded)
+	else memoryUiState.set(vaultPath, state.expanded)
 }
 
 export async function getNotePropertiesExpanded(

@@ -1,5 +1,6 @@
 import {
 	type TemplateDefinition,
+	trackCreatedFiles,
 	useCanWriteVaultPath,
 	useTemplateStore,
 	useVaultStore,
@@ -163,7 +164,6 @@ function PickerFooter({ folder, error, creating, onFolderChange, onCreate }: Pic
 
 function CreateFromTemplateContent() {
 	const vault = useVaultStore((state) => state.vault)
-	const refreshFiles = useVaultStore((state) => state.refreshFiles)
 	const createFile = useVaultStore((state) => state.createFile)
 	const templates = useTemplateStore((state) => state.templates)
 	const ensureTemplatesLoaded = useTemplateStore((state) => state.ensureTemplatesLoaded)
@@ -213,7 +213,7 @@ function CreateFromTemplateContent() {
 						targetFolder,
 					})
 				: await createFile(parentPath, title.trim() || "Untitled")
-			await refreshFiles()
+			if (activeTemplate) trackCreatedFiles([filePath])
 			openTab(filePath)
 			closeCreateFromTemplate()
 		} catch (createError) {

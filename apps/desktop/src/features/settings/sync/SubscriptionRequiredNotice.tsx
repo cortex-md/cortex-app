@@ -1,5 +1,5 @@
 import { useRemoteVaultStore, useSubscriptionStore } from "@cortex/core"
-import { Alert, AlertDescription, AlertTitle, Button } from "@cortex/ui"
+import { Alert, AlertDescription, AlertTitle, Button, toast } from "@cortex/ui"
 import { CreditCard } from "lucide-react"
 
 export function useCloudPlanBlocked(): boolean {
@@ -17,7 +17,7 @@ export function SubscriptionRequiredNotice() {
 	if (!blocked || !block) return null
 
 	const handleOpenBilling = () => {
-		void openBillingPage().catch(() => {})
+		void openBillingPage().catch(() => toast.error("Could not open the billing page"))
 	}
 
 	return (

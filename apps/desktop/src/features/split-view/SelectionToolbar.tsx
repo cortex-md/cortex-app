@@ -8,13 +8,10 @@ import {
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
+	SimpleTooltip,
 	Toggle,
 	Toolbar,
 	ToolbarSeparator,
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
 } from "@cortex/ui"
 import {
 	BoldIcon,
@@ -150,24 +147,19 @@ function CommandButton({
 }) {
 	const Icon = toolbarIcons[command.id]
 	return (
-		<Tooltip>
-			<TooltipTrigger asChild>
-				<Toggle
-					size="sm"
-					pressed={false}
-					aria-label={command.label}
-					data-markdown-toolbar-command={command.id}
-					onMouseDown={keepEditorFocus}
-					onClick={() => onRun(command)}
-				>
-					{Icon && <Icon aria-hidden="true" />}
-					{showLabel && <span>{command.label.replace(/^Add /, "")}</span>}
-				</Toggle>
-			</TooltipTrigger>
-			<TooltipContent side="top" sideOffset={6}>
-				{command.label}
-			</TooltipContent>
-		</Tooltip>
+		<SimpleTooltip label={command.label}>
+			<Toggle
+				size="sm"
+				pressed={false}
+				aria-label={command.label}
+				data-markdown-toolbar-command={command.id}
+				onMouseDown={keepEditorFocus}
+				onClick={() => onRun(command)}
+			>
+				{Icon && <Icon aria-hidden="true" />}
+				{showLabel && <span>{command.label.replace(/^Add /, "")}</span>}
+			</Toggle>
+		</SimpleTooltip>
 	)
 }
 
@@ -205,56 +197,54 @@ export function SelectionToolbar({
 	}
 
 	return createPortal(
-		<TooltipProvider delayDuration={500}>
-			<Toolbar
-				className="selection-toolbar"
-				aria-label="Format selection"
-				data-placement={state.position.placement}
-				style={{ left: state.position.left, top: state.position.top }}
-				onMouseDown={keepEditorFocus}
-			>
-				{turnIntoCommands.length > 0 && (
-					<CommandMenu
-						label="Turn into"
-						commands={turnIntoCommands}
-						onRun={runCommand}
-						onOpenChange={handleMenuOpenChange}
-						trigger={
-							<>
-								Text
-								<ChevronDownIcon aria-hidden="true" />
-							</>
-						}
-					/>
-				)}
-				{showFormatting && <ToolbarSeparator />}
-				{inlineCommands.map((command) => (
-					<CommandButton key={command.id} command={command} onRun={runCommand} />
-				))}
-				{showFormatting && <ToolbarSeparator />}
-				{blockCommands.map((command) => (
-					<CommandButton key={command.id} command={command} onRun={runCommand} />
-				))}
-				{overflowCommands.length > 0 && (
-					<CommandMenu
-						label="More Markdown actions"
-						commands={overflowCommands}
-						onRun={runCommand}
-						onOpenChange={handleMenuOpenChange}
-						trigger={<MoreHorizontalIcon aria-hidden="true" />}
-					/>
-				)}
-				{showFormatting && annotateCommands.length > 0 && <ToolbarSeparator />}
-				{annotateCommands.map((command) => (
-					<CommandButton
-						key={command.id}
-						command={command}
-						onRun={runCommand}
-						showLabel={!showFormatting}
-					/>
-				))}
-			</Toolbar>
-		</TooltipProvider>,
+		<Toolbar
+			className="selection-toolbar"
+			aria-label="Format selection"
+			data-placement={state.position.placement}
+			style={{ left: state.position.left, top: state.position.top }}
+			onMouseDown={keepEditorFocus}
+		>
+			{turnIntoCommands.length > 0 && (
+				<CommandMenu
+					label="Turn into"
+					commands={turnIntoCommands}
+					onRun={runCommand}
+					onOpenChange={handleMenuOpenChange}
+					trigger={
+						<>
+							Text
+							<ChevronDownIcon aria-hidden="true" />
+						</>
+					}
+				/>
+			)}
+			{showFormatting && <ToolbarSeparator />}
+			{inlineCommands.map((command) => (
+				<CommandButton key={command.id} command={command} onRun={runCommand} />
+			))}
+			{showFormatting && <ToolbarSeparator />}
+			{blockCommands.map((command) => (
+				<CommandButton key={command.id} command={command} onRun={runCommand} />
+			))}
+			{overflowCommands.length > 0 && (
+				<CommandMenu
+					label="More Markdown actions"
+					commands={overflowCommands}
+					onRun={runCommand}
+					onOpenChange={handleMenuOpenChange}
+					trigger={<MoreHorizontalIcon aria-hidden="true" />}
+				/>
+			)}
+			{showFormatting && annotateCommands.length > 0 && <ToolbarSeparator />}
+			{annotateCommands.map((command) => (
+				<CommandButton
+					key={command.id}
+					command={command}
+					onRun={runCommand}
+					showLabel={!showFormatting}
+				/>
+			))}
+		</Toolbar>,
 		document.body,
 	)
 }

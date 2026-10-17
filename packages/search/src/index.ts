@@ -1,5 +1,9 @@
 export {
 	createLocalSearchBackend,
+	type NoteContentRequest,
+	type NoteExcerptResult,
+	type NoteMatchOptions,
+	type NoteMatchResult,
 	type SearchBackend,
 	type SearchIndexDocument,
 	type SearchIndexEntry,

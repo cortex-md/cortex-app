@@ -52,7 +52,8 @@ Typecheck projects: `tsconfig.json` (renderer), `tsconfig.electron.json` (main/p
   vaults, and paths granted by dialogs). The credentials file is never readable from the renderer.
 - `services/{fs,vault,registry,watcher,device}.ts` keep all IO in main but call the pure rules from
   `@cortex/platform/{hash,vault,utils}` (entry shaping/sort, hidden paths, vault id and name from
-  `.cortex/vault-metadata.json`, registry ops with `lastOpened` in milliseconds, device id). Main
+  `.cortex/vault.json`, read once per vault and cached in `services/vaultFile.ts`, registry ops with
+  `lastOpened` in milliseconds written asynchronously and atomically, device id). Main
   bundles `@cortex/platform`. Only packages in `dependencies` stay external to main; keep that list
   to what main loads at runtime (`adm-zip`, `electron-updater`, `font-list`, `write-file-atomic`) and
   put renderer and workspace packages in `devDependencies` so electron-builder does not pack them.
@@ -95,6 +96,10 @@ host). `hooks/useCommunityPluginLifecycle.ts` calls `pluginHost.syncCommunityAcc
 setting changes. `features/plugins/communityPluginsAccess.tsx` owns the toggle helpers
 (`useCommunityPluginsAllowed`, `setCommunityPluginsAllowed`, `enablePluginWithConsent`) and the
 `CommunityPluginsNotice` used by Settings → Plugins and the Marketplace.
+`features/extensions/extensionSync.ts` (`startDesktopExtensionSync`, started in `useAppRuntime`)
+wires `@cortex/marketplace` `startExtensionSync` to the vault, sync, settings, and plugin stores;
+Settings → Sync → Preferences shows its status line and a Review link under the plugin and theme
+toggles.
 Editor config comes from `@cortex/editor/editor-config` `createEditorConfig` (panes and template
 editor), image/asset URLs from `@cortex/editor/note-assets` `resolveNoteAssetPath`, and the Markdown
 toolbar ids from `markdownToolbarLayout` in `@cortex/editor/markdown-format-commands`. Core sidebar views, tab views, and status bar items
@@ -219,7 +224,7 @@ Global modal targets use `createModalStore<T>()` with one mounted host. `utils/m
 app-level modal store (quick finder, command palette, tag picker, create-from-template, auth,
 reset password, Obsidian import, note history, note share, manage access) plus the `toggle*`/`open*`
 helpers; `features/settings/settingsModal.ts` owns Settings. `uiStore` in `@cortex/core` keeps only
-layout state (sidebars, quick finder preview). `embedModal` + `features/embeds/EmbedHost.tsx` host
+layout state (sidebars, quick finder preview, command palette recents). `embedModal` + `features/embeds/EmbedHost.tsx` host
 drawing and Mermaid embeds. Diff rendering goes through the lazy `features/sync/DiffViewer.tsx`, and
 `shiki` is aliased to `features/sync/shiki/bundle.ts` (JavaScript regex engine, ~20 grammars) so the
 full grammar set never ships. Dialogs render their content only while open through
@@ -239,10 +244,24 @@ forwards each `SearchBackend` method as one ordered
 `createLocalSearchBackend()` from `@cortex/search/backend`: MiniSearch, fingerprints, persisted
 index parse and serialization never run on the renderer main thread. The worker has no IPC access;
 the renderer reads note batches and the index file through `getPlatform()` and posts the text.
+Snippet text for the Quick Finder and the search sidebar is built in the worker too
+(`matchNotes`); the renderer only reads notes the worker has not cached.
 The Quick Finder requests titles per keystroke and keeps the previous results until the response
 for the current query arrives (latest query wins); Enter pressed while results are pending opens
 the first result once they arrive, and title search waits while the index is still loading. The
 Quick Finder preview is plain text (`stripMarkdown`), not a rendered Markdown pipeline.
+
+Command surfaces (`features/command-palette`, `features/quick-finder`) share one shell in
+`styles/command-surfaces.css`: 760px dialogs (1080px with the finder preview), a 56px input, group
+headings, 40px rows and a footer of key hints. With an empty query the palette shows only "Recent"
+(the `uiStore.recentCommandIds` MRU) and a fixed "Suggested" list, so opening it never renders the
+whole registry; a query groups `matchCommand` results by category and highlights label ranges. A
+palette query with no match offers "Search notes" (⌘↵), which opens the Quick Finder with that
+query (`openQuickFinderFromCommandPalette`); typing `>` in the finder opens the palette with the
+rest of the text (`openCommandPaletteFromQuickFinder`). Finder results are grouped as Recent, Notes
+(title hits, highlighted with `findTitleRanges`) and In text (content snippets); the Create row is
+last whenever no title matches the query exactly. Row icons come from
+`features/file-explorer/fileKindIcon.tsx`.
 
 ## Settings and Appearance
 
@@ -251,8 +270,8 @@ Settings is an overlay in the main window (`features/settings/SettingsOverlay.ts
 `features/settings/settingsModal.ts`; the `app.settings` command accepts `{ section }` as payload so
 native menu items (Settings…, Manage Plugins…, Keyboard Shortcuts) route through it. The overlay
 renders `SettingsView` (`SettingsNav` + `SettingsPageHost`, which keeps visited pages mounted with
-`<Activity>`). Pages that need the vault file list read it through `useSettingsVaultFiles()`, which
-scans only while that page is visible. Actions that leave Settings (vault switch, Marketplace,
+`<Activity>`). Pages that need the vault file list read it through `useSettingsVaultFiles()` and
+folder pickers through `useSettingsVaultFolders()`; both read the core vault index and never rescan. Actions that leave Settings (vault switch, Marketplace,
 import, templates, history dialogs) go through `runSettingsAction(name, payload)` in
 `features/settings/settingsActions.ts`, which closes the overlay first.
 
@@ -281,12 +300,22 @@ Custom accents update `--text-on-accent` and related foregrounds; dark styling k
   the drag and commit to the store once on release.
 - Tabs sit in a pill track: inactive tabs size to their title between 72px and 180px, the active
   tab keeps up to 260px; motion stays limited to create, close, and drop states. `DropZoneOverlay` handles center/edge split drops; `TabBar` owns insertion targets.
-- `SidebarRail` owns left-sidebar navigation: a 48px icon rail with core views before plugin
+- `SidebarRail` owns left-sidebar navigation: a 52px icon rail (36px pill buttons, no press scale) with core views before plugin
   views, then Marketplace (with an update badge) and Settings at the bottom. Collapsing the sidebar
   keeps only the 76px rail. `SidebarViewStage` keeps visited views mounted under `<Activity>`; a
   vanished plugin view falls back to Files.
-- `FileSidebar` virtualizes the flattened tree (`@tanstack/react-virtual`) built by `@cortex/core`
-  `buildFileTree`/`projectVisibleFileTree`. Rows are 32px in a 36px step with 18px indentation.
+- `FileSidebar` virtualizes the rows that `projectVisibleFileTree` projects from the core vault index
+  roots (`useVaultFileTree()`, `@tanstack/react-virtual`); never rebuild the tree from `files`. Rows are 32px in a 32px step with 18px indentation and
+  9px radius on every platform. Notes have no icon and folders only a chevron; databases show
+  `DatabaseViewTile` (glyph of the first view, read from `useDatabaseStore`) and non-note files a
+  muted kind glyph. Kinds come from `getFileKind` (`@cortex/platform/utils`);
+  `features/file-explorer/fileKindIcon.tsx` maps kinds and database views to icons for the tree and
+  the Quick Finder. Read modification times through `useVaultModifiedTime(s)` and `isDir` through
+  `getVaultIndex().get(path)`, not by scanning `files`.
+- `EmptyVaultLayout` is the start screen: recent vaults (arrow keys, Enter) with New vault / Open
+  folder, or the first-run copy when there are none. `EmptyPaneState` lists Start commands and up to
+  five notes from `getRecentFilePaths`, which orders open tabs by `lastAccessed` across all panes,
+  then recently closed files.
 - The window ground is the sidebar material (`--sidebar-bg`, or native vibrancy on macOS); each
   pane's content is a floating card (`--workspace-card-radius`, `--workspace-card-shadow`) and the
   tab bar and status bar stay transparent above and below it. macOS uses a 40px overlay titlebar;

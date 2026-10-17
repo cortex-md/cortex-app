@@ -1,31 +1,61 @@
-import { type CommandEntry, commandRegistry, executeCommand } from "@cortex/commands"
+import {
+	type CommandEntry,
+	commandRegistry,
+	executeCommand,
+	resolveRecentCommands,
+} from "@cortex/commands"
 import { formatHotkeyDisplay, useHotkeysStore } from "@cortex/commands/hotkeys"
+import { useUIStore } from "@cortex/core"
+import type { SearchMatchRange } from "@cortex/search"
 import {
 	CommandDialog,
-	CommandEmpty,
 	CommandFooterHints,
 	CommandGroup,
 	CommandInput,
 	CommandItem,
 	CommandList,
 	CommandShortcut,
+	Kbd,
 } from "@cortex/ui"
-import { memo, useCallback, useMemo, useState, useSyncExternalStore } from "react"
-import { commandPaletteModal, toggleCommandPalette } from "@/utils/modals"
-import { scoreCommand } from "./scoreCommand"
+import { SearchIcon, SquareTerminalIcon } from "lucide-react"
+import {
+	type KeyboardEvent,
+	memo,
+	useCallback,
+	useMemo,
+	useState,
+	useSyncExternalStore,
+} from "react"
+import {
+	type CommandPaletteRequest,
+	commandPaletteModal,
+	openQuickFinderFromCommandPalette,
+	toggleCommandPalette,
+} from "@/utils/modals"
+import { HighlightedText } from "../search/HighlightedSnippet"
+import { matchCommand } from "./matchCommand"
 
-interface GroupedCommands {
-	category: string
-	commands: CommandEntry[]
+interface PaletteRow {
+	command: CommandEntry
+	labelRanges: readonly SearchMatchRange[]
+}
+
+interface PaletteGroup {
+	heading: string
+	rows: PaletteRow[]
+	showCategory: boolean
 }
 
 const RESULT_LIMIT = 40
-
-const COMMAND_PALETTE_FOOTER_HINTS = [
-	{ keys: ["↑", "↓"], label: "navigate" },
-	{ keys: ["Return"], label: "run" },
-	{ keys: ["Esc"], label: "close" },
-]
+const RECENT_LIMIT = 3
+const QUICK_FINDER_COMMAND_ID = "navigate.quick-finder"
+const SEARCH_NOTES_VALUE = "palette:search-notes"
+const SUGGESTED_COMMAND_IDS = [
+	QUICK_FINDER_COMMAND_ID,
+	"view.search",
+	"view.toggle-sidebar",
+	"app.settings",
+] as const
 
 function subscribeRegistry(listener: () => void): () => void {
 	return commandRegistry.subscribe(listener)
@@ -35,25 +65,42 @@ function getRegistrySnapshot() {
 	return commandRegistry.getSnapshot()
 }
 
-function groupByCategory(commands: readonly CommandEntry[]): GroupedCommands[] {
-	const groups = new Map<string, CommandEntry[]>()
-	for (const cmd of commands) {
-		const existing = groups.get(cmd.category) ?? []
-		existing.push(cmd)
-		groups.set(cmd.category, existing)
-	}
-	return Array.from(groups.entries()).map(([category, commands]) => ({ category, commands }))
+function toRows(commands: readonly CommandEntry[]): PaletteRow[] {
+	return commands.map((command) => ({ command, labelRanges: [] }))
 }
 
-function filterCommands(commands: readonly CommandEntry[], query: string): GroupedCommands[] {
-	if (!query.trim()) return groupByCategory(commands)
-	const scored: { command: CommandEntry; score: number }[] = []
+function buildIdleGroups(
+	commands: readonly CommandEntry[],
+	recentCommandIds: readonly string[],
+): PaletteGroup[] {
+	const recent = resolveRecentCommands(recentCommandIds, commands, RECENT_LIMIT)
+	const recentIds = new Set(recent.map((command) => command.id))
+	const suggested = resolveRecentCommands(
+		SUGGESTED_COMMAND_IDS,
+		commands,
+		SUGGESTED_COMMAND_IDS.length,
+	).filter((command) => !recentIds.has(command.id))
+	return [
+		{ heading: "Recent", rows: toRows(recent), showCategory: true },
+		{ heading: "Suggested", rows: toRows(suggested), showCategory: true },
+	].filter((group) => group.rows.length > 0)
+}
+
+function buildQueryGroups(commands: readonly CommandEntry[], query: string): PaletteGroup[] {
+	const scored: (PaletteRow & { score: number })[] = []
 	for (const command of commands) {
-		const score = scoreCommand(command, query)
-		if (score !== null) scored.push({ command, score })
+		const match = matchCommand(command, query)
+		if (match) scored.push({ command, labelRanges: match.labelRanges, score: match.score })
 	}
 	scored.sort((left, right) => right.score - left.score)
-	return [{ category: "", commands: scored.slice(0, RESULT_LIMIT).map((entry) => entry.command) }]
+	const groups = new Map<string, PaletteGroup>()
+	for (const row of scored.slice(0, RESULT_LIMIT)) {
+		const heading = row.command.category
+		const group = groups.get(heading) ?? { heading, rows: [], showCategory: false }
+		group.rows.push(row)
+		groups.set(heading, group)
+	}
+	return Array.from(groups.values())
 }
 
 const CommandPaletteRows = memo(function CommandPaletteRows({
@@ -61,20 +108,22 @@ const CommandPaletteRows = memo(function CommandPaletteRows({
 	shortcutMap,
 	onSelect,
 }: {
-	groups: GroupedCommands[]
-	shortcutMap: Map<string, string>
+	groups: PaletteGroup[]
+	shortcutMap: ReadonlyMap<string, string>
 	onSelect: (commandId: string) => void
 }) {
 	return groups.map((group) => (
-		<CommandGroup key={group.category} heading={group.category || undefined}>
-			{group.commands.map((cmd) => {
-				const shortcut = shortcutMap.get(cmd.id)
+		<CommandGroup key={group.heading} heading={group.heading}>
+			{group.rows.map(({ command, labelRanges }) => {
+				const shortcut = shortcutMap.get(command.id)
 				return (
-					<CommandItem key={cmd.id} value={cmd.id} onSelect={onSelect}>
-						<span className="command-item-copy">
-							<span className="command-item-title">{cmd.label}</span>
-							<span className="command-item-meta">{cmd.category}</span>
+					<CommandItem key={command.id} value={command.id} onSelect={onSelect}>
+						<span className="command-item-title">
+							<HighlightedText text={command.label} ranges={labelRanges} />
 						</span>
+						{group.showCategory && (
+							<span className="command-item-category">{command.category}</span>
+						)}
 						{shortcut && <CommandShortcut>{shortcut}</CommandShortcut>}
 					</CommandItem>
 				)
@@ -83,11 +132,38 @@ const CommandPaletteRows = memo(function CommandPaletteRows({
 	))
 })
 
+function CommandPaletteNoMatch({
+	query,
+	onSearchNotes,
+}: {
+	query: string
+	onSearchNotes: () => void
+}) {
+	return (
+		<div className="command-none">
+			<strong>No commands match “{query}”</strong>
+			<span>Try fewer letters, or search notes instead.</span>
+			<CommandItem value={SEARCH_NOTES_VALUE} onSelect={onSearchNotes}>
+				<SearchIcon aria-hidden="true" />
+				<span className="command-item-title">Search notes for “{query}”</span>
+				<CommandShortcut>{formatHotkeyDisplay("mod+enter")}</CommandShortcut>
+			</CommandItem>
+		</div>
+	)
+}
+
 export function CommandPalette() {
-	const commandPaletteOpen = commandPaletteModal.useTarget() !== null
-	const bindings = useHotkeysStore((s) => s.bindings)
+	const request = commandPaletteModal.useTarget()
+	if (!request) return null
+	return <CommandPaletteDialog request={request} />
+}
+
+function CommandPaletteDialog({ request }: { request: CommandPaletteRequest }) {
+	const bindings = useHotkeysStore((state) => state.bindings)
+	const recentCommandIds = useUIStore((state) => state.recentCommandIds)
 	const snapshot = useSyncExternalStore(subscribeRegistry, getRegistrySnapshot)
-	const [query, setQuery] = useState("")
+	const [query, setQuery] = useState(() => request.query)
+	const trimmedQuery = query.trim()
 
 	const shortcutMap = useMemo(() => {
 		const map = new Map<string, string>()
@@ -98,43 +174,75 @@ export function CommandPalette() {
 	}, [bindings])
 
 	const groups = useMemo(
-		() => (commandPaletteOpen ? filterCommands(snapshot.commands, query) : []),
-		[commandPaletteOpen, query, snapshot],
+		() =>
+			trimmedQuery
+				? buildQueryGroups(snapshot.commands, trimmedQuery)
+				: buildIdleGroups(snapshot.commands, recentCommandIds),
+		[recentCommandIds, snapshot, trimmedQuery],
 	)
+	const hasMatches = groups.length > 0
+
+	const footerHints = useMemo(() => {
+		const quickFinderShortcut = shortcutMap.get(QUICK_FINDER_COMMAND_ID)
+		return [
+			{ keys: ["↵"], label: "Run" },
+			{ keys: ["↑", "↓"], label: "Move" },
+			...(quickFinderShortcut
+				? [{ keys: [quickFinderShortcut], label: "Find notes", align: "end" as const }]
+				: []),
+		]
+	}, [shortcutMap])
 
 	const handleSelect = useCallback((commandId: string) => {
 		toggleCommandPalette()
+		useUIStore.getState().recordRecentCommand(commandId)
 		requestAnimationFrame(() => executeCommand(commandId, { source: "palette" }))
 	}, [])
 
-	const handleOpenChange = useCallback((open: boolean) => {
-		if (!open) toggleCommandPalette()
-		setQuery("")
-	}, [])
+	const handleSearchNotes = useCallback(
+		() => openQuickFinderFromCommandPalette(trimmedQuery),
+		[trimmedQuery],
+	)
+
+	const handleKeyDown = useCallback(
+		(event: KeyboardEvent) => {
+			if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey) || hasMatches) return
+			if (!trimmedQuery) return
+			event.preventDefault()
+			handleSearchNotes()
+		},
+		[handleSearchNotes, hasMatches, trimmedQuery],
+	)
 
 	return (
 		<CommandDialog
-			open={commandPaletteOpen}
-			onOpenChange={handleOpenChange}
+			open
+			onOpenChange={(open) => {
+				if (!open) toggleCommandPalette()
+			}}
 			title="Command Palette"
-			description="Search for a command to run..."
+			description="Search for a command to run"
+			className="command-palette-dialog"
 			showCloseButton={false}
-			commandProps={{ loop: true, shouldFilter: false }}
+			commandProps={{ loop: true, shouldFilter: false, onKeyDown: handleKeyDown }}
 		>
 			<CommandInput
 				autoFocus
-				placeholder="Type a command..."
+				icon={SquareTerminalIcon}
+				placeholder="Run a command"
+				aria-label="Run a command"
 				value={query}
 				onValueChange={setQuery}
+				trailing={<Kbd>Esc</Kbd>}
 			/>
-			<CommandList className="max-h-[min(420px,60vh)]">
-				{groups.length === 0 || groups[0]?.commands.length === 0 ? (
-					<CommandEmpty>No commands found</CommandEmpty>
-				) : (
+			<CommandList className="command-palette-list">
+				{hasMatches ? (
 					<CommandPaletteRows groups={groups} shortcutMap={shortcutMap} onSelect={handleSelect} />
-				)}
+				) : trimmedQuery ? (
+					<CommandPaletteNoMatch query={trimmedQuery} onSearchNotes={handleSearchNotes} />
+				) : null}
 			</CommandList>
-			<CommandFooterHints hints={COMMAND_PALETTE_FOOTER_HINTS} />
+			<CommandFooterHints hints={footerHints} />
 		</CommandDialog>
 	)
 }

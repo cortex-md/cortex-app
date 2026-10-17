@@ -8,7 +8,9 @@
 		"./utils": "./src/utils.ts",
 		"./hash": "./src/hash.ts",
 		"./vault": "./src/vault.ts",
-		"./sync-rules": "./src/sync-rules.ts"
+		"./sync-rules": "./src/sync-rules.ts",
+		"./state-file": "./src/stateFile.ts",
+		"./vault-state": "./src/vaultState.ts"
 	},
 	"dependencies": {
 		"@noble/hashes": "1.8.0"

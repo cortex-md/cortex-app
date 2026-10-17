@@ -38,7 +38,7 @@ import {
 } from "@cortex/properties/database"
 import { noteCache } from "../noteCache"
 import { useDatabaseStore } from "../stores/databaseStore"
-import { useVaultStore } from "../stores/vaultStore"
+import { getVaultIndex, trackCreatedFiles, useVaultStore } from "../stores/vaultStore"
 import { pathExists, resolveUniquePath, writeCleanNote } from "../utils/createdNote"
 import { getPortableFileNameError } from "../utils/fileName"
 import { reportAppError } from "../utils/reportAppError"
@@ -212,7 +212,7 @@ export async function createDatabaseRow(
 	const folder = normalizePath(folderPath)
 	const vaultPath = requireVaultPath()
 	const filePath = await enqueueRowCreation(folder, () => writeRowNote(vaultPath, folder, input))
-	await useVaultStore.getState().refreshFiles()
+	trackCreatedFiles([filePath])
 	return filePath
 }
 
@@ -250,14 +250,14 @@ export async function createDatabase({
 				),
 			)
 		: []
-	await useVaultStore.getState().refreshFiles()
+	trackCreatedFiles([viewNotePath, ...samplePaths], [folderPath])
 	return { folderPath, viewNotePath, samplePaths }
 }
 
 async function findDetachedViewNote(folderPath: string): Promise<string | null> {
-	const children = useVaultStore
-		.getState()
-		.files.filter((file) => !file.isDir && isDatabaseRowPath(file.path, folderPath))
+	const children = getVaultIndex()
+		.getChildEntries(folderPath)
+		.filter((file) => !file.isDir && isDatabaseRowPath(file.path, folderPath))
 	const matches = await mapWithConcurrency(children, 4, async (file) => {
 		try {
 			const raw =
@@ -292,7 +292,7 @@ export async function convertFolderToDatabase(folderPath: string): Promise<strin
 	} else {
 		await writeCleanNote(viewNotePath, setFrontmatterValue(raw, DATABASE_CONFIG_KEY, serialized))
 	}
-	await useVaultStore.getState().refreshFiles()
+	trackCreatedFiles([viewNotePath])
 	return viewNotePath
 }
 

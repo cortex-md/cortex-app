@@ -1,4 +1,6 @@
+import { findInlineTags } from "@cortex/properties/tags"
 import {
+	findInlineHighlights,
 	getMarkdownRegistryVersion,
 	getMarkdownTextTransforms,
 	hasMarkdownTextRegistrations,
@@ -213,10 +215,13 @@ function addListMarker(
 	const line = view.state.doc.lineAt(node.from)
 	if (selectionOverlapsRange(view, line.from, line.to)) return
 	const source = view.state.sliceDoc(node.from, node.to)
-	const marker = /^[*+-]$/.test(source) ? "•" : source
+	const bullet = /^[*+-]$/.test(source)
 	ranges.push(
 		runtime.view.Decoration.replace({
-			widget: new widgets.TextWidget(marker, "cm-list-marker"),
+			widget: new widgets.TextWidget(
+				bullet ? "•" : source,
+				bullet ? "cm-list-marker is-bullet" : "cm-list-marker",
+			),
 		}).range(node.from, node.to),
 	)
 }
@@ -231,6 +236,12 @@ function addCalloutTitle(
 	if (selectionOverlapsBlock(view.state.selection, block)) return
 	const firstLine = view.state.doc.line(block.firstLine)
 	replacementRange(runtime, ranges, block.from, block.titleFrom)
+	ranges.push(
+		runtime.view.Decoration.widget({
+			widget: new widgets.CalloutIconWidget(resolveCalloutType(block.callout.type).icon),
+			side: -1,
+		}).range(block.titleFrom),
+	)
 	if (block.titleFrom < firstLine.to) {
 		ranges.push(
 			runtime.view.Decoration.mark({ class: "markdown-callout-title-source" }).range(
@@ -313,6 +324,73 @@ function addInlineMath(
 		if (line.to >= visibleRange.to) break
 		position = line.to + 1
 	}
+}
+
+function addInlineMarks(
+	runtime: EditorRuntimeModules,
+	view: EditorRuntimeView,
+	ranges: EditorRuntimeDecorationRange[],
+	hiddenBlocks: readonly MarkdownBlock[],
+	visibleRange: { from: number; to: number },
+): void {
+	const tree = runtime.language.syntaxTree(view.state)
+	let position = visibleRange.from
+	while (position <= visibleRange.to) {
+		const line = view.state.doc.lineAt(position)
+		const text = line.text
+		const hasTag = text.includes("#")
+		const hasHighlight = text.includes("==")
+		if (hasTag || hasHighlight) {
+			const isExcluded = (from: number, to: number) =>
+				to <= visibleRange.from ||
+				from >= visibleRange.to ||
+				hiddenBlockContaining(hiddenBlocks, from, to) !== undefined ||
+				isInlineMathExcludedNode(tree.resolveInner(from, 1) as SyntaxNodeLike)
+			if (hasTag) {
+				for (const tag of findInlineTags(text, line.from)) {
+					if (
+						isExcluded(tag.from, tag.to) ||
+						isWikiLinkNode(tree.resolveInner(tag.from, 1) as SyntaxNodeLike)
+					) {
+						continue
+					}
+					ranges.push(
+						runtime.view.Decoration.mark({
+							class: "cm-tag",
+							attributes: { "data-tag": tag.tag },
+						}).range(tag.from, tag.to),
+					)
+					ranges.push(
+						runtime.view.Decoration.mark({ class: "cm-tag-mark" }).range(tag.from, tag.from + 1),
+					)
+				}
+			}
+			if (hasHighlight) {
+				for (const mark of findInlineHighlights(text, line.from)) {
+					if (isExcluded(mark.from, mark.to)) continue
+					ranges.push(
+						runtime.view.Decoration.mark({ class: "cm-highlight" }).range(
+							mark.contentFrom,
+							mark.contentTo,
+						),
+					)
+					if (!selectionOverlapsRange(view, mark.from, mark.to)) {
+						replacementRange(runtime, ranges, mark.from, mark.contentFrom)
+						replacementRange(runtime, ranges, mark.contentTo, mark.to)
+					}
+				}
+			}
+		}
+		if (line.to >= visibleRange.to) break
+		position = line.to + 1
+	}
+}
+
+function isWikiLinkNode(node: SyntaxNodeLike | null): boolean {
+	for (let current = node; current; current = current.parent) {
+		if (current.name === "WikiLink") return true
+	}
+	return false
 }
 
 function addSemanticTransforms(
@@ -505,6 +583,7 @@ function buildVisibleDecorations(
 			},
 		})
 		addInlineMath(runtime, widgets, view, ranges, projectionBlockedBlocks, visibleRange)
+		addInlineMarks(runtime, view, ranges, projectionBlockedBlocks, visibleRange)
 		addSemanticTransforms(runtime, widgets, view, ranges, projectionBlockedBlocks, visibleRange)
 	}
 

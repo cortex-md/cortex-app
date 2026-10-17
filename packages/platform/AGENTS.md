@@ -45,7 +45,7 @@
   the `#k=` fragment; `open(shareId, key)` fetches and decrypts a link. `SharedNoteBundle` carries
   optional `author` (display name) and `tags` that the server viewer shows; they stay inside the
   encrypted bundle so the server never learns them. Mobile rejects until its
-  sync engine exists. `.cortex/sync-config.json`
+  sync engine exists. The `config` section of `.cortex/sync.json`
   belongs to `@cortex/core` (`sync/syncConfig.ts`), and vault config paths come from
   `getVaultFilePath`/`VAULT_CONFIG_DIR` in `@cortex/platform/utils` (no `Storage.getVaultConfigDir`).
 - Runtime desktop deep-link callbacks belong on `App.onDeepLinkOpen(...)`. Keep this contract
@@ -75,7 +75,11 @@
   desktop-only assumptions into this package.
 - `@cortex/platform/utils` is the single home for pure path helpers (separator-safe
   `toVaultRelativePath`/`isPathOrDescendant`, `getParentPath`, `getBaseName`, `getNoteTitle`,
-  `splitExtension`, `getRelativePath`, …), `.cortex` layout constants (`VAULT_CONFIG_DIR`,
+  `splitExtension`, `getRelativePath`, …), the single file-kind rule (`getFileKind`,
+  `isImagePath`, `isPdfPath`; the sync image filter reuses `isImagePath`) and the single name
+  ordering rule (`getFileNameSortKey`, `compareFileEntryNames`: folders first, numeric, case- and
+  accent-insensitive; used by the core vault index and `compareFileEntries`), `.cortex` layout
+  constants (`VAULT_CONFIG_DIR`,
   `VAULT_FILES`), file fingerprints, and `mapWithConcurrency`. Packages below `@cortex/core` import it
   directly; apps use the `@cortex/core` re-exports. `normalizePath` converts `\` and collapses
   repeated slashes while keeping URI schemes (`file://`) and UNC (`//host`) prefixes.
@@ -85,16 +89,29 @@
     sync. Snapshot hashes come from `snapshotFromContent(content, metadata)`.
   - `@cortex/platform/vault`: `toFileEntry`/`toFileMetadata`/`compareFileEntries`,
     `isHiddenVaultPath` (dot segments hidden except `.cortex/schema/`; `.git`, `node_modules`, OS
-    junk files, `sync.db*`, the search index, and `.cortex/history/` always ignored), `isCaseOnlyRename`,
-    `archiveEntrySegments`, vault identity (`readOrCreateVaultId` creates an id only when the file
-    is not found; `resolveVaultName` reads `.cortex/vault-metadata.json` and falls back to the
-    folder name; `serializeVaultMetadata`), registry ops (`parseVaultRegistry`,
+    junk files, `sync.db*`, `.cortex/cache/`, and `.cortex/history/` always ignored), `isCaseOnlyRename`,
+    `archiveEntrySegments`, vault identity (`readOrCreateVaultFile` reads `.cortex/vault.json`
+    `{version, id, name, createdAt}` and creates an id only when the file is not found; a corrupt
+    file throws instead of minting a new id; there is no legacy layout support; `resolveVaultName` falls back to the folder name; `renameVaultFile`),
+    registry ops (`parseVaultRegistry`,
     `upsertRegistryEntry`, `removeRegistryEntry`, `sortRecentVaults`; `lastOpened` is milliseconds,
     old second values are upgraded on parse), and `getOrCreateDeviceId` (UUID persisted under
     `DEVICE_ID_KEY` in the adapter keychain).
+  - `@cortex/platform/state-file` + `@cortex/platform/vault-state`: the one write path for small
+    vault state files. `getStateFile` keeps one cached instance per path, serializes atomic writes,
+    debounces, and merges only the top-level keys this realm changed over what is on disk, so the
+    mobile native and WebView realms can write different sections of one file. `.cortex/local.json`
+    (`getLocalVaultState`: tag colors, search history, enabled plugins, properties panel state,
+    onboarding marker, and `extensionSync` memory: plugin/theme ids this device synced (`known`) and
+    community plugins it enabled once (`approved`)) and `.cortex/sync.json` (`getVaultSyncState`: `config`, `preferences`) are
+    local-only. Rebuildable caches (`search-index.json`, `notes-index.json`, `database-rows/`) live
+    under `.cortex/cache/`. Pre-release: older `.cortex` layouts are not read or migrated.
   - `@cortex/platform/sync-rules`: the single sync ignore policy and default sync preferences used
     by the sync engine and re-exported by `@cortex/core`. `.cortex/schema/properties.json`,
     `.cortex/inbox.md`, and every `.cortex/comments/**/*.json` sidecar always sync.
+    `.cortex/plugins.sync.json` (`VAULT_FILES.pluginsSyncManifest`) and `.cortex/themes.sync.json`
+    (`VAULT_FILES.themesSyncManifest`) are the extension manifests, one file per opt-in flag
+    (`syncPluginMetadata`, `syncThemeMetadata`); `@cortex/marketplace` owns them.
 - This package is portable: `check:boundaries` rejects `node:`, React, Electron, Expo/React Native
   imports, and DOM globals here.
 - `Platform.clipboard` (`writeText`/`readText`) is the only clipboard access for shared and desktop UI

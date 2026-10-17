@@ -26,6 +26,7 @@ interface Props {
 	onViewReady?: (view: EditorRuntimeView) => void
 	onWikiLinkClick?: (target: string) => void
 	onExternalLinkClick?: (url: string) => void
+	onTagClick?: (tag: string) => void
 }
 
 export function SideBySideView({
@@ -43,6 +44,7 @@ export function SideBySideView({
 	onViewReady,
 	onWikiLinkClick,
 	onExternalLinkClick,
+	onTagClick,
 }: Props) {
 	const readingPanelRef = useRef<HTMLDivElement>(null)
 	const editorScrollRef = useRef<EditorRuntimeView | null>(null)
@@ -115,6 +117,7 @@ export function SideBySideView({
 					codeBlockEmbeds={codeBlockEmbeds}
 					onWikiLinkClick={onWikiLinkClick}
 					onExternalLinkClick={onExternalLinkClick}
+					onTagClick={onTagClick}
 				/>
 			</div>
 		</div>

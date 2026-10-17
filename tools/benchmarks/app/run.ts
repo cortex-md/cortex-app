@@ -87,7 +87,7 @@ function percentile(values: number[], fraction: number): number {
 }
 
 async function waitForIndex(fixture: Fixture): Promise<void> {
-	const indexPath = join(fixture.path, ".cortex/search-index.json")
+	const indexPath = join(fixture.path, ".cortex/cache/search-index.json")
 	let lastSize = -1
 	let stableSince = Date.now()
 	const deadline = Date.now() + 300_000
@@ -120,7 +120,7 @@ async function waitForWorkspace(fixture: Fixture, title: string): Promise<void> 
 
 async function openQuickFinder(page: Page): Promise<void> {
 	await page.keyboard.press(`${MOD}+O`)
-	const input = page.getByPlaceholder("Find or create a note...")
+	const input = page.getByPlaceholder("Find a note, or type > for commands")
 	await input.waitFor()
 	await input.focus()
 }

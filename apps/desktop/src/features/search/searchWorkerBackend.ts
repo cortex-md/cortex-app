@@ -61,6 +61,8 @@ export function createSearchWorkerBackend(): SearchBackend {
 		removePaths: (ids) => call("removePaths", ids),
 		search: (query, options) => call("search", query, options),
 		searchTitles: (query) => call("searchTitles", query),
+		matchNotes: (query, notes, options) => call("matchNotes", query, notes, options),
+		readNoteExcerpts: (notes, maxLength) => call("readNoteExcerpts", notes, maxLength),
 		serialize: () => call("serialize"),
 		clear: () => call("clear"),
 	}

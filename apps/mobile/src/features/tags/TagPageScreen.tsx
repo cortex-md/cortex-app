@@ -1,12 +1,12 @@
 import {
 	formatRelativeTime,
-	getFileModifiedTimes,
 	getNoteTitle,
 	getParentPath,
 	getTagPageModel,
 	type TagPageNote,
 	toVaultRelativePath,
 	useTagsStore,
+	useVaultModifiedTimes,
 	useVaultStore,
 } from "@cortex/core"
 import { type Href, router, Stack, useLocalSearchParams } from "expo-router"
@@ -97,7 +97,7 @@ export function TagPageScreen() {
 	const tag = normalizeTagParam(params.tag)
 	const vaultPath = useVaultStore((state) => state.vault?.path ?? "")
 	const vaultName = useVaultStore((state) => state.vault?.name ?? "Vault")
-	const files = useVaultStore((state) => state.files)
+	const modifiedTimes = useVaultModifiedTimes()
 	const tagIndex = useTagsStore((state) => state.tagIndex)
 	const fileTags = useTagsStore((state) => state.fileTags)
 	const tagColor = useTagsStore((state) => state.tagColors[tag] ?? null)
@@ -106,7 +106,6 @@ export function TagPageScreen() {
 	const [renaming, setRenaming] = useState(false)
 	const [renameError, setRenameError] = useState<string | null>(null)
 
-	const modifiedTimes = useMemo(() => getFileModifiedTimes(files), [files])
 	const allModel = useMemo(
 		() => getTagPageModel(tag, tagIndex, fileTags, modifiedTimes),
 		[fileTags, modifiedTimes, tag, tagIndex],

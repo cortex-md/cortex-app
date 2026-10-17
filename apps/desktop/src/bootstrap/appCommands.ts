@@ -4,6 +4,7 @@ import {
 	createDatabaseCommandEntries,
 	createFileCommandEntries,
 	type EditorMode,
+	getVaultIndex,
 	type RightSidebarPanel,
 	reportAppError,
 	useAppStore,
@@ -399,8 +400,7 @@ const appCommands: CommandEntry[] = [
 		icon: UsersIcon,
 		execute: withTargetFile((filePath, context) => {
 			const isDirectory =
-				getPayload(context).isDirectory === true ||
-				(useVaultStore.getState().files.find((file) => file.path === filePath)?.isDir ?? false)
+				getPayload(context).isDirectory === true || getVaultIndex().get(filePath)?.isDir === true
 			if (isDirectory) manageAccessModal.open({ filePath })
 			else noteShareModal.open({ filePath })
 		}),

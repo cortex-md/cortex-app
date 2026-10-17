@@ -2,7 +2,7 @@ import { getPlatform } from "@cortex/platform"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { noteCache } from "../../noteCache"
 import { useUIStore } from "../../stores/uiStore"
-import { useWorkspaceStore } from "../../stores/workspaceStore"
+import { getRecentFilePaths, type Tab, useWorkspaceStore } from "../../stores/workspaceStore"
 
 const ROOT_PANE_ID = "root"
 
@@ -561,7 +561,7 @@ describe("workspace persistence", () => {
 	it("persists left sidebar layout with workspace state", async () => {
 		const writeFile = vi.fn().mockResolvedValue(undefined)
 		vi.mocked(getPlatform).mockReturnValue({
-			fs: { writeFile },
+			fs: { atomicWriteFile: writeFile },
 		} as never)
 		useUIStore.getState().setLeftSidebarLayout({ collapsed: true, width: 320 })
 
@@ -581,7 +581,7 @@ describe("workspace persistence", () => {
 	it("does not persist ephemeral tabs", async () => {
 		const writeFile = vi.fn().mockResolvedValue(undefined)
 		vi.mocked(getPlatform).mockReturnValue({
-			fs: { writeFile },
+			fs: { atomicWriteFile: writeFile },
 		} as never)
 
 		useWorkspaceStore.getState().openTab("/vault/note.md")
@@ -777,5 +777,51 @@ describe("reset()", () => {
 		expect(Object.keys(panes)).toHaveLength(1)
 		expect(splitTree.type).toBe("leaf")
 		expect(panes[ROOT_PANE_ID].tabs).toHaveLength(0)
+	})
+})
+
+describe("getRecentFilePaths()", () => {
+	function fileTab(filePath: string, lastAccessed: number): Tab {
+		return {
+			id: filePath,
+			tabType: "file",
+			fileKind: "markdown",
+			filePath,
+			viewId: null,
+			viewState: null,
+			title: filePath,
+			isPinned: false,
+			isDirty: false,
+			isEphemeral: false,
+			lastAccessed,
+			isSuspended: false,
+		}
+	}
+
+	it("orders open tabs by last access across panes, then recently closed, without duplicates", () => {
+		const panes = {
+			left: {
+				id: "left",
+				tabs: [fileTab("/v/a.md", 10), fileTab("/v/b.md", 40)],
+				activeTabId: null,
+			},
+			right: {
+				id: "right",
+				tabs: [fileTab("/v/c.md", 30), fileTab("/v/a.md", 5)],
+				activeTabId: null,
+			},
+		}
+		const recentlyClosed = [
+			{ filePath: "/v/d.md", title: "d" },
+			{ filePath: "/v/c.md", title: "c" },
+		]
+
+		expect(getRecentFilePaths(panes, recentlyClosed)).toEqual([
+			"/v/b.md",
+			"/v/c.md",
+			"/v/a.md",
+			"/v/d.md",
+		])
+		expect(getRecentFilePaths(panes, recentlyClosed, 2)).toEqual(["/v/b.md", "/v/c.md"])
 	})
 })

@@ -37,7 +37,7 @@ describe("mobile vault logical paths", () => {
 	})
 
 	it("detects hidden paths before they enter vault scans", () => {
-		expect(isHiddenVaultPath(".cortex/vault-id.json")).toBe(true)
+		expect(isHiddenVaultPath(".cortex/vault.json")).toBe(true)
 		expect(isHiddenVaultPath("Notes/Today.md")).toBe(false)
 	})
 })

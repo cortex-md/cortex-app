@@ -29,6 +29,37 @@
   failure, remove the staged plugin, restore the previous directory, and re-run host reload best
   effort without masking the original error.
 
+## Extension Sync
+
+- `extensionSync/` owns the "Plugin configuration" and "Theme configuration" sync toggles for
+  desktop and mobile: `.cortex/plugins.sync.json` `{ version: 1, plugins: [{ id, version, enabled,
+  bundled? }] }` and `.cortex/themes.sync.json` `{ version: 1, themes: [{ id, version }] }`. The
+  active theme stays in `appearance.theme` (`app.json`, `syncSettings`); never duplicate it here.
+- `plan.ts` holds the only rules, as pure functions with tests: `deriveManifest` (writer: local
+  items plus remote items not applied here, dropping only ids this device had synced and then
+  removed; sorted by id, no timestamps), `planReconcile` (install missing, update older, never
+  downgrade; uninstall only ids in local `known` that disappeared remotely; local-only items are
+  merged back by the writer; community plugins enable only when bundled or `approved` on this
+  device, else they install disabled and wait for approval; restricted mode leaves community items
+  untouched), and `summarizeSync` for the status line.
+- `startExtensionSync(services)` is the runtime. Apps pass structural services (vault, sync flags,
+  `plugins.allowCommunity`, `selectPluginSyncSnapshot` from `usePluginStore`, enable/disable/save
+  from their plugin host, idle scheduling); desktop `features/extensions/extensionSync.ts` and mobile
+  `features/extensions/extensionSync.ts` only wire stores. It starts at idle once
+  `loadedVaultPath` matches the open vault, writes the manifests through `getStateFile` (only when
+  the canonical content changes), watches `.cortex` for manifest edits that differ from its last
+  canonical content, and reconciles only while the matching toggle is on. Installs go through
+  `installEntry(entry, kind, { version, quiet })` (blocklist and staging rules apply) one at a time,
+  because install/reload steps must stay ordered; ids missing from the registry (sideloaded) are
+  never installed and show as "not available here". The registry is fetched only when something
+  must be installed or updated.
+- `useExtensionSyncStore` holds `{ plugins, themes }` status; `formatExtensionSyncStatus` and
+  `needsExtensionSyncReview` are the shared copy for desktop and mobile sync preferences.
+- `installEntry`/`uninstallEntry` resolve to `true` on success and emit
+  `subscribeInstalledExtensions(kind)` so the writer refreshes after Marketplace changes.
+  `fetchReleaseForVersion(repo, version)` tries `v<version>` and `<version>` tags, then the latest
+  release.
+
 ## Theme Installation
 
 - Theme installation always uses staging inside the vault themes directory.

@@ -7,6 +7,7 @@ import {
 	getParentPath,
 	hasSameFingerprint,
 	isMarkdownPath,
+	isPathOrDescendant,
 	mapWithConcurrency,
 	normalizePath,
 } from "@cortex/platform/utils"
@@ -15,12 +16,19 @@ import {
 	detectDatabaseNote,
 	getDatabaseFolder,
 	getDatabaseName,
+	getDatabaseViewNotePath,
 	isDatabaseRowPath,
 	isDatabaseViewNoteCandidate,
 } from "@cortex/properties/database"
 import { noteCache } from "../noteCache"
 import { useDatabaseStore } from "../stores/databaseStore"
-import { subscribeVaultFileChanges, useVaultStore } from "../stores/vaultStore"
+import {
+	getVaultIndex,
+	subscribeVaultFileChanges,
+	subscribeVaultIndexChanges,
+	useVaultStore,
+} from "../stores/vaultStore"
+import type { VaultIndex, VaultIndexDelta } from "../vault/vaultIndex"
 import {
 	cancelDatabaseRowCacheWrites,
 	readDatabaseRowCache,
@@ -115,23 +123,25 @@ async function readNoteContent(path: string): Promise<NoteContent> {
 	}
 }
 
-function collectCandidates(files: readonly FileEntry[]): Map<string, FileEntry> {
-	const folders = new Set(files.flatMap((file) => (file.isDir ? [file.path] : [])))
+function getCandidateEntry(index: VaultIndex, folderPath: string): FileEntry | null {
+	if (!index.get(folderPath)?.isDir) return null
+	const entry = index.get(getDatabaseViewNotePath(folderPath))
+	return entry && !entry.isDir ? entry : null
+}
+
+function collectCandidates(index: VaultIndex): Map<string, FileEntry> {
 	const candidates = new Map<string, FileEntry>()
-	for (const file of files) {
-		if (file.isDir || !isDatabaseViewNoteCandidate(file.path)) continue
-		if (folders.has(getParentPath(file.path))) candidates.set(file.path, file)
+	for (const folder of index.getFolderPaths()) {
+		const entry = getCandidateEntry(index, folder)
+		if (entry) candidates.set(entry.path, entry)
 	}
 	return candidates
 }
 
-function collectRowEntries(
-	files: readonly FileEntry[],
-	folderPath: string,
-): Map<string, FileEntry> {
+function collectRowEntries(index: VaultIndex, folderPath: string): Map<string, FileEntry> {
 	const rows = new Map<string, FileEntry>()
-	for (const file of files) {
-		if (!file.isDir && isDatabaseRowPath(file.path, folderPath)) rows.set(file.path, file)
+	for (const entry of index.getChildEntries(folderPath)) {
+		if (!entry.isDir && isDatabaseRowPath(entry.path, folderPath)) rows.set(entry.path, entry)
 	}
 	return rows
 }
@@ -229,9 +239,9 @@ export function startDatabaseRuntime(): () => void {
 		})
 	}
 
-	const loadRowsOnce = async (folderPath: string, files: readonly FileEntry[]) => {
+	const loadRowsOnce = async (folderPath: string) => {
 		const currentGeneration = generation
-		const entries = collectRowEntries(files, folderPath)
+		const entries = collectRowEntries(getVaultIndex(), folderPath)
 		const fingerprints = rowFingerprints.get(folderPath) ?? new Map<string, FileFingerprint>()
 		rowFingerprints.set(folderPath, fingerprints)
 		await seedRowsFromCache(folderPath, entries, fingerprints)
@@ -273,33 +283,68 @@ export function startDatabaseRuntime(): () => void {
 				rowLoads.set(folderPath, false)
 				const state = useVaultStore.getState()
 				if (!vault || state.vault !== vault) return
-				await loadRowsOnce(folderPath, state.files)
+				await loadRowsOnce(folderPath)
 			} while (rowLoads.get(folderPath))
 		} finally {
 			rowLoads.delete(folderPath)
 		}
 	}
 
-	const syncFiles = () => {
-		const state = useVaultStore.getState()
-		if (!vault || state.vault !== vault) return
-		const candidates = collectCandidates(state.files)
+	const removeCandidate = (path: string) => {
+		candidateFingerprints.delete(path)
+		store().removeDatabase(getDatabaseFolder(path))
+	}
+
+	const readChangedCandidates = (candidates: Iterable<FileEntry>) => {
 		const changed: FileEntry[] = []
-		for (const [path, entry] of candidates) {
-			if (!hasSameFingerprint(candidateFingerprints.get(path), getFileEntryFingerprint(entry))) {
-				changed.push(entry)
-			}
-		}
-		for (const path of candidateFingerprints.keys()) {
-			if (candidates.has(path)) continue
-			candidateFingerprints.delete(path)
-			store().removeDatabase(getDatabaseFolder(path))
+		for (const entry of candidates) {
+			const fingerprint = candidateFingerprints.get(entry.path)
+			if (!hasSameFingerprint(fingerprint, getFileEntryFingerprint(entry))) changed.push(entry)
 		}
 		const currentGeneration = generation
 		void readViewNotes(changed, currentGeneration).then(() => {
 			if (currentGeneration === generation && !store().registryReady) store().setRegistryReady(true)
 		})
+	}
+
+	const syncFiles = () => {
+		const state = useVaultStore.getState()
+		if (!vault || state.vault !== vault) return
+		const candidates = collectCandidates(getVaultIndex())
+		for (const path of [...candidateFingerprints.keys()]) {
+			if (!candidates.has(path)) removeCandidate(path)
+		}
+		readChangedCandidates(candidates.values())
 		for (const folder of retainCounts.keys()) void loadRows(folder)
+	}
+
+	const handleIndexDelta = (delta: VaultIndexDelta) => {
+		const state = useVaultStore.getState()
+		if (!vault || state.vault !== vault) return
+		const index = getVaultIndex()
+		for (const entry of delta.removed) {
+			if (!entry.isDir) {
+				if (candidateFingerprints.has(entry.path)) removeCandidate(entry.path)
+				continue
+			}
+			for (const path of [...candidateFingerprints.keys()]) {
+				if (isPathOrDescendant(path, entry.path)) removeCandidate(path)
+			}
+		}
+		const added = new Map<string, FileEntry>()
+		for (const entry of delta.added) {
+			const folder = entry.isDir
+				? entry.path
+				: isDatabaseViewNoteCandidate(entry.path)
+					? getParentPath(entry.path)
+					: null
+			const candidate = folder ? getCandidateEntry(index, folder) : null
+			if (candidate) added.set(candidate.path, candidate)
+		}
+		if (added.size > 0) readChangedCandidates(added.values())
+		for (const folder of delta.changedFolders) {
+			if (retainCounts.has(folder)) void loadRows(folder)
+		}
 	}
 
 	const flushPending = async () => {
@@ -358,8 +403,9 @@ export function startDatabaseRuntime(): () => void {
 	retainListeners.add(handleRetain)
 	handleVaultState()
 	const unsubscribeVault = useVaultStore.subscribe((state, previous) => {
-		if (state.vault !== previous.vault || state.files !== previous.files) handleVaultState()
+		if (state.vault !== previous.vault) handleVaultState()
 	})
+	const unsubscribeIndex = subscribeVaultIndexChanges(handleIndexDelta)
 	const unsubscribeChanges = subscribeVaultFileChanges((changes) => {
 		for (const change of changes) {
 			if (change.kind !== "modified" || !isRelevant(change.path)) continue
@@ -379,6 +425,7 @@ export function startDatabaseRuntime(): () => void {
 	return () => {
 		retainListeners.delete(handleRetain)
 		unsubscribeVault()
+		unsubscribeIndex()
 		unsubscribeChanges()
 		unsubscribeDisk()
 		reset()

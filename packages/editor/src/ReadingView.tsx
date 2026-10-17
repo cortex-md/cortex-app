@@ -33,6 +33,7 @@ interface Props {
 	codeBlockEmbeds?: readonly CodeBlockEmbedDefinition[]
 	onWikiLinkClick?: (target: string) => void
 	onExternalLinkClick?: (url: string) => void
+	onTagClick?: (tag: string) => void
 	onTaskCheckboxToggle?: (offset: number, checked: boolean) => void
 }
 
@@ -169,6 +170,7 @@ export function ReadingView({
 	codeBlockEmbeds,
 	onWikiLinkClick,
 	onExternalLinkClick,
+	onTagClick,
 	onTaskCheckboxToggle,
 }: Props) {
 	const [renderedMarkdown, setRenderedMarkdown] = useState<RenderedMarkdown | null>(null)
@@ -179,6 +181,9 @@ export function ReadingView({
 	})
 	const handleExternalLinkClick = useEffectEvent((url: string) => {
 		onExternalLinkClick?.(url)
+	})
+	const handleTagClick = useEffectEvent((tag: string) => {
+		onTagClick?.(tag)
 	})
 	const handleTaskCheckboxToggle = useEffectEvent((offset: number, checked: boolean) => {
 		onTaskCheckboxToggle?.(offset, checked)
@@ -255,6 +260,23 @@ export function ReadingView({
 				event.preventDefault()
 				const linkTarget = wikiLink.getAttribute("data-wiki-link")
 				if (linkTarget) handleWikiLinkClick(linkTarget)
+				return
+			}
+
+			const tag = target.closest<HTMLElement>("[data-tag]")?.dataset.tag
+			if (tag) {
+				event.preventDefault()
+				handleTagClick(tag)
+				return
+			}
+
+			const copyButton = target.closest<HTMLElement>("[data-code-copy]")
+			if (copyButton) {
+				event.preventDefault()
+				const code = copyButton.closest(".markdown-code-block")?.querySelector("pre code")
+				if (code?.textContent) void navigator.clipboard?.writeText(code.textContent)
+				copyButton.classList.add("is-done")
+				setTimeout(() => copyButton.classList.remove("is-done"), 1200)
 				return
 			}
 

@@ -199,10 +199,18 @@ Keep vault-wide tag indexing bounded; do not issue one `readFile` per Markdown f
 time on large vaults.
 Implement bounded concurrency with `Promise.all` worker pools that do not await inside loops; keep
 the per-file work independent and merge results afterward.
-Prefer `buildIndexFromFiles(vaultPath, files)` when the caller already has the scanned vault tree.
-It reuses the in-memory index for the same vault (or `.cortex/tags-index.json` on first open) and
-avoids reopening unchanged notes. Incremental `updateFileInIndex`/`removeFileFromIndex` calls keep the
-persisted index current. Components read sorted tags through `useTagsStore(selectSortedTags)`.
+Tags, links, tasks and note properties come from one index, `indexing/noteMetadataIndex.ts`
+(`noteMetadataIndex`): one read and one parse per changed note (`extractNoteMetadata`: frontmatter
+once, `collectNoteTags` with the shared `@cortex/properties/tags` rule, `extractWikiLinks` on the body,
+`parseTasks` on the raw note), keyed by `{mtime, size}` fingerprints and persisted as the versioned
+`.cortex/cache/notes-index.json` (local cache, never synced). `tagsStore`, `linksStore` and
+`tasksStore` keep their state shapes and selectors and are derived views: their
+`buildIndexFromFiles`/`updateFileInIndex`/`removeFileFromIndex`/`cancelIndexing`/`reset` delegate to
+the shared index, so one call updates all three. Builds are single-flight per vault and reuse the
+in-memory index (or the persisted one on first open). Per-file updates patch only the tags, links or
+tasks of that file and skip `setState` when they are unchanged; batch updates go through
+`updateMany`. Do not add another vault-wide note parser; extend `NoteMetadata` instead. Components
+read sorted tags through `useTagsStore(selectSortedTags)`.
 The active workspace tab is read with `useWorkspaceStore(selectActiveTab)` or
 `useWorkspaceStore(selectActiveTabFilePath)` instead of inline pane lookups.
 NoteCache external-change loads should continue until the latest observed hash has been processed,
@@ -314,9 +322,9 @@ preferring the server entry, and the newest run equal to the current note text i
 
 ### Tasks and Reminders
 
-`tasksStore` indexes Markdown checkbox tasks with the pure rules from `@cortex/tasks`, following the
-`linksStore` pattern: a versioned `.cortex/tasks-index.json` (local, never synced) keyed by file
-fingerprints, fed by `indexNoteContent`/`removeIndexedPath` in `runtime/appRuntime.ts`. Quick-add
+`tasksStore` exposes Markdown checkbox tasks parsed with the pure rules from `@cortex/tasks` by the
+shared `noteMetadataIndex` (see Reactive Tag Index), fed by `indexNoteContent`/`removeIndexedPath`
+in `runtime/appRuntime.ts`; the inbox is read alongside every build and is never persisted. Quick-add
 tasks are appended to `.cortex/inbox.md` (`VAULT_FILES.taskInbox`), which is always synced and is
 reloaded on `sync.onFileEvent` because the vault watcher ignores `.cortex`. All task mutations go
 through one line rewrite on top of `notes/mutateNote.ts` and return a `TaskLineEdit` that
@@ -381,14 +389,28 @@ export interface VaultState {
 and templates once; app shells must not reload them. Every vault switch call site uses
 `switchVault`/`resolveFolderOpen` instead of composing `closeVault` + `openVault`.
 
-Watcher events are batched (200ms) and serialized. `files` changes only for structural events:
-unknown `created` paths trigger one rescan, `deleted` paths are removed in place, and `modified`
-events never touch `files`. After each batch, `subscribeVaultFileChanges` listeners receive the
-changes; open notes are refreshed through NoteCache's per-path external-change flow.
+`vaultStore` owns one `VaultIndex` (`src/vault/vaultIndex.ts`, read through `getVaultIndex()`): a
+path map, sorted children per folder (folders first, numeric and case/accent-insensitive through
+`getFileNameSortKey` from `@cortex/platform/utils`, the single ordering rule), persistent
+`FileTreeNode`s (unchanged folders keep their identity; database view notes are hidden and their
+folders marked `isDatabase` from `useDatabaseStore.viewNotePaths`), and versions per folder. It is
+patched, never rebuilt: watcher batches (`created`/`modified` with the main-process `entry`,
+`deleted` with the subtree) and every in-app create/delete/rename/move/duplicate/daily note go
+through `applyFileChanges`; a created folder from outside the app is listed with `scanFolder`, and
+only a create without an `entry` (mobile) or an explicit `refreshFiles` rescans, diffed with
+`replaceAll`. `files` stays as a compatibility snapshot rebuilt only on structural changes, so its
+`mtime`/`size` can lag; read fresh metadata with `getVaultIndex().get(path)`,
+`useVaultModifiedTime(s)`, `useVaultEntry`, `useFolderEntries`, `useVaultFileTree`,
+`useVaultFolderPaths`, or `useVaultEntryLookup`. Each commit bumps `fileTreeVersion`/
+`fileEntryVersion` and sends a `VaultIndexDelta` (`added`, `removed`, `modified`, `changedFolders`)
+to `subscribeVaultIndexChanges` listeners; runtimes consume deltas instead of diffing `files`.
+Watcher events are batched (200ms) and serialized; after each batch `subscribeVaultFileChanges`
+listeners receive the changes and open notes are refreshed through NoteCache's per-path
+external-change flow.
 
 `renameFile` is the authority for file and note-title renames. It validates portable filenames,
 flushes the old NoteCache path before the filesystem operation, migrates cache timers and snapshots,
-updates every matching workspace tab, rewrites matching bookmarks, and refreshes the vault tree.
+updates every matching workspace tab, rewrites matching bookmarks, and patches the vault index.
 Callers must not repeat those updates after invoking it.
 
 When stores create note files by writing directly through the platform, they must seed the written
@@ -463,6 +485,11 @@ export interface UIState {
 
 `LEFT_SIDEBAR_WIDTH_BOUNDS` and `clampLeftSidebarWidth()` are exported with `uiStore`; use them anywhere sidebar width is read from pointer input or restored from persisted state.
 
+`quickFinderPreview` and `recentCommandIds` (the Command Palette MRU, capped by
+`RECENT_COMMAND_LIMIT` from `@cortex/commands`) persist with the workspace file. Record palette
+runs through `recordRecentCommand(id)`; `setRecentCommandIds` normalizes untrusted persisted values
+and a vault without a workspace file starts with an empty list.
+
 `leftSidebarView` accepts dynamic plugin view IDs. The desktop host owns registration lookup and
 falls back to `"files"` when the active plugin view disappears.
 
@@ -494,7 +521,7 @@ export interface SyncState {
 ```
 
 `subscribeEvents()` bridges sync engine events to Zustand state. It also listens for `sync-log` events from the engine and pipes them into `syncLogStore`. The `onVaultAccessDenied` listener marks the engine `denied` and records the reason; it never unlinks the vault. The UI offers Retry and Unlink.
-Sync preferences are vault-scoped in `.cortex/sync-preferences.json`; `excludedPaths` are gitignore-style patterns that may reference paths not currently present in the vault. Use `normalizeSyncPreferences()` and `normalizeSyncPathPattern()` for migration/input cleanup, and `shouldIgnoreSyncPath()` for UI checks; these are re-exported from `@cortex/platform/sync-rules`, the same policy the sync engine uses. Bookmarks stay local unless `syncBookmarks` is enabled, in which case `.cortex/bookmarks.json` follows the same sync path as other opted-in Cortex metadata.
+Sync preferences are vault-scoped in the `preferences` section of `.cortex/sync.json` (`writeSyncPreferences`); `excludedPaths` are gitignore-style patterns that may reference paths not currently present in the vault. Use `normalizeSyncPreferences()` and `normalizeSyncPathPattern()` for migration/input cleanup, and `shouldIgnoreSyncPath()` for UI checks; these are re-exported from `@cortex/platform/sync-rules`, the same policy the sync engine uses. Bookmarks stay local unless `syncBookmarks` is enabled, in which case `.cortex/bookmarks.json` follows the same sync path as other opted-in Cortex metadata.
 
 `sync-file-event` is state-only. Do not read or hash note files from sync event handlers. The native
 watcher is the authority for disk mutations, while property schema events invalidate the
@@ -570,7 +597,7 @@ Public links of the linked vault keyed by vault-relative path: `fetchShares`, `p
 path, bundle, expiresAt?)`, `updateExpiry`, `revoke`. Bundles are built by the desktop renderer.
 
 ### remoteVaultStore
-Manages vault-scoped sync configuration. `syncConfig` is persisted on disk at `vault_path/.cortex/sync-config.json` and includes `enabled`, `remoteVaultId`, `selfHosted`, `serverUrl`, `offlineMode`, and non-secret `selfHostedEnvironment` values. `linkedVaultId` mirrors `syncConfig.remoteVaultId`. `clearLink()` clears memory only; `unlinkVault(path)` clears only the remote vault link from disk and preserves the rest of the sync config. Reads and writes go through `src/sync/syncConfig.ts` (`readSyncConfig`, `updateSyncConfig`, `linkRemoteVault`, `unlinkRemoteVault`, one `createDefaultSyncConfig`) over `getPlatform().fs`; platform adapters do not implement sync-config methods.
+Manages vault-scoped sync configuration. `syncConfig` is persisted in the `config` section of `vault_path/.cortex/sync.json` and includes `enabled`, `remoteVaultId`, `selfHosted`, `serverUrl`, `offlineMode`, and non-secret `selfHostedEnvironment` values. `linkedVaultId` mirrors `syncConfig.remoteVaultId`. `clearLink()` clears memory only; `unlinkVault(path)` clears only the remote vault link from disk and preserves the rest of the sync config. Reads and writes go through `src/sync/syncConfig.ts` (`readSyncConfig`, `updateSyncConfig`, `linkRemoteVault`, `unlinkRemoteVault`, one `createDefaultSyncConfig`) through `getVaultSyncState` (immediate, serialized atomic writes); platform adapters do not implement sync-config methods.
 
 `setSyncEnabled(path, true)` must confirm the server-scoped auth status before persisting. Self-host
 selection and server/environment configuration remain available while signed out; enabling sync
@@ -660,16 +687,20 @@ content instead of rereading disk.
 
 `startAppRuntime(options)` (from `src/runtime/appRuntime.ts`) is the shared desktop/mobile lifecycle:
 NoteCache start/stop, vault session (tag colors, workspace load + debounced persistence, resets on
-close) and indexing. Indexing runs one idle full pass per vault, then stays incremental: `files`
-diffs queue added/removed notes, watcher `modified` events reindex uncached notes, and NoteCache disk
+close) and indexing. Indexing runs one idle full pass per vault, then stays incremental: vault index
+deltas queue added/removed notes, watcher `modified` events reindex uncached notes, and NoteCache disk
 events reindex open notes. App shells pass platform hooks (`onVaultOpened`, `onWorkspaceRestored`,
 `scheduleIdleWork`) instead of subscribing React roots to `files`. Options: `persistWorkspace`
 (default true; mobile passes false), `trackActiveFile` (default true: mirrors the active pane's
 active Markdown tab into `editorStore.activeFilePath`, including renames/moves, so apps never call
 `setActiveFile` manually), and `indexing: "eager" | "lazy"` (mobile is `lazy` and skips search/tag
-indexing until it has a search screen). Search indexing calls are async and go through the
-`@cortex/search` backend chosen by the host (`setSearchBackend`; desktop uses a Web Worker), so the
-runtime fires them without awaiting except for the ordered `indexVault` pass. `startSyncLifecycle()`
+indexing until it has a search screen). The full pass runs `useSearchStore.indexVault`, then
+`noteMetadataIndex.build` (sequential on purpose: the metadata load parses on the renderer thread
+and running it beside search made the first Quick Finder open ~5x slower at 50k notes); the incremental queue batches metadata updates through
+`noteMetadataIndex.updateMany`. Search indexing calls are async and go through the `@cortex/search`
+backend chosen by the host (`setSearchBackend`; desktop uses a Web Worker), so the runtime fires them
+without awaiting except for the full pass. The properties runtime gets a `noteIndex` service that
+returns the indexed frontmatter of every note, so property suggestions never read the vault. `startSyncLifecycle()`
 owns the `canStartSync` rule and is started by the desktop shell only.
 
 `runtime/appStartup.ts` owns startup for every app: `bootstrapApp()` loads app info, the first-run
@@ -705,7 +736,9 @@ and omits it.
 mobile. Path helpers (`getParentPath`, `getBaseName`, `getNoteTitle`, `toVaultRelativePath`,
 `isPathOrDescendant`, …), `VAULT_FILES`, and `mapWithConcurrency` live in `@cortex/platform/utils`
 and are re-exported here; never re-implement them. Pure file tree projection lives in
-`utils/fileTree.ts`, including `createFileTreeViewModel` (rows, titles, folder paths, all-expanded),
+`utils/fileTree.ts`, including `createFileTreeViewModelFromTree` over the vault index roots (rows,
+titles, folder paths, all-expanded; `createFileTreeViewModel`/`buildFileTree` remain for tests and
+benchmarks),
 `getFileTreeNodeTitle`, and the move rules `canMoveEntryTo`/`getMoveDestinations`. Entry name rules
 (`validateEntryName`, `getEditableEntryName`, `toEntryFileName`) live in `utils/fileName.ts`.
 
@@ -810,7 +843,7 @@ authStore (auth state)
   └─ dynamic imports syncStore → stopSync on logout
 
 remoteVaultStore (vault-scoped sync config)
-  ├─ uses sync/syncConfig.ts (getPlatform().fs) → reads/writes sync-config.json
+  ├─ uses sync/syncConfig.ts (getVaultSyncState) → reads/writes sync.json `config`
   ├─ uses getPlatform().remoteVault → remote vault HTTP (create/list/get/update/delete)
   └─ dynamic imports authStore → checks auth for the configured server URL
 
@@ -994,7 +1027,9 @@ Pure, store-free subpaths for realms that must not load the stores (the mobile w
 - `updateFrontmatterField(content, key, value)` — Safely updates a single YAML field
 - `addTagToFrontmatter(content, tag)` / `removeTagFromFrontmatter(content, tag)` — Tag manipulation
 - `extractAllTags(content)` — Returns both YAML frontmatter tags and inline `#hashtags`
-- `extractInlineTags(content)` — Extracts only inline `#hashtags` from body
+- `extractInlineTags(content)` — Extracts only inline `#hashtags` from body, using the shared
+  `@cortex/properties/tags` rule (word boundary, skips code spans, fenced code, and link anchors) that
+  Live Preview and Reading View also use; `renameTagInContent` rewrites the same ranges
 - `extractYamlArray(raw)` — Reads an array from parsed YAML
 
 New property and frontmatter behavior belongs in `@cortex/properties`. `tagsStore` may continue to
@@ -1021,8 +1056,8 @@ recombine edits with the current cached frontmatter prefix before calling `noteC
   `utils/navigationHistory.ts`. Every action that activates a tab records it; `navigateHistory`
   restores a location without recording it again.
 - `closeOtherTabs(tabId, paneId, scope)` owns "close others" and "close to the right".
-- `useLinksStore` indexes outgoing wiki links with the `tagsStore` pattern (`.cortex/links-index.json`,
-  fingerprints, incremental updates from `appRuntime`). Resolve targets with
+- `useLinksStore` exposes outgoing wiki links from the shared `noteMetadataIndex` (incremental
+  updates from `appRuntime`). Resolve targets with
   `createWikiLinkResolver(files, vaultPath)` and derive backlinks with `selectBacklinks`; open links
   with `openWikiLink`, which creates the note when no target exists.
 - `editorStore.updateDocument(filePath, body)` derives word count and headings for the active note;
@@ -1035,13 +1070,15 @@ recombine edits with the current cached frontmatter prefix before calling `noteC
 ## Databases
 
 - `startDatabaseRuntime` runs in every indexing mode (mobile included). It finds folder-note
-  candidates from `useVaultStore.files`, reads only new or changed candidates, and loads rows only for
-  folders held through `retainDatabase(folder)`. Do not add a vault-wide frontmatter index for it.
+  candidates through the vault index (one lookup per folder on vault open, then index deltas), reads
+  only new or changed candidates, and loads rows only for folders held through
+  `retainDatabase(folder)`, from that folder's indexed children; a retained folder reloads only when
+  its children change. Do not add a vault-wide frontmatter index for it.
 - Row reads use `noteCache.getEntry` for open notes and batched `fs.readTextFiles` (500 paths per
   call) for the rest, never `noteCache.readEntry`.
-- `databaseRowCache.ts` persists each opened database's rows to `.cortex/database-rows/<hash>.json`
+- `databaseRowCache.ts` persists each opened database's rows to `.cortex/cache/database-rows/<hash>.json`
   (local only, never synced) with the file fingerprint per row. The first load of a folder seeds rows
-  whose fingerprint still matches `vaultStore.files` and reads only the rest; writes are debounced.
+  whose fingerprint still matches the vault index entry and reads only the rest; writes are debounced.
   Bump `CACHE_VERSION` whenever `createDatabaseRow` output changes.
 - Write through `databaseActions.ts`: `updateDatabaseCell` patches the row optimistically and reverts
   on failure, `updateDatabaseConfig` debounces the view-note write and flushes on release,

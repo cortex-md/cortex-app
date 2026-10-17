@@ -2,9 +2,9 @@ import { executeCommand } from "@cortex/commands"
 import {
 	canStepNavigationHistory,
 	formatRelativeTime,
-	getFileModifiedTimes,
 	useDragStore,
 	useUIStore,
+	useVaultModifiedTime,
 	useVaultStore,
 	useWorkspaceStore,
 } from "@cortex/core"
@@ -17,12 +17,12 @@ import {
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
+	SimpleTooltip,
 	Tabs,
 	TabsList,
 	TabsTrigger,
 	Tooltip,
 	TooltipContent,
-	TooltipProvider,
 	TooltipTrigger,
 } from "@cortex/ui"
 import {
@@ -78,9 +78,7 @@ interface TabBarItemProps {
 
 function TabTooltipBody({ tab }: { tab: TabItem }) {
 	const vaultPath = useVaultStore((state) => state.vault?.path)
-	const modifiedAt = useVaultStore((state) =>
-		tab.filePath ? getFileModifiedTimes(state.files).get(tab.filePath) : undefined,
-	)
+	const modifiedAt = useVaultModifiedTime(tab.filePath)
 	const folder = tab.filePath ? getSidebarNotePresentation(tab.filePath, vaultPath).folder : ""
 	const edited = modifiedAt ? `edited ${formatRelativeTime(modifiedAt)}` : ""
 	const meta = [folder, edited].filter(Boolean).join(" · ")
@@ -219,17 +217,18 @@ function RightSidebarToggle() {
 	const collapsed = useUIStore((state) => state.rightSidebarCollapsed)
 	const label = collapsed ? "Show right sidebar" : "Hide right sidebar"
 	return (
-		<Button
-			variant="secondary"
-			size="icon-sm"
-			className="tab-bar-right-toggle"
-			aria-label={label}
-			aria-pressed={!collapsed}
-			title={label}
-			onClick={() => executeCommand("view.toggle-right-sidebar", { source: "menu" })}
-		>
-			<PanelRightIcon size={17} strokeWidth={2} />
-		</Button>
+		<SimpleTooltip label={label} side="bottom">
+			<Button
+				variant="secondary"
+				size="icon-sm"
+				className="tab-bar-right-toggle"
+				aria-label={label}
+				aria-pressed={!collapsed}
+				onClick={() => executeCommand("view.toggle-right-sidebar", { source: "menu" })}
+			>
+				<PanelRightIcon size={17} strokeWidth={2} />
+			</Button>
+		</SimpleTooltip>
 	)
 }
 
@@ -344,61 +343,59 @@ export function TabBar({ tabs, activeTabId, paneId, onActivate, onClose, onConte
 	const handleDragEnd = useCallback(() => setDraggingTabId(null), [])
 
 	return (
-		<TooltipProvider delayDuration={600} skipDelayDuration={200}>
-			<Tabs
-				ref={rowRef}
-				className="tab-bar-row"
-				value={activeTab?.id ?? ""}
-				onValueChange={(value) => {
-					const tab = tabs.find((t) => t.id === value)
-					if (tab) onActivate(tab.id)
-				}}
-				data-drop-tabbar-count={tabs.length}
-				data-drop-tabbar-pane-id={paneId}
-			>
-				<TabNavigationButtons paneId={paneId} />
-				<TabsList className="tab-bar" aria-label="Open notes">
-					{tabs.map((tab, tabIndex) => {
-						if (!visibleTabIds.has(tab.id)) return null
-						const isActive = tab.id === activeTabId
-						return (
-							<TabBarItem
-								key={tab.id}
-								tab={tab}
-								paneId={paneId}
-								isActive={isActive}
-								isDragged={draggingTabId === tab.id}
-								tabIndex={tabIndex}
-								onActivate={onActivate}
-								onClose={onClose}
-								onContextMenu={onContextMenu}
-								onDragEnd={handleDragEnd}
-								onDragStart={setDraggingTabId}
-							/>
-						)
-					})}
-					{showEndDropMarker && <span className="tab-drop-marker-end" aria-hidden="true" />}
-					{hiddenTabs.length > 0 && (
-						<HiddenTabsMenu
-							tabs={hiddenTabs}
-							activeTabId={activeTabId}
+		<Tabs
+			ref={rowRef}
+			className="tab-bar-row"
+			value={activeTab?.id ?? ""}
+			onValueChange={(value) => {
+				const tab = tabs.find((t) => t.id === value)
+				if (tab) onActivate(tab.id)
+			}}
+			data-drop-tabbar-count={tabs.length}
+			data-drop-tabbar-pane-id={paneId}
+		>
+			<TabNavigationButtons paneId={paneId} />
+			<TabsList className="tab-bar" aria-label="Open notes">
+				{tabs.map((tab, tabIndex) => {
+					if (!visibleTabIds.has(tab.id)) return null
+					const isActive = tab.id === activeTabId
+					return (
+						<TabBarItem
+							key={tab.id}
+							tab={tab}
 							paneId={paneId}
+							isActive={isActive}
+							isDragged={draggingTabId === tab.id}
+							tabIndex={tabIndex}
 							onActivate={onActivate}
+							onClose={onClose}
+							onContextMenu={onContextMenu}
+							onDragEnd={handleDragEnd}
+							onDragStart={setDraggingTabId}
 						/>
-					)}
-				</TabsList>
-				<Button
-					variant="ghost"
-					size="icon-sm"
-					className="tab-new"
-					aria-label="New tab"
-					onClick={() => executeCommand("tabs.new", { source: "menu", payload: { paneId } })}
-				>
-					<PlusIcon />
-				</Button>
-				<span className="tab-bar-fill" />
-				<RightSidebarToggle />
-			</Tabs>
-		</TooltipProvider>
+					)
+				})}
+				{showEndDropMarker && <span className="tab-drop-marker-end" aria-hidden="true" />}
+				{hiddenTabs.length > 0 && (
+					<HiddenTabsMenu
+						tabs={hiddenTabs}
+						activeTabId={activeTabId}
+						paneId={paneId}
+						onActivate={onActivate}
+					/>
+				)}
+			</TabsList>
+			<Button
+				variant="ghost"
+				size="icon-sm"
+				className="tab-new"
+				aria-label="New tab"
+				onClick={() => executeCommand("tabs.new", { source: "menu", payload: { paneId } })}
+			>
+				<PlusIcon />
+			</Button>
+			<span className="tab-bar-fill" />
+			<RightSidebarToggle />
+		</Tabs>
 	)
 }

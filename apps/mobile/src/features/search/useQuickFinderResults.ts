@@ -1,11 +1,11 @@
 import {
-	getFileModifiedTimes,
 	getNoteTitle,
 	getParentPath,
 	getRecentFilePaths,
 	joinPath,
 	toVaultRelativePath,
 	useTagsStore,
+	useVaultModifiedTimes,
 	useVaultStore,
 	useWorkspaceStore,
 } from "@cortex/core"
@@ -54,7 +54,7 @@ export function useQuickFinderResults(
 	filters: QuickFinderFilters,
 ): { items: QuickFinderItem[]; pending: boolean } {
 	const vaultPath = useVaultStore((state) => state.vault?.path ?? "")
-	const files = useVaultStore((state) => state.files)
+	const modifiedTimes = useVaultModifiedTimes()
 	const panes = useWorkspaceStore((state) => state.panes)
 	const recentlyClosed = useWorkspaceStore((state) => state.recentlyClosed)
 	const tagIndex = useTagsStore((state) => state.tagIndex)
@@ -90,7 +90,6 @@ export function useQuickFinderResults(
 		return () => clearTimeout(timer)
 	}, [filters.folder, filters.titleOnly, indexing, trimmed])
 
-	const modifiedTimes = useMemo(() => getFileModifiedTimes(files), [files])
 	const allowedByTags = useMemo(() => {
 		if (filters.tags.length === 0) return null
 		const allowed = new Set<string>()

@@ -1,10 +1,10 @@
 import type { CSSProperties } from "react"
 
-export const FILE_TREE_ROW_HEIGHT = 36
-export const FILE_TREE_ROW_STEP = 38
+export const FILE_TREE_ROW_HEIGHT = 32
+export const FILE_TREE_ROW_STEP = 32
 
 const FILE_TREE_INDENT = 18
-const FILE_TREE_BASE_INDENT = 10
+const FILE_TREE_BASE_INDENT = 8
 
 interface FileTreeDepthStyle extends CSSProperties {
 	"--file-tree-depth": number

@@ -9,6 +9,19 @@ export {
 	parseScreenshots,
 	parseVerifiedEntries,
 } from "./catalogData"
+export {
+	type ExtensionSyncPluginSnapshot,
+	type ExtensionSyncServices,
+	startExtensionSync,
+} from "./extensionSync/extensionSyncRuntime"
+export {
+	type ExtensionSyncState,
+	type ExtensionSyncStatus,
+	formatExtensionSyncStatus,
+	needsExtensionSyncReview,
+	useExtensionSyncStore,
+} from "./extensionSync/extensionSyncStore"
+export type { ExtensionSyncKind } from "./extensionSync/plan"
 export { installPlugin, installTheme, uninstallPlugin, uninstallTheme } from "./installService"
 export {
 	ALLOW_COMMUNITY_PLUGINS_CONFIRMATION,
@@ -40,13 +53,16 @@ export {
 } from "./marketplaceSelectors"
 export {
 	BLOCKLIST_UNAVAILABLE_MESSAGE,
+	getMarketplaceCallbacks,
 	isEntryInstalled,
 	type MarketplaceCallbacks,
+	type MarketplaceInstallOptions,
 	type MarketplaceNotificationEvent,
 	type MarketplaceSortOrder,
 	type MarketplaceState,
 	type MarketplaceTab,
 	setMarketplaceCallbacks,
+	subscribeInstalledExtensions,
 	useMarketplaceStore,
 } from "./marketplaceStore"
 export { getRegistryRepo, registryFileUrl } from "./registryConfig"
@@ -56,6 +72,7 @@ export {
 	fetchManifestMinVersion,
 	fetchPluginRegistry,
 	fetchReadme,
+	fetchReleaseForVersion,
 	fetchThemeRegistry,
 	invalidateRegistryCache,
 } from "./registryService"

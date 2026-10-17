@@ -1,25 +1,53 @@
 import { useSyncStore } from "@cortex/core"
+import {
+	type ExtensionSyncKind,
+	formatExtensionSyncStatus,
+	needsExtensionSyncReview,
+	useExtensionSyncStore,
+} from "@cortex/marketplace"
 import type { SyncPreferences } from "@cortex/platform"
 import { useState } from "react"
 import { Alert } from "react-native"
 
 import { FormRow, FormSection, FormToggle, NativeForm } from "@/components/ui/Form"
+import { openSettings } from "@/features/navigation/routes"
 import { FormTextField } from "@/features/sync/FormControls"
 import { resolveExcludedPaths, setExcludedPath } from "@/features/sync/syncAdapter"
 
 type AppStateKey = Exclude<keyof SyncPreferences, "excludedPaths" | "ignoreImages">
 
-const APP_STATE_ROWS: { key: AppStateKey; title: string; subtitle?: string }[] = [
+const APP_STATE_ROWS: {
+	key: AppStateKey
+	title: string
+	subtitle?: string
+	extensions?: ExtensionSyncKind
+}[] = [
 	{ key: "syncSettings", title: "App settings" },
 	{ key: "syncHotkeys", title: "Keyboard shortcuts" },
 	{ key: "syncWorkspace", title: "Workspace layout", subtitle: "Open tabs and panes" },
 	{ key: "syncBookmarks", title: "Bookmarks" },
-	{ key: "syncPluginMetadata", title: "Plugin configuration" },
-	{ key: "syncThemeMetadata", title: "Theme configuration" },
+	{
+		key: "syncPluginMetadata",
+		title: "Plugin configuration",
+		subtitle: "Installed plugins, versions and which are on",
+		extensions: "plugins",
+	},
+	{
+		key: "syncThemeMetadata",
+		title: "Theme configuration",
+		subtitle: "Installed themes and versions",
+		extensions: "themes",
+	},
 ]
+
+function reviewExtensionSync(kind: ExtensionSyncKind): void {
+	if (kind === "plugins") openSettings("plugins")
+	else openSettings("marketplace", { tab: "themes" })
+}
 
 export function SyncPreferencesScreen() {
 	const preferences = useSyncStore((state) => state.syncPreferences)
+	const extensionSync = useExtensionSyncStore()
 	const updateSyncPreference = useSyncStore((state) => state.updateSyncPreference)
 	const excludes = resolveExcludedPaths(preferences.excludedPaths)
 	const [draft, setDraft] = useState("")
@@ -57,15 +85,35 @@ export function SyncPreferencesScreen() {
 				/>
 			</FormSection>
 			<FormSection title="App state">
-				{APP_STATE_ROWS.map((row) => (
-					<FormToggle
-						key={row.key}
-						onValueChange={(value) => void updateSyncPreference(row.key, value)}
-						subtitle={row.subtitle}
-						title={row.title}
-						value={preferences[row.key]}
-					/>
-				))}
+				{APP_STATE_ROWS.flatMap((row) => {
+					const status =
+						row.extensions && preferences[row.key] ? extensionSync[row.extensions] : null
+					const toggle = (
+						<FormToggle
+							key={row.key}
+							onValueChange={(value) => void updateSyncPreference(row.key, value)}
+							subtitle={
+								status && row.extensions
+									? formatExtensionSyncStatus(row.extensions, status)
+									: row.subtitle
+							}
+							title={row.title}
+							value={preferences[row.key]}
+						/>
+					)
+					if (!status || !row.extensions || !needsExtensionSyncReview(status)) return [toggle]
+					const kind = row.extensions
+					return [
+						toggle,
+						<FormRow
+							chevron
+							key={`${row.key}-review`}
+							onPress={() => reviewExtensionSync(kind)}
+							tint
+							title={kind === "plugins" ? "Review plugins" : "Review themes"}
+						/>,
+					]
+				})}
 			</FormSection>
 			<FormSection
 				footer="Excluded items stay on this device and are never uploaded."

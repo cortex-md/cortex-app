@@ -1,13 +1,5 @@
 import { type FileEntry, getPlatform } from "@cortex/platform"
-import {
-	type FileFingerprint,
-	getFileEntryFingerprint,
-	getVaultFilePath,
-	hasSameFingerprint,
-	isMarkdownPath,
-	isPathOrDescendant,
-	VAULT_FILES,
-} from "@cortex/platform/utils"
+import type { FileFingerprint } from "@cortex/platform/utils"
 import {
 	applyTaskPatch,
 	createTaskLine,
@@ -24,9 +16,8 @@ import {
 } from "@cortex/tasks"
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
+import { noteMetadataIndex } from "../indexing/noteMetadataIndex"
 import { mutateNote } from "../notes/mutateNote"
-import { createDebouncedWriter } from "../utils/createDebouncedWriter"
-import { readTextFilesInBatches } from "../utils/readTextFilesInBatches"
 import { assertVaultPathWritable } from "./accessStore"
 
 export interface TaskLineEdit {
@@ -57,71 +48,6 @@ export interface TasksState {
 	) => Promise<TaskLineEdit | null>
 	revertTaskEdit: (edit: TaskLineEdit) => Promise<void>
 	addTask: (fields: TaskFields) => Promise<TaskLineEdit | null>
-}
-
-const TASK_INDEX_VERSION = 2
-const TASK_INDEX_SERIALIZE_DELAY_MS = 5000
-
-interface PersistedTaskFile extends FileFingerprint {
-	tasks: Task[]
-}
-
-interface PersistedTaskIndex {
-	version: typeof TASK_INDEX_VERSION
-	files: Record<string, PersistedTaskFile>
-}
-
-const indexWriter = createDebouncedWriter(TASK_INDEX_SERIALIZE_DELAY_MS)
-let indexGeneration = 0
-let indexedVaultPath: string | null = null
-let indexedFiles = new Map<string, PersistedTaskFile>()
-
-function isPersistedTaskIndex(value: unknown): value is PersistedTaskIndex {
-	return (
-		typeof value === "object" &&
-		value !== null &&
-		(value as PersistedTaskIndex).version === TASK_INDEX_VERSION &&
-		typeof (value as PersistedTaskIndex).files === "object"
-	)
-}
-
-async function loadPersistedTaskIndex(vaultPath: string): Promise<Map<string, PersistedTaskFile>> {
-	try {
-		const raw = await getPlatform().fs.readFile(getVaultFilePath(vaultPath, VAULT_FILES.taskIndex))
-		const parsed = JSON.parse(raw) as unknown
-		if (!isPersistedTaskIndex(parsed)) return new Map()
-		return new Map(
-			Object.entries(parsed.files).filter(
-				([, entry]) =>
-					typeof entry?.mtime === "number" &&
-					typeof entry.size === "number" &&
-					Array.isArray(entry.tasks),
-			),
-		)
-	} catch {
-		return new Map()
-	}
-}
-
-function scheduleSerialize(vaultPath: string): void {
-	indexWriter.schedule(() => {
-		if (indexedVaultPath !== vaultPath) return
-		const persisted: PersistedTaskIndex = {
-			version: TASK_INDEX_VERSION,
-			files: Object.fromEntries(indexedFiles),
-		}
-		void getPlatform()
-			.fs.writeFile(getVaultFilePath(vaultPath, VAULT_FILES.taskIndex), JSON.stringify(persisted))
-			.catch(() => {})
-	})
-}
-
-function toTasksByPath(files: ReadonlyMap<string, PersistedTaskFile>): Record<string, Task[]> {
-	const tasksByPath: Record<string, Task[]> = {}
-	for (const [filePath, file] of files) {
-		if (file.tasks.length > 0) tasksByPath[filePath] = file.tasks
-	}
-	return tasksByPath
 }
 
 async function readInboxTasks(inboxPath: string): Promise<Task[]> {
@@ -169,79 +95,14 @@ export const useTasksStore = create<TasksState>()(
 				tasksByPath: {},
 				inboxPath: null,
 
-				buildIndexFromFiles: async (vaultPath, files) => {
-					const generation = ++indexGeneration
-					const cachedFiles =
-						indexedVaultPath === vaultPath ? indexedFiles : await loadPersistedTaskIndex(vaultPath)
-					const nextFiles = new Map<string, PersistedTaskFile>()
-					const changedFiles: FileEntry[] = []
-					for (const file of files) {
-						if (file.isDir || !isMarkdownPath(file.path)) continue
-						const cached = cachedFiles.get(file.path)
-						if (cached && hasSameFingerprint(cached, getFileEntryFingerprint(file))) {
-							nextFiles.set(file.path, cached)
-						} else {
-							changedFiles.push(file)
-						}
-					}
-					const inboxPath = getVaultFilePath(vaultPath, VAULT_FILES.taskInbox)
-					const [reads, inboxTasks] = await Promise.all([
-						readTextFilesInBatches(changedFiles.map((file) => file.path)),
-						readInboxTasks(inboxPath),
-					])
-					const readFiles = changedFiles.map((file, index) => {
-						const read = reads[index]
-						return read ? { file, tasks: parseTasks(file.path, read.content) } : null
-					})
-					if (generation !== indexGeneration) return
-					for (const readFile of readFiles) {
-						if (!readFile) continue
-						nextFiles.set(readFile.file.path, {
-							...getFileEntryFingerprint(readFile.file),
-							tasks: readFile.tasks,
-						})
-					}
-					indexedVaultPath = vaultPath
-					indexedFiles = nextFiles
-					const tasksByPath = toTasksByPath(nextFiles)
-					if (inboxTasks.length > 0) tasksByPath[inboxPath] = inboxTasks
-					set({ tasksByPath, inboxPath })
-					if (changedFiles.length > 0 || cachedFiles.size !== nextFiles.size) {
-						scheduleSerialize(vaultPath)
-					}
-				},
+				buildIndexFromFiles: (vaultPath, files) => noteMetadataIndex.build(vaultPath, files),
 
 				updateFileInIndex: (filePath, rawContent, fingerprint) => {
-					const tasks = parseTasks(filePath, rawContent)
-					const { tasksByPath, inboxPath } = get()
-					if (tasks.length > 0 || tasksByPath[filePath]) {
-						const nextTasksByPath = { ...tasksByPath }
-						if (tasks.length > 0) nextTasksByPath[filePath] = tasks
-						else delete nextTasksByPath[filePath]
-						set({ tasksByPath: nextTasksByPath })
-					}
-					if (!indexedVaultPath || filePath === inboxPath) return
-					const previous = indexedFiles.get(filePath)
-					indexedFiles.set(filePath, {
-						...(fingerprint ?? { mtime: previous?.mtime ?? 0, size: previous?.size ?? 0 }),
-						tasks,
-					})
-					scheduleSerialize(indexedVaultPath)
+					noteMetadataIndex.update(filePath, rawContent, fingerprint)
 				},
 
 				removeFileFromIndex: (filePath) => {
-					const { tasksByPath } = get()
-					const removedPaths = [...indexedFiles.keys()].filter((path) =>
-						isPathOrDescendant(path, filePath),
-					)
-					if (removedPaths.length === 0) return
-					const nextTasksByPath = { ...tasksByPath }
-					for (const path of removedPaths) {
-						delete nextTasksByPath[path]
-						indexedFiles.delete(path)
-					}
-					set({ tasksByPath: nextTasksByPath })
-					if (indexedVaultPath) scheduleSerialize(indexedVaultPath)
+					noteMetadataIndex.remove(filePath)
 				},
 
 				reloadInbox: async () => {
@@ -256,15 +117,11 @@ export const useTasksStore = create<TasksState>()(
 				},
 
 				cancelIndexing: () => {
-					indexGeneration++
+					noteMetadataIndex.cancel()
 				},
 
 				reset: () => {
-					indexGeneration++
-					indexWriter.cancel()
-					indexedVaultPath = null
-					indexedFiles = new Map()
-					set({ tasksByPath: {}, inboxPath: null })
+					noteMetadataIndex.reset()
 				},
 
 				toggleTask: (task) =>

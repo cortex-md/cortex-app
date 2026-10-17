@@ -14,21 +14,24 @@
   later `search` seeing them. Guard every mutation with the store generation checks
   (`indexVaultGeneration`, `indexedVaultPath`) so a cancelled pass or a previous vault never writes
   into the current engine.
-- Vault indexing: on the first pass for a vault the store reads `.cortex/search-index.json` as text
+- Vault indexing: on the first pass for a vault the store reads `.cortex/cache/search-index.json` as text
   and hands it to `backend.load` (the JSON parse happens in the backend, off the desktop main
   thread). `planIndex` prunes ids that are no longer Markdown files and returns the stale ids
   (missing or fingerprint mismatch). Stale notes are read with `fs.readTextFiles` in batches of 200
   and posted with `addDocuments` while the next batch is read; unreadable notes are removed. Do not
   hold the whole corpus in memory at once.
 - Keep full stripped Markdown content indexable for search correctness, but never store note bodies
-  or previews in MiniSearch `storeFields` or serialized indexes. Snippets are computed on demand
-  after `search` from note content read through the platform (bounded concurrency, small LRU cache
-  invalidated by `indexFile`/`removeFile`); they stay in the store because they need note content.
+  or previews in MiniSearch `storeFields` or serialized indexes. Snippets and excerpts are computed
+  on demand by the backend (`matchNotes`, `readNoteExcerpts`), so frontmatter stripping, Markdown
+  stripping, and match building run inside the desktop worker. The backend keeps a small LRU of
+  stripped note text, invalidated by `addDocuments`, `removePaths`, `load`, and `clear`; a note it
+  has not cached comes back as `{ status: "missing" }` and the store reads those notes in one
+  `fs.readTextFiles` call and posts the raw text back. The backend never touches the platform.
 - `addDocument` parses frontmatter once through `prepareSearchContent` (`projectRawNote`), so
   malformed YAML never throws during indexing.
 - `SearchEngine` tracks indexed document ids. Vault indexing and store reset must clear or prune
   stale ids so documents from a previous vault or older serialized index cannot remain searchable.
-- Persisted search indexes use a versioned `.cortex/search-index.json` wrapper (version 2) with
+- Persisted search indexes use a versioned `.cortex/cache/search-index.json` wrapper (version 2) with
   MiniSearch data plus per-document fingerprints in `FileEntry` units (`mtime` seconds, UTF-8 size).
   The engine stays in memory per vault: `indexVault` reads the file only on the first pass for a
   vault, later passes diff fingerprints against the live engine. Serialization is debounced (5 s)
@@ -58,7 +61,7 @@
   visible until then). Callers of `searchTitles`/`findNotes` must drop stale responses themselves
   (latest query wins).
 - `findNotes`, `loadMatches`, `findPhrase`, and `readNoteExcerpt` query without touching the sidebar
-  `results`. `recentQueries` persists to `.cortex/search-history.json`; `noteHighlight` asks the
+  `results`. `recentQueries` persists to `searchHistory` in `.cortex/local.json`; `noteHighlight` asks the
   editor host to highlight a query in one note.
 - `extractWikiLinks(body)` and `countWords(body)` are the shared parsers for links and word counts.
 

@@ -39,7 +39,15 @@ describe("vaultStore renameFile", () => {
 		const renameFile = vi.fn().mockResolvedValue(undefined)
 		const scanVault = vi.fn().mockResolvedValue([])
 		vi.mocked(getPlatform).mockReturnValue({
-			fs: { readFile, readFileSnapshot, writeFile, hashFile, getFileMetadata, renameFile },
+			fs: {
+				readFile,
+				readFileSnapshot,
+				writeFile,
+				atomicWriteFile: vi.fn().mockResolvedValue(undefined),
+				hashFile,
+				getFileMetadata,
+				renameFile,
+			},
 			vault: { scanVault },
 		} as never)
 
@@ -83,7 +91,15 @@ describe("vaultStore renameFile", () => {
 		const renameFile = vi.fn().mockResolvedValue(undefined)
 		const scanVault = vi.fn().mockResolvedValue([])
 		vi.mocked(getPlatform).mockReturnValue({
-			fs: { readFile, readFileSnapshot, writeFile, hashFile, getFileMetadata, renameFile },
+			fs: {
+				readFile,
+				readFileSnapshot,
+				writeFile,
+				atomicWriteFile: vi.fn().mockResolvedValue(undefined),
+				hashFile,
+				getFileMetadata,
+				renameFile,
+			},
 			vault: { scanVault },
 		} as never)
 		useVaultStore.setState({

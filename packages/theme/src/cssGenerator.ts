@@ -236,6 +236,12 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
 	vars["--markdown-block-spacing"] = t.markdown?.blockSpacing ?? "1em"
 	vars["--markdown-code-font-family"] = t.markdown?.codeFontFamily ?? defaultMarkdownCodeFontFamily
 	vars["--markdown-code-font-size"] = t.markdown?.codeFontSize ?? defaultMarkdownCodeFontSize
+	vars["--markdown-inline-code-color"] = t.markdown?.inlineCodeColor ?? t.semantic.syntax.type
+	vars["--markdown-link-mark-color"] =
+		t.markdown?.linkMarkColor ?? `color-mix(in srgb, ${t.semantic.accent.default} 24%, transparent)`
+	vars["--markdown-highlight-color"] =
+		t.markdown?.highlightColor ??
+		`color-mix(in srgb, ${t.semantic.accent.default} 16%, transparent)`
 	vars["--markdown-code-padding-inline"] = t.markdown?.codePaddingInline ?? "16px"
 	vars["--markdown-code-padding-block"] = t.markdown?.codePaddingBlock ?? "8px"
 	vars["--markdown-callout-padding-block"] = t.markdown?.calloutPaddingBlock ?? "12px"

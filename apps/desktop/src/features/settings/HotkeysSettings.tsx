@@ -1,7 +1,14 @@
 import { commandRegistry } from "@cortex/commands"
 import { formatHotkeyDisplay, type HotkeyBinding, useHotkeysStore } from "@cortex/commands/hotkeys"
 import { useVaultStore } from "@cortex/core"
-import { Button, InputGroup, InputGroupAddon, InputGroupInput, Kbd } from "@cortex/ui"
+import {
+	Button,
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	Kbd,
+	SimpleTooltip,
+} from "@cortex/ui"
 import { RotateCcwIcon, SearchIcon } from "lucide-react"
 import {
 	memo,
@@ -131,15 +138,16 @@ const HotkeyRow = memo(function HotkeyRow({
 					onRecord={(keys) => onRecord(binding.id, keys)}
 				/>
 				{binding.keys !== binding.defaultKeys && (
-					<Button
-						variant="ghost"
-						size="icon-xs"
-						onClick={() => onReset(binding.id)}
-						title="Reset to default"
-						aria-label="Reset to default"
-					>
-						<RotateCcwIcon />
-					</Button>
+					<SimpleTooltip label="Reset to default">
+						<Button
+							variant="ghost"
+							size="icon-xs"
+							onClick={() => onReset(binding.id)}
+							aria-label="Reset to default"
+						>
+							<RotateCcwIcon />
+						</Button>
+					</SimpleTooltip>
 				)}
 			</div>
 		</SettingsListItem>

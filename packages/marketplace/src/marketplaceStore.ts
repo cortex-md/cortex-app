@@ -47,9 +47,28 @@ export interface MarketplaceNotificationEvent {
 }
 
 let callbacks: MarketplaceCallbacks | null = null
+const installChangeListeners = new Set<(kind: MarketplaceTab) => void>()
 
 export function setMarketplaceCallbacks(cbs: MarketplaceCallbacks): void {
 	callbacks = cbs
+}
+
+export function getMarketplaceCallbacks(): MarketplaceCallbacks | null {
+	return callbacks
+}
+
+export function subscribeInstalledExtensions(listener: (kind: MarketplaceTab) => void): () => void {
+	installChangeListeners.add(listener)
+	return () => installChangeListeners.delete(listener)
+}
+
+function notifyInstalledExtensionsChanged(kind: MarketplaceTab): void {
+	for (const listener of installChangeListeners) listener(kind)
+}
+
+export interface MarketplaceInstallOptions {
+	version?: string | null
+	quiet?: boolean
 }
 
 export type MarketplaceTab = "plugins" | "themes"
@@ -90,8 +109,16 @@ export interface MarketplaceState {
 	selectEntry: (id: string | null) => void
 	loadRegistry: () => Promise<void>
 	refreshRegistry: () => Promise<void>
-	installEntry: (entry: RegistryEntry, kind?: MarketplaceTab) => Promise<void>
-	uninstallEntry: (entry: RegistryEntry, kind?: MarketplaceTab) => Promise<void>
+	installEntry: (
+		entry: RegistryEntry,
+		kind?: MarketplaceTab,
+		options?: MarketplaceInstallOptions,
+	) => Promise<boolean>
+	uninstallEntry: (
+		entry: Pick<RegistryEntry, "id" | "name">,
+		kind?: MarketplaceTab,
+		options?: MarketplaceInstallOptions,
+	) => Promise<boolean>
 	loadReadme: (entry: RegistryEntry) => Promise<void>
 	loadManifestMetadata: (entry: RegistryEntry) => Promise<void>
 	checkUpdates: () => Promise<void>
@@ -220,8 +247,8 @@ export const useMarketplaceStore = create<MarketplaceState>()(
 				await get().loadRegistry()
 			},
 
-			installEntry: async (entry, kind) => {
-				if (!callbacks) return
+			installEntry: async (entry, kind, options = {}) => {
+				if (!callbacks) return false
 				const activeTab = kind ?? get().activeTab
 				const wasInstalled =
 					activeTab === "plugins"
@@ -241,7 +268,7 @@ export const useMarketplaceStore = create<MarketplaceState>()(
 						body: blockMessage,
 						level: "error",
 					})
-					return
+					return false
 				}
 				set((s) => {
 					s.loadingEntryId = entry.id
@@ -251,24 +278,28 @@ export const useMarketplaceStore = create<MarketplaceState>()(
 					if (activeTab === "plugins") {
 						const dir = callbacks.getPluginsDir()
 						if (!dir) throw new Error("Open a vault before installing plugins.")
-						await installPlugin(entry, dir, callbacks.pluginHost)
+						await installPlugin(entry, dir, callbacks.pluginHost, options)
 					} else {
 						const dir = callbacks.getThemesDir()
 						if (!dir) throw new Error("Open a vault before installing themes.")
-						await installTheme(entry, dir, callbacks.reloadThemes)
+						await installTheme(entry, dir, callbacks.reloadThemes, options)
 					}
 					set((s) => {
 						delete s.availableUpdates[entry.id]
 						s.installError = null
 					})
-					void callbacks.notify?.({
-						action: wasInstalled ? "update" : "install",
-						kind: activeTab,
-						entryId: entry.id,
-						title: wasInstalled ? "Update installed" : "Install complete",
-						body: entry.name,
-						level: "success",
-					})
+					notifyInstalledExtensionsChanged(activeTab)
+					if (!options.quiet) {
+						void callbacks.notify?.({
+							action: wasInstalled ? "update" : "install",
+							kind: activeTab,
+							entryId: entry.id,
+							title: wasInstalled ? "Update installed" : "Install complete",
+							body: entry.name,
+							level: "success",
+						})
+					}
+					return true
 				} catch (error) {
 					const message = getErrorMessage(error)
 					set((s) => {
@@ -282,6 +313,7 @@ export const useMarketplaceStore = create<MarketplaceState>()(
 						body: message,
 						level: "error",
 					})
+					return false
 				} finally {
 					set((s) => {
 						s.loadingEntryId = null
@@ -289,8 +321,8 @@ export const useMarketplaceStore = create<MarketplaceState>()(
 				}
 			},
 
-			uninstallEntry: async (entry, kind) => {
-				if (!callbacks) return
+			uninstallEntry: async (entry, kind, options = {}) => {
+				if (!callbacks) return false
 				const activeTab = kind ?? get().activeTab
 				set((s) => {
 					s.loadingEntryId = entry.id
@@ -298,21 +330,25 @@ export const useMarketplaceStore = create<MarketplaceState>()(
 				try {
 					if (activeTab === "plugins") {
 						const dir = callbacks.getPluginsDir()
-						if (!dir) return
+						if (!dir) return false
 						await uninstallPlugin(entry.id, dir, callbacks.pluginHost)
 					} else {
 						const dir = callbacks.getThemesDir()
-						if (!dir) return
+						if (!dir) return false
 						await uninstallTheme(entry.id, dir)
 					}
-					void callbacks.notify?.({
-						action: "uninstall",
-						kind: activeTab,
-						entryId: entry.id,
-						title: "Uninstall complete",
-						body: entry.name,
-						level: "success",
-					})
+					notifyInstalledExtensionsChanged(activeTab)
+					if (!options.quiet) {
+						void callbacks.notify?.({
+							action: "uninstall",
+							kind: activeTab,
+							entryId: entry.id,
+							title: "Uninstall complete",
+							body: entry.name,
+							level: "success",
+						})
+					}
+					return true
 				} catch (error) {
 					void callbacks.notify?.({
 						action: "uninstall",
@@ -322,6 +358,7 @@ export const useMarketplaceStore = create<MarketplaceState>()(
 						body: getErrorMessage(error),
 						level: "error",
 					})
+					return false
 				} finally {
 					set((s) => {
 						s.loadingEntryId = null

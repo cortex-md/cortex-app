@@ -45,6 +45,7 @@ import {
 	ItemGroup,
 	ItemTitle,
 	Label,
+	SimpleTooltip,
 	Spinner,
 	Switch,
 	Tag,
@@ -577,14 +578,15 @@ function PropertyRows({ properties, codeMode, context, onChange }: PropertyRowsP
 						/>
 						{token ? (
 							<span className="template-editor-prop-value">
-								<Tag
-									variant="active"
-									title={`Becomes ${renderTemplateValue(token, context)}`}
-									removeLabel={`Remove ${getTemplateValueLabel(token)}`}
-									onRemove={() => setRow(row.id, { value: "" })}
-								>
-									{getTemplateValueLabel(token)}
-								</Tag>
+								<SimpleTooltip label={`Becomes ${renderTemplateValue(token, context)}`}>
+									<Tag
+										variant="active"
+										removeLabel={`Remove ${getTemplateValueLabel(token)}`}
+										onRemove={() => setRow(row.id, { value: "" })}
+									>
+										{getTemplateValueLabel(token)}
+									</Tag>
+								</SimpleTooltip>
 							</span>
 						) : (
 							<Input

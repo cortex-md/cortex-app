@@ -171,8 +171,24 @@ export interface PropertiesMetadataService {
 	getNoteSourceMetadata(filePath: string): Promise<NoteSourceMetadata>
 }
 
+export interface PropertiesUiStateService {
+	readExpanded(vaultPath: string): Promise<Record<string, boolean>>
+	writeExpanded(vaultPath: string, expanded: Record<string, boolean>): Promise<void>
+}
+
+export interface PropertiesNoteIndexSnapshot {
+	version: number
+	notes: Iterable<PropertyMap>
+}
+
+export interface PropertiesNoteIndexService {
+	getNoteProperties(vaultPath: string): PropertiesNoteIndexSnapshot | null
+}
+
 export interface PropertiesRuntime {
 	files: PropertiesFileService
+	uiState?: PropertiesUiStateService
+	noteIndex?: PropertiesNoteIndexService
 	notes: PropertiesNoteService
 	identity: PropertiesIdentityService
 	metadata: PropertiesMetadataService

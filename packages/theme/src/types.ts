@@ -207,6 +207,9 @@ export interface ThemeTokens {
 		blockSpacing: string
 		codeFontFamily?: string
 		codeFontSize?: string
+		inlineCodeColor?: string
+		linkMarkColor?: string
+		highlightColor?: string
 		codePaddingInline: string
 		codePaddingBlock: string
 		calloutPaddingBlock: string

@@ -1,6 +1,7 @@
 import { Tooltip as TooltipPrimitive } from "radix-ui"
 import type * as React from "react"
 
+import { Kbd } from "./kbd"
 import { cn } from "./lib/utils"
 
 function TooltipProvider({
@@ -48,4 +49,43 @@ function TooltipContent({
 	)
 }
 
-export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger }
+interface SimpleTooltipProps {
+	label: React.ReactNode
+	shortcut?: string
+	side?: React.ComponentProps<typeof TooltipPrimitive.Content>["side"]
+	align?: React.ComponentProps<typeof TooltipPrimitive.Content>["align"]
+	sideOffset?: number
+	disabled?: boolean
+	children: React.ReactElement
+}
+
+function SimpleTooltip({
+	label,
+	shortcut,
+	side = "top",
+	align,
+	sideOffset = 6,
+	disabled = false,
+	children,
+}: SimpleTooltipProps) {
+	if (disabled || label === null || label === undefined || label === false || label === "") {
+		return children
+	}
+	return (
+		<Tooltip>
+			<TooltipTrigger asChild>{children}</TooltipTrigger>
+			<TooltipContent
+				side={side}
+				align={align}
+				sideOffset={sideOffset}
+				collisionPadding={8}
+				className="flex min-h-6 max-w-[min(20rem,calc(100vw-1rem))] items-center justify-center gap-2 px-2.5 py-1 text-center leading-snug break-words"
+			>
+				{label}
+				{shortcut && <Kbd>{shortcut}</Kbd>}
+			</TooltipContent>
+		</Tooltip>
+	)
+}
+
+export { SimpleTooltip, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger }

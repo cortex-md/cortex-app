@@ -3,7 +3,7 @@ import { getPlatform } from "@cortex/platform"
 import { getBaseName, getParentPath, isMarkdownPath } from "@cortex/platform/utils"
 import { canWriteVaultPath, canWriteVaultTree } from "../stores/accessStore"
 import { useEditorStore } from "../stores/editorStore"
-import { useVaultStore } from "../stores/vaultStore"
+import { getVaultIndex, useVaultStore } from "../stores/vaultStore"
 import { reportAppError } from "../utils/reportAppError"
 
 export interface FileCommandHost {
@@ -98,8 +98,7 @@ export async function createNote(parentPath?: string, name = "Untitled"): Promis
 }
 
 export async function confirmDeleteEntry(filePath: string): Promise<boolean> {
-	const isDirectory =
-		useVaultStore.getState().files.find((file) => file.path === filePath)?.isDir ?? false
+	const isDirectory = getVaultIndex().get(filePath)?.isDir === true
 	const confirmed = await getPlatform().dialog.showConfirm({
 		title: isDirectory ? "Delete folder?" : "Delete note?",
 		message: isDirectory

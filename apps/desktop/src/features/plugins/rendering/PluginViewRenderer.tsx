@@ -35,6 +35,7 @@ import {
 	Progress,
 	ScrollArea,
 	Separator,
+	SimpleTooltip,
 	Slider,
 	Spinner,
 	Switch,
@@ -631,17 +632,18 @@ function ViewNodeRenderer({ node, dispatch }: { node: ViewNode; dispatch: ViewDi
 			)
 		case "icon-button":
 			return (
-				<Button
-					type="button"
-					variant={buttonVariantMap[node.variant ?? "ghost"]}
-					size={node.size === "lg" ? "icon" : node.size === "sm" ? "icon-xs" : "icon-sm"}
-					aria-label={node.label}
-					title={node.label}
-					disabled={node.disabled}
-					onClick={() => dispatchNodeAction(dispatch, node.action, node.payload)}
-				>
-					<LucideIcon name={node.icon} size={14} />
-				</Button>
+				<SimpleTooltip label={node.label}>
+					<Button
+						type="button"
+						variant={buttonVariantMap[node.variant ?? "ghost"]}
+						size={node.size === "lg" ? "icon" : node.size === "sm" ? "icon-xs" : "icon-sm"}
+						aria-label={node.label}
+						disabled={node.disabled}
+						onClick={() => dispatchNodeAction(dispatch, node.action, node.payload)}
+					>
+						<LucideIcon name={node.icon} size={14} />
+					</Button>
+				</SimpleTooltip>
 			)
 		case "input":
 			return <PluginInputNode node={node} dispatch={dispatch} />

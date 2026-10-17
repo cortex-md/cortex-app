@@ -197,8 +197,7 @@ body[data-platform="macos"]:where(.theme-ink, .theme-paper)
 	letter-spacing: 0;
 }
 
-body[data-platform="macos"]:where(.theme-ink, .theme-paper)
-	:where(.file-tree-item, .sidebar-tool-row) {
+body[data-platform="macos"]:where(.theme-ink, .theme-paper) .sidebar-tool-row {
 	border-radius: var(--macos-radius-sm);
 	transition-duration: var(--macos-duration-base);
 	transition-timing-function: var(--macos-ease);

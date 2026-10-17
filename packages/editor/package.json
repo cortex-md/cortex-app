@@ -17,6 +17,7 @@
 		"./extensions": "./src/extensions.ts",
 		"./folding": "./src/folding.ts",
 		"./folding-commands": "./src/foldingCommands.ts",
+		"./inline-tags": "./src/inlineTags.ts",
 		"./keymap": "./src/markdownKeymap.ts",
 		"./markdown-format-commands": "./src/markdownFormatCommands.ts",
 		"./mentions": "./src/mentions.ts",

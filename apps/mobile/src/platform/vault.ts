@@ -1,9 +1,9 @@
 import type { FileEntry, Platform, VaultMetadata } from "@cortex/platform"
-import { getVaultFilePath, joinPath, VAULT_FILES } from "@cortex/platform/utils"
+import { joinPath } from "@cortex/platform/utils"
 import {
 	compareFileEntries,
 	isHiddenVaultPath,
-	readOrCreateVaultId,
+	readOrCreateVaultFile,
 	resolveVaultName,
 	type VaultTextIo,
 } from "@cortex/platform/vault"
@@ -11,8 +11,8 @@ import { Directory, Paths } from "expo-file-system"
 
 import { normalizeUri } from "./appStorage"
 import { isNotFoundError } from "./errors"
+import { readTextFile, writeTextFile } from "./fs"
 import { isMobileVaultLogicalPath } from "./mobile-vault-paths"
-import { readOptionalTextFile, readTextFile, writeTextFile } from "./fs"
 import { normalizeFileEntry, resolveLogicalDirectory, routeStoragePath } from "./pathResolver"
 import { vaultRegistryApi } from "./registry"
 import {
@@ -79,13 +79,6 @@ function scanVault(path: string): Promise<FileEntry[]> {
 	})
 }
 
-async function readVaultName(vaultPath: string, folderName: string): Promise<string> {
-	const metadataJson = await readOptionalTextFile(
-		getVaultFilePath(vaultPath, VAULT_FILES.vaultMetadata),
-	)
-	return resolveVaultName(metadataJson, folderName)
-}
-
 async function countVaultFiles(vaultPath: string): Promise<number> {
 	return (await scanVault(vaultPath)).filter((file) => !file.isDir).length
 }
@@ -125,13 +118,13 @@ async function describeVault(path: string, countFiles: boolean): Promise<VaultMe
 		},
 	)
 
-	const [uuid, storedName, fileCount] = await Promise.all([
-		readOrCreateVaultId(vaultPath, mobileVaultTextIo),
-		readVaultName(vaultPath, folderName),
+	const [vaultFile, fileCount] = await Promise.all([
+		readOrCreateVaultFile(vaultPath, mobileVaultTextIo),
 		countFiles ? countVaultFiles(vaultPath) : 0,
 	])
-	const name = storedName === uuid ? folderName : storedName
-	return { displayPath, fileCount, name, path: vaultPath, uuid }
+	const storedName = resolveVaultName(vaultFile, folderName)
+	const name = storedName === vaultFile.id ? folderName : storedName
+	return { displayPath, fileCount, name, path: vaultPath, uuid: vaultFile.id }
 }
 
 async function createVaultFolder(parentPath: string | null, name: string): Promise<string> {

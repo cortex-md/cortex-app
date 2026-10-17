@@ -1,6 +1,6 @@
 import type { NativePlatform } from "@cortex/platform"
-import { getBaseName, joinPath, VAULT_CONFIG_DIR, VAULT_FILES } from "@cortex/platform/utils"
-import { readOrCreateVaultId, sanitizeVaultFolderName } from "@cortex/platform/vault"
+import { getBaseName, joinPath, VAULT_CONFIG_DIR } from "@cortex/platform/utils"
+import { readOrCreateVaultFile, sanitizeVaultFolderName } from "@cortex/platform/vault"
 import { Directory, File, Paths } from "expo-file-system"
 import { CortexNative } from "../../modules/cortex-native"
 import {
@@ -246,22 +246,27 @@ async function readDirectoryVaultId(
 	directory: Directory,
 	record: MobileVaultRootRecord,
 ): Promise<string> {
-	const identityFileName = getBaseName(VAULT_FILES.vaultId)
 	const findConfigDirectory = () => findDirectory(directory, VAULT_CONFIG_DIR, record)
-	return readOrCreateVaultId("", {
+	const findConfigFile = (path: string) => {
+		const configDirectory = findConfigDirectory()
+		return configDirectory ? findFile(configDirectory, getBaseName(path), record) : null
+	}
+	const file = await readOrCreateVaultFile("", {
 		createId: () => crypto.randomUUID(),
 		isNotFound: isNotFoundError,
-		readText: async () => {
-			const configDirectory = findConfigDirectory()
-			const identityFile = configDirectory && findFile(configDirectory, identityFileName, record)
-			if (!identityFile) throw new MobilePathNotFoundError(`Missing ${VAULT_FILES.vaultId}`)
-			return identityFile.text()
+		readText: async (path) => {
+			const configFile = findConfigFile(path)
+			if (!configFile) throw new MobilePathNotFoundError(`Missing ${path}`)
+			return configFile.text()
 		},
-		writeText: async (_path, text) => {
+		writeText: async (path, text) => {
 			const configDirectory = findConfigDirectory() ?? directory.createDirectory(VAULT_CONFIG_DIR)
-			configDirectory.createFile(identityFileName, "application/json").write(text)
+			const existing = findFile(configDirectory, getBaseName(path), record)
+			const target = existing ?? configDirectory.createFile(getBaseName(path), "application/json")
+			target.write(text)
 		},
 	})
+	return file.id
 }
 
 async function saveRoot(

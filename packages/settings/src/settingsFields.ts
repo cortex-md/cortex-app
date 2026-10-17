@@ -289,12 +289,14 @@ export const SETTINGS_FIELDS: readonly SettingsFieldEntry[] = [
 		pageKey: "sync-preferences",
 		section: "App state",
 		label: "Plugin configuration",
+		description: "Installed plugins, versions and which are on",
 	},
 	{
 		id: "sync-preferences.syncThemeMetadata",
 		pageKey: "sync-preferences",
 		section: "App state",
 		label: "Theme configuration",
+		description: "Installed themes and versions",
 	},
 	{
 		id: "sync-preferences.excluded-paths",
