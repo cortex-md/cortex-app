@@ -20,11 +20,11 @@ function Button({
 
 	return (
 		<Comp
+			{...buttonProps}
 			data-slot="button"
 			data-variant={variant}
 			data-size={size}
 			className={cn(buttonVariants({ variant, size, className }))}
-			{...buttonProps}
 		/>
 	)
 }

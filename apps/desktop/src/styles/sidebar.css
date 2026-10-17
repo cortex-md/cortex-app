@@ -143,6 +143,10 @@
 	box-shadow: none;
 }
 
+.file-tree-item[aria-expanded="true"]:not(:hover):not(.active) {
+	background: transparent;
+}
+
 [role="tree"][data-keyboard-nav] .file-tree-item.focused:not(.active) {
 	background: var(--fill-quiet);
 }
