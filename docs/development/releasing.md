@@ -7,26 +7,35 @@ workflows in `.github/workflows` expect.
 
 `release.yml` runs on a `v*` tag, or manually with a version input.
 
-1. `scripts/release/resolve-desktop-release-metadata.mjs` validates the version. A version with a
-   suffix, such as `0.2.0-beta.1`, becomes a prerelease.
-2. Each platform (macOS Apple Silicon, Windows, Ubuntu) installs with
-   `bun install --frozen-lockfile`. It then applies the version
+1. The commit must be on `main`. `scripts/release/resolve-desktop-release-metadata.mjs` validates
+   the version. A version with a suffix, such as `0.2.0-beta.1`, becomes a prerelease. The run
+   stops here unless `release-notes/<version>.md` exists.
+2. Each platform (macOS Apple Silicon and Intel, Windows, Ubuntu) installs with
+   `bun install --frozen-lockfile` and runs the main-process tests. It then applies the version
    (`apply-desktop-release-version.mjs`), validates the sync server config
    (`validate-desktop-sync-config.mjs`), and builds and packages with electron-builder
-   (`apps/desktop/electron-builder.yml`).
-3. `update-manifest` waits for every platform, then `scripts/release/create-update-manifest.mjs`
-   writes `latest.json` (version, channel, SHA-256 and size of each update package) and signs it
-   into `latest.json.sig` with `CORTEX_UPDATE_PRIVATE_KEY`. It fails when a required platform
-   (`darwin-arm64`, `darwin-x64`, `win32-x64`, `linux-x64`) has no package.
-4. `publish-release` creates the GitHub release with the installers, the update packages, and the
-   signed manifest, in the `release` environment.
+   (`apps/desktop/electron-builder.yml`). Electron and electron-builder downloads are cached per
+   OS and architecture.
+3. `publish-release` waits for every platform and downloads the artifacts once. In the `release`
+   environment, `scripts/release/create-update-manifest.mjs` writes `cortex-update.json` (version,
+   channel, notes, SHA-256 and size of each update package) and signs it into
+   `cortex-update.json.sig` with `CORTEX_UPDATE_PRIVATE_KEY`; it fails when a required platform
+   (`darwin-arm64`, `darwin-x64`, `win32-x64`, `linux-x64`) has no package. The same job then
+   creates the GitHub release with the notes file as its body, the installers, the update
+   packages, and the signed manifest.
 
 ```bash
+$EDITOR release-notes/0.2.0.md   # intro paragraph, then "### New" and "### Fixed" lists
 git tag v0.2.0
 git push origin v0.2.0
 ```
 
-Artifacts are named `Cortex-<version>-<os>-<arch>.<ext>`. Update packages are the mac `zip`, the
+The notes file is the single source for the GitHub release, the site changelog (which reads the
+`New` and `Fixed` sections), and the update notes inside the app.
+
+Artifacts are named `Cortex-<os>-<arch>.<ext>` without the version, so
+`releases/latest/download/<name>` links on the site always point at the newest release. Deploy
+site changes that rename download links only after that release is published. Update packages are the mac `zip`, the
 Windows NSIS `exe`, and the `AppImage`; `dmg`, `deb`, and `rpm` are for manual installs only.
 
 macOS signing and notarization need `MAC_CERTIFICATE_P12`, `MAC_CERTIFICATE_PASSWORD`, `APPLE_ID`,
@@ -49,11 +58,13 @@ node scripts/release/generate-update-keys.mjs --out ~/cortex-update-key
 - Never rotate the key casually: installed builds accept only manifests signed by the key they
   shipped with. A new key must first ship in a release signed with the old one.
 
-Release format: `latest.json` holds `version`, `channel` (`stable`, or `beta` for versions with a
+Release format: `cortex-update.json` holds `version`, `channel` (`stable`, or `beta` for versions with a
 suffix), `releasedAt`, `notes`, and `platforms` keyed by `<platform>-<arch>` with `type`
 (`zip`, `nsis`, `appimage`), `url`, `sha256`, and `size`. The signature covers the exact bytes of
-the file. Stable clients read `releases/latest/download/latest.json`; beta clients read the newest
-release that has a manifest, so prereleases update beta users only.
+the file. Stable clients read `releases/latest/download/cortex-update.json`; beta clients read the
+newest release that has a manifest, so prereleases update beta users only. The name is not
+`latest.json` because v0.1.x (Tauri) builds poll that file and expect the Tauri format; they update
+to 0.2 manually.
 
 ## Plugin API (`@cortex.md/api`)
 

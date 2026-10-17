@@ -12,7 +12,7 @@ asar: true
 asarUnpack:
   - node_modules/font-list/**
 compression: maximum
-artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+artifactName: ${productName}-${os}-${arch}.${ext}
 electronLanguages:
   - en
   - en-US

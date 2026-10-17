@@ -1,6 +1,6 @@
 import { createHash, createPrivateKey, sign } from "node:crypto"
 import { createReadStream } from "node:fs"
-import { mkdir, readdir, stat, writeFile } from "node:fs/promises"
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 
 const REPOSITORY = "cortex-md/cortex-app"
@@ -26,6 +26,7 @@ const artifactsDir = process.env.ARTIFACTS_DIR ?? "artifacts"
 const outputDir = process.env.OUTPUT_DIR ?? "update-manifest"
 const required = (process.env.REQUIRED_PLATFORMS ?? "").split(",").filter(Boolean)
 const privateKeyBase64 = process.env.CORTEX_UPDATE_PRIVATE_KEY ?? ""
+const notesFile = process.env.RELEASE_NOTES_FILE ?? ""
 
 if (!/^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$/.test(version)) fail(`Invalid version: ${version}`)
 if (!privateKeyBase64) fail("CORTEX_UPDATE_PRIVATE_KEY is not set")
@@ -55,7 +56,7 @@ function sha256(path) {
 const files = await listFiles(artifactsDir)
 const platforms = {}
 for (const [key, spec] of Object.entries(PLATFORMS)) {
-	const names = spec.arch.map((arch) => `${PRODUCT_NAME}-${version}-${spec.os}-${arch}.${spec.ext}`)
+	const names = spec.arch.map((arch) => `${PRODUCT_NAME}-${spec.os}-${arch}.${spec.ext}`)
 	const matches = files.filter((file) => names.includes(basename(file)))
 	if (matches.length > 1) fail(`More than one artifact for ${key}: ${matches.join(", ")}`)
 	const [path] = matches
@@ -78,7 +79,7 @@ const manifest = {
 	version,
 	channel: version.includes("-") ? "beta" : "stable",
 	releasedAt: new Date().toISOString(),
-	notes: process.env.RELEASE_NOTES ?? "",
+	notes: notesFile ? (await readFile(notesFile, "utf8")).trim() : "",
 	platforms,
 }
 
@@ -92,6 +93,6 @@ if (privateKey.asymmetricKeyType !== "ed25519") fail("CORTEX_UPDATE_PRIVATE_KEY 
 const signature = sign(null, manifestBytes, privateKey).toString("base64")
 
 await mkdir(outputDir, { recursive: true })
-await writeFile(join(outputDir, "latest.json"), manifestBytes)
-await writeFile(join(outputDir, "latest.json.sig"), `${signature}\n`)
+await writeFile(join(outputDir, "cortex-update.json"), manifestBytes)
+await writeFile(join(outputDir, "cortex-update.json.sig"), `${signature}\n`)
 console.log(`Signed update manifest for ${version} (${manifest.channel}) in ${outputDir}`)

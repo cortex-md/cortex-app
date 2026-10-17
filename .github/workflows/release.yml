@@ -28,6 +28,15 @@ jobs:
       is_prerelease: ${{ steps.version.outputs.is_prerelease }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require a commit on main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Releases are cut from main; $GITHUB_SHA is not on origin/main."
+            exit 1
+          fi
 
       - name: Resolve release version
         id: version
@@ -35,6 +44,14 @@ jobs:
           RELEASE_VERSION_INPUT: ${{ github.event.inputs.version }}
         run: |
           node scripts/release/resolve-desktop-release-metadata.mjs
+
+      - name: Require release notes
+        run: |
+          notes="release-notes/${{ steps.version.outputs.version }}.md"
+          if [ ! -s "$notes" ]; then
+            echo "::error::Write $notes before tagging. Its New/Fixed sections feed the GitHub release, the site changelog and the update notes."
+            exit 1
+          fi
 
   build-electron:
     name: Build ${{ matrix.name }}
@@ -80,6 +97,16 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Cache Electron downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/electron
+            ${{ runner.temp }}/electron-builder
+          key: ${{ runner.os }}-${{ runner.arch }}-electron-${{ hashFiles('bun.lock', 'apps/desktop/electron-builder.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-electron-
+
       - name: Install rpm tooling
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y rpm
@@ -114,6 +141,8 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           IS_PRERELEASE: ${{ needs.release-metadata.outputs.is_prerelease }}
+          ELECTRON_CACHE: ${{ runner.temp }}/electron
+          ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/electron-builder
         run: |
           args=(${{ matrix.electron_args }} --publish never)
           if [ "$RUNNER_OS" != "macOS" ]; then
@@ -146,51 +175,36 @@ jobs:
             apps/desktop/release/*.rpm
           if-no-files-found: error
 
-  update-manifest:
-    name: Sign update manifest
-    needs:
-      - release-metadata
-      - build-electron
-    runs-on: ubuntu-22.04
-    environment: release
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Create and sign latest.json
-        env:
-          RELEASE_VERSION: ${{ needs.release-metadata.outputs.version }}
-          RELEASE_TAG: ${{ needs.release-metadata.outputs.tag_name }}
-          ARTIFACTS_DIR: artifacts
-          OUTPUT_DIR: update-manifest
-          REQUIRED_PLATFORMS: darwin-arm64,darwin-x64,win32-x64,linux-x64
-          CORTEX_UPDATE_PRIVATE_KEY: ${{ secrets.CORTEX_UPDATE_PRIVATE_KEY }}
-        run: node scripts/release/create-update-manifest.mjs
-
-      - name: Upload update manifest
-        uses: actions/upload-artifact@v4
-        with:
-          name: update-manifest
-          path: update-manifest/*
-          if-no-files-found: error
-
   publish-release:
-    name: Publish GitHub Release
+    name: Sign manifest and publish release
     needs:
       - release-metadata
       - build-electron
-      - update-manifest
     runs-on: ubuntu-22.04
     environment: release
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            release-notes
+            scripts/release
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+
+      - name: Create and sign cortex-update.json
+        env:
+          RELEASE_VERSION: ${{ needs.release-metadata.outputs.version }}
+          RELEASE_TAG: ${{ needs.release-metadata.outputs.tag_name }}
+          ARTIFACTS_DIR: artifacts
+          OUTPUT_DIR: artifacts/update-manifest
+          REQUIRED_PLATFORMS: darwin-arm64,darwin-x64,win32-x64,linux-x64
+          RELEASE_NOTES_FILE: release-notes/${{ needs.release-metadata.outputs.version }}.md
+          CORTEX_UPDATE_PRIVATE_KEY: ${{ secrets.CORTEX_UPDATE_PRIVATE_KEY }}
+        run: node scripts/release/create-update-manifest.mjs
 
       - name: Create release
         uses: softprops/action-gh-release@v2
@@ -198,6 +212,7 @@ jobs:
           tag_name: ${{ needs.release-metadata.outputs.tag_name }}
           name: Cortex ${{ needs.release-metadata.outputs.version }}
           prerelease: ${{ needs.release-metadata.outputs.is_prerelease == 'true' }}
+          body_path: release-notes/${{ needs.release-metadata.outputs.version }}.md
           files: artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
