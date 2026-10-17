@@ -489,7 +489,7 @@ export default function App() {
 		<TooltipProvider delayDuration={400} skipDelayDuration={200}>
 			<div
 				className="app-shell flex flex-col h-screen bg-bg-primary text-text-primary"
-				data-native-window-effects={nativeWindowEffects ? "enabled" : "disabled"}
+				data-native-window-effects={nativeWindowEffects && hasVault ? "enabled" : "disabled"}
 			>
 				<AppLifecycle />
 				<AppContent hasVault={hasVault} />
