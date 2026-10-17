@@ -47,6 +47,7 @@ nsis:
   oneClick: true
   perMachine: false
 linux:
+  executableName: cortex
   target:
     - AppImage
     - deb
