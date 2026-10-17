@@ -12,8 +12,6 @@ export interface StagingLayout {
 	root: string
 	appImagePath: string | null
 	macBundlePath: string | null
-	/** OS cache folder where the previous electron-updater/Squirrel.Mac versions left downloads. */
-	legacyCacheDir: string | null
 }
 
 /** Written after a package was hashed and prepared, so later launches skip re-reading it. */
@@ -24,26 +22,12 @@ export interface PreparedMarker {
 	preparedPath: string
 }
 
-export function stagingLayoutFor(
-	installType: InstallType,
-	userDataDir: string,
-	legacyCacheDir: string | null,
-): StagingLayout {
+export function stagingLayoutFor(installType: InstallType, userDataDir: string): StagingLayout {
 	return {
 		root: join(userDataDir, "updates"),
 		appImagePath: installType.kind === "appimage" ? installType.appImagePath : null,
 		macBundlePath: installType.kind === "mac-app" ? installType.bundlePath : null,
-		legacyCacheDir: installType.kind === "dev" ? null : legacyCacheDir,
 	}
-}
-
-/** electron-updater kept downloads in `<cache>/<package>-updater`, Squirrel.Mac in `<appId>.ShipIt`. */
-export function isLegacyUpdaterCache(entry: string): boolean {
-	const name = entry.toLowerCase()
-	return (
-		name === "app.cortex.desktop.shipit" ||
-		(name.endsWith("-updater") && name.includes("cortex") && name.includes("desktop"))
-	)
 }
 
 export function appImageUpdatePath(appImagePath: string, version: string): string {
@@ -137,11 +121,6 @@ export async function cleanStaging(
 		if (await exists(backup)) await remove(backup, removed)
 	}
 
-	const legacyCacheDir = layout.legacyCacheDir
-	if (legacyCacheDir) {
-		const legacy = (await readEntries(legacyCacheDir)).filter(isLegacyUpdaterCache)
-		await Promise.all(legacy.map((entry) => remove(join(legacyCacheDir, entry), removed)))
-	}
 	return removed
 }
 

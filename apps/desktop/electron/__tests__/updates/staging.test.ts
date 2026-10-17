@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import {
 	appImageUpdatePath,
 	cleanStaging,
-	isLegacyUpdaterCache,
 	newestStagedVersion,
 	readPreparedPackage,
 	type StagingLayout,
@@ -27,7 +26,6 @@ beforeEach(async () => {
 		root: join(root, "userData", "updates"),
 		appImagePath: join(root, "Apps", "Cortex.AppImage"),
 		macBundlePath: join(root, "Applications", "Cortex.app"),
-		legacyCacheDir: join(root, "Caches"),
 	}
 })
 
@@ -72,28 +70,6 @@ describe("update staging cleanup", () => {
 		await touch(join(root, "Applications", ".Cortex.app.backup", "Contents", "Info.plist"))
 		await cleanStaging(layout, null)
 		expect(await readdir(join(root, "Applications"))).toEqual(["Cortex.app"])
-	})
-
-	it("removes caches of the previous updater and nothing else", async () => {
-		await touch(
-			join(layout.legacyCacheDir as string, "@cortex_desktop-updater", "pending", "a.exe"),
-		)
-		await touch(join(layout.legacyCacheDir as string, "app.cortex.desktop.ShipIt", "state.plist"))
-		await touch(join(layout.legacyCacheDir as string, "com.cortex.app", "keep"))
-		await touch(join(layout.legacyCacheDir as string, "other-updater", "keep"))
-		await cleanStaging(layout, null)
-		expect((await readdir(layout.legacyCacheDir as string)).sort()).toEqual([
-			"com.cortex.app",
-			"other-updater",
-		])
-	})
-
-	it("matches legacy cache names conservatively", () => {
-		expect(isLegacyUpdaterCache("cortex-desktop-updater")).toBe(true)
-		expect(isLegacyUpdaterCache("@cortexdesktop-updater")).toBe(true)
-		expect(isLegacyUpdaterCache("App.Cortex.Desktop.ShipIt")).toBe(true)
-		expect(isLegacyUpdaterCache("cortex")).toBe(false)
-		expect(isLegacyUpdaterCache("desktop-updater")).toBe(false)
 	})
 
 	it("works when nothing was ever staged", async () => {

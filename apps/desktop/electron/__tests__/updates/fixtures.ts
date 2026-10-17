@@ -28,19 +28,19 @@ export function manifestJson(overrides: Record<string, unknown> = {}): string {
 		platforms: {
 			"darwin-arm64": {
 				type: "zip",
-				url: releaseUrl("Cortex-1.4.0-mac-arm64.zip"),
+				url: releaseUrl("Cortex-mac-arm64.zip"),
 				sha256: SHA,
 				size: 10,
 			},
 			"win32-x64": {
 				type: "nsis",
-				url: releaseUrl("Cortex-1.4.0-win-x64.exe"),
+				url: releaseUrl("Cortex-win-x64.exe"),
 				sha256: SHA,
 				size: 10,
 			},
 			"linux-x64": {
 				type: "appimage",
-				url: releaseUrl("Cortex-1.4.0-linux-x86_64.AppImage"),
+				url: releaseUrl("Cortex-linux-x86_64.AppImage"),
 				sha256: SHA,
 				size: 10,
 			},

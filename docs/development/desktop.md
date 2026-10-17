@@ -70,7 +70,7 @@ pure server API client (`@cortex/sync-engine/api`) has no Node imports so mobile
 ## Updates
 
 Cortex updates itself without Apple or Windows code-signing certificates, the way Tauri does: each
-release publishes a `latest.json` manifest signed with Ed25519, and every package is checked
+release publishes a `cortex-update.json` manifest signed with Ed25519, and every package is checked
 against the SHA-256 inside that signed manifest. The same flow runs on every platform.
 
 - `services/appUpdates.ts` is the IPC facade. With `updates.autoCheck` on it loads
@@ -80,21 +80,22 @@ against the SHA-256 inside that signed manifest. The same flow runs on every pla
   `downloadUpdate`, `installNow`, and `setInstallOnQuit`, and listens to `app-update-status`.
 - States: `idle → checking → available → downloading → verifying → ready → installing`, plus
   `up-to-date`, `error` (with an `AppUpdateErrorCode`), and `unsupported` (development builds).
-- `updates/source.ts` fetches `latest.json` and `latest.json.sig` (stable:
+- `updates/source.ts` fetches `cortex-update.json` and its `.sig` (stable:
   `releases/latest/download`, beta: the newest release with a manifest from the releases API) and
   verifies the signature with `updates/publicKey.ts` **before** parsing. `updates/manifest.ts`
   accepts only HTTPS URLs under `github.com/cortex-md/cortex-app/releases/download/`; redirects
   may land only on GitHub download hosts. Versions not newer than the running one are ignored.
+  A prerelease build always checks the beta channel, whatever the setting says.
 - `updates/download.ts` streams to `<file>.part`, hashes while writing, resumes with `Range`, and
   renames to the final name only when size and hash match. Automatic downloads wait for AC power on
   laptops (`powerMonitor`); manual ones start right away. After a package is prepared,
   `prepared.json` records its hash so later launches reuse it without re-reading the file; the
   macOS zip is deleted once extracted.
 - `updates/staging.ts` owns every path the updater writes: `userData/updates/<version>/`, AppImage
-  downloads next to `$APPIMAGE` (`.<name>.<version>.update[.part]`), the macOS backup bundle
-  (`.Cortex.app.backup`), and caches the old electron-updater/Squirrel.Mac left in the OS cache
-  folder. `cleanStaging` keeps only the pending version and runs on start (also with automatic
-  checks off) and after each check, so superseded, installed, or abandoned downloads never stay.
+  downloads next to `$APPIMAGE` (`.<name>.<version>.update[.part]`), and the macOS backup bundle
+  (`.Cortex.app.backup`). `cleanStaging` keeps only the pending version and runs on start (also
+  with automatic checks off) and after each check, so superseded, installed, or abandoned
+  downloads never stay.
 - Installers (`updates/installers/`, one `UpdateInstaller` per kind, picked by
   `updates/installType.ts`):
   - macOS (`zip`): extracts with `ditto`, checks `CFBundleIdentifier` and

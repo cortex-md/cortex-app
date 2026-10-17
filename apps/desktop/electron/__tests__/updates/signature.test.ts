@@ -3,6 +3,7 @@ import { UpdateError } from "../../updates/errors"
 import { isTrustedReleaseUrl } from "../../updates/manifest"
 import { importPublicKey, verifyManifestSignature } from "../../updates/signature"
 import {
+	effectiveChannel,
 	type FetchLike,
 	fetchSignedManifest,
 	isTrustedResponseUrl,
@@ -77,7 +78,7 @@ function fakeFetch(files: Record<string, string>): FetchLike & { calls: string[]
 }
 
 const STABLE_MANIFEST =
-	"https://github.com/cortex-md/cortex-app/releases/latest/download/latest.json"
+	"https://github.com/cortex-md/cortex-app/releases/latest/download/cortex-update.json"
 
 describe("signed manifest source", () => {
 	const text = manifestJson()
@@ -130,14 +131,20 @@ describe("signed manifest source", () => {
 			browser_download_url: `https://github.com/cortex-md/cortex-app/releases/download/${tag}/${name}`,
 		})
 		const location = pickManifestLocation([
-			{ draft: true, assets: [asset("v2.0.0", "latest.json"), asset("v2.0.0", "latest.json.sig")] },
+			{
+				draft: true,
+				assets: [asset("v2.0.0", "cortex-update.json"), asset("v2.0.0", "cortex-update.json.sig")],
+			},
 			{ draft: false, assets: [asset("v1.9.0-beta.1", "Cortex.zip")] },
 			{
 				draft: false,
-				assets: [asset("v1.8.0-beta.2", "latest.json"), asset("v1.8.0-beta.2", "latest.json.sig")],
+				assets: [
+					asset("v1.8.0-beta.2", "cortex-update.json"),
+					asset("v1.8.0-beta.2", "cortex-update.json.sig"),
+				],
 			},
 		])
-		expect(location?.manifestUrl).toContain("/v1.8.0-beta.2/latest.json")
+		expect(location?.manifestUrl).toContain("/v1.8.0-beta.2/cortex-update.json")
 		expect(pickManifestLocation([])).toBeNull()
 	})
 
@@ -146,5 +153,11 @@ describe("signed manifest source", () => {
 		expect(isTrustedResponseUrl("https://objects.githubusercontent.com/x")).toBe(true)
 		expect(isTrustedResponseUrl("http://objects.githubusercontent.com/x")).toBe(false)
 		expect(isTrustedResponseUrl("https://evil.example/x")).toBe(false)
+	})
+
+	it("keeps prerelease builds on the beta channel", () => {
+		expect(effectiveChannel("stable", "0.2.0-beta.1")).toBe("beta")
+		expect(effectiveChannel("stable", "0.2.0")).toBe("stable")
+		expect(effectiveChannel("beta", "0.2.0")).toBe("beta")
 	})
 })

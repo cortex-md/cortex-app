@@ -36,7 +36,7 @@ Validate desktop changes with the root gate (`check`, `typecheck`, `check:bounda
 - Only runtime-loaded packages go in `dependencies` (`adm-zip`, `font-list`,
   `write-file-atomic`); everything else is a `devDependency` so electron-builder does not pack it.
 - Updates are self-hosted (`electron/updates/`, facade `services/appUpdates.ts`): an Ed25519-signed
-  `latest.json` is verified before any field is read, packages are checked by streamed SHA-256, and
+  `cortex-update.json` is verified before any field is read, packages are checked by streamed SHA-256, and
   per-platform `UpdateInstaller`s replace the app. Never trust a manifest URL outside the Cortex
   GitHub releases or skip the signature check. Work that must finish before the app quits to install
   registers a `shutdownHooks` hook (`flush` cancels the install on failure, `teardown` runs last).

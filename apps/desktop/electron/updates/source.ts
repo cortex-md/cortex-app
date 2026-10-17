@@ -3,11 +3,13 @@ import type { AppUpdateChannel } from "@cortex/platform"
 import { toUpdateError, UpdateError } from "./errors"
 import { parseManifest, UPDATE_REPOSITORY, type UpdateManifest, type UrlPolicy } from "./manifest"
 import { verifyManifestSignature } from "./signature"
+import { isPrerelease } from "./version"
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
 
-export const MANIFEST_FILE = "latest.json"
-export const SIGNATURE_FILE = "latest.json.sig"
+// Not `latest.json`: v0.1.x (Tauri) clients poll that name and expect the Tauri format.
+export const MANIFEST_FILE = "cortex-update.json"
+export const SIGNATURE_FILE = "cortex-update.json.sig"
 
 export interface ManifestLocation {
 	manifestUrl: string
@@ -51,6 +53,14 @@ export function isTrustedResponseUrl(value: string): boolean {
 	} catch {
 		return false
 	}
+}
+
+/** A prerelease build always follows beta, so it never polls a stable release it cannot move to. */
+export function effectiveChannel(
+	preference: AppUpdateChannel,
+	currentVersion: string,
+): AppUpdateChannel {
+	return preference === "beta" || isPrerelease(currentVersion) ? "beta" : "stable"
 }
 
 export function stableManifestLocation(): ManifestLocation {

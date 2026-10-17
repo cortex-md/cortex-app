@@ -37,13 +37,11 @@ function loadUpdater(): Promise<Updater> {
 
 /** With automatic checks off the updater never loads; only its leftover files are removed. */
 async function cleanStagingWithoutUpdater(): Promise<void> {
-	const [{ cleanStaging, stagingLayoutFor }, { detectCurrentInstallType, userCacheDir }] =
-		await Promise.all([import("../updates/staging"), import("../updates/currentInstall")])
-	const layout = stagingLayoutFor(
-		detectCurrentInstallType(),
-		app.getPath("userData"),
-		userCacheDir(),
-	)
+	const [{ cleanStaging, stagingLayoutFor }, { detectCurrentInstallType }] = await Promise.all([
+		import("../updates/staging"),
+		import("../updates/currentInstall"),
+	])
+	const layout = stagingLayoutFor(detectCurrentInstallType(), app.getPath("userData"))
 	const removed = await cleanStaging(layout, null)
 	if (removed.length > 0) console.info(`[updates] removed ${removed.length} stale update files`)
 }

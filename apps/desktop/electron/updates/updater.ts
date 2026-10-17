@@ -8,7 +8,7 @@ import type {
 } from "@cortex/platform"
 import { app, net, powerMonitor } from "electron"
 import { runBeforeInstallHooks } from "../shutdownHooks"
-import { detectCurrentInstallType, userCacheDir } from "./currentInstall"
+import { detectCurrentInstallType } from "./currentInstall"
 import { downloadVerified } from "./download"
 import { toUpdateError, UpdateError } from "./errors"
 import { createInstaller, type PreparedUpdate, type UpdateInstaller } from "./installers"
@@ -22,7 +22,7 @@ import {
 } from "./manifest"
 import { UPDATE_PUBLIC_KEY } from "./publicKey"
 import { importPublicKey } from "./signature"
-import { fetchSignedManifest, isTrustedResponseUrl } from "./source"
+import { effectiveChannel, fetchSignedManifest, isTrustedResponseUrl } from "./source"
 import {
 	cleanStaging,
 	newestStagedVersion,
@@ -75,7 +75,7 @@ export class Updater {
 
 	constructor() {
 		this.installType = detectCurrentInstallType()
-		this.staging = stagingLayoutFor(this.installType, app.getPath("userData"), userCacheDir())
+		this.staging = stagingLayoutFor(this.installType, app.getPath("userData"))
 		const installer = createInstaller(this.installType)
 		this.status.installMode = installer.mode
 		console.info(
@@ -188,7 +188,7 @@ export class Updater {
 		let manifest: UpdateManifest
 		try {
 			manifest = await fetchSignedManifest({
-				channel: this.preferences.channel,
+				channel: effectiveChannel(this.preferences.channel, app.getVersion()),
 				fetch: (input, init) => net.fetch(input, init),
 				publicKey: this.publicKeyFor(),
 				allowUrl: isTrustedReleaseUrl,
