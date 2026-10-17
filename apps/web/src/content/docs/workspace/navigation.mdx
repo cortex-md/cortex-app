@@ -1,0 +1,53 @@
+---
+title: Quick Finder and Commands
+description: Find, open, and create notes with the Quick Finder, and run any action from the command palette.
+section: Workspace
+sectionOrder: 1
+order: 3
+---
+
+Two keyboard surfaces cover most navigation: the **Quick Finder** (`⌘O`) for notes and the **command palette** (`⌘P`) for actions. On Windows and Linux, use `Ctrl` instead of `⌘`.
+
+## Quick Finder
+
+Start typing to search the vault. Results come in groups:
+
+- **Recent:** shown before you type. The note you have open reads **Open**.
+- **Notes:** title matches, with the matched part highlighted and the folder below the title.
+- **In text:** notes whose content matches, with a snippet of the matching line. This group appears from three characters.
+
+Each row shows when the note last changed, such as `2m`, `3h`, or `Oct 2`.
+
+| Key | Action |
+| --- | --- |
+| `↵` | Open in the current tab |
+| `⌘↵` | Open in a new tab |
+| `⌘⇧↵` | Open in a split to the right |
+| `⇧↵` | Create a note with the typed name |
+| `>` | Switch to the command palette and keep the rest of what you typed |
+| `Esc` | Close |
+
+When no title matches exactly, the last row offers **Create "name"**. When nothing matches at all, that row is selected, so `↵` creates the note.
+
+The preview button next to the search field shows the selected note's folder, edit time, and text beside the list. Cortex remembers whether the preview is open per vault.
+
+## Command palette
+
+The palette lists every command from Cortex and from enabled plugins.
+
+- **Before you type:** **Recent** holds your last three commands run from the palette, and **Suggested** holds a few common ones. Each row shows its category and shortcut.
+- **While you type:** results are grouped by category, best match first, with the matched letters highlighted.
+- **No match:** the palette offers **Search notes for "…"** (`⌘↵`), which opens the Quick Finder with the same text.
+
+Commands run from the palette are remembered per vault, up to ten.
+
+## Change shortcuts
+
+Every command can be rebound in **Settings → Hotkeys**. Rebinding updates the shortcuts shown in the palette, the empty pane, and the menu bar.
+
+## Related docs
+
+<DocGrid>
+  <DocCard href="/docs/workspace/interface" title="The Workspace" description="Sidebar, ribbon, start screen, and empty pane." />
+  <DocCard href="/docs/plugins/commands-and-hotkeys" title="Plugin Commands" description="How plugins add commands and default hotkeys." />
+</DocGrid>

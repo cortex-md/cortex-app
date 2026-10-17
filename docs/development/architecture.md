@@ -1,6 +1,48 @@
-# Architecture Practices
+# Architecture
 
-This guide summarizes the day-to-day rules contributors should follow when changing Cortex.
+Cortex is a Bun + TypeScript monorepo. Apps compose shared packages; packages hold the logic so the
+desktop app, the mobile app, and developer tooling share the same contracts.
+
+## Runtimes
+
+The desktop app (`apps/desktop`) is Electron with four parts:
+
+| Part | Where | Owns |
+| --- | --- | --- |
+| Main process | `apps/desktop/electron` | Native OS work: filesystem, watcher, keychain, menus, windows, updates, IPC |
+| Preload | `apps/desktop/electron/preload.ts` | `window.cortex.invoke(domain, method, args)` bridge only |
+| Renderer | `apps/desktop/src` | React shell, features, stores, editor, plugin host |
+| Sync worker | `utilityProcess` running `@cortex/sync-engine` | `sync.db`, upload and download planning, merges |
+
+The search index runs in a Web Worker inside the renderer
+(`apps/desktop/src/features/search/searchWorkerBackend.ts`). The mobile app (`apps/mobile`, Expo)
+reuses the same packages, with a WebView for the editor and plugins. The website (`apps/web`,
+TanStack Start) publishes the user and plugin docs from `apps/web/src/content/docs`.
+
+## Packages
+
+| Package | Role |
+| --- | --- |
+| `@cortex/platform` | Cross-platform contracts (filesystem, vault, dialogs, windows, storage), path utilities, `.cortex` file names, sync rules, the state file engine |
+| `@cortex/core` | App logic and stores: vault and `VaultIndex`, NoteCache, workspace, note metadata index, sync state, runtimes |
+| `@cortex/editor` | CodeMirror runtime, Live Preview, Reading View, editor commands (lazy loaded) |
+| `@cortex/renderer` | Sanitized Markdown to HTML pipeline and callout registry |
+| `@cortex/properties` | Frontmatter properties, schema, database config, the shared inline tag rule |
+| `@cortex/search` | MiniSearch index, search store, worker-friendly backend |
+| `@cortex/commands` | Command registry, hotkeys, recent commands |
+| `@cortex/settings` | Settings schema, defaults, persistence |
+| `@cortex/theme` | Paper and Ink tokens, CSS variable generator, community theme manifests |
+| `@cortex/ui` | Shared React primitives |
+| `@cortex/plugin-host-core` | Portable plugin host, contribution store, community plugin loader |
+| `@cortex.md/api` | Public plugin API published to npm |
+| `@cortex/marketplace` | Install, update, rollback, and extension sync |
+| `@cortex/sync-engine`, `@cortex/sync-api` | Sync engine and the server API client |
+| `@cortex/collab`, `@cortex/comments`, `@cortex/tasks`, `@cortex/import-export` | Collaboration, comment threads, tasks, importers |
+
+Allowed dependencies between packages are declared in `scripts/check-workspace-boundaries.ts` and
+checked by `bun run check:boundaries`. `@cortex/platform`, `@cortex/properties`, `@cortex/theme`,
+`@cortex/ui`, and `@cortex.md/api` sit at the bottom and depend on no other workspace package.
+Plugin bundles may import only `@cortex.md/api`.
 
 ## Package Ownership
 

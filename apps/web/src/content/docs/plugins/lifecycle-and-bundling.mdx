@@ -78,7 +78,8 @@ runtime:
 - `@cortex.md/api` provides `definePlugin` and `PLUGIN_PERMISSIONS`.
 - `@codemirror/state` and `@codemirror/view` are provided when the bundle references them.
 
-Any other `require` fails the load. With CommonJS, `load: () => import("./impl")` is bundled inline;
+Any other `require` fails the load. If CommonJS evaluation fails and the bundle looks like an ES
+module, the host retries it as a self-contained ESM import; prefer CommonJS for predictable loads. With CommonJS, `load: () => import("./impl")` is bundled inline;
 the laziness still defers running that code until first use.
 
 ## Imports

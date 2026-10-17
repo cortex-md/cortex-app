@@ -28,7 +28,7 @@ apps/desktop/
   src/                 React renderer and desktop feature composition
   src/bootstrap/       Desktop host: commands, core contributions, plugin host
   src/features/        Desktop-owned features such as files, tabs, settings, sync, vault UI
-  benchmarks/          App-local diagnostic workbenches
+  src/styles/          Desktop CSS (layout, sidebar, command surfaces, macOS overrides)
 ```
 
 ## Native Commands And IPC
@@ -49,6 +49,15 @@ React and core code call `getPlatform()` and never import Electron or the deskto
 Every filesystem path from the renderer is checked against an allowlist (registered vaults, paths the
 user picked in a dialog, `userData`, temp). Keychain keys reachable from the renderer are limited to
 `server_url` and `sync-env-secret:*`; tokens and vault keys stay in the main process.
+
+## Workers
+
+- **Search:** MiniSearch runs in a Web Worker inside the renderer
+  (`src/features/search/searchWorkerBackend.ts`). It also builds the Quick Finder's text snippets.
+- **Sync:** see below.
+
+Benchmarks and the `bun run perf` harness live in `tools/benchmarks` (see
+[Performance](performance.md)).
 
 ## Sync
 

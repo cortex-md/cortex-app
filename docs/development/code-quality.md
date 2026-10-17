@@ -55,8 +55,14 @@ bun run test:watch -- --project editor
 
 Tests cover features where a regression loses data or breaks third-party code: sync (planner,
 merge, conflicts, crypto), external plugin and theme loading, vault and frontmatter persistence,
-import/export, sanitization, and settings migration. Do not add render tests for individual
-components or tests for trivial stores, getters, or CSS classes.
+the vault index and note metadata index, import/export, sanitization, and settings migration. Do
+not add render tests for individual components or tests for trivial stores, getters, or CSS
+classes. A test should fail if the behavior it protects breaks; don't write tests just to raise
+coverage.
+
+Put tests next to the code they cover (`*.test.ts` or `__tests__/`). Prefer pure functions for
+the rules worth testing, such as the extension sync planner or the inline tag scanner, so tests
+need no platform mocks.
 
 ## React Doctor
 
@@ -72,14 +78,13 @@ Mobile has its own explicit command:
 bun run doctor:mobile
 ```
 
-## CI Expectations
+## CI
 
-Automatic CI is desktop-scoped. It should run:
+| Workflow | Runs on | Checks |
+| --- | --- | --- |
+| `ci.yml` | Pushes and pull requests | `check`, `typecheck`, `check:boundaries`, `test`, and React Doctor on pull requests |
+| `apps.yml` | Changes under `apps/mobile`, `apps/web`, `packages`, or `bun.lock` | Mobile and web lint, types, and tests |
+| `perf.yml` | Weekly and on demand | `bun run perf` budgets against the built app |
 
-- Biome lint and check for desktop/shared desktop packages.
-- Desktop TypeScript project references.
-- Workspace boundary checks.
-- Desktop frontend Vitest suites.
-- React Doctor for desktop React changes.
-
-The full monorepo gates remain available for maintainers when mobile or web work is in scope.
+Run the desktop gate locally before opening a pull request. The full monorepo gates
+(`typecheck:all`, `check:mobile`, `check:web`) are for changes that touch mobile or web.

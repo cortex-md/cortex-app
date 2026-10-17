@@ -1,0 +1,51 @@
+---
+title: Sync Settings
+description: Choose which vault settings, layouts, and extensions sync between your devices.
+section: Sync
+sectionOrder: 2
+order: 1
+---
+
+Notes and attachments always sync. Vault settings are opt-in, because many people want a different layout or theme on each device. All options are in **Settings → Sync** and are stored per vault.
+
+## Options
+
+| Option | What it syncs |
+| --- | --- |
+| Images | PNG, JPG, and other image attachments. Turn it off to keep images on this device. |
+| App settings | Appearance, editor, files, and other vault settings, including whether the ribbon is shown |
+| Keyboard shortcuts | Custom hotkeys |
+| Workspace layout | Open tabs, splits, and sidebar layout |
+| Bookmarks | Bookmarks |
+| Plugin configuration | Installed plugins, their versions, and which are on |
+| Theme configuration | Installed themes and their versions |
+| Excluded from sync | Paths that stay on this device and are never uploaded |
+
+Property schemas, the task inbox, and comments always sync. Indexes, history, and device-only state never do. See [The .cortex folder](/docs/workspace/vault-folder) for the full list.
+
+## Plugin and theme configuration
+
+These two options sync the list of installed extensions, not their files. Each device installs what it is missing from the Marketplace.
+
+When **Plugin configuration** is on, opening the vault on another device:
+
+1. Installs missing plugins, or updates older ones, to the synced version. Cortex never downgrades. If that version is no longer available, it installs the latest release.
+2. Turns plugins on or off to match.
+3. Uninstalls a plugin only if it was removed on another device. Plugins installed only on this device are added to the list instead, so devices converge instead of undoing each other.
+
+**Theme configuration** works the same way for themes. The theme you have selected is part of **App settings**.
+
+Some items need your attention, and the status line under each option counts them:
+
+- **Waiting for approval:** a community plugin is installed but stays off until you turn it on once on this device. Cortex never runs community plugin code on a device where you have not approved it.
+- **Not available here:** the item was installed by hand on another device, not from the Marketplace, so Cortex cannot download it.
+- **Failed, will retry:** the download or install failed. Cortex tries again the next time you open the vault or the list changes.
+
+Use **Review** next to the status to open the plugin settings or the Marketplace. While community plugins are turned off in **Settings → Plugins**, Cortex does not install or remove community plugins in either direction.
+
+## Related docs
+
+<DocGrid>
+  <DocCard href="/docs/sync/overview" title="Sync Overview" description="Ownership, encryption, history, and conflicts." />
+  <DocCard href="/docs/workspace/vault-folder" title="The .cortex Folder" description="What each file holds and whether it syncs." />
+</DocGrid>

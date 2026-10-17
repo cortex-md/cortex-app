@@ -1,0 +1,61 @@
+---
+title: The .cortex Folder
+description: What Cortex keeps in the hidden .cortex folder of each vault, what syncs, and what is safe to delete.
+section: Workspace
+sectionOrder: 1
+order: 6
+---
+
+Your notes are plain files in the vault folder. Cortex keeps its own state in a hidden `.cortex` folder at the vault root, so other editors and file managers ignore it.
+
+## Layout
+
+```text
+.cortex/
+  vault.json            # vault identity: id, name, creation date
+  local.json            # this device only: tag colors, search history, enabled plugins, panel state
+  sync.json             # this device only: sync link and sync preferences
+  app.json              # vault settings (appearance, editor, files, ...)
+  hotkeys.json          # custom shortcuts
+  workspace.json        # open tabs, splits, and sidebar layout
+  bookmarks.json        # bookmarks
+  plugins.sync.json     # installed plugins and versions, written for sync
+  themes.sync.json      # installed themes and versions, written for sync
+  schema/properties.json
+  inbox.md              # task inbox
+  comments/             # one file per note with comment threads
+  templates/            # note templates
+  plugins/              # community plugins installed in this vault
+  themes/               # community themes installed in this vault
+  history/              # local version history
+  sync.db               # sync engine state
+  cache/                # rebuildable indexes
+```
+
+`vault.json` identifies the vault. Do not edit it by hand: if it cannot be read, Cortex refuses to open the vault instead of giving it a new identity.
+
+## What syncs
+
+| Always | When the matching option is on | Never |
+| --- | --- | --- |
+| `schema/properties.json` | `app.json` (App settings) | `vault.json` |
+| `inbox.md` | `hotkeys.json` (Keyboard shortcuts) | `local.json` |
+| `comments/` | `workspace.json` (Workspace layout) | `sync.json` |
+| | `bookmarks.json` (Bookmarks) | `cache/`, `history/`, `sync.db` |
+| | `plugins.sync.json` (Plugin configuration) | `plugins/`, `themes/`, `templates/` |
+| | `themes.sync.json` (Theme configuration) | |
+
+The options live in **Settings → Sync**. Plugin and theme files never sync: with **Plugin configuration** or **Theme configuration** on, other devices install the same items from the Marketplace instead. See [Sync settings](/docs/sync/settings).
+
+## Safe to delete
+
+`cache/` only holds indexes Cortex can rebuild: search, tags, links, tasks, and database rows. Delete it while Cortex is closed, and the next open rebuilds it. That takes longer on large vaults.
+
+Deleting `history/` removes local version history. Deleting `sync.db` makes the next sync compare every file again.
+
+## Related docs
+
+<DocGrid>
+  <DocCard href="/docs/workspace/local-markdown" title="Local Markdown" description="Why the files on disk stay the source of truth." />
+  <DocCard href="/docs/sync/settings" title="Sync Settings" description="Choose which settings and extensions sync between devices." />
+</DocGrid>

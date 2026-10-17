@@ -45,6 +45,9 @@ hello-cortex/
 }
 ```
 
+The loader reads only `id` and `main` from this file; everything else comes from the manifest the
+bundle passes to `definePlugin`, and the two ids must match.
+
 `main` must be a safe relative path inside the plugin directory. Absolute paths, drive-letter paths,
 empty paths, and paths containing `..` are rejected. Versions are plain `MAJOR.MINOR.PATCH`;
 pre-release suffixes break update checks.

@@ -1,0 +1,53 @@
+---
+title: Databases
+description: Turn a folder of notes into a table, board, calendar, or gallery while every row stays a plain Markdown file.
+section: Workspace
+sectionOrder: 1
+order: 5
+---
+
+A database in Cortex is a folder. Each note directly inside the folder is a row, and the note's properties are the columns. Nothing moves into a separate format: delete the database settings and you are left with the same folder of notes.
+
+## Create one
+
+Use the `+` button in the Files header:
+
+- **Database** creates a new folder with database settings.
+- **Turn a folder into a database** adds settings to an existing folder, so its notes become rows.
+
+## How it is stored
+
+The settings live in a view note named after the folder, under the `database` property:
+
+```text
+Meetings/
+  Meetings.md        # view note: database settings and an optional description
+  Weekly sync.md     # row
+  Design review.md   # row
+```
+
+The view note is hidden in the file tree, and the folder shows a database tile instead of a plain chevron. Notes in subfolders are not rows.
+
+## Views
+
+Each database has one or more views:
+
+| View | Best for |
+| --- | --- |
+| Table | Sorting, filtering, and editing properties in a grid |
+| Board | Grouping rows by a select property |
+| Calendar | Rows with a date property |
+| Gallery | Rows with a cover image |
+
+The first view sets the icon in the file tree. In the tree, row notes show a colored dot taken from the first select property.
+
+## Sync and other editors
+
+Rows are ordinary notes, so they sync, search, and link like any other note. Other Markdown editors see a folder of notes with frontmatter.
+
+## Related docs
+
+<DocGrid>
+  <DocCard href="/docs/workspace/organizing" title="Organizing Notes" description="Folders, tags, bookmarks, and properties together." />
+  <DocCard href="/docs/workspace/vault-folder" title="The .cortex Folder" description="What Cortex stores next to your notes." />
+</DocGrid>
