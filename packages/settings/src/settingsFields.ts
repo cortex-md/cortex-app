@@ -91,6 +91,15 @@ export const SETTINGS_FIELDS: readonly SettingsFieldEntry[] = [
 		keywords: ["vibrancy", "mica", "transparency", "blur", "translucent"],
 	},
 	{
+		id: "appearance.workspace-mode",
+		pageKey: "appearance",
+		section: "Interface",
+		label: "Workspace mode",
+		description:
+			"Full shows sidebars, tabs and note details. Writing keeps only the note and moves the rest one shortcut away.",
+		keywords: ["writing mode", "focus", "zen", "distraction free", "minimal", "full workspace"],
+	},
+	{
 		id: "appearance.show-ribbon",
 		pageKey: "appearance",
 		section: "Interface",

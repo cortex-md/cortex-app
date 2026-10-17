@@ -37,6 +37,7 @@ export type {
 	SettingsChangeEvent,
 	TasksSettings,
 	TemplatesSettings,
+	WorkspaceMode,
 } from "./types"
 export {
 	AppearanceSettingsSchema,
@@ -49,4 +50,5 @@ export {
 	PluginsSettingsSchema,
 	TasksSettingsSchema,
 	TemplatesSettingsSchema,
+	WORKSPACE_MODES,
 } from "./types"

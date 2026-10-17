@@ -357,6 +357,12 @@ function viewMenu(context: MenuContext): MenuItemConstructorOptions {
 				type: "checkbox",
 				checked: "leftSidebar",
 			}),
+			commandItem(context, "view.toggle-writing-mode", {
+				label: "Writing Mode",
+				requires: "vault",
+				type: "checkbox",
+				checked: "writingMode",
+			}),
 			commandItem(context, "view.toggle-ribbon", {
 				label: "Ribbon",
 				requires: "vault",

@@ -50,6 +50,7 @@ function buildItemStates(): NativeMenuItemStates {
 		leftSidebar: !ui.leftSidebarCollapsed,
 		rightSidebar: !ui.rightSidebarCollapsed,
 		ribbon: appearance.showRibbon,
+		writingMode: appearance.workspaceMode === "writing",
 		[`sidebar:${ui.leftSidebarView}`]: true,
 		[`mode:${mode}`]: true,
 		[`colorscheme:${appearance.colorscheme}`]: true,
@@ -128,7 +129,8 @@ export function useNativeMenuState(): void {
 				if (
 					state.settings.editor !== previous.settings.editor ||
 					state.settings.appearance.colorscheme !== previous.settings.appearance.colorscheme ||
-					state.settings.appearance.showRibbon !== previous.settings.appearance.showRibbon
+					state.settings.appearance.showRibbon !== previous.settings.appearance.showRibbon ||
+					state.settings.appearance.workspaceMode !== previous.settings.appearance.workspaceMode
 				) {
 					states.schedule()
 				}

@@ -201,6 +201,25 @@ describe("set()", () => {
 		)
 	})
 
+	it("keeps the workspace mode in global settings, never in the vault file", async () => {
+		const manager = new SettingsManager()
+		await manager.loadFromVault("/vault")
+		await manager.set("appearance", "workspaceMode", "writing")
+		await manager.set("editor", "tabSize", 4)
+		vi.advanceTimersByTime(1001)
+		await vi.runAllTimersAsync()
+
+		expect(mockPlatform.fs.atomicWriteFile).toHaveBeenCalledWith(
+			"/home/user/.cortex/settings.json",
+			expect.stringContaining('"workspaceMode": "writing"'),
+		)
+		const vaultWrite = mockPlatform.fs.atomicWriteFile.mock.calls.find(
+			([path]) => path === "/vault/.cortex/app.json",
+		)
+		expect(JSON.parse(vaultWrite?.[1] ?? "{}").appearance.workspaceMode).toBeUndefined()
+		expect(manager.get("appearance", "workspaceMode")).toBe("writing")
+	})
+
 	it("rejects invalid values before mutating or notifying listeners", async () => {
 		const manager = new SettingsManager()
 		await manager.loadFromVault("/vault")

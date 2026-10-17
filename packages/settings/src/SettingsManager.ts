@@ -92,10 +92,7 @@ export class SettingsManager {
 		})
 
 		if (isGlobalSetting(section, key as string)) {
-			this.globalSettings = GlobalAppSettingsSchema.parse({
-				appearance: { nativeWindowEffects: nextCache.appearance.nativeWindowEffects },
-				plugins: nextCache.plugins,
-			})
+			this.globalSettings = GlobalAppSettingsSchema.parse(pickGlobalSettings(nextCache))
 			await this.flushGlobalSettings()
 			return
 		}
@@ -105,10 +102,7 @@ export class SettingsManager {
 
 	applyExternalSettings(settings: AppSettings): void {
 		this.cache = settings
-		this.globalSettings = GlobalAppSettingsSchema.parse({
-			appearance: { nativeWindowEffects: settings.appearance.nativeWindowEffects },
-			plugins: settings.plugins,
-		})
+		this.globalSettings = GlobalAppSettingsSchema.parse(pickGlobalSettings(settings))
 	}
 
 	private scheduleFlush(): void {
@@ -163,7 +157,7 @@ export class SettingsManager {
 			...this.cache,
 			appearance: {
 				...this.cache.appearance,
-				nativeWindowEffects: this.globalSettings.appearance.nativeWindowEffects,
+				...this.globalSettings.appearance,
 			},
 			plugins: this.globalSettings.plugins,
 		})
@@ -171,13 +165,29 @@ export class SettingsManager {
 
 	private getVaultSettingsSnapshot(): Omit<AppSettings, "plugins"> {
 		const { plugins: _plugins, ...cache } = this.cache
-		const { nativeWindowEffects: _nativeWindowEffects, ...appearance } = cache.appearance
+		const {
+			nativeWindowEffects: _nativeWindowEffects,
+			workspaceMode: _workspaceMode,
+			...appearance
+		} = cache.appearance
 		return { ...cache, appearance } as Omit<AppSettings, "plugins">
 	}
 }
 
+const GLOBAL_APPEARANCE_KEYS = new Set(["nativeWindowEffects", "workspaceMode"])
+
 function isGlobalSetting(section: keyof AppSettings, key: string): boolean {
-	return section === "plugins" || (section === "appearance" && key === "nativeWindowEffects")
+	return section === "plugins" || (section === "appearance" && GLOBAL_APPEARANCE_KEYS.has(key))
+}
+
+function pickGlobalSettings(settings: AppSettings): unknown {
+	return {
+		appearance: {
+			nativeWindowEffects: settings.appearance.nativeWindowEffects,
+			workspaceMode: settings.appearance.workspaceMode,
+		},
+		plugins: settings.plugins,
+	}
 }
 
 function readLegacyNativeWindowEffects(settings: unknown): boolean | null {

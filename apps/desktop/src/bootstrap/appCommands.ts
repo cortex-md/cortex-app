@@ -84,6 +84,7 @@ import { deletedNotesModal, syncLogsModal } from "../features/sync/syncDialogSto
 import { openTasksSidebar, openTodayView } from "../features/tasks/taskModel"
 import { openNewTemplate, openTemplatesView } from "../features/templates/templateActions"
 import { openAddVault } from "../features/vault/vaultActions"
+import { toggleWritingMode } from "../features/workspace-mode/workspaceMode"
 
 const HELP_URLS = {
 	docs: "https://github.com/cortex-md/cortex-app#readme",
@@ -538,6 +539,15 @@ const appCommands: CommandEntry[] = [
 		icon: PanelLeftIcon,
 		hotkey: { defaultKeys: "mod+[", scope: "global" },
 		execute: () => useUIStore.getState().toggleLeftSidebar(),
+	},
+	{
+		id: "view.toggle-writing-mode",
+		label: "Toggle Writing Mode",
+		category: "View",
+		aliases: ["writing", "focus", "zen", "distraction-free", "full-workspace"],
+		icon: PencilIcon,
+		hotkey: { defaultKeys: "mod+.", scope: "global" },
+		execute: toggleWritingMode,
 	},
 	{
 		id: "view.toggle-ribbon",

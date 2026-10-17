@@ -48,7 +48,7 @@ Validate desktop changes with the root gate (`check`, `typecheck`, `check:bounda
 
 ## Renderer Rules
 
-- `App` subscribes only to `hasVault` and window-effects; lifecycle hooks live in the null-rendering
+- `App` subscribes only to `hasVault`, window effects, and the workspace mode; lifecycle hooks live in the null-rendering
   `AppLifecycle`, and each shell piece subscribes to its own slice.
 - Rarely used surfaces (Settings, Auth, template dialogs, history, Marketplace, database pages,
   diff views) are lazy and mount on first open. Overlays preload at idle so the first open never
@@ -115,6 +115,16 @@ Validate desktop changes with the root gate (`check`, `typecheck`, `check:bounda
   `getLeftSidebarMinWidth(showRibbon)` (200px with the ribbon, 160px without). While dragging the
   resizer the sidebar carries `data-resizing`, which disables width transitions so the edge tracks
   the pointer.
+- Writing mode is `appearance.workspaceMode: "writing"` (global setting; `view.toggle-writing-mode`,
+  ⌘., View → Writing Mode, Settings → Appearance; helpers in `features/workspace-mode/`). The shell
+  carries `data-workspace-mode` and `styles/writing-mode.css` hides chrome without unmounting
+  anything; the editor drops line numbers and turns on typewriter scrolling through
+  `createEditorConfig`. The properties panel stays collapsed to a one-line summary in that mode.
+  `WritingModeToolbar` (top-right, mounted only in that mode) keeps Quick Finder, the command
+  palette, Settings, and exit one click away for people who do not know the shortcuts; every button
+  executes a registry command.
+  The first vault open asks once (`WorkspaceModePrompt`, lazy) and records the answer in the app
+  onboarding marker.
 - `FileSidebar` virtualizes rows projected from the core vault index (`useVaultFileTree`); never
   rebuild the tree from `files`. Rows are 32px; notes have no icon, folders only a chevron,
   databases a `DatabaseViewTile`, other files a muted kind glyph (`fileKindIcon.tsx`). The tree focus

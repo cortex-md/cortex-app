@@ -52,6 +52,7 @@ interface EditorCompartments {
 	lineWrapping: EditorRuntimeCompartment
 	indent: EditorRuntimeCompartment
 	lineNumbers: EditorRuntimeCompartment
+	typewriter: EditorRuntimeCompartment
 	folding: EditorRuntimeCompartment
 	pluginFolding: EditorRuntimeCompartment
 	pluginExtensions: EditorRuntimeCompartment
@@ -72,6 +73,7 @@ function getEditorCompartments(runtime: EditorRuntimeModules): EditorCompartment
 		lineWrapping: new runtime.state.Compartment(),
 		indent: new runtime.state.Compartment(),
 		lineNumbers: new runtime.state.Compartment(),
+		typewriter: new runtime.state.Compartment(),
 		folding: new runtime.state.Compartment(),
 		pluginFolding: new runtime.state.Compartment(),
 		pluginExtensions: new runtime.state.Compartment(),
@@ -529,6 +531,7 @@ export function baseExtensions(
 			runtime.language.indentUnit.of(config.useSpaces ? " ".repeat(config.tabSize) : "\t"),
 		),
 		compartments.lineNumbers.of(config.showLineNumbers ? runtime.view.lineNumbers() : []),
+		compartments.typewriter.of(typewriterScrollExtension(runtime, config.typewriterScroll)),
 		compartments.folding.of(config.folding ? foldingExtension(runtime) : []),
 		compartments.pluginFolding.of([]),
 		compartments.pluginExtensions.of([]),
@@ -583,8 +586,20 @@ export function reconfigureEditor(
 			compartments.lineNumbers.reconfigure(
 				config.showLineNumbers ? runtime.view.lineNumbers() : [],
 			),
+			compartments.typewriter.reconfigure(
+				typewriterScrollExtension(runtime, config.typewriterScroll),
+			),
 			compartments.folding.reconfigure(config.folding ? foldingExtension(runtime) : []),
 		],
+	})
+}
+
+function typewriterScrollExtension(runtime: EditorRuntimeModules, enabled: boolean | undefined) {
+	if (!enabled) return []
+	return runtime.view.EditorView.scrollMargins.of((view) => {
+		const viewportHeight = view.dom.ownerDocument.defaultView?.innerHeight ?? 0
+		const margin = Math.max(0, viewportHeight / 2 - 48)
+		return { top: margin, bottom: margin }
 	})
 }
 

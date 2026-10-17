@@ -135,7 +135,8 @@ or React Native imports; all I/O goes through `getPlatform()` from `@cortex/plat
 - Templates (`@cortex/core/templates`): pure, deterministic, no user JavaScript, safe relative body
   paths; `formatTemplateDate` is the single date formatter.
 - Onboarding content and markers live in `src/onboarding`; the first-run marker is written once any
-  vault is open or registered.
+  vault is open or registered, and the same app marker records when the workspace mode was chosen
+  (`appStore.workspaceModeChosen`, `markWorkspaceModeChosen`).
 - Frontmatter: new property behavior belongs in `@cortex/properties`; core keeps a compatibility
   facade (`parseFrontmatter`, tag helpers). `@cortex/core/frontmatter` and
   `@cortex/core/bookmark-paths` stay store-free for the mobile WebView realm.

@@ -19,9 +19,10 @@ export function resolveNoteImageUrl(src: string, currentFilePath: string): strin
 
 export function useEditorConfig(): EditorConfig {
 	const editorFontSize = useSettingsStore((s) => s.settings.appearance.editorFontSize)
+	const workspaceMode = useSettingsStore((s) => s.settings.appearance.workspaceMode)
 	const editor = useSettingsStore((s) => s.settings.editor)
 	return useMemo(
-		() => createEditorConfig({ appearance: { editorFontSize }, editor }),
-		[editorFontSize, editor],
+		() => createEditorConfig({ appearance: { editorFontSize, workspaceMode }, editor }),
+		[editorFontSize, workspaceMode, editor],
 	)
 }

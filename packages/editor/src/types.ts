@@ -44,6 +44,7 @@ export interface EditorConfig {
 	useSpaces: boolean
 	showLineNumbers: boolean
 	vimMode?: boolean
+	typewriterScroll?: boolean
 }
 
 export interface EditorSelectionRange {

@@ -30,6 +30,8 @@
 - App-wide settings that affect native process/window startup, such as `appearance.nativeWindowEffects`,
   are persisted in the app data settings file, not in a vault's `.cortex/app.json`. Vault settings
   may parse legacy aliases for migration, but must not become the authority for native window effects.
+- `appearance.workspaceMode` (`"full" | "writing"`) is also app-wide: it lives in the app data
+  settings file next to `nativeWindowEffects` and is stripped from the vault snapshot.
 - `plugins.allowCommunity` (restricted mode, `DEFAULT_PLUGINS_SETTINGS`, off by default) is also
   app-wide: `SettingsManager` keeps the whole `plugins` section in the app data settings file
   (`isGlobalSetting`) and strips it from the vault snapshot.

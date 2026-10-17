@@ -1,7 +1,7 @@
 import { reportAppError } from "@cortex/core"
 import type { FontInfo } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
-import type { AppearanceSettings } from "@cortex/settings"
+import type { AppearanceSettings, WorkspaceMode } from "@cortex/settings"
 import { getThemeManager, type ThemeFamily, type ThemeTokens } from "@cortex/theme"
 import {
 	Button,
@@ -321,6 +321,19 @@ export function AppearanceSection({
 								onCheckedChange={handleNativeWindowEffectsChange}
 							/>
 						</div>
+					</SettingsField>
+
+					<SettingsField fieldId="appearance.workspace-mode" htmlFor="workspace-mode">
+						<NativeSelect
+							id="workspace-mode"
+							value={settings.workspaceMode}
+							onChange={(event) =>
+								onUpdate("appearance", "workspaceMode", event.target.value as WorkspaceMode)
+							}
+						>
+							<NativeSelectOption value="full">Full workspace</NativeSelectOption>
+							<NativeSelectOption value="writing">Writing</NativeSelectOption>
+						</NativeSelect>
 					</SettingsField>
 
 					<SettingsField fieldId="appearance.show-ribbon" htmlFor="show-ribbon">

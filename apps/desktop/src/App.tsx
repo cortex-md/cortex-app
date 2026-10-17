@@ -1,6 +1,7 @@
 import {
 	getLeftSidebarMinWidth,
 	LEFT_SIDEBAR_WIDTH_BOUNDS,
+	useAppStore,
 	useUIStore,
 	useVaultStore,
 	useWorkspaceStore,
@@ -61,6 +62,8 @@ import { shareTemplateModal } from "./features/templates/shareActions"
 import { newTemplateModal } from "./features/templates/templateActions"
 import { VaultSwitcher } from "./features/vault/VaultSwitcher"
 import { addVaultModal } from "./features/vault/vaultActions"
+import { WritingModeToolbar } from "./features/workspace-mode/WritingModeToolbar"
+import { useWritingMode } from "./features/workspace-mode/workspaceMode"
 import { useHasOpened } from "./hooks/useHasOpened"
 import { useSidebarResize } from "./hooks/useSidebarResize"
 import { scheduleIdleWork } from "./utils/scheduleIdleWork"
@@ -110,6 +113,7 @@ const overlayLoaders = {
 	addVault: () => import("./features/vault/add-vault/AddVaultDialog"),
 	obsidianImport: () => import("./features/import-export/ObsidianImportDialog"),
 	settings: () => import("./features/settings/SettingsOverlay"),
+	workspaceModePrompt: () => import("./features/workspace-mode/WorkspaceModePrompt"),
 }
 
 const LazyAuthModal = lazyNamed(overlayLoaders.auth, "AuthModal")
@@ -130,6 +134,7 @@ const LazySyncDialogsHost = lazyNamed(overlayLoaders.syncDialogs, "SyncDialogsHo
 const LazyAddVaultDialogHost = lazyNamed(overlayLoaders.addVault, "AddVaultDialogHost")
 const LazyObsidianImportHost = lazyNamed(overlayLoaders.obsidianImport, "ObsidianImportHost")
 const LazySettingsOverlayHost = lazyNamed(overlayLoaders.settings, "SettingsOverlayHost")
+const LazyWorkspaceModePrompt = lazyNamed(overlayLoaders.workspaceModePrompt, "WorkspaceModePrompt")
 
 const overlayComponents = [
 	LazyQuickFinder,
@@ -209,6 +214,7 @@ const AppTitlebar = memo(function AppTitlebar({ hasVault }: AppShellProps) {
 	const leftSidebarCollapsed = useUIStore((s) => s.leftSidebarCollapsed)
 	const leftSidebarWidth = useUIStore((s) => s.leftSidebarWidth)
 	const collapsedWidth = useCollapsedSidebarWidth()
+	const writingMode = useWritingMode()
 	const sidebarWidth = leftSidebarCollapsed ? collapsedWidth : leftSidebarWidth
 	const titlebarStyle = {
 		"--app-titlebar-drag-width": `${sidebarWidth}px`,
@@ -235,6 +241,7 @@ const AppTitlebar = memo(function AppTitlebar({ hasVault }: AppShellProps) {
 					</Button>
 				</SimpleTooltip>
 			)}
+			{hasVault && writingMode && <WritingModeToolbar />}
 		</div>
 	)
 })
@@ -378,6 +385,12 @@ function DeferredOverlay({ open, children }: DeferredOverlayProps) {
 	return <Suspense fallback={null}>{children}</Suspense>
 }
 
+function useWorkspaceModePromptOpen(): boolean {
+	const hasVault = useVaultStore((state) => state.vault !== null)
+	const workspaceModeChosen = useAppStore((state) => state.workspaceModeChosen)
+	return hasVault && workspaceModeChosen === false
+}
+
 const AppOverlays = memo(function AppOverlays() {
 	const authOpen = authModal.useTarget() !== null
 	const createFromTemplateOpen = createFromTemplateModal.useTarget() !== null
@@ -395,11 +408,15 @@ const AppOverlays = memo(function AppOverlays() {
 	const shareTemplateOpen = shareTemplateModal.useTarget() !== null
 	const obsidianImportOpen = obsidianImportModal.useTarget() !== null
 	const settingsOpen = settingsModal.useTarget() !== null
+	const workspaceModePromptOpen = useWorkspaceModePromptOpen()
 
 	useEffect(preloadOverlays, [])
 
 	return (
 		<>
+			<DeferredOverlay open={workspaceModePromptOpen}>
+				<LazyWorkspaceModePrompt />
+			</DeferredOverlay>
 			<DeferredOverlay open={authOpen}>
 				<LazyAuthModal />
 			</DeferredOverlay>
@@ -487,12 +504,14 @@ function MainWindowReady() {
 export default function App() {
 	const hasVault = useVaultStore((s) => s.vault !== null)
 	const nativeWindowEffects = useSettingsStore((s) => s.settings.appearance.nativeWindowEffects)
+	const workspaceMode = useSettingsStore((s) => s.settings.appearance.workspaceMode)
 
 	return (
 		<TooltipProvider delayDuration={400} skipDelayDuration={200}>
 			<div
 				className="app-shell flex flex-col h-screen bg-bg-primary text-text-primary"
 				data-native-window-effects={nativeWindowEffects && hasVault ? "enabled" : "disabled"}
+				data-workspace-mode={hasVault ? workspaceMode : undefined}
 			>
 				<AppLifecycle />
 				<AppContent hasVault={hasVault} />

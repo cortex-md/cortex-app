@@ -11,6 +11,10 @@ import {
 	DEFAULT_TEMPLATES_SETTINGS,
 } from "./defaults"
 
+export const WORKSPACE_MODES = ["full", "writing"] as const
+export type WorkspaceMode = (typeof WORKSPACE_MODES)[number]
+const WorkspaceModeSchema = z.enum(WORKSPACE_MODES)
+
 const AppearanceSettingsInputSchema = z.object({
 	theme: z.string().default(DEFAULT_APPEARANCE_SETTINGS.theme),
 	colorscheme: z.enum(["light", "dark", "system"]).default(DEFAULT_APPEARANCE_SETTINGS.colorscheme),
@@ -20,6 +24,7 @@ const AppearanceSettingsInputSchema = z.object({
 	nativeWindowEffects: z.boolean().optional(),
 	nativeContentSurface: z.boolean().optional(),
 	showRibbon: z.boolean().default(DEFAULT_APPEARANCE_SETTINGS.showRibbon),
+	workspaceMode: WorkspaceModeSchema.default(DEFAULT_APPEARANCE_SETTINGS.workspaceMode),
 	editorFontFamily: z.string().default(DEFAULT_APPEARANCE_SETTINGS.editorFontFamily),
 	editorFontSize: z.number().min(10).max(24).default(DEFAULT_APPEARANCE_SETTINGS.editorFontSize),
 	lineHeight: z.number().min(1).max(2).default(DEFAULT_APPEARANCE_SETTINGS.lineHeight),
@@ -44,9 +49,11 @@ export const GlobalAppSettingsSchema = z.object({
 	appearance: z
 		.object({
 			nativeWindowEffects: z.boolean().default(DEFAULT_APPEARANCE_SETTINGS.nativeWindowEffects),
+			workspaceMode: WorkspaceModeSchema.default(DEFAULT_APPEARANCE_SETTINGS.workspaceMode),
 		})
 		.default({
 			nativeWindowEffects: DEFAULT_APPEARANCE_SETTINGS.nativeWindowEffects,
+			workspaceMode: DEFAULT_APPEARANCE_SETTINGS.workspaceMode,
 		}),
 	plugins: PluginsSettingsSchema.default(DEFAULT_PLUGINS_SETTINGS),
 })

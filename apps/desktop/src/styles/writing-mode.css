@@ -1,0 +1,197 @@
+.app-shell[data-workspace-mode="writing"] {
+	--markdown-content-width: 660px;
+}
+
+.app-shell[data-workspace-mode="writing"]
+	:is(
+		.app-sidebar,
+		.app-sidebar-resizer,
+		.app-sidebar-toggle,
+		.right-sidebar,
+		.tab-bar-right-toggle,
+		.note-header-meta-row,
+		.statusbar-sep
+	) {
+	display: none;
+}
+
+.app-shell[data-workspace-mode="writing"]
+	.split-leaf[data-split-start-pane="true"]
+	> .pane-view
+	> .tab-bar-row {
+	--tab-bar-padding-left: var(--app-collapsed-tabbar-start-padding);
+}
+
+.app-shell[data-workspace-mode="writing"] .tab-bar-row {
+	opacity: 0;
+	transition: opacity 160ms ease-out;
+}
+
+.app-shell[data-workspace-mode="writing"] .tab-bar-row:is(:hover, :focus-within) {
+	opacity: 1;
+}
+
+.app-shell[data-workspace-mode="writing"]
+	.app-statusbar
+	.statusbar-item:not(.statusbar-word-count) {
+	display: none;
+}
+
+.app-shell[data-workspace-mode="writing"] .statusbar-word-count {
+	opacity: 0.7;
+}
+
+.app-shell[data-workspace-mode="writing"]
+	.note-properties:not(:has(.note-properties-content))::after {
+	display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.app-shell[data-workspace-mode="writing"] .tab-bar-row {
+		transition: none;
+	}
+}
+
+[data-slot="dialog-content"].workspace-mode-prompt {
+	width: min(480px, calc(100vw - 32px));
+	gap: 18px;
+	padding: 22px;
+}
+
+.workspace-mode-options {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 10px;
+}
+
+.workspace-mode-option[data-slot="button"] {
+	display: flex;
+	height: auto;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 10px;
+	padding: 10px;
+	border-radius: 14px;
+	white-space: normal;
+	text-align: left;
+	box-shadow: inset 0 0 0 1px var(--hairline);
+	scale: none;
+}
+
+.workspace-mode-option[data-slot="button"][aria-checked="true"] {
+	background: var(--fill-selected);
+	box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.workspace-mode-preview {
+	display: flex;
+	height: 84px;
+	gap: 5px;
+	padding: 7px;
+	border-radius: 9px;
+	background: var(--sidebar-bg);
+}
+
+.workspace-mode-preview-sidebar,
+.workspace-mode-preview-aside {
+	flex: none;
+	width: 22%;
+	border-radius: 5px;
+	background: var(--fill-quiet-strong);
+}
+
+.workspace-mode-preview-aside {
+	width: 16%;
+}
+
+.workspace-mode-preview-page {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	justify-content: center;
+	gap: 6px;
+	padding: 0 14%;
+	border-radius: 5px;
+	background: var(--surface-raised);
+	box-shadow: var(--shadow-raised);
+}
+
+.workspace-mode-preview-page > span {
+	height: 4px;
+	border-radius: 999px;
+	background: var(--fill-quiet-strong);
+}
+
+.workspace-mode-preview-page > span:nth-child(2) {
+	width: 80%;
+}
+
+.workspace-mode-preview-page > span:nth-child(3) {
+	width: 55%;
+}
+
+.workspace-mode-option-copy {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	padding: 0 2px 2px;
+}
+
+.workspace-mode-option-copy b {
+	color: var(--text-primary);
+	font: 600 13.5px / 18px var(--font-ui);
+}
+
+.workspace-mode-option-copy small {
+	color: var(--text-secondary);
+	font: 400 12.5px / 17px var(--font-ui);
+}
+
+.writing-mode-toolbar {
+	position: absolute;
+	top: 8px;
+	right: 12px;
+	z-index: 40;
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding: 3px;
+	border-radius: var(--control-pill-radius);
+	background: var(--surface-raised);
+	box-shadow: var(--shadow-floating-pill);
+	opacity: 0.72;
+	transition: opacity 160ms ease-out;
+	pointer-events: auto;
+	-webkit-app-region: no-drag;
+}
+
+.writing-mode-toolbar:is(:hover, :focus-within) {
+	opacity: 1;
+}
+
+.writing-mode-toolbar-button[data-slot="button"] {
+	width: 28px;
+	height: 28px;
+	min-height: 28px;
+	color: var(--text-secondary);
+	scale: none;
+}
+
+.writing-mode-toolbar-button[data-slot="button"]:hover {
+	color: var(--text-primary);
+}
+
+body[data-platform="macos"]
+	.app-shell[data-workspace-mode="writing"]
+	.split-leaf[data-split-start-pane="true"]
+	> .pane-view
+	> .tab-bar-row {
+	--tab-bar-padding-left: 96px;
+}
+
+.app-shell[data-workspace-mode="writing"]
+	.split-leaf[data-split-end-pane="true"]
+	> .pane-view
+	> .tab-bar-row {
+	padding-right: 156px;
+}

@@ -19,7 +19,7 @@ export function StatusBarWordCount() {
 	const words = useEditorStore((s) => selectActiveDocument(s)?.words)
 	if (words === undefined) return null
 	return (
-		<span className="statusbar-item">
+		<span className="statusbar-item statusbar-word-count">
 			{words} {words === 1 ? "word" : "words"}
 		</span>
 	)
