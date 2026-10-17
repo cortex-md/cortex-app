@@ -1,17 +1,17 @@
 import { useVaultStore, useWorkspaceStore } from "@cortex/core"
 import { type MarketplaceTab, useMarketplaceStore } from "@cortex/marketplace"
-import { MARKETPLACE_VIEW_ID } from "./marketplaceWorkspaceView"
+import { MARKETPLACE_VIEW_ID, type MarketplaceViewTab } from "./marketplaceWorkspaceView"
 
 export interface OpenMarketplaceViewOptions {
 	selectedEntryId?: string
 }
 
 export interface MarketplaceOpenRequest extends OpenMarketplaceViewOptions {
-	tab: MarketplaceTab
+	tab: MarketplaceViewTab
 }
 
 export type OpenMarketplaceHandler = (
-	tab: MarketplaceTab,
+	tab: MarketplaceViewTab,
 	options?: OpenMarketplaceViewOptions,
 ) => boolean | void | Promise<void>
 
@@ -27,13 +27,13 @@ function findMarketplaceTab(): { tabId: string; paneId: string } | null {
 }
 
 export function openMarketplaceView(
-	tab: MarketplaceTab = "plugins",
+	tab: MarketplaceViewTab = "plugins",
 	options: OpenMarketplaceViewOptions = {},
 ): boolean {
 	if (!useVaultStore.getState().vault) return false
 
-	useMarketplaceStore.getState().setActiveTab(tab)
-	if (options.selectedEntryId) {
+	if (tab !== "templates") useMarketplaceStore.getState().setActiveTab(tab as MarketplaceTab)
+	if (options.selectedEntryId && tab !== "templates") {
 		useMarketplaceStore.getState().selectEntry(options.selectedEntryId)
 	}
 

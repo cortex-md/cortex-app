@@ -1,10 +1,8 @@
-import { getPlatform, type SyncConfig } from "@cortex/platform"
-import { getVaultFilePath, VAULT_CONFIG_DIR, VAULT_FILES } from "@cortex/platform/utils"
+import type { SyncConfig } from "@cortex/platform"
+import { getVaultSyncState } from "../vault/vaultStateFiles"
 import { DEFAULT_SELF_HOSTED_SYNC_SERVER_URL } from "./serverConfig"
 
 type RawSyncConfig = Record<string, unknown>
-
-let pendingUpdate: Promise<unknown> = Promise.resolve()
 
 export function createDefaultSyncConfig(): SyncConfig {
 	return {
@@ -35,14 +33,7 @@ export function normalizeSyncConfig(config: Partial<SyncConfig> | RawSyncConfig)
 }
 
 async function readRawSyncConfig(vaultPath: string): Promise<RawSyncConfig> {
-	try {
-		const parsed = JSON.parse(
-			await getPlatform().fs.readFile(getVaultFilePath(vaultPath, VAULT_FILES.syncConfig)),
-		) as unknown
-		return parsed && typeof parsed === "object" ? (parsed as RawSyncConfig) : {}
-	} catch {
-		return {}
-	}
+	return { ...(await getVaultSyncState(vaultPath).read()).config }
 }
 
 export async function readSyncConfig(vaultPath: string): Promise<SyncConfig> {
@@ -53,18 +44,14 @@ function mutateSyncConfig(
 	vaultPath: string,
 	mutate: (config: RawSyncConfig) => void,
 ): Promise<void> {
-	const update = pendingUpdate.then(async () => {
-		const platform = getPlatform()
-		const config = await readRawSyncConfig(vaultPath)
-		mutate(config)
-		await platform.fs.createDir(getVaultFilePath(vaultPath, VAULT_CONFIG_DIR))
-		await platform.fs.atomicWriteFile(
-			getVaultFilePath(vaultPath, VAULT_FILES.syncConfig),
-			JSON.stringify(config, null, 2),
-		)
-	})
-	pendingUpdate = update.catch(() => undefined)
-	return update
+	return getVaultSyncState(vaultPath).update(
+		(state) => {
+			const config = { ...state.config }
+			mutate(config)
+			return { ...state, config }
+		},
+		{ immediate: true },
+	)
 }
 
 export function updateSyncConfig(vaultPath: string, changes: Partial<SyncConfig>): Promise<void> {

@@ -231,6 +231,7 @@ function TaskDetailFields({
 					</span>
 				) : (
 					<Button
+						size="sm"
 						variant="link"
 						className="task-detail-source"
 						onClick={() => openTaskInNote(task, inboxPath)}

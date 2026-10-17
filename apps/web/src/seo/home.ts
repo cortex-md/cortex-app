@@ -1,38 +1,22 @@
 import { siteConfig } from "../config/site"
-import { frequentlyAskedQuestions } from "../content/landing"
+import { homeHero, pricingFaq } from "../content/landing"
+import { getPaintingSrc, getPaintingSrcSet } from "../features/site/Painting"
 import { createSeoHead } from "./metadata"
+import { jsonLdScripts, organizationSchema, softwareApplicationSchema } from "./structuredData"
 
-const softwareApplicationSchema = {
-	"@context": "https://schema.org",
-	"@type": "SoftwareApplication",
-	name: siteConfig.name,
-	applicationCategory: "ProductivityApplication",
-	operatingSystem: "macOS",
-	description: siteConfig.description,
-	url: siteConfig.url,
-	featureList: [
-		"Local Markdown vaults",
-		"Live Preview editing",
-		"Tags, bookmarks, folders, and properties",
-		"Tabs, split panes, hotkeys, and Vim mode",
-		"Client-side encrypted sync",
-		"Version history",
-		"Plugin API, themes, and CLI",
-		"Self-hosted sync",
-	],
-}
-
-const organizationSchema = {
-	"@context": "https://schema.org",
-	"@type": "Organization",
-	name: siteConfig.name,
-	url: siteConfig.url,
-	logo: `${siteConfig.url}/icon-512.png`,
-	sameAs: [siteConfig.githubUrl],
-}
+const homeFeatureList = [
+	"Local Markdown vaults",
+	"Databases with table, board, calendar and gallery views",
+	"Tasks with reminders",
+	"Local version history",
+	"Obsidian importer",
+	"End-to-end encrypted sync",
+	"Live collaboration",
+	"Plugins, themes and CLI",
+	"Self-hosted sync",
+]
 
 const websiteSchema = {
-	"@context": "https://schema.org",
 	"@type": "WebSite",
 	name: siteConfig.name,
 	url: siteConfig.url,
@@ -40,9 +24,8 @@ const websiteSchema = {
 }
 
 const faqSchema = {
-	"@context": "https://schema.org",
 	"@type": "FAQPage",
-	mainEntity: frequentlyAskedQuestions.map(({ question, answer }) => ({
+	mainEntity: pricingFaq.map(({ question, answer }) => ({
 		"@type": "Question",
 		name: question,
 		acceptedAnswer: {
@@ -55,17 +38,36 @@ const faqSchema = {
 export function createHomeHead() {
 	const seoHead = createSeoHead({
 		title: siteConfig.title,
-		description: siteConfig.description,
+		description: homeHero.description,
 		path: "/",
 	})
 
 	return {
 		...seoHead,
-		scripts: [softwareApplicationSchema, organizationSchema, websiteSchema, faqSchema].map(
-			(schema) => ({
-				type: "application/ld+json",
-				children: JSON.stringify(schema),
+		links: [
+			...seoHead.links,
+			{
+				rel: "preload",
+				as: "image",
+				type: "image/webp",
+				href: getPaintingSrc("dawn", 960),
+				imageSrcSet: getPaintingSrcSet("dawn"),
+				imageSizes: "(max-width: 640px) 100vw, 1180px",
+				fetchPriority: "high" as const,
+			},
+		],
+		scripts: jsonLdScripts(
+			softwareApplicationSchema({
+				name: siteConfig.name,
+				description: siteConfig.description,
+				path: "/",
+				operatingSystem: "macOS, Windows, Linux",
+				featureList: homeFeatureList,
+				price: "0",
 			}),
+			organizationSchema(),
+			websiteSchema,
+			faqSchema,
 		),
 	}
 }

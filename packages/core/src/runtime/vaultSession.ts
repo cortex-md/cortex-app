@@ -1,7 +1,7 @@
 import type { SyncPreferences, VaultMetadata, VaultRegistryEntry } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
 import { getVaultFilePath, VAULT_FILES } from "@cortex/platform/utils"
-import { resolveVaultName } from "@cortex/platform/vault"
+import { resolveStoredVaultName } from "@cortex/platform/vault"
 import { useSyncStore } from "../stores/syncStore"
 import { type OpenVaultOptions, useVaultStore } from "../stores/vaultStore"
 
@@ -15,6 +15,7 @@ export interface CreateVaultFromFolderOptions {
 	name: string
 	icon?: string
 	syncPreferences: SyncPreferences
+	createOnboardingNote?: boolean
 }
 
 export function getRegistryOpenOptions(entry: VaultRegistryEntry): OpenVaultOptions {
@@ -32,10 +33,10 @@ export async function openVaultSession(
 }
 
 export async function getDefaultVaultName(folderPath: string): Promise<string> {
-	const metadata = await getPlatform()
-		.fs.readFile(getVaultFilePath(folderPath, VAULT_FILES.vaultMetadata))
+	const vaultFile = await getPlatform()
+		.fs.readFile(getVaultFilePath(folderPath, VAULT_FILES.vault))
 		.catch(() => null)
-	return resolveVaultName(metadata, folderPath) || DEFAULT_VAULT_NAME
+	return resolveStoredVaultName(vaultFile, folderPath) || DEFAULT_VAULT_NAME
 }
 
 export async function resolvePickedFolder(folderPath: string): Promise<PickedFolder> {
@@ -46,14 +47,14 @@ export async function resolvePickedFolder(folderPath: string): Promise<PickedFol
 
 export async function createVaultFromFolder(
 	folderPath: string,
-	{ name, icon, syncPreferences }: CreateVaultFromFolderOptions,
+	{ name, icon, syncPreferences, createOnboardingNote = true }: CreateVaultFromFolderOptions,
 ): Promise<VaultMetadata> {
 	const vaultName = name.trim()
 	if (!vaultName) throw new Error("Vault name cannot be empty.")
 	const vault = await openVaultSession(folderPath, {
 		name: vaultName,
 		icon,
-		createOnboardingNote: true,
+		createOnboardingNote,
 	})
 	await useSyncStore.getState().saveSyncPreferences(vault.path, syncPreferences)
 	return vault

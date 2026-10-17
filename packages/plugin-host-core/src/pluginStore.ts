@@ -100,6 +100,7 @@ type ContributionKind = keyof ContributionSet
 export interface PluginStoreState {
 	plugins: Record<string, PluginRecord>
 	loadErrors: Record<string, string>
+	loadedVaultPath: string | null
 	views: RegisteredView[]
 	sidebarItems: RegisteredSidebarItem[]
 	statusBarItems: RegisteredStatusBarItem[]
@@ -121,6 +122,7 @@ function createInitialState(): PluginStoreState {
 	return {
 		plugins: {},
 		loadErrors: {},
+		loadedVaultPath: null,
 		views: [],
 		sidebarItems: [],
 		statusBarItems: [],

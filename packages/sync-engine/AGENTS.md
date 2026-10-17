@@ -1,7 +1,10 @@
 # AGENTS.md
 
-`@cortex/sync-engine` owns the desktop sync worker used by Electron's UtilityProcess. The server
-HTTP client lives in `@cortex/sync-api`.
+`@cortex/sync-engine` owns the platform-agnostic sync engine. The server HTTP client lives in
+`@cortex/sync-api`. Each platform calls `configureSyncRuntime` once per process with its
+`SyncRuntime` (crypto primitives, `SyncFs`, `SyncPath`, `openDatabase`, `randomUUID`) before any
+engine or key function runs. Desktop provides `apps/desktop/electron/platform/nodeSyncRuntime.ts`
+and runs the engine in Electron's UtilityProcess from `apps/desktop/electron/syncWorker.ts`.
 
 ## Ownership
 
@@ -12,11 +15,13 @@ HTTP client lives in `@cortex/sync-api`.
   fallback. Encryption status reads are HTTP-only and live in `@cortex/sync-api`.
 - `keys.ts`: X25519 identity keys, sealed VEKs (`0x01 || ephPub || AES-GCM(HKDF(shared,
   ephPub||recipientPub, "cortex/vek-seal/v1"))`), Crockford base32 recovery keys, recovery wraps,
-  and fingerprints (`node:crypto` only, usable by the worker)
+  and fingerprints, all through `syncRuntime().crypto`
 - `accountCrypto.ts`: Argon2id (64 MiB, 3 passes) + HKDF account key derivation and
-  `nodeAccountKeyCrypto` for `@cortex/sync-api` account flows (desktop main only). The web app
+  `accountKeyCrypto` for `@cortex/sync-api` account flows. The web app
   mirrors the derivation byte for byte with `hash-wasm` and WebCrypto
-- SQLite `sync.db` schema and accessors (`SyncDb`, `node:sqlite` only)
+- SQLite `sync.db` schema and accessors (`SyncDb`) over the injected synchronous `SqlDatabase`
+- `runtime.ts`: the `SyncRuntime` contract; `bytes.ts`: `Buffer`-equivalent byte helpers (base64,
+  base64url, hex, UTF-8, concat, equality)
 - Queue, cursor, planner, transfer, merge, SSE client, crypto and VEK flows. Ignore rules come from
   `@cortex/platform/sync-rules`, content hashes from `@cortex/platform/hash` (BLAKE3), and
   vault-relative paths from `@cortex/platform/utils` `toVaultRelativePath(path, vaultPath)`
@@ -82,11 +87,14 @@ HTTP client lives in `@cortex/sync-api`.
   unchanged since the adopted base, or read-only → apply the remote; local file gone → delete
   remotely; otherwise upload against the adopted base
 - `protocol.ts`: typed worker ⇄ main messages and RPC correlation
-- `worker.ts` entry for `utilityProcess.fork`
+- `shutdown` (worker RPC, `SyncEngine.shutdown`) waits for the serial lane, closes the session, and
+  closes every open `sync.db` after a WAL checkpoint; desktop main calls it before an update quits
 
 ## Boundaries
 
 - Do not import React, `@cortex/ui`, or renderer code
+- No `node:*`, `Buffer`, `argon2`, `process`, or Electron in `src`; go through `syncRuntime()` and
+  the `bytes.ts` helpers so mobile can provide its own runtime
 - Desktop main process owns the keychain and is the only token refresher; the worker asks main for
   access tokens, refreshes and VEKs through `MainMethods`
 - Server-provided paths must go through `resolveInVault` before touching the filesystem
@@ -95,6 +103,6 @@ HTTP client lives in `@cortex/sync-api`.
 ## Validation
 
 ```bash
-bun run test -- --project @cortex/sync-engine
+bun run test -- --project desktop-electron
 npx tsc -b packages/sync-engine
 ```

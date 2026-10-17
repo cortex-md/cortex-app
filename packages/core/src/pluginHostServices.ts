@@ -4,7 +4,7 @@ import { useTagsStore } from "./stores/tagsStore"
 import { useVaultStore } from "./stores/vaultStore"
 import { type OpenTabOptions, useWorkspaceStore } from "./stores/workspaceStore"
 import { requireBookmarkPath } from "./utils/bookmarkPaths"
-import { extractAllTags, parseFrontmatter } from "./utils/frontmatter"
+import { extractAllTags, parseNoteFrontmatter } from "./utils/frontmatter"
 
 export const PLUGIN_MARKDOWN_NOTE_VIEW_ID = "plugin-markdown-note"
 
@@ -142,7 +142,7 @@ export function createCoreServices() {
 		},
 		metadata: {
 			parseFrontmatter: (content: string) =>
-				parseFrontmatter(content).frontmatter as Record<string, unknown> | null,
+				parseNoteFrontmatter(content).frontmatter as Record<string, unknown> | null,
 			extractTags: extractAllTags,
 			getAllTags: () =>
 				useTagsStore

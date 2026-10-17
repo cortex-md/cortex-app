@@ -1,5 +1,7 @@
 import {
+	getLeftSidebarMinWidth,
 	LEFT_SIDEBAR_WIDTH_BOUNDS,
+	useAppStore,
 	useUIStore,
 	useVaultStore,
 	useWorkspaceStore,
@@ -7,11 +9,13 @@ import {
 import { getPlatform } from "@cortex/platform"
 import { CORE_OWNER, usePluginStore } from "@cortex/plugin-host-core"
 import { useSettingsStore } from "@cortex/settings"
-import { Button } from "@cortex/ui"
-import { PanelLeftIcon } from "lucide-react"
+import { Button, SimpleTooltip, Toaster, TooltipProvider } from "@cortex/ui"
+import { PanelLeftIcon, SettingsIcon } from "lucide-react"
 import {
 	type ComponentType,
 	type CSSProperties,
+	createElement,
+	type FunctionComponent,
 	lazy,
 	memo,
 	type ReactNode,
@@ -19,10 +23,20 @@ import {
 	useEffect,
 	useMemo,
 } from "react"
+import {
+	authModal,
+	commandPaletteModal,
+	createFromTemplateModal,
+	manageAccessModal,
+	noteHistoryModal,
+	noteShareModal,
+	obsidianImportModal,
+	quickFinderModal,
+	resetPasswordModal,
+	tagPickerModal,
+} from "@/utils/modals"
 import { AppLifecycle } from "./bootstrap/AppLifecycle"
 import { initializeDesktopHost } from "./bootstrap/desktopHost"
-import { resetPasswordModal } from "./features/auth/resetPasswordModal"
-import { newDatabaseModal } from "./features/databases/newDatabaseModal"
 import { EmbedHost } from "./features/embeds/EmbedHost"
 import { SidebarViewStage } from "./features/file-explorer/SidebarViewStage"
 import {
@@ -36,16 +50,20 @@ import { openMarketplaceView } from "./features/marketplace/openMarketplaceView"
 import { PluginModalHost } from "./features/plugins/rendering/PluginModalHost"
 import { PluginViewRenderer } from "./features/plugins/rendering/PluginViewRenderer"
 import { RightSidebar } from "./features/right-sidebar/RightSidebar"
+import { openSettings, settingsModal } from "./features/settings/settingsModal"
+import { useRibbonVisible } from "./features/sidebar/ribbon"
 import { SidebarRail } from "./features/sidebar/SidebarRail"
+import { SidebarViewStrip } from "./features/sidebar/SidebarViewStrip"
 import { DragPreview } from "./features/split-view/DragPreview"
 import { PaneView } from "./features/split-view/PaneView"
 import { StatusBar } from "./features/statusbar/StatusBar"
-import { manageAccessModal } from "./features/sync/manageAccessModal"
-import { noteHistoryModal } from "./features/sync/noteHistoryModal"
-import { noteShareModal } from "./features/sync/noteShareModal"
 import { deletedNotesModal, syncLogsModal } from "./features/sync/syncDialogStores"
-import { createVaultModal } from "./features/vault/createVaultModalStore"
+import { shareTemplateModal } from "./features/templates/shareActions"
+import { newTemplateModal } from "./features/templates/templateActions"
 import { VaultSwitcher } from "./features/vault/VaultSwitcher"
+import { addVaultModal } from "./features/vault/vaultActions"
+import { WritingModeToolbar } from "./features/workspace-mode/WritingModeToolbar"
+import { useWritingMode } from "./features/workspace-mode/workspaceMode"
 import { useHasOpened } from "./hooks/useHasOpened"
 import { useSidebarResize } from "./hooks/useSidebarResize"
 import { scheduleIdleWork } from "./utils/scheduleIdleWork"
@@ -61,13 +79,29 @@ interface DeferredOverlayProps {
 	children: ReactNode
 }
 
-function lazyNamed<M extends Record<string, unknown>>(load: () => Promise<M>, name: keyof M) {
-	return lazy(() => load().then((module) => ({ default: module[name] as ComponentType })))
+type PreloadableComponent = FunctionComponent & { preload: () => Promise<void> }
+
+function lazyNamed<M extends Record<string, unknown>>(
+	load: () => Promise<M>,
+	name: keyof M,
+): PreloadableComponent {
+	let resolved: ComponentType | null = null
+	const resolve = () =>
+		load().then((module) => {
+			resolved = module[name] as ComponentType
+			return resolved
+		})
+	const Lazy = lazy(() => resolve().then((component) => ({ default: component })))
+	const Preloadable: FunctionComponent = () =>
+		resolved ? createElement(resolved) : createElement(Lazy)
+	return Object.assign(Preloadable, { preload: () => resolve().then(() => undefined) })
 }
 
 const overlayLoaders = {
 	auth: () => import("./features/auth/AuthModal"),
 	createFromTemplate: () => import("./features/templates/CreateFromTemplateDialog"),
+	newTemplate: () => import("./features/templates/NewTemplateDialog"),
+	shareTemplate: () => import("./features/templates/ShareTemplateDialog"),
 	noteHistory: () => import("./features/sync/NoteHistoryPanel"),
 	noteShare: () => import("./features/sync/NoteShareDialog"),
 	manageAccess: () => import("./features/sync/ManageAccessDialog"),
@@ -76,8 +110,10 @@ const overlayLoaders = {
 	commandPalette: () => import("./features/command-palette/CommandPalette"),
 	tagPicker: () => import("./features/tags/TagPicker"),
 	syncDialogs: () => import("./features/sync/syncDialogs"),
-	createVault: () => import("./features/vault/CreateVaultModal"),
-	newDatabase: () => import("./features/databases/NewDatabaseDialog"),
+	addVault: () => import("./features/vault/add-vault/AddVaultDialog"),
+	obsidianImport: () => import("./features/import-export/ObsidianImportDialog"),
+	settings: () => import("./features/settings/SettingsOverlay"),
+	workspaceModePrompt: () => import("./features/workspace-mode/WorkspaceModePrompt"),
 }
 
 const LazyAuthModal = lazyNamed(overlayLoaders.auth, "AuthModal")
@@ -85,6 +121,8 @@ const LazyCreateFromTemplateDialog = lazyNamed(
 	overlayLoaders.createFromTemplate,
 	"CreateFromTemplateDialog",
 )
+const LazyNewTemplateHost = lazyNamed(overlayLoaders.newTemplate, "NewTemplateHost")
+const LazyShareTemplateHost = lazyNamed(overlayLoaders.shareTemplate, "ShareTemplateHost")
 const LazyNoteHistoryHost = lazyNamed(overlayLoaders.noteHistory, "NoteHistoryHost")
 const LazyNoteShareHost = lazyNamed(overlayLoaders.noteShare, "NoteShareHost")
 const LazyManageAccessHost = lazyNamed(overlayLoaders.manageAccess, "ManageAccessHost")
@@ -93,23 +131,47 @@ const LazyQuickFinder = lazyNamed(overlayLoaders.quickFinder, "QuickFinder")
 const LazyCommandPalette = lazyNamed(overlayLoaders.commandPalette, "CommandPalette")
 const LazyTagPicker = lazyNamed(overlayLoaders.tagPicker, "TagPicker")
 const LazySyncDialogsHost = lazyNamed(overlayLoaders.syncDialogs, "SyncDialogsHost")
-const LazyCreateVaultModalHost = lazyNamed(overlayLoaders.createVault, "CreateVaultModalHost")
-const LazyNewDatabaseHost = lazyNamed(overlayLoaders.newDatabase, "NewDatabaseHost")
+const LazyAddVaultDialogHost = lazyNamed(overlayLoaders.addVault, "AddVaultDialogHost")
+const LazyObsidianImportHost = lazyNamed(overlayLoaders.obsidianImport, "ObsidianImportHost")
+const LazySettingsOverlayHost = lazyNamed(overlayLoaders.settings, "SettingsOverlayHost")
+const LazyWorkspaceModePrompt = lazyNamed(overlayLoaders.workspaceModePrompt, "WorkspaceModePrompt")
+
+const overlayComponents = [
+	LazyQuickFinder,
+	LazyCommandPalette,
+	LazyTagPicker,
+	LazyAuthModal,
+	LazyCreateFromTemplateDialog,
+	LazyNewTemplateHost,
+	LazyShareTemplateHost,
+	LazyNoteHistoryHost,
+	LazyNoteShareHost,
+	LazyManageAccessHost,
+	LazyResetPasswordHost,
+	LazySyncDialogsHost,
+	LazyAddVaultDialogHost,
+	LazyObsidianImportHost,
+	LazySettingsOverlayHost,
+]
 
 function preloadOverlays(): () => void {
 	return scheduleIdleWork(() => {
-		for (const load of Object.values(overlayLoaders)) void load()
+		for (const component of overlayComponents) void component.preload()
 	})
 }
 
-const COLLAPSED_SIDEBAR_WIDTH = 56
+const RIBBON_WIDTH = 56
+
+function useCollapsedSidebarWidth(): number {
+	return useRibbonVisible() ? RIBBON_WIDTH : 0
+}
 
 function toggleLeftSidebar() {
 	useUIStore.getState().toggleLeftSidebar()
 }
 
 function openGeneralSettings() {
-	useUIStore.getState().openSettings("general")
+	openSettings("general")
 }
 
 function openPluginMarketplace() {
@@ -151,30 +213,35 @@ function SplitPaneLeaf({ paneId }: SplitPaneLeafProps) {
 const AppTitlebar = memo(function AppTitlebar({ hasVault }: AppShellProps) {
 	const leftSidebarCollapsed = useUIStore((s) => s.leftSidebarCollapsed)
 	const leftSidebarWidth = useUIStore((s) => s.leftSidebarWidth)
+	const collapsedWidth = useCollapsedSidebarWidth()
+	const writingMode = useWritingMode()
+	const sidebarWidth = leftSidebarCollapsed ? collapsedWidth : leftSidebarWidth
 	const titlebarStyle = {
-		"--app-titlebar-drag-width": `${leftSidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH : leftSidebarWidth}px`,
-		"--app-sidebar-width": `${leftSidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH : leftSidebarWidth}px`,
+		"--app-titlebar-drag-width": `${sidebarWidth}px`,
+		"--app-sidebar-width": `${sidebarWidth}px`,
 	} as CSSProperties
 
 	return (
-		<div className="app-titlebar h-10 flex-shrink-0" style={titlebarStyle}>
+		<div className="app-titlebar h-[var(--titlebar-height)] flex-shrink-0" style={titlebarStyle}>
 			<div className="app-titlebar-drag-region" aria-hidden="true" />
 			{hasVault && (
-				<Button
-					type="button"
-					variant="ghost"
-					size="icon-sm"
-					className={`app-sidebar-toggle ${
-						leftSidebarCollapsed ? "app-sidebar-toggle--collapsed" : ""
-					}`}
-					aria-label={leftSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar"}
-					aria-pressed={!leftSidebarCollapsed}
-					title={leftSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar"}
-					onClick={toggleLeftSidebar}
-				>
-					<PanelLeftIcon size={16} strokeWidth={2} />
-				</Button>
+				<SimpleTooltip label={leftSidebarCollapsed ? "Show sidebar" : "Hide sidebar"} side="bottom">
+					<Button
+						type="button"
+						variant="secondary"
+						size="icon-sm"
+						className={`app-sidebar-toggle ${
+							leftSidebarCollapsed ? "app-sidebar-toggle--collapsed" : ""
+						}`}
+						aria-label={leftSidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+						aria-pressed={!leftSidebarCollapsed}
+						onClick={toggleLeftSidebar}
+					>
+						<PanelLeftIcon size={17} strokeWidth={2} />
+					</Button>
+				</SimpleTooltip>
 			)}
+			{hasVault && writingMode && <WritingModeToolbar />}
 		</div>
 	)
 })
@@ -198,20 +265,46 @@ const SidebarViews = memo(function SidebarViews() {
 	const sidebarViews = useSidebarViews()
 	const leftSidebarView = useUIStore((s) => s.leftSidebarView)
 	const leftSidebarCollapsed = useUIStore((s) => s.leftSidebarCollapsed)
+	const showRibbon = useRibbonVisible()
 	const activeSidebarView = getAvailableSidebarViewId(sidebarViews, leftSidebarView)
 
 	return (
 		<div className="sidebar-body">
-			<SidebarRail
-				items={sidebarViews}
-				activeId={activeSidebarView}
-				collapsed={leftSidebarCollapsed}
-				onSelect={selectSidebarView}
-				onOpenMarketplace={openPluginMarketplace}
-				onOpenSettings={openGeneralSettings}
-			/>
+			{showRibbon && (
+				<SidebarRail
+					items={sidebarViews}
+					activeId={activeSidebarView}
+					collapsed={leftSidebarCollapsed}
+					onSelect={selectSidebarView}
+					onOpenMarketplace={openPluginMarketplace}
+					onOpenSettings={openGeneralSettings}
+				/>
+			)}
 			<div className="sidebar-panel" inert={leftSidebarCollapsed}>
-				<VaultSwitcher />
+				<div className="sidebar-panel-top">
+					<VaultSwitcher />
+					{!showRibbon && (
+						<SimpleTooltip label="Settings" side="bottom">
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon-sm"
+								className="sidebar-panel-top-action"
+								aria-label="Settings"
+								onClick={openGeneralSettings}
+							>
+								<SettingsIcon size={16} strokeWidth={2} />
+							</Button>
+						</SimpleTooltip>
+					)}
+				</div>
+				{!showRibbon && (
+					<SidebarViewStrip
+						items={sidebarViews}
+						activeId={activeSidebarView}
+						onSelect={selectSidebarView}
+					/>
+				)}
 				<div className="min-h-0 flex-1 overflow-hidden">
 					<SidebarViewStage
 						activeId={activeSidebarView}
@@ -228,10 +321,13 @@ function SidebarShell() {
 	const leftSidebarCollapsed = useUIStore((s) => s.leftSidebarCollapsed)
 	const leftSidebarWidth = useUIStore((s) => s.leftSidebarWidth)
 	const setLeftSidebarWidth = useUIStore((s) => s.setLeftSidebarWidth)
+	const collapsedWidth = useCollapsedSidebarWidth()
+	const minWidth = getLeftSidebarMinWidth(collapsedWidth > 0)
 	const { sidebarElementRef, handleSidebarResizeStart } = useSidebarResize(
 		leftSidebarCollapsed,
 		leftSidebarWidth,
 		setLeftSidebarWidth,
+		minWidth,
 	)
 
 	return (
@@ -240,11 +336,11 @@ function SidebarShell() {
 				ref={sidebarElementRef}
 				className={`app-sidebar flex-shrink-0 flex flex-col overflow-hidden ${
 					leftSidebarCollapsed ? "app-sidebar--collapsed" : ""
-				}`}
+				} ${collapsedWidth === 0 ? "app-sidebar--no-ribbon" : ""}`}
 				style={{
-					width: leftSidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH : leftSidebarWidth,
-					minWidth: leftSidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH : LEFT_SIDEBAR_WIDTH_BOUNDS.min,
-					maxWidth: leftSidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH : LEFT_SIDEBAR_WIDTH_BOUNDS.max,
+					width: leftSidebarCollapsed ? collapsedWidth : leftSidebarWidth,
+					minWidth: leftSidebarCollapsed ? collapsedWidth : minWidth,
+					maxWidth: leftSidebarCollapsed ? collapsedWidth : LEFT_SIDEBAR_WIDTH_BOUNDS.max,
 				}}
 				aria-label="Sidebar panel"
 			>
@@ -264,11 +360,13 @@ function SidebarShell() {
 function WorkspaceShell() {
 	const leftSidebarCollapsed = useUIStore((s) => s.leftSidebarCollapsed)
 	const splitTree = useWorkspaceStore((s) => s.splitTree)
+	const showRibbon = useRibbonVisible()
 
 	return (
 		<main
 			className="app-main flex-1 overflow-hidden flex flex-col min-w-0"
 			data-left-sidebar-collapsed={leftSidebarCollapsed ? "true" : undefined}
+			data-ribbon={showRibbon ? undefined : "hidden"}
 		>
 			<div className="workspace-body">
 				<div className="workspace-split">
@@ -287,25 +385,38 @@ function DeferredOverlay({ open, children }: DeferredOverlayProps) {
 	return <Suspense fallback={null}>{children}</Suspense>
 }
 
+function useWorkspaceModePromptOpen(): boolean {
+	const hasVault = useVaultStore((state) => state.vault !== null)
+	const workspaceModeChosen = useAppStore((state) => state.workspaceModeChosen)
+	return hasVault && workspaceModeChosen === false
+}
+
 const AppOverlays = memo(function AppOverlays() {
-	const authOpen = useUIStore((s) => s.authOpen)
-	const createFromTemplateOpen = useUIStore((s) => s.createFromTemplateOpen)
-	const quickFinderOpen = useUIStore((s) => s.quickFinderOpen)
-	const commandPaletteOpen = useUIStore((s) => s.commandPaletteOpen)
-	const tagPickerOpen = useUIStore((s) => s.tagPickerOpen)
+	const authOpen = authModal.useTarget() !== null
+	const createFromTemplateOpen = createFromTemplateModal.useTarget() !== null
+	const quickFinderOpen = quickFinderModal.useTarget() !== null
+	const commandPaletteOpen = commandPaletteModal.useTarget() !== null
+	const tagPickerOpen = tagPickerModal.useTarget() !== null
 	const noteHistoryOpen = noteHistoryModal.useTarget() !== null
 	const noteShareOpen = noteShareModal.useTarget() !== null
 	const manageAccessOpen = manageAccessModal.useTarget() !== null
 	const resetPasswordOpen = resetPasswordModal.useTarget() !== null
 	const syncLogsOpen = syncLogsModal.useTarget() !== null
 	const deletedNotesOpen = deletedNotesModal.useTarget() !== null
-	const createVaultOpen = createVaultModal.useTarget() !== null
-	const newDatabaseOpen = newDatabaseModal.useTarget() !== null
+	const addVaultOpen = addVaultModal.useTarget() !== null
+	const newTemplateOpen = newTemplateModal.useTarget() !== null
+	const shareTemplateOpen = shareTemplateModal.useTarget() !== null
+	const obsidianImportOpen = obsidianImportModal.useTarget() !== null
+	const settingsOpen = settingsModal.useTarget() !== null
+	const workspaceModePromptOpen = useWorkspaceModePromptOpen()
 
 	useEffect(preloadOverlays, [])
 
 	return (
 		<>
+			<DeferredOverlay open={workspaceModePromptOpen}>
+				<LazyWorkspaceModePrompt />
+			</DeferredOverlay>
 			<DeferredOverlay open={authOpen}>
 				<LazyAuthModal />
 			</DeferredOverlay>
@@ -321,7 +432,14 @@ const AppOverlays = memo(function AppOverlays() {
 			<DeferredOverlay open={createFromTemplateOpen}>
 				<LazyCreateFromTemplateDialog />
 			</DeferredOverlay>
+			<DeferredOverlay open={newTemplateOpen}>
+				<LazyNewTemplateHost />
+			</DeferredOverlay>
+			<DeferredOverlay open={shareTemplateOpen}>
+				<LazyShareTemplateHost />
+			</DeferredOverlay>
 			<EmbedHost />
+			<Toaster />
 			<DeferredOverlay open={noteHistoryOpen}>
 				<LazyNoteHistoryHost />
 			</DeferredOverlay>
@@ -337,11 +455,14 @@ const AppOverlays = memo(function AppOverlays() {
 			<DeferredOverlay open={syncLogsOpen || deletedNotesOpen}>
 				<LazySyncDialogsHost />
 			</DeferredOverlay>
-			<DeferredOverlay open={createVaultOpen}>
-				<LazyCreateVaultModalHost />
+			<DeferredOverlay open={addVaultOpen}>
+				<LazyAddVaultDialogHost />
 			</DeferredOverlay>
-			<DeferredOverlay open={newDatabaseOpen}>
-				<LazyNewDatabaseHost />
+			<DeferredOverlay open={obsidianImportOpen}>
+				<LazyObsidianImportHost />
+			</DeferredOverlay>
+			<DeferredOverlay open={settingsOpen}>
+				<LazySettingsOverlayHost />
 			</DeferredOverlay>
 			<PluginModalHost />
 			<DragPreview />
@@ -383,17 +504,21 @@ function MainWindowReady() {
 export default function App() {
 	const hasVault = useVaultStore((s) => s.vault !== null)
 	const nativeWindowEffects = useSettingsStore((s) => s.settings.appearance.nativeWindowEffects)
+	const workspaceMode = useSettingsStore((s) => s.settings.appearance.workspaceMode)
 
 	return (
-		<div
-			className="app-shell flex flex-col h-screen bg-bg-primary text-text-primary"
-			data-native-window-effects={nativeWindowEffects ? "enabled" : "disabled"}
-		>
-			<AppLifecycle />
-			<AppContent hasVault={hasVault} />
-			<AppTitlebar hasVault={hasVault} />
-			<AppOverlays />
-			<MainWindowReady />
-		</div>
+		<TooltipProvider delayDuration={400} skipDelayDuration={200}>
+			<div
+				className="app-shell flex flex-col h-screen bg-bg-primary text-text-primary"
+				data-native-window-effects={nativeWindowEffects && hasVault ? "enabled" : "disabled"}
+				data-workspace-mode={hasVault ? workspaceMode : undefined}
+			>
+				<AppLifecycle />
+				<AppContent hasVault={hasVault} />
+				<AppTitlebar hasVault={hasVault} />
+				<AppOverlays />
+				<MainWindowReady />
+			</div>
+		</TooltipProvider>
 	)
 }

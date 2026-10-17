@@ -1,11 +1,12 @@
-import { type FSWatcher, promises as fs, watch } from "node:fs"
-import { join, relative } from "node:path"
+import { type FSWatcher, promises as fs, type Stats, watch } from "node:fs"
+import { basename, join, relative } from "node:path"
 import type { WatchEvent, WatchOptions } from "@cortex/platform"
 import { normalizePath } from "@cortex/platform/utils"
 import { isHiddenVaultPath } from "@cortex/platform/vault"
 import { webContents } from "electron"
 import { EVENT_CHANNEL_PREFIX } from "../contract"
 import { getInvokeSender } from "../ipc/sender"
+import { statsToFileEntry } from "./fs"
 import { notifyLocalFileChange } from "./syncBridge"
 
 const SETTLE_DELAY_MS = 100
@@ -25,24 +26,23 @@ export function startWatching(root: string, options: WatchOptions): string {
 	const includeHidden = options.includeHidden ?? false
 	const pending: VaultWatcher["pending"] = new Map()
 
-	const emit = (absolutePath: string, kind: WatchEvent["kind"], isFile: boolean) => {
+	const emit = (absolutePath: string, kind: WatchEvent["kind"], stats: Stats | null) => {
 		if (!isHiddenVaultPath(relative(root, absolutePath), { includeHidden })) {
 			const owner = ownerId === null ? null : webContents.fromId(ownerId)
-			owner?.send(`${EVENT_CHANNEL_PREFIX}vault-file-changed`, {
-				path: normalizePath(absolutePath),
-				kind,
-				watcherId,
-			})
+			const path = normalizePath(absolutePath)
+			const event: WatchEvent = { path, kind, watcherId }
+			if (stats) event.entry = statsToFileEntry(path, basename(absolutePath), stats)
+			owner?.send(`${EVENT_CHANNEL_PREFIX}vault-file-changed`, event)
 		}
-		if (isFile || kind === "deleted") notifyLocalFileChange(absolutePath, kind)
+		if (stats?.isFile() || kind === "deleted") notifyLocalFileChange(absolutePath, kind)
 	}
 
 	const settle = async (absolutePath: string, changed: boolean) => {
 		pending.delete(absolutePath)
 		const stats = await fs.stat(absolutePath).catch(() => null)
 		if (!watchers.has(watcherId)) return
-		if (!stats) emit(absolutePath, "deleted", false)
-		else emit(absolutePath, changed && stats.isFile() ? "modified" : "created", stats.isFile())
+		if (!stats) emit(absolutePath, "deleted", null)
+		else emit(absolutePath, changed && stats.isFile() ? "modified" : "created", stats)
 	}
 
 	const watcher = watch(root, { recursive: true }, (eventType, fileName) => {
@@ -78,4 +78,8 @@ export async function stopWatching(watcherId: string): Promise<void> {
 export async function stopWatchersFor(ownerId: number): Promise<void> {
 	const owned = [...watchers].filter(([, entry]) => entry.ownerId === ownerId)
 	await Promise.all(owned.map(([watcherId]) => stopWatching(watcherId)))
+}
+
+export async function stopAllWatchers(): Promise<void> {
+	await Promise.all([...watchers.keys()].map((watcherId) => stopWatching(watcherId)))
 }

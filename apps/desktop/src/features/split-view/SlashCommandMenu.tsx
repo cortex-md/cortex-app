@@ -1,14 +1,5 @@
 import type { SlashCommandItem, SlashCommandMenuState } from "@cortex/editor/slash-commands"
-import {
-	Command,
-	CommandEmpty,
-	CommandFooter,
-	CommandFooterHint,
-	CommandFooterKey,
-	CommandGroup,
-	CommandItem,
-	CommandList,
-} from "@cortex/ui"
+import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@cortex/ui"
 import {
 	BoldIcon,
 	Code2Icon,
@@ -18,6 +9,7 @@ import {
 	Heading3Icon,
 	ImageIcon,
 	ItalicIcon,
+	LayoutTemplateIcon,
 	LinkIcon,
 	ListIcon,
 	ListOrderedIcon,
@@ -39,12 +31,6 @@ interface SlashCommandMenuProps {
 	emptyMessage?: string
 	ItemIcon?: ComponentType<{ item: SlashCommandItem }>
 }
-
-const slashCommandFooterHints = [
-	{ keys: ["↑", "↓"], label: "navigate" },
-	{ keys: ["Return"], label: "run" },
-	{ keys: ["Esc"], label: "close" },
-]
 
 const slashCommandIcons: Record<string, LucideIcon> = {
 	"format.heading-1": Heading1Icon,
@@ -138,25 +124,13 @@ export function SlashCommandMenu({
 									onSelect={() => state.execute(command.id)}
 								>
 									<ItemIcon item={command} />
-									<span className="command-item-copy">
-										<span className="command-item-title">{command.label}</span>
-										<span className="command-item-meta">{command.category}</span>
-									</span>
+									<span className="min-w-0 flex-1 truncate">{command.label}</span>
+									<small>{command.category}</small>
 								</CommandItem>
 							))}
 						</CommandGroup>
 					)}
 				</CommandList>
-				<CommandFooter>
-					{slashCommandFooterHints.map((hint) => (
-						<CommandFooterHint key={`${hint.keys.join("-")}-${hint.label}`}>
-							{hint.keys.map((key) => (
-								<CommandFooterKey key={key}>{key}</CommandFooterKey>
-							))}
-							{hint.label}
-						</CommandFooterHint>
-					))}
-				</CommandFooter>
 			</Command>
 		</div>,
 		document.body,
@@ -164,7 +138,8 @@ export function SlashCommandMenu({
 }
 
 function SlashCommandIcon({ item }: { item: SlashCommandItem }) {
-	const Icon = slashCommandIcons[item.id] ?? CodeIcon
+	const Icon =
+		slashCommandIcons[item.id] ?? (item.id.startsWith("template:") ? LayoutTemplateIcon : CodeIcon)
 
 	return (
 		<span className="slash-command-icon" aria-hidden="true">

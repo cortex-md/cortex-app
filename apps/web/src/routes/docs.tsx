@@ -1,15 +1,12 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router"
-import { siteConfig } from "../config/site"
+import { docsDescription } from "../content/docs"
 import docsCss from "../features/docs/docs.css?url"
-import { createSeoHead } from "../seo/metadata"
-
-const docsDescription =
-	"Documentation for Cortex, a local-first Markdown workspace built around plain files, optional encrypted sync, and extension surfaces."
+import { createSeoHead, pageTitle } from "../seo/metadata"
 
 export const Route = createFileRoute("/docs")({
 	head: () => {
 		const seoHead = createSeoHead({
-			title: `Docs — ${siteConfig.name}`,
+			title: pageTitle("Docs"),
 			description: docsDescription,
 			path: "/docs",
 		})

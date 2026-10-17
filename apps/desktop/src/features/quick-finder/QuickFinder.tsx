@@ -1,23 +1,28 @@
+import { formatHotkeyDisplay } from "@cortex/commands/hotkeys"
 import type { OpenTabOptions } from "@cortex/core"
 import {
 	formatRelativeTime,
-	getFileModifiedTimes,
 	getNoteTitle,
 	getParentPath,
 	getRecentFilePaths,
 	joinPath,
+	selectActiveTabFilePath,
 	toVaultRelativePath,
 	useBookmarksStore,
 	useUIStore,
+	useVaultModifiedTimes,
 	useVaultStore,
 	useWorkspaceStore,
 	type VaultMetadata,
 } from "@cortex/core"
-import { formatHotkeyDisplay } from "@cortex/hotkeys"
-import { type SearchResult, type SearchSnippet, useSearchStore } from "@cortex/search"
+import {
+	type SearchMatchRange,
+	type SearchResult,
+	type SearchSnippet,
+	useSearchStore,
+} from "@cortex/search"
 import {
 	CommandDialog,
-	CommandEmpty,
 	CommandFooterHints,
 	CommandGroup,
 	CommandInput,
@@ -25,47 +30,74 @@ import {
 	CommandList,
 	CommandShortcut,
 	Kbd,
+	SimpleTooltip,
 	Toggle,
 } from "@cortex/ui"
-import { PanelRightIcon } from "lucide-react"
+import { PanelRightIcon, PlusIcon } from "lucide-react"
 import type { KeyboardEvent } from "react"
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback"
-import { HighlightedSnippet } from "../search/HighlightedSnippet"
+import { useMinuteNow } from "@/hooks/useMinuteNow"
+import {
+	openCommandPaletteFromQuickFinder,
+	type QuickFinderRequest,
+	quickFinderModal,
+	toggleQuickFinder,
+} from "@/utils/modals"
+import { getFileKindIcon } from "../file-explorer/fileKindIcon"
+import { HighlightedSnippet, HighlightedText } from "../search/HighlightedSnippet"
 import { QuickFinderPreview } from "./QuickFinderPreview"
+import { findTitleRanges, formatFolderLabel } from "./quickFinderText"
+
+type QuickFinderSection = "recent" | "notes" | "text"
 
 interface QuickFinderOpenItem {
-	type: "recent" | "search"
+	type: "open"
+	section: QuickFinderSection
 	value: string
 	title: string
+	titleRanges: readonly SearchMatchRange[]
 	folder: string
 	filePath: string
 	snippet?: SearchSnippet
 }
 
-const QUICK_FINDER_RESULT_LIMIT = 20
-const CONTENT_SEARCH_DELAY_MS = 120
-const MIN_CONTENT_QUERY_LENGTH = 3
-
 interface QuickFinderCreateItem {
 	type: "create"
 	value: string
-	title: string
 	query: string
+	standalone: boolean
 }
 
 type QuickFinderItem = QuickFinderOpenItem | QuickFinderCreateItem
 
+interface QuickFinderResults {
+	query: string
+	results: SearchResult[]
+}
+
+interface PendingOpen {
+	newTab: boolean
+	split: boolean
+}
+
+const QUICK_FINDER_RESULT_LIMIT = 20
+const CONTENT_SEARCH_DELAY_MS = 120
+const MIN_CONTENT_QUERY_LENGTH = 3
+const COMMANDS_PREFIX = ">"
+const EMPTY_RESULTS: QuickFinderResults = { query: "", results: [] }
+
+const SECTION_HEADINGS: Record<QuickFinderSection, string> = {
+	recent: "Recent",
+	notes: "Notes",
+	text: "In text",
+}
+
 const QUICK_FINDER_FOOTER_HINTS = [
-	{ keys: ["↑", "↓"], label: "navigate" },
-	{ keys: ["Return"], label: "open" },
-	{ keys: [formatHotkeyDisplay("mod"), "Return"], label: "new tab" },
-	{
-		keys: [formatHotkeyDisplay("mod"), formatHotkeyDisplay("shift"), "Return"],
-		label: "open right",
-	},
-	{ keys: [formatHotkeyDisplay("shift"), "Return"], label: "create" },
-	{ keys: [">"], label: "commands" },
+	{ keys: ["↵"], label: "Open" },
+	{ keys: [formatHotkeyDisplay("mod"), "↵"], label: "New tab" },
+	{ keys: [formatHotkeyDisplay("shift"), "↵"], label: "Create" },
+	{ keys: [COMMANDS_PREFIX], label: "Commands", align: "end" as const },
 ]
 
 function folderFromPath(filePath: string, vaultPath: string): string {
@@ -90,95 +122,195 @@ function getSelectedCommandValue(commandElement: Element): string {
 	)
 }
 
+function groupOpenItems(items: readonly QuickFinderOpenItem[]) {
+	const groups: { section: QuickFinderSection; items: QuickFinderOpenItem[] }[] = []
+	for (const item of items) {
+		const last = groups.at(-1)
+		if (last?.section === item.section) last.items.push(item)
+		else groups.push({ section: item.section, items: [item] })
+	}
+	return groups
+}
+
 function QuickFinderOpenRow({
 	item,
-	modifiedAt,
+	when,
+	showFolderColumn,
 }: {
 	item: QuickFinderOpenItem
-	modifiedAt: number | undefined
+	when: string
+	showFolderColumn: boolean
+}) {
+	const Icon = getFileKindIcon(item.filePath)
+	const folderLabel = formatFolderLabel(item.folder)
+	return (
+		<>
+			<span className="quick-finder-icon" aria-hidden="true">
+				<Icon />
+			</span>
+			<span className="quick-finder-copy">
+				<span className="command-item-title">
+					<HighlightedText text={item.title} ranges={item.titleRanges} />
+				</span>
+				{item.snippet ? (
+					<span className="quick-finder-sub quick-finder-snippet">
+						<HighlightedSnippet snippet={item.snippet} />
+					</span>
+				) : (
+					folderLabel && <span className="quick-finder-sub">{folderLabel}</span>
+				)}
+			</span>
+			{item.snippet && showFolderColumn && folderLabel && (
+				<span className="quick-finder-folder">{folderLabel}</span>
+			)}
+			{when && <span className="quick-finder-when">{when}</span>}
+		</>
+	)
+}
+
+function QuickFinderCreateRow({
+	item,
+	folderLabel,
+}: {
+	item: QuickFinderCreateItem
+	folderLabel: string
 }) {
 	return (
 		<>
-			<span className="command-item-copy">
-				<span className="quick-finder-path">
-					{item.folder && <span className="quick-finder-dir">{item.folder}/</span>}
-					<span className="quick-finder-name">{item.title}</span>
-				</span>
-				{item.snippet && (
-					<span className="quick-finder-snippet">
-						<HighlightedSnippet snippet={item.snippet} />
-					</span>
-				)}
-			</span>
-			{modifiedAt && (
-				<span className="quick-finder-when">{formatRelativeTime(modifiedAt, "short")}</span>
+			<PlusIcon className="quick-finder-create-icon" aria-hidden="true" />
+			<span className="command-item-title">Create “{item.query}”</span>
+			{item.standalone && folderLabel && (
+				<span className="quick-finder-create-folder">in {folderLabel}</span>
+			)}
+			<CommandShortcut>
+				{item.standalone ? "↵" : `${formatHotkeyDisplay("shift")}↵`}
+			</CommandShortcut>
+		</>
+	)
+}
+
+const QuickFinderRows = memo(function QuickFinderRows({
+	openItems,
+	createItem,
+	activeFilePath,
+	createFolderLabel,
+	modifiedTimes,
+	showFolderColumn,
+	onSelect,
+}: {
+	openItems: QuickFinderOpenItem[]
+	createItem: QuickFinderCreateItem | null
+	activeFilePath: string | undefined
+	createFolderLabel: string
+	modifiedTimes: ReadonlyMap<string, number>
+	showFolderColumn: boolean
+	onSelect: (item: QuickFinderItem) => void
+}) {
+	const now = useMinuteNow()
+	return (
+		<>
+			{groupOpenItems(openItems).map((group) => (
+				<CommandGroup key={group.section} heading={SECTION_HEADINGS[group.section]}>
+					{group.items.map((item) => (
+						<CommandItem
+							key={item.value}
+							value={item.value}
+							className="quick-finder-row"
+							onSelect={() => onSelect(item)}
+						>
+							<QuickFinderOpenRow
+								item={item}
+								showFolderColumn={showFolderColumn}
+								when={
+									item.section === "recent" && item.filePath === activeFilePath
+										? "Open"
+										: formatRelativeTime(modifiedTimes.get(item.filePath), "short", now)
+								}
+							/>
+						</CommandItem>
+					))}
+				</CommandGroup>
+			))}
+			{createItem && (
+				<CommandGroup>
+					<CommandItem
+						value={createItem.value}
+						className="quick-finder-create"
+						onSelect={() => onSelect(createItem)}
+					>
+						<QuickFinderCreateRow item={createItem} folderLabel={createFolderLabel} />
+					</CommandItem>
+				</CommandGroup>
 			)}
 		</>
 	)
-}
-
-function QuickFinderCreateRow({ item }: { item: QuickFinderCreateItem }) {
-	return (
-		<>
-			<span className="command-item-title">{item.title}</span>
-			<CommandShortcut className="quick-finder-create-shortcut">Enter to create</CommandShortcut>
-		</>
-	)
-}
+})
 
 export function QuickFinder() {
-	const quickFinderOpen = useUIStore((s) => s.quickFinderOpen)
+	const request = quickFinderModal.useTarget()
 	const vault = useVaultStore((s) => s.vault)
-	if (!quickFinderOpen || !vault) return null
-	return <QuickFinderDialog vault={vault} />
+	if (!request || !vault) return null
+	return <QuickFinderDialog vault={vault} request={request} />
 }
 
-function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
-	const toggleQuickFinder = useUIStore((s) => s.toggleQuickFinder)
+function QuickFinderDialog({
+	vault,
+	request,
+}: {
+	vault: VaultMetadata
+	request: QuickFinderRequest
+}) {
 	const createFile = useVaultStore((s) => s.createFile)
 	const openTab = useWorkspaceStore((s) => s.openTab)
 	const panes = useWorkspaceStore((s) => s.panes)
 	const recentlyClosed = useWorkspaceStore((s) => s.recentlyClosed)
 	const activePaneId = useWorkspaceStore((s) => s.activePaneId)
-	const searchTitles = useSearchStore((s) => s.searchTitles)
-	const request = useUIStore((s) => s.quickFinderRequest)
+	const activeFilePath = useWorkspaceStore(selectActiveTabFilePath)
 	const preview = useUIStore((s) => s.quickFinderPreview)
-	const files = useVaultStore((s) => s.files)
-	const modifiedTimes = getFileModifiedTimes(files)
+	const indexing = useSearchStore((s) => s.indexing)
+	const modifiedTimes = useVaultModifiedTimes()
 
-	const [query, setQuery] = useState(() =>
-		request.kind === "relink-bookmark" ? request.query : "",
-	)
-	const [selectedValue, setSelectedValue] = useState("")
-	const [selectionQuery, setSelectionQuery] = useState("")
-	const [contentResults, setContentResults] = useState<{
-		query: string
-		results: SearchResult[]
-	} | null>(null)
+	const [query, setQuery] = useState(() => request.query ?? "")
+	const [selection, setSelection] = useState({ query: "", value: "" })
+	const [titleResults, setTitleResults] = useState(EMPTY_RESULTS)
+	const [contentResults, setContentResults] = useState(EMPTY_RESULTS)
+	const latestQueryRef = useRef("")
+	const pendingOpenRef = useRef<PendingOpen | null>(null)
 
 	const trimmedQuery = query.trim()
-	const searchQuery = useDeferredValue(trimmedQuery)
+	const searchQuery = trimmedQuery ? titleResults.query : ""
 
-	const loadContentResults = useDebouncedCallback((nextQuery: string) => {
+	const loadContentResults = useDebouncedCallback(async (nextQuery: string) => {
 		const { findNotes, loadMatches } = useSearchStore.getState()
-		const results = findNotes(nextQuery, { limit: QUICK_FINDER_RESULT_LIMIT })
-		void loadMatches(results, nextQuery).then((withMatches) =>
-			setContentResults({ query: nextQuery, results: withMatches }),
-		)
+		const results = await findNotes(nextQuery, { limit: QUICK_FINDER_RESULT_LIMIT })
+		if (latestQueryRef.current !== nextQuery) return
+		const withMatches = await loadMatches(results, nextQuery)
+		if (latestQueryRef.current === nextQuery) {
+			setContentResults({ query: nextQuery, results: withMatches })
+		}
 	}, CONTENT_SEARCH_DELAY_MS)
 
 	useEffect(() => {
-		if (searchQuery.length >= MIN_CONTENT_QUERY_LENGTH && !searchQuery.startsWith(">")) {
-			loadContentResults(searchQuery)
-		}
-	}, [loadContentResults, searchQuery])
+		latestQueryRef.current = trimmedQuery
+		if (!trimmedQuery || indexing) return
+		void useSearchStore
+			.getState()
+			.searchTitles(trimmedQuery)
+			.then((results) => {
+				if (latestQueryRef.current === trimmedQuery) {
+					setTitleResults({ query: trimmedQuery, results })
+				}
+			})
+		if (trimmedQuery.length >= MIN_CONTENT_QUERY_LENGTH) loadContentResults(trimmedQuery)
+	}, [indexing, loadContentResults, trimmedQuery])
 
 	const handleQueryChange = (nextQuery: string) => {
-		if (nextQuery.startsWith(">")) {
-			toggleQuickFinder()
-			useUIStore.getState().toggleCommandPalette()
+		if (nextQuery.startsWith(COMMANDS_PREFIX) && request.kind === "open") {
+			openCommandPaletteFromQuickFinder(nextQuery.slice(COMMANDS_PREFIX.length).trimStart())
 			return
 		}
+		pendingOpenRef.current = null
+		if (!nextQuery.trim()) setTitleResults(EMPTY_RESULTS)
 		setQuery(nextQuery)
 	}
 
@@ -187,71 +319,69 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 		[panes, recentlyClosed],
 	)
 
-	const searchResults = useMemo(() => {
-		if (!searchQuery) return []
-		const titleResults = searchTitles(searchQuery).slice(0, QUICK_FINDER_RESULT_LIMIT)
-		const matchedContent =
-			contentResults?.query === searchQuery
-				? contentResults.results.filter((result) => result.snippets.length > 0)
-				: []
-		const seen = new Set(titleResults.map((result) => result.id))
-		return [...titleResults, ...matchedContent.filter((result) => !seen.has(result.id))].slice(
-			0,
-			QUICK_FINDER_RESULT_LIMIT,
-		)
-	}, [contentResults, searchQuery, searchTitles])
-
 	const openItems = useMemo<QuickFinderOpenItem[]>(() => {
 		if (!searchQuery) {
-			return recentFilePaths.map((filePath) => {
-				const title = getNoteTitle(filePath)
-				const folder = folderFromPath(filePath, vault.path)
-				return {
-					type: "recent",
-					value: `recent:${filePath}`,
-					title,
-					folder,
-					filePath,
-				}
-			})
+			return recentFilePaths.map((filePath) => ({
+				type: "open",
+				section: "recent",
+				value: `recent:${filePath}`,
+				title: getNoteTitle(filePath),
+				titleRanges: [],
+				folder: folderFromPath(filePath, vault.path),
+				filePath,
+			}))
 		}
-
-		return searchResults.map((result) => {
-			const folder = result.folder
-			return {
-				type: "search",
-				value: `search:${result.id}`,
-				title: result.title,
-				folder,
-				filePath: joinPath(vault.path, result.id),
-				snippet: result.snippets[0],
-			}
+		const titles = titleResults.results.slice(0, QUICK_FINDER_RESULT_LIMIT)
+		const seen = new Set(titles.map((result) => result.id))
+		const inText =
+			contentResults.query === searchQuery
+				? contentResults.results.filter(
+						(result) => result.snippets.length > 0 && !seen.has(result.id),
+					)
+				: []
+		const toItem = (result: SearchResult, section: QuickFinderSection): QuickFinderOpenItem => ({
+			type: "open",
+			section,
+			value: `${section}:${result.id}`,
+			title: result.title,
+			titleRanges: section === "notes" ? findTitleRanges(result.title, searchQuery) : [],
+			folder: result.folder,
+			filePath: joinPath(vault.path, result.id),
+			snippet: section === "text" ? result.snippets[0] : undefined,
 		})
-	}, [recentFilePaths, searchResults, searchQuery, vault])
+		return [
+			...titles.map((result) => toItem(result, "notes")),
+			...inText.map((result) => toItem(result, "text")),
+		].slice(0, QUICK_FINDER_RESULT_LIMIT)
+	}, [contentResults, recentFilePaths, searchQuery, titleResults, vault])
 
 	const createItem = useMemo<QuickFinderCreateItem | null>(() => {
-		if (!searchQuery || openItems.length > 0) return null
+		if (!searchQuery || request.kind !== "open") return null
+		const normalizedQuery = searchQuery.toLowerCase()
+		if (openItems.some((item) => item.title.toLowerCase() === normalizedQuery)) return null
 		return {
 			type: "create",
 			value: `create:${searchQuery}`,
-			title: searchQuery,
 			query: searchQuery,
+			standalone: openItems.length === 0,
 		}
-	}, [openItems.length, searchQuery])
+	}, [openItems, request.kind, searchQuery])
 
-	const displayItems = useMemo<QuickFinderItem[]>(() => {
-		if (createItem) return [createItem]
-		return openItems
-	}, [createItem, openItems])
+	const displayItems = useMemo<QuickFinderItem[]>(
+		() => (createItem ? [...openItems, createItem] : openItems),
+		[createItem, openItems],
+	)
 
-	if (selectionQuery !== searchQuery) {
-		setSelectionQuery(searchQuery)
-		setSelectedValue(displayItems[0]?.value ?? "")
-	}
+	const selectedValue =
+		selection.query === searchQuery ? selection.value : (displayItems[0]?.value ?? "")
+	const handleSelectedValueChange = useCallback(
+		(value: string) => setSelection({ query: searchQuery, value }),
+		[searchQuery],
+	)
 
 	const selectedItem =
 		displayItems.find((item) => item.value === selectedValue) ?? displayItems[0] ?? null
-	const selectedPreviewPath = selectedItem?.type === "create" ? null : selectedItem?.filePath
+	const selectedPreviewPath = selectedItem?.type === "open" ? selectedItem.filePath : null
 
 	const handleCreateNote = useCallback(
 		async (noteTitle: string) => {
@@ -260,7 +390,7 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 			openTab(filePath)
 			toggleQuickFinder()
 		},
-		[vault, createFile, openTab, toggleQuickFinder],
+		[vault, createFile, openTab],
 	)
 
 	const handleOpenItem = useCallback(
@@ -274,7 +404,7 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 			}
 			toggleQuickFinder()
 		},
-		[activePaneId, openTab, request, toggleQuickFinder, vault.path],
+		[activePaneId, openTab, request, vault.path],
 	)
 
 	const handleSelectItem = useCallback(
@@ -288,6 +418,16 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 		[handleCreateNote, handleOpenItem],
 	)
 
+	const resultsPending = searchQuery !== trimmedQuery
+
+	useEffect(() => {
+		const pendingOpen = pendingOpenRef.current
+		if (!pendingOpen || resultsPending) return
+		pendingOpenRef.current = null
+		const firstItem = displayItems[0]
+		if (firstItem) handleSelectItem(firstItem, pendingOpen.newTab, pendingOpen.split)
+	}, [displayItems, handleSelectItem, resultsPending])
+
 	const handleKeyDown = useCallback(
 		(event: KeyboardEvent) => {
 			if (event.key !== "Enter") return
@@ -296,6 +436,11 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 			if (event.shiftKey && !newTab) {
 				event.preventDefault()
 				void handleCreateNote(trimmedQuery)
+				return
+			}
+			if (resultsPending) {
+				event.preventDefault()
+				pendingOpenRef.current = { newTab, split: newTab && event.shiftKey }
 				return
 			}
 			if (!newTab) return
@@ -308,8 +453,10 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 			event.preventDefault()
 			handleSelectItem(selectedItem, newTab, newTab && event.shiftKey)
 		},
-		[displayItems, handleCreateNote, handleSelectItem, trimmedQuery],
+		[displayItems, handleCreateNote, handleSelectItem, resultsPending, trimmedQuery],
 	)
+
+	const showPreview = preview && selectedPreviewPath !== null
 
 	return (
 		<CommandDialog
@@ -320,7 +467,7 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 			title="Quick Finder"
 			description="Search and open files in your vault"
 			className={
-				preview ? "quick-finder-dialog quick-finder-dialog--preview" : "quick-finder-dialog"
+				showPreview ? "quick-finder-dialog quick-finder-dialog--preview" : "quick-finder-dialog"
 			}
 			showCloseButton={false}
 			commandProps={{
@@ -328,66 +475,60 @@ function QuickFinderDialog({ vault }: { vault: VaultMetadata }) {
 				shouldFilter: false,
 				onKeyDown: handleKeyDown,
 				value: selectedValue,
-				onValueChange: setSelectedValue,
+				onValueChange: handleSelectedValueChange,
 			}}
 		>
 			<CommandInput
 				autoFocus
+				aria-label="Find a note"
 				placeholder={
-					request.kind === "relink-bookmark" ? "Find the moved note..." : "Find or create a note..."
+					request.kind === "relink-bookmark"
+						? "Find the moved note..."
+						: "Find a note, or type > for commands"
 				}
 				value={query}
 				onValueChange={handleQueryChange}
 				trailing={
 					<>
-						<Toggle
-							size="sm"
-							className="quick-finder-preview-toggle"
-							aria-label="Show preview"
-							title="Preview"
-							pressed={preview}
-							onPressedChange={(pressed) => useUIStore.getState().setQuickFinderPreview(pressed)}
-						>
-							<PanelRightIcon />
-						</Toggle>
+						<SimpleTooltip label="Show preview">
+							<Toggle
+								size="sm"
+								className="quick-finder-preview-toggle"
+								aria-label="Show preview"
+								pressed={preview}
+								onPressedChange={(pressed) => useUIStore.getState().setQuickFinderPreview(pressed)}
+							>
+								<PanelRightIcon />
+							</Toggle>
+						</SimpleTooltip>
 						<Kbd>Esc</Kbd>
 					</>
 				}
 			/>
 			<div className="quick-finder-body">
 				<CommandList className="quick-finder-list">
-					{displayItems.length === 0 ? (
-						<CommandEmpty>No results found</CommandEmpty>
-					) : (
-						<CommandGroup>
-							{displayItems.map((item) => {
-								if (item.type === "create") {
-									return (
-										<CommandItem
-											key={item.value}
-											value={item.value}
-											onSelect={() => handleSelectItem(item)}
-										>
-											<QuickFinderCreateRow item={item} />
-										</CommandItem>
-									)
-								}
-
-								return (
-									<CommandItem
-										key={item.value}
-										value={item.value}
-										onSelect={() => handleSelectItem(item)}
-									>
-										<QuickFinderOpenRow item={item} modifiedAt={modifiedTimes.get(item.filePath)} />
-									</CommandItem>
-								)
-							})}
-						</CommandGroup>
+					{openItems.length === 0 && searchQuery && (
+						<div className="command-none">
+							<strong>No notes called “{searchQuery}”</strong>
+							<span>Nothing in titles or text either.</span>
+						</div>
 					)}
+					<QuickFinderRows
+						openItems={openItems}
+						createItem={createItem}
+						activeFilePath={activeFilePath}
+						createFolderLabel={vault.name}
+						modifiedTimes={modifiedTimes}
+						showFolderColumn={!showPreview}
+						onSelect={handleSelectItem}
+					/>
 				</CommandList>
 				{preview && selectedPreviewPath && (
-					<QuickFinderPreview filePath={selectedPreviewPath} vaultPath={vault.path} />
+					<QuickFinderPreview
+						filePath={selectedPreviewPath}
+						vaultPath={vault.path}
+						modifiedAt={modifiedTimes.get(selectedPreviewPath)}
+					/>
 				)}
 			</div>
 			<CommandFooterHints hints={QUICK_FINDER_FOOTER_HINTS} />

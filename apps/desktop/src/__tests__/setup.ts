@@ -11,6 +11,20 @@ vi.stubGlobal("ResizeObserver", MockResizeObserver)
 Element.prototype.scrollIntoView = vi.fn()
 Element.prototype.scrollTo = vi.fn()
 
+const { idleUpdateStatus } = vi.hoisted(() => ({
+	idleUpdateStatus: {
+		state: "idle",
+		currentVersion: "0.1.0",
+		pendingUpdate: null,
+		lastCheckedAt: null,
+		lastError: null,
+		installMode: "automatic",
+		installOnQuit: true,
+		downloaded: 0,
+		contentLength: null,
+	},
+}))
+
 vi.mock("@cortex/platform", () => ({
 	getPlatform: vi.fn(() => ({
 		clipboard: {
@@ -51,34 +65,19 @@ vi.mock("@cortex/platform", () => ({
 			onNativeEvent: vi.fn().mockResolvedValue(() => {}),
 		},
 		appUpdates: {
-			getStatus: vi.fn().mockResolvedValue({
-				state: "idle",
-				currentVersion: "0.1.0",
-				pendingUpdate: null,
-				lastCheckedAt: null,
-				lastError: null,
-				downloaded: 0,
-				contentLength: null,
-			}),
+			getStatus: vi.fn().mockResolvedValue(idleUpdateStatus),
+			configure: vi.fn().mockResolvedValue(idleUpdateStatus),
 			checkForUpdate: vi.fn().mockResolvedValue({
+				...idleUpdateStatus,
 				state: "up-to-date",
-				currentVersion: "0.1.0",
-				pendingUpdate: null,
 				lastCheckedAt: "2026-06-21T00:00:00Z",
-				lastError: null,
-				downloaded: 0,
-				contentLength: null,
 			}),
-			installUpdate: vi.fn().mockResolvedValue({
-				state: "installed",
-				currentVersion: "0.1.0",
-				pendingUpdate: null,
-				lastCheckedAt: "2026-06-21T00:00:00Z",
-				lastError: null,
-				downloaded: 0,
-				contentLength: null,
-			}),
+			downloadUpdate: vi.fn().mockResolvedValue(idleUpdateStatus),
+			installNow: vi.fn().mockResolvedValue(idleUpdateStatus),
+			setInstallOnQuit: vi.fn().mockResolvedValue(idleUpdateStatus),
 			fetchChangelog: vi.fn().mockResolvedValue(null),
+			onStatusChanged: vi.fn(() => () => {}),
+			onBeforeInstall: vi.fn(() => () => {}),
 		},
 		capabilities: ["notifications"],
 	})),

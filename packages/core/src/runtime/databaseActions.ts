@@ -19,10 +19,12 @@ import {
 } from "@cortex/properties"
 import {
 	buildDatabaseFromPreset,
+	createDatabasePresetFromConfig,
 	createDatabaseRow as createDatabaseRowModel,
 	createDefaultDatabaseConfig,
 	DATABASE_CONFIG_KEY,
 	type DatabaseConfig,
+	type DatabasePreset,
 	type DatabaseQueryContext,
 	type DatabaseRowTemplate,
 	detectDatabaseNote,
@@ -36,7 +38,7 @@ import {
 } from "@cortex/properties/database"
 import { noteCache } from "../noteCache"
 import { useDatabaseStore } from "../stores/databaseStore"
-import { useVaultStore } from "../stores/vaultStore"
+import { getVaultIndex, trackCreatedFiles, useVaultStore } from "../stores/vaultStore"
 import { pathExists, resolveUniquePath, writeCleanNote } from "../utils/createdNote"
 import { getPortableFileNameError } from "../utils/fileName"
 import { reportAppError } from "../utils/reportAppError"
@@ -66,6 +68,7 @@ export interface CreateDatabaseInput {
 	parentPath: string
 	name: string
 	presetId?: string
+	preset?: DatabasePreset
 	samples?: boolean
 }
 
@@ -209,7 +212,7 @@ export async function createDatabaseRow(
 	const folder = normalizePath(folderPath)
 	const vaultPath = requireVaultPath()
 	const filePath = await enqueueRowCreation(folder, () => writeRowNote(vaultPath, folder, input))
-	await useVaultStore.getState().refreshFiles()
+	trackCreatedFiles([filePath])
 	return filePath
 }
 
@@ -217,6 +220,7 @@ export async function createDatabase({
 	parentPath,
 	name,
 	presetId = "empty",
+	preset: customPreset,
 	samples = false,
 }: CreateDatabaseInput): Promise<CreatedDatabase> {
 	const vaultPath = requireVaultPath()
@@ -226,7 +230,7 @@ export async function createDatabase({
 	const folderPath = await resolveUniquePath(parentPath, folderName)
 	const preset = buildDatabaseFromPreset(
 		await getVaultSchema(vaultPath),
-		getDatabasePreset(presetId),
+		customPreset ?? getDatabasePreset(presetId),
 	)
 	await getPlatform().fs.createDir(folderPath)
 	if (preset.schemaChanged) await updateVaultSchema(vaultPath, preset.schema)
@@ -246,14 +250,14 @@ export async function createDatabase({
 				),
 			)
 		: []
-	await useVaultStore.getState().refreshFiles()
+	trackCreatedFiles([viewNotePath, ...samplePaths], [folderPath])
 	return { folderPath, viewNotePath, samplePaths }
 }
 
 async function findDetachedViewNote(folderPath: string): Promise<string | null> {
-	const children = useVaultStore
-		.getState()
-		.files.filter((file) => !file.isDir && isDatabaseRowPath(file.path, folderPath))
+	const children = getVaultIndex()
+		.getChildEntries(folderPath)
+		.filter((file) => !file.isDir && isDatabaseRowPath(file.path, folderPath))
 	const matches = await mapWithConcurrency(children, 4, async (file) => {
 		try {
 			const raw =
@@ -288,7 +292,7 @@ export async function convertFolderToDatabase(folderPath: string): Promise<strin
 	} else {
 		await writeCleanNote(viewNotePath, setFrontmatterValue(raw, DATABASE_CONFIG_KEY, serialized))
 	}
-	await useVaultStore.getState().refreshFiles()
+	trackCreatedFiles([viewNotePath])
 	return viewNotePath
 }
 
@@ -366,5 +370,39 @@ export function removeDatabaseRowTemplate(folderPath: string, templateId: string
 	updateDatabaseConfig(folderPath, (config) => {
 		const templates = (config.templates ?? []).filter((template) => template.id !== templateId)
 		return { ...config, templates: templates.length ? templates : undefined }
+	})
+}
+
+export async function exportDatabasePreset(
+	folderPath: string,
+	options: { includeSamples: boolean; hint?: string },
+): Promise<DatabasePreset> {
+	const entry = useDatabaseStore.getState().databases[folderPath]
+	if (!entry) throw new Error("This database is not loaded yet.")
+	const vaultPath = requireVaultPath()
+	const rows = options.includeSamples
+		? Object.values(useDatabaseStore.getState().rowsByFolder[folderPath]?.rows ?? {})
+				.sort((left, right) => right.mtime - left.mtime)
+				.slice(0, 3)
+		: []
+	const samples = await Promise.all(
+		rows.map(async (row) => {
+			try {
+				const raw =
+					noteCache.getEntry(row.path)?.content ?? (await getPlatform().fs.readFile(row.path))
+				return { title: row.title, meta: row.meta, body: projectRawNote(raw).body }
+			} catch {
+				return { title: row.title, meta: row.meta, body: "" }
+			}
+		}),
+	)
+	return createDatabasePresetFromConfig({
+		id: entry.name,
+		name: entry.name,
+		hint: options.hint ?? entry.description,
+		config: entry.config,
+		schema: await getVaultSchema(vaultPath),
+		rows: samples,
+		includeSamples: options.includeSamples,
 	})
 }

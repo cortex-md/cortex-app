@@ -1,5 +1,5 @@
 import { type CommandIcon, commandRegistry, executeCommand } from "@cortex/commands"
-import { useHotkeysStore } from "@cortex/hotkeys"
+import { useHotkeysStore } from "@cortex/commands/hotkeys"
 import { getPlatform, type ContextMenuItem as PlatformMenuItem } from "@cortex/platform"
 import { usePluginStore } from "@cortex/plugin-host-core"
 import type { ContextMenuActionContext } from "@cortex.md/api"

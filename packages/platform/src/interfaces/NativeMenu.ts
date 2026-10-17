@@ -6,12 +6,16 @@ export interface NativeMenuCommand {
 	scope: "global" | "editor" | "file-explorer"
 }
 
-export interface NativeMenuState {
-	commands: NativeMenuCommand[]
+export interface NativeMenuItemStates {
 	checked: Record<string, boolean>
 	enabled: Record<string, boolean>
 }
 
+export interface NativeMenuState extends NativeMenuItemStates {
+	commands: NativeMenuCommand[]
+}
+
 export interface NativeMenu {
-	setState(state: NativeMenuState): Promise<void>
+	setCommands(commands: NativeMenuCommand[]): Promise<void>
+	setItemStates(states: NativeMenuItemStates): Promise<void>
 }

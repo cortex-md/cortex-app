@@ -1,8 +1,9 @@
+import { DATABASE_VIEW_ID, NEW_DATABASE_VIEW_ID, SHARED_NOTE_VIEW_ID } from "@cortex/core"
 import { CORE_OWNER, type ContributionSet, registerContributions } from "@cortex/plugin-host-core"
 import { BookmarkIcon, CircleCheckIcon, FolderClosed, SearchIcon, TagIcon } from "lucide-react"
 import { type ComponentType, lazy } from "react"
+import { AppUpdateIndicator } from "../features/app-updates/AppUpdateIndicator"
 import { BookmarksSidebar } from "../features/bookmarks/BookmarksSidebar"
-import { DATABASE_VIEW_ID } from "../features/databases/databaseWorkspace"
 import { DRAWING_BOARD_VIEW_ID } from "../features/drawings/drawingDocument"
 import { FileSidebar } from "../features/file-explorer/FileSidebar"
 import { MARKETPLACE_VIEW_ID } from "../features/marketplace/marketplaceWorkspaceView"
@@ -16,12 +17,12 @@ import {
 	StatusBarWordCount,
 } from "../features/statusbar/StatusBar"
 import { SyncIndicator } from "../features/sync/SyncIndicator"
-import { SHARED_NOTE_VIEW_ID } from "../features/sync/sharedNote"
 import { SYNC_WELCOME_VIEW_ID } from "../features/sync/syncWelcome"
 import { TagsSidebar } from "../features/tags/TagsSidebar"
 import { TAG_VIEW_ID } from "../features/tags/tagWorkspaceView"
 import { TasksSidebar } from "../features/tasks/TasksSidebar"
 import { TASKS_SIDEBAR_VIEW_ID, TODAY_VIEW_ID } from "../features/tasks/taskModel"
+import { TEMPLATE_EDITOR_VIEW_ID, TEMPLATES_VIEW_ID } from "../features/templates/templateViewIds"
 
 function lazyView<M extends Record<string, unknown>>(load: () => Promise<M>, name: keyof M) {
 	return lazy(() => load().then((module) => ({ default: module[name] as ComponentType })))
@@ -55,6 +56,18 @@ const LazyDatabaseView = lazyView(
 	() => import("../features/databases/DatabaseView"),
 	"DatabaseView",
 )
+const LazyNewDatabaseView = lazyView(
+	() => import("../features/databases/NewDatabaseView"),
+	"NewDatabaseView",
+)
+const LazyTemplatesView = lazyView(
+	() => import("../features/templates/TemplatesView"),
+	"TemplatesView",
+)
+const LazyTemplateEditorView = lazyView(
+	() => import("../features/templates/TemplateEditorView"),
+	"TemplateEditorView",
+)
 const LazyTagPageView = lazyView(() => import("../features/tags/TagPageView"), "TagPageView")
 const LazyTodayView = lazyView(() => import("../features/tasks/TodayView"), "TodayView")
 
@@ -77,6 +90,9 @@ const coreTabViews: Record<string, unknown> = {
 	[TAG_VIEW_ID]: LazyTagPageView,
 	[TODAY_VIEW_ID]: LazyTodayView,
 	[DATABASE_VIEW_ID]: LazyDatabaseView,
+	[NEW_DATABASE_VIEW_ID]: LazyNewDatabaseView,
+	[TEMPLATES_VIEW_ID]: LazyTemplatesView,
+	[TEMPLATE_EDITOR_VIEW_ID]: LazyTemplateEditorView,
 }
 
 const coreContributions: ContributionSet = {
@@ -97,6 +113,7 @@ const coreContributions: ContributionSet = {
 	],
 	sidebarItems: coreSidebarViews.map(({ id, label, icon }) => ({ id, label, icon, viewKey: id })),
 	statusBarItems: [
+		{ id: "app-update", position: "right", priority: 110, component: AppUpdateIndicator },
 		{ id: "sync", position: "right", priority: 100, component: SyncIndicator },
 		{ id: "words", position: "right", priority: 0, component: StatusBarWordCount },
 		{ id: "cursor", position: "right", priority: -10, component: StatusBarCursor },

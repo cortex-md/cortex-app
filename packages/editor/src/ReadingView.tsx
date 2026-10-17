@@ -7,7 +7,14 @@ import {
 	subscribeCalloutTypes,
 	subscribeMarkdownRegistry,
 } from "@cortex/renderer"
-import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react"
+import {
+	useEffect,
+	useEffectEvent,
+	useLayoutEffect,
+	useRef,
+	useState,
+	useSyncExternalStore,
+} from "react"
 import {
 	type CodeBlockEmbedDefinition,
 	findCodeBlockEmbedDefinition,
@@ -19,11 +26,14 @@ import {
 
 interface Props {
 	content: string
+	filePath?: string
+	resolveImageUrl?: (src: string, filePath: string) => string
 	scrollMode?: "internal" | "parent"
 	renderDelay?: number
 	codeBlockEmbeds?: readonly CodeBlockEmbedDefinition[]
 	onWikiLinkClick?: (target: string) => void
 	onExternalLinkClick?: (url: string) => void
+	onTagClick?: (tag: string) => void
 	onTaskCheckboxToggle?: (offset: number, checked: boolean) => void
 }
 
@@ -153,11 +163,14 @@ async function renderMarkdownPiece(piece: MarkdownPlanPiece): Promise<MarkdownRe
 
 export function ReadingView({
 	content,
+	filePath,
+	resolveImageUrl,
 	scrollMode = "internal",
 	renderDelay = 0,
 	codeBlockEmbeds,
 	onWikiLinkClick,
 	onExternalLinkClick,
+	onTagClick,
 	onTaskCheckboxToggle,
 }: Props) {
 	const [renderedMarkdown, setRenderedMarkdown] = useState<RenderedMarkdown | null>(null)
@@ -168,6 +181,9 @@ export function ReadingView({
 	})
 	const handleExternalLinkClick = useEffectEvent((url: string) => {
 		onExternalLinkClick?.(url)
+	})
+	const handleTagClick = useEffectEvent((tag: string) => {
+		onTagClick?.(tag)
 	})
 	const handleTaskCheckboxToggle = useEffectEvent((offset: number, checked: boolean) => {
 		onTaskCheckboxToggle?.(offset, checked)
@@ -247,6 +263,23 @@ export function ReadingView({
 				return
 			}
 
+			const tag = target.closest<HTMLElement>("[data-tag]")?.dataset.tag
+			if (tag) {
+				event.preventDefault()
+				handleTagClick(tag)
+				return
+			}
+
+			const copyButton = target.closest<HTMLElement>("[data-code-copy]")
+			if (copyButton) {
+				event.preventDefault()
+				const code = copyButton.closest(".markdown-code-block")?.querySelector("pre code")
+				if (code?.textContent) void navigator.clipboard?.writeText(code.textContent)
+				copyButton.classList.add("is-done")
+				setTimeout(() => copyButton.classList.remove("is-done"), 1200)
+				return
+			}
+
 			const externalLink = target.closest<HTMLAnchorElement>("a[href]")
 			const externalUrl = externalLink?.getAttribute("href")
 			if (externalUrl && /^(https?:|mailto:)/i.test(externalUrl)) {
@@ -281,6 +314,18 @@ export function ReadingView({
 			container.removeEventListener("toggle", handleToggle, true)
 		}
 	}, [])
+
+	useLayoutEffect(() => {
+		const container = containerRef.current
+		if (!renderedMarkdown || !container || !filePath || !resolveImageUrl) return
+		for (const image of container.querySelectorAll<HTMLImageElement>("img[src]")) {
+			const source = image.getAttribute("src")
+			if (!source || image.dataset.noteSrc === source) continue
+			const resolved = resolveImageUrl(source, filePath)
+			image.dataset.noteSrc = resolved
+			image.src = resolved
+		}
+	}, [renderedMarkdown, filePath, resolveImageUrl])
 
 	useEffect(() => {
 		if (!renderedMarkdown) return

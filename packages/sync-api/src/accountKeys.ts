@@ -14,6 +14,19 @@ import { identitySecretKey, type SecretStore } from "./secrets"
 
 export const MIN_PASSWORD_LENGTH = 8
 
+export const ACCOUNT_KDF = {
+	algorithm: "argon2id",
+	memoryKib: 65536,
+	iterations: 3,
+	parallelism: 1,
+	hashLength: 32,
+} as const
+
+export const ACCOUNT_KEY_INFO = {
+	auth: "cortex/auth/v1",
+	wrap: "cortex/wrap/v1",
+} as const
+
 export interface DerivedAccountKeys {
 	authKey: string
 	wrapKey: Uint8Array

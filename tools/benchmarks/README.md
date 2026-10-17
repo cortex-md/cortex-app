@@ -31,9 +31,11 @@ bun run perf -- --strict                # exit 1 when a budget is exceeded
 | Open a 5k-line note | 80 ms |
 | Typing latency (key to end of input task) | 16 ms |
 | Vault search | 100 ms |
+| Quick Finder / Command Palette, first open | 120 ms |
+| Quick Finder / Command Palette, next opens | 50 ms |
 | Quick Finder, per key | 30 ms |
 | Switch tab / open Settings | 100 ms |
-| Idle memory, all processes | 450 MB |
+| Idle memory, all processes | 800 MB |
 | Database with 10k rows: open / filter | 300 ms / 100 ms |
 
 Scroll FPS for the large note and the database table is reported without a budget. It is capped

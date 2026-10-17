@@ -1,5 +1,6 @@
 {
 	"name": "@cortex/sync-engine",
+	"license": "AGPL-3.0-or-later",
 	"private": true,
 	"version": "0.1.0",
 	"type": "module",
@@ -7,19 +8,15 @@
 		".": "./src/index.ts"
 	},
 	"scripts": {
-		"test": "vitest run",
 		"typecheck": "tsc -b --pretty false"
 	},
 	"dependencies": {
 		"@cortex/platform": "workspace:*",
 		"@cortex/sync-api": "workspace:*",
-		"argon2": "^0.45.1",
 		"diff-match-patch": "^1.0.5"
 	},
 	"devDependencies": {
 		"@types/diff-match-patch": "^1.0.36",
-		"@types/node": "^25.3.5",
-		"typescript": "~5.8.3",
-		"vitest": "^4.1.9"
+		"@types/node": "^26.6.5"
 	}
 }

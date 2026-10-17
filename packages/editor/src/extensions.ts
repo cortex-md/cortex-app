@@ -6,6 +6,7 @@ import {
 	pluginFoldingExtension,
 } from "./folding"
 import { buildHighlightStyle } from "./highlight"
+import { codeLanguagePacks } from "./languagePacks"
 import { livePreviewExtension } from "./livePreview"
 import { defaultMarkdownKeymapExtension, type MarkdownCommandExecutor } from "./markdownKeymap"
 import { loadEditorRuntime } from "./runtime"
@@ -28,47 +29,9 @@ import { vimCommandExtension } from "./vimCommands"
 
 function createCodeLanguages(runtime: EditorRuntimeModules) {
 	const { LanguageDescription } = runtime.language
-	return [
-		LanguageDescription.of({
-			name: "JavaScript",
-			alias: ["js"],
-			load: async () => runtime.langJavascript.javascript(),
-		}),
-		LanguageDescription.of({
-			name: "TypeScript",
-			alias: ["ts"],
-			load: async () => runtime.langJavascript.javascript({ typescript: true }),
-		}),
-		LanguageDescription.of({
-			name: "JSX",
-			alias: ["jsx"],
-			load: async () => runtime.langJavascript.javascript({ jsx: true }),
-		}),
-		LanguageDescription.of({
-			name: "TSX",
-			alias: ["tsx"],
-			load: async () => runtime.langJavascript.javascript({ jsx: true, typescript: true }),
-		}),
-		LanguageDescription.of({
-			name: "Python",
-			alias: ["py"],
-			load: async () => runtime.langPython.python(),
-		}),
-		LanguageDescription.of({
-			name: "Rust",
-			alias: ["rs"],
-			load: async () => runtime.langRust.rust(),
-		}),
-		LanguageDescription.of({ name: "HTML", load: async () => runtime.langHtml.html() }),
-		LanguageDescription.of({ name: "CSS", load: async () => runtime.langCss.css() }),
-		LanguageDescription.of({ name: "JSON", load: async () => runtime.langJson.json() }),
-		LanguageDescription.of({
-			name: "YAML",
-			alias: ["yml"],
-			load: async () => runtime.langYaml.yaml(),
-		}),
-		LanguageDescription.of({ name: "SQL", load: async () => runtime.langSql.sql() }),
-	]
+	return codeLanguagePacks.map((pack) =>
+		LanguageDescription.of({ name: pack.name, alias: pack.alias, load: pack.load }),
+	)
 }
 
 export const DEFAULT_EDITOR_CONFIG: EditorConfig = {
@@ -89,6 +52,7 @@ interface EditorCompartments {
 	lineWrapping: EditorRuntimeCompartment
 	indent: EditorRuntimeCompartment
 	lineNumbers: EditorRuntimeCompartment
+	typewriter: EditorRuntimeCompartment
 	folding: EditorRuntimeCompartment
 	pluginFolding: EditorRuntimeCompartment
 	pluginExtensions: EditorRuntimeCompartment
@@ -109,6 +73,7 @@ function getEditorCompartments(runtime: EditorRuntimeModules): EditorCompartment
 		lineWrapping: new runtime.state.Compartment(),
 		indent: new runtime.state.Compartment(),
 		lineNumbers: new runtime.state.Compartment(),
+		typewriter: new runtime.state.Compartment(),
 		folding: new runtime.state.Compartment(),
 		pluginFolding: new runtime.state.Compartment(),
 		pluginExtensions: new runtime.state.Compartment(),
@@ -206,9 +171,23 @@ export function buildEditorTypographyRules(
 			pointerEvents: "none",
 		},
 		".cm-gutters": {
+			position: "absolute !important",
+			insetInlineStart: "0",
+			justifyContent: "flex-end",
+			width:
+				"calc((100% - min(100%, var(--markdown-content-width, 720px))) / 2 + var(--markdown-content-gutter, 40px) - 12px)",
+			height: "auto",
+			minHeight: "100%",
 			background: "transparent",
 			borderRight: "none",
 			color: "var(--text-muted)",
+			pointerEvents: "none",
+		},
+		".cm-lineNumbers .cm-gutterElement": {
+			padding: "0",
+			fontSize: "0.8em",
+			fontVariantNumeric: "tabular-nums",
+			textAlign: "right",
 		},
 		".cm-fold-hover-control": {
 			position: "absolute",
@@ -461,7 +440,7 @@ function vimModeExtension(
 	enabled: boolean,
 	vimCommands?: VimCommandProvider | null,
 ) {
-	return enabled
+	return enabled && runtime.vim
 		? [
 				vimTableNavigationExtension(runtime),
 				runtime.vim.vim(),
@@ -552,6 +531,7 @@ export function baseExtensions(
 			runtime.language.indentUnit.of(config.useSpaces ? " ".repeat(config.tabSize) : "\t"),
 		),
 		compartments.lineNumbers.of(config.showLineNumbers ? runtime.view.lineNumbers() : []),
+		compartments.typewriter.of(typewriterScrollExtension(runtime, config.typewriterScroll)),
 		compartments.folding.of(config.folding ? foldingExtension(runtime) : []),
 		compartments.pluginFolding.of([]),
 		compartments.pluginExtensions.of([]),
@@ -606,8 +586,20 @@ export function reconfigureEditor(
 			compartments.lineNumbers.reconfigure(
 				config.showLineNumbers ? runtime.view.lineNumbers() : [],
 			),
+			compartments.typewriter.reconfigure(
+				typewriterScrollExtension(runtime, config.typewriterScroll),
+			),
 			compartments.folding.reconfigure(config.folding ? foldingExtension(runtime) : []),
 		],
+	})
+}
+
+function typewriterScrollExtension(runtime: EditorRuntimeModules, enabled: boolean | undefined) {
+	if (!enabled) return []
+	return runtime.view.EditorView.scrollMargins.of((view) => {
+		const viewportHeight = view.dom.ownerDocument.defaultView?.innerHeight ?? 0
+		const margin = Math.max(0, viewportHeight / 2 - 48)
+		return { top: margin, bottom: margin }
 	})
 }
 

@@ -1,6 +1,6 @@
 import type {
 	AlertDialogOptions,
-	AppUpdateInstallEvent,
+	AppUpdateStatus,
 	Collab,
 	CollabChannelEvent,
 	ConfirmDialogOptions,
@@ -18,7 +18,6 @@ import type {
 	SyncStateEvent,
 	WatchEvent,
 	WatchOptions,
-	WindowMessage,
 } from "@cortex/platform"
 import { toMessageOptions } from "@cortex/platform/utils"
 import type { MainApi, MainDomain, MainEventName, MainEvents } from "../../electron/contract"
@@ -161,6 +160,8 @@ function extend<T extends object, O extends object>(base: T, overrides: O): Omit
 	return Object.assign(Object.create(base) as T, overrides)
 }
 
+let appDataDir: Promise<string> | null = null
+
 export const electronPlatform: Platform = {
 	appearance: {
 		getSnapshot: getAppearanceSnapshot,
@@ -176,9 +177,7 @@ export const electronPlatform: Platform = {
 		},
 	},
 	menu: main.menu,
-	window: extend(main.window, {
-		onMessage: (listener: (message: WindowMessage) => void) => listen("window-message", listener),
-	}),
+	window: main.window,
 	fs: extend(main.fs, {
 		startWatching: async (
 			path: string,
@@ -210,7 +209,13 @@ export const electronPlatform: Platform = {
 	documentExport: { exportHtmlToPdf: (options) => main.documents.exportHtmlToPdf(options) },
 	vault: main.vault,
 	storage: {
-		getAppDataDir: () => main.app.getDataDir(),
+		getAppDataDir: () => {
+			appDataDir ??= main.app.getDataDir().catch((error) => {
+				appDataDir = null
+				throw error
+			})
+			return appDataDir
+		},
 	},
 	app: {
 		getCurrentAppVersion: () => main.app.getVersion(),
@@ -224,14 +229,19 @@ export const electronPlatform: Platform = {
 			listen(name as MainEventName, listener as (payload: unknown) => void),
 	},
 	appUpdates: extend(main.appUpdates, {
-		installUpdate: async (onEvent?: (event: AppUpdateInstallEvent) => void) => {
-			const unlisten = listen("app-update-install", (event) => onEvent?.(event))
-			try {
-				return await main.appUpdates.installUpdate()
-			} finally {
-				unlisten()
-			}
-		},
+		onStatusChanged: (callback: (status: AppUpdateStatus) => void) =>
+			listen("app-update-status", callback),
+		onBeforeInstall: (handler: () => Promise<void>) =>
+			listen("app-update-before-install", ({ requestId }) => {
+				handler().then(
+					() => main.appUpdates.completeBeforeInstall(requestId, null),
+					(error: unknown) =>
+						main.appUpdates.completeBeforeInstall(
+							requestId,
+							error instanceof Error ? error.message : String(error),
+						),
+				)
+			}),
 	}),
 	font: main.font,
 	http: {
@@ -246,6 +256,7 @@ export const electronPlatform: Platform = {
 	remoteVault: main.remoteVault,
 	members: main.members,
 	shares: main.shares,
+	templateShares: main.templateShares,
 	devices: main.devices,
 	sync: extend(main.sync, {
 		onStateChanged: (callback: (event: SyncStateEvent) => void) =>

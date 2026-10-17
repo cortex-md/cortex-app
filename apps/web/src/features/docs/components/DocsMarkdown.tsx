@@ -1,9 +1,12 @@
 import { MDXContent } from "@content-collections/mdx/react"
-import { DocCard, DocGrid } from "./DocCards"
+import { Callout, CodeBlock, DocCard, DocGrid, SectionHeading } from "./DocCards"
 
 const mdxComponents = {
+	Callout,
 	DocCard,
 	DocGrid,
+	h2: SectionHeading,
+	pre: CodeBlock,
 }
 
 interface DocsMarkdownProps {

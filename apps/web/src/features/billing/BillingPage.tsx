@@ -1,13 +1,16 @@
 import { Button } from "@cortex/ui/button"
-import { ArrowUpRight, Loader2, LogIn, RefreshCw } from "lucide-react"
+import { Spinner } from "@cortex/ui/spinner"
+import { ArrowUpRight, LogIn, RefreshCw } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { trackLandingEvent } from "../../lib/analytics"
+import { billingCopy } from "../../content/callback"
+import { trackEvent } from "../../lib/analytics"
 import {
 	type BillingCheckoutContext,
 	createBillingCheckout,
 	readBillingContextFromHash,
 } from "../../lib/billingCheckout"
 import { type CheckoutSessionResult, startBillingFromSession } from "../../server/billing"
+import { CallbackCard, CallbackText } from "../callback/CallbackCard"
 
 type BillingStatus =
 	| { state: "checking" }
@@ -53,95 +56,58 @@ function CheckoutStatus({
 	onRetry: () => void
 	status: BillingStatus["state"]
 }) {
-	if (
-		status === "checking" ||
-		status === "creating" ||
-		status === "authenticating" ||
-		status === "account"
-	) {
-		const isAuthenticating = status === "authenticating"
-		const isAccountRedirect = status === "account"
+	if (status === "authenticating" || status === "account") {
+		const copy = status === "authenticating" ? billingCopy.authenticating : billingCopy.account
 		return (
-			<div className="mx-auto grid max-w-[360px] justify-items-center text-center">
-				<span
-					className="grid size-11 place-items-center rounded-lg bg-bg-elevated text-text-secondary shadow-[0_0_0_1px_var(--border-subtle)]"
-					aria-hidden="true"
-				>
-					{isAuthenticating || isAccountRedirect ? (
-						<LogIn className="size-5" />
-					) : (
-						<Loader2 className="size-5 animate-spin" />
-					)}
-				</span>
-				<div className="mt-5">
-					<h1 className="m-0 text-[20px] leading-7 font-semibold text-text-primary">
-						{isAuthenticating
-							? "Taking you to sign in"
-							: isAccountRedirect
-								? "Opening your account"
-								: "Opening checkout"}
-					</h1>
-					<p className="mt-2 text-[14px] leading-6 text-text-secondary">
-						{isAuthenticating
-							? "Sign in or create an account, then Cortex will continue to checkout."
-							: isAccountRedirect
-								? "Your hosted Sync plan is already active."
-								: "Cortex is creating your AbacatePay checkout."}
-					</p>
-				</div>
-			</div>
+			<CallbackCard icon={<LogIn />} title={copy.title}>
+				<CallbackText>{copy.body}</CallbackText>
+			</CallbackCard>
 		)
 	}
 
 	if (status === "redirecting" && checkoutUrl) {
 		return (
-			<div className="mx-auto grid max-w-[360px] justify-items-center text-center">
-				<span
-					className="grid size-11 place-items-center rounded-lg bg-accent-sage-subtle text-accent-sage-text"
-					aria-hidden="true"
-				>
-					<ArrowUpRight className="size-5" />
-				</span>
-				<h1 className="mt-5 mb-0 text-[20px] leading-7 font-semibold text-text-primary">
-					Redirecting to checkout
-				</h1>
-				<p className="mt-2 text-[14px] leading-6 text-text-secondary">
-					If the checkout does not open automatically, continue manually.
-				</p>
-				<Button className="mt-5" asChild>
-					<a href={checkoutUrl}>
-						Continue to AbacatePay
-						<ArrowUpRight className="size-4" aria-hidden="true" />
-					</a>
-				</Button>
-			</div>
+			<CallbackCard
+				icon={<ArrowUpRight />}
+				tone="ok"
+				title={billingCopy.redirecting.title}
+				actions={
+					<Button size="lg" asChild>
+						<a href={checkoutUrl}>
+							{billingCopy.redirecting.cta}
+							<ArrowUpRight aria-hidden="true" />
+						</a>
+					</Button>
+				}
+			>
+				<CallbackText>{billingCopy.redirecting.body}</CallbackText>
+			</CallbackCard>
 		)
 	}
 
 	if (status === "error") {
 		return (
-			<div className="mx-auto grid max-w-[420px] justify-items-center rounded-xl bg-bg-elevated p-6 text-center shadow-[0_0_0_1px_var(--border-subtle)]">
-				<span
-					className="grid size-11 place-items-center rounded-lg bg-accent-coral-subtle text-accent-coral-text"
-					aria-hidden="true"
-				>
-					<RefreshCw className="size-5" />
-				</span>
-				<h1 className="mt-5 mb-0 text-[20px] leading-7 font-semibold text-text-primary">
-					Checkout is temporarily unavailable
-				</h1>
-				<p className="mt-2 text-[14px] leading-6 text-text-secondary" role="alert">
-					{message}
-				</p>
-				<Button className="mt-5" type="button" onClick={onRetry}>
-					Try again
-					<RefreshCw className="size-4" aria-hidden="true" />
-				</Button>
-			</div>
+			<CallbackCard
+				icon={<RefreshCw />}
+				tone="warn"
+				title={billingCopy.error.title}
+				actions={
+					<Button size="lg" type="button" onClick={onRetry}>
+						{billingCopy.error.cta}
+						<RefreshCw aria-hidden="true" />
+					</Button>
+				}
+			>
+				<CallbackText role="alert">{message ?? billingCopy.error.fallback}</CallbackText>
+			</CallbackCard>
 		)
 	}
 
-	return null
+	return (
+		<CallbackCard icon={<Spinner className="size-6" />} title={billingCopy.checking.title}>
+			<CallbackText>{billingCopy.checking.body}</CallbackText>
+		</CallbackCard>
+	)
 }
 
 export function BillingPage({
@@ -251,7 +217,7 @@ export function BillingPage({
 	}, [startDesktopCheckout, startSessionCheckout])
 
 	const handleRetry = useCallback(() => {
-		trackLandingEvent({ name: "pricing_checkout_clicked", location: "billing" })
+		trackEvent({ name: "checkout_started", location: "billing" })
 
 		if (billingContext) {
 			void startDesktopCheckout(billingContext)
@@ -262,19 +228,11 @@ export function BillingPage({
 	}, [billingContext, startDesktopCheckout, startSessionCheckout])
 
 	return (
-		<div className="min-h-screen bg-background text-foreground">
-			<main
-				id="main-content"
-				className="grid min-h-screen place-items-center px-6 py-16"
-				tabIndex={-1}
-			>
-				<CheckoutStatus
-					checkoutUrl={status.state === "redirecting" ? status.checkoutUrl : undefined}
-					message={status.state === "error" ? status.message : undefined}
-					onRetry={handleRetry}
-					status={status.state}
-				/>
-			</main>
-		</div>
+		<CheckoutStatus
+			checkoutUrl={status.state === "redirecting" ? status.checkoutUrl : undefined}
+			message={status.state === "error" ? status.message : undefined}
+			onRetry={handleRetry}
+			status={status.state}
+		/>
 	)
 }

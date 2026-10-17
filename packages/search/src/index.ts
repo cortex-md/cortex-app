@@ -1,3 +1,14 @@
+export {
+	createLocalSearchBackend,
+	type NoteContentRequest,
+	type NoteExcerptResult,
+	type NoteMatchOptions,
+	type NoteMatchResult,
+	type SearchBackend,
+	type SearchIndexDocument,
+	type SearchIndexEntry,
+	type SearchIndexPlan,
+} from "./backend"
 export { extractWikiLinks, type WikiLink } from "./links"
 export {
 	buildSearchMatches,
@@ -30,5 +41,10 @@ export {
 	toSearchRequest,
 } from "./query"
 export { SearchEngine } from "./searchEngine"
-export { type IndexedFileSnapshot, type NoteSearchHighlight, useSearchStore } from "./searchStore"
+export {
+	type IndexedFileSnapshot,
+	type NoteSearchHighlight,
+	setSearchBackend,
+	useSearchStore,
+} from "./searchStore"
 export type { SearchDocument, SearchOptions, SearchResult } from "./types"

@@ -1,6 +1,3 @@
-import { existsSync } from "node:fs"
-import { readFile, stat } from "node:fs/promises"
-import { resolve } from "node:path"
 import type {
 	CollabFileSyncRole,
 	EffectiveAccess,
@@ -19,9 +16,12 @@ import {
 import { toVaultRelativePath } from "@cortex/platform/utils"
 import {
 	ApiClient,
+	getServerCapabilities,
 	getSubscriptionStatus,
 	getVaultOverview,
 	grantVaultKey,
+	isCursorExpired,
+	isPayloadTooLarge,
 	isRetriable,
 	listChanges,
 	listPendingVaultKeys,
@@ -29,9 +29,11 @@ import {
 	SyncError,
 	subscriptionAccessMessage,
 	type TokenProvider,
+	throttleDelayMs,
 	updateVaultCursor,
 } from "@cortex/sync-api"
 import { accessFor, READ_ONLY_ACCESS, type SyncAccess } from "./access"
+import { fromBase64, toBase64, utf8Decode } from "./bytes"
 import { getAllConflicts } from "./conflict"
 import { EventCursor } from "./cursor"
 import { SyncDb, syncDbPath } from "./db"
@@ -40,8 +42,9 @@ import { planRemoteChange } from "./planner"
 import type { EmitSyncEvent, RpcRequest, SyncCommand, VaultRef, WorkerMethods } from "./protocol"
 import { opPath, opTargetPath, type QueueItem, type SyncOp, SyncQueue } from "./queue"
 import { downloadMany, executeOp, fileEvent, log, runFullSync } from "./runner"
+import { syncRuntime } from "./runtime"
 import { SseClient } from "./sse"
-import type { SyncContext } from "./transfer"
+import type { SyncContext, SyncLimits } from "./transfer"
 import * as transfer from "./transfer"
 import {
 	type AccessDenial,
@@ -86,11 +89,15 @@ function readCachedAccess(db: SyncDb): EffectiveAccess | null {
 	}
 }
 
+function resolvePath(path: string): string {
+	return syncRuntime().path.resolve(path)
+}
+
 export interface SyncEngineDeps {
 	emit: EmitSyncEvent
 	deviceId: () => string
 	tokens: TokenProvider
-	loadVek: (vaultId: string) => Promise<Buffer | null>
+	loadVek: (vaultId: string) => Promise<Uint8Array | null>
 }
 
 interface Session extends SyncContext {
@@ -99,7 +106,7 @@ interface Session extends SyncContext {
 	sse: SseClient | null
 	seenEventId: string | null
 	reportedEventId: string | null
-	timers: NodeJS.Timeout[]
+	timers: ReturnType<typeof setInterval>[]
 	needsFullSync: boolean
 	userId: string | null
 	myRole: string
@@ -115,6 +122,18 @@ function sameAccess(left: EffectiveAccess, right: EffectiveAccess): boolean {
 
 function isFileSystemError(error: unknown): boolean {
 	return error instanceof Error && "syscall" in error && "path" in error
+}
+
+async function loadLimits(api: ApiClient): Promise<SyncLimits | undefined> {
+	try {
+		const { limits } = await getServerCapabilities(api)
+		return {
+			maxUploadBytes: limits.maxUploadBytes,
+			maxConcurrentUploads: limits.maxConcurrentUploads,
+		}
+	} catch {
+		return undefined
+	}
 }
 
 function shouldRetry(error: unknown): boolean {
@@ -244,7 +263,7 @@ export class SyncEngine {
 			return
 		}
 
-		let vek: Buffer | null
+		let vek: Uint8Array | null
 		try {
 			vek = await this.deps.loadVek(command.vaultId)
 		} catch (error) {
@@ -271,9 +290,11 @@ export class SyncEngine {
 			return
 		}
 
+		const limits = await loadLimits(api)
 		const session: Session = {
 			api,
 			db,
+			limits,
 			vaultId: command.vaultId,
 			vaultPath: command.vaultPath,
 			vek,
@@ -437,14 +458,14 @@ export class SyncEngine {
 			if (session.db.getMemberKeyPin(member.userId)) continue
 			session.db.setMemberKeyPin({
 				userId: member.userId,
-				fingerprint: keyFingerprint(Buffer.from(member.publicKey, "base64")),
+				fingerprint: keyFingerprint(fromBase64(member.publicKey)),
 				pendingFingerprint: null,
 			})
 		}
 	}
 
 	private trustedMemberKey(session: Session, userId: string, publicKey: string): boolean {
-		const fingerprint = keyFingerprint(Buffer.from(publicKey, "base64"))
+		const fingerprint = keyFingerprint(fromBase64(publicKey))
 		const pin = session.db.getMemberKeyPin(userId)
 		if (!pin) {
 			session.db.setMemberKeyPin({ userId, fingerprint, pendingFingerprint: null })
@@ -487,8 +508,8 @@ export class SyncEngine {
 		for (const [userId, publicKey] of targets) {
 			if (this.session !== session) return
 			if (userId === session.userId || !this.trustedMemberKey(session, userId, publicKey)) continue
-			const sealed = sealVaultKey(session.vek, Buffer.from(publicKey, "base64"))
-			await grantVaultKey(session.api, session.vaultId, userId, sealed.toString("base64"))
+			const sealed = sealVaultKey(session.vek, fromBase64(publicKey))
+			await grantVaultKey(session.api, session.vaultId, userId, toBase64(sealed))
 			log(this.deps.emit, "info", `Granted vault key to member ${userId}`)
 		}
 	}
@@ -549,7 +570,7 @@ export class SyncEngine {
 
 	private openDb(vaultPath: string): SyncDb {
 		const cached = this.cachedDb
-		if (cached && resolve(cached.vaultPath) === resolve(vaultPath)) {
+		if (cached && resolvePath(cached.vaultPath) === resolvePath(vaultPath)) {
 			this.cachedDb = null
 			return cached
 		}
@@ -563,10 +584,10 @@ export class SyncEngine {
 	}
 
 	private dbFor(vaultPath: string): SyncDb | null {
-		const target = resolve(vaultPath)
-		if (this.session && resolve(this.session.vaultPath) === target) return this.session.db
-		if (this.cachedDb && resolve(this.cachedDb.vaultPath) === target) return this.cachedDb
-		if (!existsSync(syncDbPath(vaultPath))) return null
+		const target = resolvePath(vaultPath)
+		if (this.session && resolvePath(this.session.vaultPath) === target) return this.session.db
+		if (this.cachedDb && resolvePath(this.cachedDb.vaultPath) === target) return this.cachedDb
+		if (!syncRuntime().fs.existsSync(syncDbPath(vaultPath))) return null
 		const db = new SyncDb(vaultPath)
 		this.releaseDb(db)
 		return db
@@ -633,6 +654,7 @@ export class SyncEngine {
 			onChange: (change) => onSession(() => this.acceptRemoteChange(session, change))(),
 			onVaultEvent: (event, payload) => this.onVaultEvent(session, event, payload),
 			onAccessDenied: (denial) => onSession(() => this.denyAccess(denial))(),
+			onReset: onSession(() => this.resyncFromScratch(session, "event history expired")),
 		})
 		session.sse.start()
 	}
@@ -702,10 +724,25 @@ export class SyncEngine {
 	private async pullChanges(session: Session): Promise<void> {
 		while (this.session === session) {
 			const since = session.seenEventId ?? session.cursor.value ?? "0"
-			const changes = await listChanges(session.api, session.vaultId, since, CHANGES_PAGE_SIZE)
+			let changes: RemoteChange[]
+			try {
+				changes = await listChanges(session.api, session.vaultId, since, CHANGES_PAGE_SIZE)
+			} catch (error) {
+				if (!isCursorExpired(error)) throw error
+				await this.resyncFromScratch(session, "change feed cursor expired")
+				return
+			}
 			for (const change of changes) this.acceptRemoteChange(session, change)
 			if (changes.length < CHANGES_PAGE_SIZE) return
 		}
+	}
+
+	private async resyncFromScratch(session: Session, reason: string): Promise<void> {
+		if (this.session !== session) return
+		log(this.deps.emit, "warn", `Running a full sync: ${reason}`)
+		session.needsFullSync = true
+		session.seenEventId = null
+		await this.reconcile(session)
 	}
 
 	private acceptRemoteChange(session: Session, change: RemoteChange): void {
@@ -823,6 +860,19 @@ export class SyncEngine {
 
 	private fail(session: Session, item: QueueItem, error: unknown): void {
 		if (this.denyOnAccessError(error, "path")) return
+		const throttle = throttleDelayMs(error)
+		if (throttle !== null) {
+			log(this.deps.emit, "warn", `${opPath(item.op)} deferred: the server asked to retry later`)
+			session.queue.defer(item, throttle / 1000)
+			return
+		}
+		if (isPayloadTooLarge(error)) {
+			log(this.deps.emit, "warn", `${opPath(item.op)} not synced: larger than the server limit`)
+			fileEvent(this.deps.emit, opPath(item.op), "skipped: larger than the server limit")
+			session.queue.fail(item, false)
+			if (item.sourceEventId) this.markEventProcessed(session, item.sourceEventId)
+			return
+		}
 		if (isPathForbidden(error)) {
 			log(this.deps.emit, "warn", `${opPath(item.op)} skipped: no access on the server`)
 			session.queue.fail(item, false)
@@ -843,7 +893,7 @@ export class SyncEngine {
 		const now = Date.now()
 		try {
 			const fullPath = resolveInVault(session.vaultPath, relative)
-			const stats = await stat(fullPath)
+			const stats = await syncRuntime().fs.stat(fullPath)
 			if (!stats.isFile()) return
 			const state = session.db.getFileState(relative)
 			if (state?.syncStatus === "conflict") return
@@ -853,7 +903,7 @@ export class SyncEngine {
 				return
 			}
 			if (writable && this.pendingDeletes.size > 0) {
-				const hash = hashBytes(await readFile(fullPath))
+				const hash = hashBytes(await syncRuntime().fs.readFile(fullPath))
 				if (state?.localHash === hash) return
 				for (const [oldPath, pending] of this.pendingDeletes) {
 					if (now - pending.at > DELETE_CORRELATION_WINDOW_MS || pending.hash !== hash) continue
@@ -952,7 +1002,7 @@ export class SyncEngine {
 					request.args.filePath,
 					Number(request.args.version),
 				)
-				return content.toString("utf8")
+				return utf8Decode(content)
 			}
 			case "restoreVersion": {
 				const ctx = await this.contextFor(request.args.vault)
@@ -973,7 +1023,19 @@ export class SyncEngine {
 				this.trustMemberKey(vaultId, userId, fingerprint)
 				return null
 			}
+			case "shutdown":
+				await this.shutdown()
+				return null
 		}
+	}
+
+	/** Lets queued work settle, then checkpoints and closes every open `sync.db`. */
+	async shutdown(): Promise<void> {
+		await this.lane
+		this.closeSession()
+		this.cachedDb?.close()
+		this.cachedDb = null
+		this.setState("idle")
 	}
 
 	private async contextFor(vault: VaultRef): Promise<SyncContext> {
@@ -981,7 +1043,7 @@ export class SyncEngine {
 		if (
 			session &&
 			session.vaultId === vault.vaultId &&
-			resolve(session.vaultPath) === resolve(vault.vaultPath)
+			resolvePath(session.vaultPath) === resolvePath(vault.vaultPath)
 		) {
 			return session
 		}

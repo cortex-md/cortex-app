@@ -1,18 +1,18 @@
-import { useColorScheme } from "react-native"
+import { useMemo } from "react"
 
-import {
-	getMobileColorScheme,
-	mobileColors,
-	mobileIconColors,
-	mobileStaticColors,
-} from "@/theme/colors"
+import { useActiveTheme } from "@/hooks/useActiveTheme"
+import { createIconColors, createMobileColors, type MobileColors } from "@/theme/colors"
 
 export function useMobileColors() {
-	const scheme = getMobileColorScheme(useColorScheme())
-	return {
-		colors: mobileColors[scheme],
-		iconColors: mobileIconColors[scheme],
-		scheme,
-		staticColors: mobileStaticColors[scheme],
-	}
+	const theme = useActiveTheme()
+	return useMemo(() => {
+		const colors: MobileColors = createMobileColors(theme)
+		return {
+			colors,
+			iconColors: createIconColors(colors),
+			scheme: colors.scheme,
+			staticColors: colors,
+			themeName: theme.name,
+		}
+	}, [theme])
 }

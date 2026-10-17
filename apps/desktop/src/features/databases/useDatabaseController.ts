@@ -1,29 +1,30 @@
+import type { DatabaseViewState } from "@cortex/core"
 import {
-	createDatabaseRow,
-	flushDatabaseConfigWrites,
-	reportAppError,
+	addDatabaseView,
+	createDatabaseRowInView,
+	cycleDatabaseViewSort,
+	removeDatabaseView,
+	renameDatabaseFolder,
+	renameDatabaseRowNote,
+	reorderDatabaseRowTitles,
 	retainDatabase,
 	selectDatabaseByFolder,
 	selectDatabaseRows,
 	selectDatabaseRowsStatus,
-	updateDatabaseConfig,
+	updateDatabaseView,
 	useDatabaseStore,
-	useVaultStore,
 } from "@cortex/core"
 import {
-	createDatabaseView,
 	type DatabaseGroup,
 	type DatabaseRow,
 	type DatabaseRowTemplate,
 	type DatabaseView,
 	type DatabaseViewType,
-	getDatabaseRowPreset,
 	getDatabaseViewColumns,
 	queryDatabaseView,
 	resolveDatabaseProperties,
 } from "@cortex/properties/database"
 import { useCallback, useDeferredValue, useEffect, useMemo } from "react"
-import type { DatabaseViewState } from "./databaseWorkspace"
 import { useDatabaseEnvironment } from "./useDatabaseEnvironment"
 
 export type PatchDatabaseViewState = (patch: Partial<DatabaseViewState>) => void
@@ -63,36 +64,23 @@ export function useDatabaseController(
 	const collapsed = useMemo(() => new Set(state.collapsed), [state.collapsed])
 
 	const updateView = useCallback(
-		(update: (view: DatabaseView) => DatabaseView) => {
-			if (!activeView) return
-			updateDatabaseConfig(folderPath, (current) => ({
-				...current,
-				views: current.views.map((view) => (view.id === activeView.id ? update(view) : view)),
-			}))
-		},
+		(update: (view: DatabaseView) => DatabaseView) =>
+			updateDatabaseView(folderPath, activeView, update),
 		[activeView, folderPath],
 	)
 
 	const addView = useCallback(
 		(type: DatabaseViewType) => {
-			const current = useDatabaseStore.getState().databases[folderPath]?.config
-			if (!current) return
-			const view = createDatabaseView(type, current.views, {
-				group: type === "board" ? activeView?.group : undefined,
-			})
-			updateDatabaseConfig(folderPath, (next) => ({ ...next, views: [...next.views, view] }))
+			const view = addDatabaseView(folderPath, type, activeView)
+			if (!view) return
 			patchState({ viewId: view.id })
 		},
-		[activeView?.group, folderPath, patchState],
+		[activeView, folderPath, patchState],
 	)
 
 	const removeView = useCallback(
 		(id: string) => {
-			updateDatabaseConfig(folderPath, (current) =>
-				current.views.length > 1
-					? { ...current, views: current.views.filter((view) => view.id !== id) }
-					: current,
-			)
+			removeDatabaseView(folderPath, id)
 			patchState({ viewId: null })
 		},
 		[folderPath, patchState],
@@ -104,26 +92,16 @@ export function useDatabaseController(
 			template: DatabaseRowTemplate | null = null,
 			extra: Record<string, unknown> = {},
 		) => {
-			if (!activeView) return
-			try {
-				const path = await createDatabaseRow(folderPath, {
-					properties: {
-						...(template?.properties ?? {}),
-						...getDatabaseRowPreset(activeView, group, environment.queryContext, resolved),
-						...extra,
-					},
-					body: template?.body,
-				})
-				patchState({ peekPath: path })
-			} catch (error) {
-				await reportAppError({
-					operation: "database.create-row",
-					source: "databases",
-					cause: error,
-					userMessage: "The note could not be created.",
-					context: { folderPath },
-				})
-			}
+			const path = await createDatabaseRowInView(
+				folderPath,
+				activeView,
+				group,
+				template,
+				extra,
+				environment.queryContext,
+				resolved,
+			)
+			if (path) patchState({ peekPath: path })
 		},
 		[activeView, environment.queryContext, folderPath, patchState, resolved],
 	)
@@ -141,12 +119,8 @@ export function useDatabaseController(
 
 	const reorderRows = useCallback(
 		(ordered: readonly DatabaseRow[], draggedPath: string, targetPath: string) => {
-			const titles = ordered.map((row) => row.title)
-			const dragged = ordered.find((row) => row.path === draggedPath)?.title
-			const target = ordered.find((row) => row.path === targetPath)?.title
-			if (!dragged || !target) return
-			const without = titles.filter((title) => title !== dragged)
-			without.splice(without.indexOf(target), 0, dragged)
+			const without = reorderDatabaseRowTitles(ordered, draggedPath, targetPath)
+			if (!without) return
 			updateView((view) => ({ ...view, order: without }))
 		},
 		[updateView],
@@ -154,26 +128,18 @@ export function useDatabaseController(
 
 	const cycleSort = useCallback(
 		(key: string) => {
-			updateView((view) => {
-				const current = view.sort?.[0]
-				if (current?.key !== key) return { ...view, sort: [{ key, dir: "asc" }] }
-				if (current.dir === "asc") return { ...view, sort: [{ key, dir: "desc" }] }
-				return { ...view, sort: undefined }
-			})
+			updateView((view) => cycleDatabaseViewSort(view, key))
 		},
 		[updateView],
 	)
 
 	const renameDatabase = useCallback(
-		async (name: string) => {
-			await flushDatabaseConfigWrites()
-			return useVaultStore.getState().renameFile(folderPath, name)
-		},
+		(name: string) => renameDatabaseFolder(folderPath, name),
 		[folderPath],
 	)
 
 	const renameRow = useCallback(
-		(path: string, name: string) => useVaultStore.getState().renameFile(path, `${name}.md`),
+		(path: string, name: string) => renameDatabaseRowNote(path, name),
 		[],
 	)
 

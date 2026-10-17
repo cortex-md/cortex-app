@@ -1,22 +1,10 @@
 # Cortex Documentation
 
-This directory contains public-facing documentation for Cortex module boundaries, community
-plugins, and community themes.
+| Audience | Where |
+| --- | --- |
+| Users, plugin authors, theme authors | The website docs, sourced from [`apps/web/src/content/docs`](../apps/web/src/content/docs) and published at [cortex-md.tech/docs](https://cortex-md.tech/docs) |
+| Contributors to this repository | [`docs/development`](development/README.md) |
+| Coding agents | The root [`AGENTS.md`](../AGENTS.md) and each package's `AGENTS.md` |
 
-## Sections
-
-- [Modules](modules/README.md): a compact map of the packages and runtime boundaries that matter
-  to plugin and theme authors.
-- [Development](development/README.md): contributor-facing setup, desktop development, quality
-  gates, and architecture practices.
-- [Community](community/README.md): authoring guides for plugins and themes.
-- [Community plugins](community/plugins/README.md): how to build plugins with `@cortex.md/api`.
-- [Community themes](community/themes/README.md): how to build vault-scoped CSS themes.
-- [Mobile roadmap](mobile/roadmap.md): the Local-first Cortex Mobile plan, including the
-  CodeMirror-in-WebView editor architecture.
-
-## Current Scope
-
-These docs describe the contracts that exist in this repository today. The official Cortex CLI is
-not documented here yet because the current tree does not contain an `apps/cli` implementation.
-Use the vault-scoped manual workflows in the community guides until CLI docs are added.
+The website docs are the single source for user-facing, plugin, and theme documentation. Edit the
+MDX files there; there is no second copy in this folder.

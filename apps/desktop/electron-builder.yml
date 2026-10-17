@@ -6,8 +6,26 @@ directories:
   buildResources: build
 files:
   - out/**/*
+  - "!out/**/*.map"
   - package.json
 asar: true
+asarUnpack:
+  - node_modules/font-list/**
+compression: maximum
+artifactName: ${productName}-${os}-${arch}.${ext}
+electronLanguages:
+  - en
+  - en-US
+  - en-GB
+  - pt
+  - pt-BR
+electronFuses:
+  runAsNode: false
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
 protocols:
   - name: Cortex
     schemes:
@@ -25,12 +43,14 @@ mac:
 win:
   target:
     - nsis
+nsis:
+  oneClick: true
+  perMachine: false
 linux:
+  executableName: cortex
   target:
     - AppImage
     - deb
+    - rpm
   category: Office
-publish:
-  provider: github
-  owner: cortex-md
-  repo: cortex-app
+publish: null

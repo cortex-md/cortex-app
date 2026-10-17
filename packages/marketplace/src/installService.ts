@@ -1,6 +1,6 @@
 import { type FileEntry, getPlatform } from "@cortex/platform"
 import { getThemeManager, parseCommunityThemeManifest } from "@cortex/theme"
-import { fetchLatestRelease } from "./registryService"
+import { fetchReleaseForVersion } from "./registryService"
 import type {
 	GitHubRelease,
 	GitHubReleaseAsset,
@@ -232,12 +232,17 @@ async function installPluginFromSourceArchive(
 	}
 }
 
+export interface InstallOptions {
+	version?: string | null
+}
+
 export async function installPlugin(
 	entry: RegistryEntry,
 	pluginsDir: string,
 	pluginHost: MarketplacePluginHost,
+	options: InstallOptions = {},
 ): Promise<void> {
-	const release = await fetchLatestRelease(entry.repo)
+	const release = await fetchReleaseForVersion(entry.repo, options.version)
 	const destDir = `${pluginsDir}/${entry.id}`
 	const workspaceDir = `${pluginsDir}/.${entry.id}-install-${Date.now()}`
 	const stagingDir = `${workspaceDir}/plugin`
@@ -296,8 +301,9 @@ export async function installTheme(
 	entry: RegistryEntry,
 	themesDir: string,
 	reloadCommunityThemes: (dir: string) => Promise<void>,
+	options: InstallOptions = {},
 ): Promise<void> {
-	const release = await fetchLatestRelease(entry.repo)
+	const release = await fetchReleaseForVersion(entry.repo, options.version)
 	const destDir = `${themesDir}/${entry.id}`
 	const workspaceDir = `${themesDir}/.${entry.id}-install-${Date.now()}`
 	const stagingDir = `${workspaceDir}/theme`

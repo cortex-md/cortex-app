@@ -4,16 +4,31 @@ import {
 	getErrorMessage,
 	openLastVault,
 	startAppRuntime,
+	startSyncLifecycle,
+	useVaultStore,
 } from "@cortex/core"
-import { useHotkeysStore } from "@cortex/hotkeys"
+import { useHotkeysStore } from "@cortex/commands/hotkeys"
 import { useEffect, useState } from "react"
 import { AppState } from "react-native"
 
+import { startAccountServerSync } from "@/features/account/accountServer"
+import { startMobileExtensionSync } from "@/features/extensions/extensionSync"
+import { startSyncAlerts } from "@/features/sync/syncAlerts"
 import { startMobileThemeSync } from "@/features/themes/themeSync"
+import { startReminderIndexing } from "@/features/today/reminderIndexing"
+import { startExternalVaultRefresh } from "@/features/vault/externalVaultRefresh"
+import { cleanErrorMessage } from "@/features/vault/vaultErrors"
+import { getMobileVaultAccess } from "@/platform/vaultAccess"
 
 export interface MobileRuntimeState {
 	ready: boolean
 	startupError: string | null
+}
+
+async function describeStartupError(error: unknown): Promise<string | null> {
+	const lastVault = useVaultStore.getState().recentVaults[0]
+	if (lastVault && (await getMobileVaultAccess(lastVault.path)) === "needsAccess") return null
+	return cleanErrorMessage(getErrorMessage(error))
 }
 
 export function useMobileRuntime(): MobileRuntimeState {
@@ -24,9 +39,16 @@ export function useMobileRuntime(): MobileRuntimeState {
 		const stopAppRuntime = startAppRuntime({
 			persistWorkspace: false,
 			indexing: "lazy",
+			tasks: true,
 			onVaultOpened: (vault) => void useHotkeysStore.getState().loadOverrides(vault.path),
 		})
+		const stopSyncLifecycle = startSyncLifecycle()
+		const stopAccountServerSync = startAccountServerSync()
+		const stopSyncAlerts = startSyncAlerts()
+		const stopReminderIndexing = startReminderIndexing()
+		const stopExternalVaultRefresh = startExternalVaultRefresh()
 		const stopThemeSync = startMobileThemeSync()
+		const stopExtensionSync = startMobileExtensionSync()
 		const appStateSubscription = AppState.addEventListener("change", (appState) => {
 			if (appState === "background" || appState === "inactive") void flushPendingWrites()
 		})
@@ -35,7 +57,7 @@ export function useMobileRuntime(): MobileRuntimeState {
 			.then(openLastVault)
 			.then(
 				() => null,
-				(error: unknown) => getErrorMessage(error),
+				(error: unknown) => describeStartupError(error),
 			)
 			.then((startupError) => {
 				if (!canceled) setState({ ready: true, startupError })
@@ -44,7 +66,13 @@ export function useMobileRuntime(): MobileRuntimeState {
 		return () => {
 			canceled = true
 			appStateSubscription.remove()
+			stopExtensionSync()
 			stopThemeSync()
+			stopSyncAlerts()
+			stopAccountServerSync()
+			stopSyncLifecycle()
+			stopReminderIndexing()
+			stopExternalVaultRefresh()
 			stopAppRuntime()
 		}
 	}, [])

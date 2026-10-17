@@ -1,4 +1,4 @@
-import { executeCommand } from "@cortex/commands"
+import { type CommandEntry, executeCommand, registerCommands } from "@cortex/commands"
 import {
 	createCoreServices,
 	type NoteDocumentSession,
@@ -6,16 +6,21 @@ import {
 	useEditorStore,
 } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
-import { createPluginUiMirror } from "@cortex/plugin-host-core"
-import type { RefObject } from "react"
+import { createPluginUiMirror, type JsonValue } from "@cortex/plugin-host-core"
+import type { ReactNode, RefObject } from "react"
 
 import { openMobileNote } from "@/bootstrap/appCommands"
+import { saveNoteImage } from "@/features/note/noteImageFiles"
 import { openPluginView } from "@/features/plugins/openPluginView"
+import { receiveCollabBridgeMessage } from "@/features/workspace/collabBridge"
 import {
 	answerWorkspaceRequest,
+	type CollabBridgeMessage,
 	createWorkspaceRequests,
+	type EditorCommandSummary,
 	isForwardedPlatformMethod,
 	type WorkspaceDocument,
+	type WorkspaceFindResult,
 	type WorkspaceInboundMessage,
 	type WorkspaceOutboundMessage,
 	type WorkspaceServiceCall,
@@ -34,8 +39,14 @@ export interface WorkspaceRect {
 }
 
 export interface WorkspaceLayout {
+	owner: object | null
 	rect: WorkspaceRect | null
 	visible: boolean
+}
+
+export interface WorkspaceChrome {
+	owner: object | null
+	node: ReactNode
 }
 
 const STALE_COMMIT_ERROR = "The note changed before this mobile editor commit could be applied."
@@ -46,14 +57,16 @@ const sessions = new Map<string, NoteDocumentSession[]>()
 const watchers = new Map<number, () => void>()
 const layoutListeners = new Set<() => void>()
 const styleListeners = new Set<() => void>()
+const chromeListeners = new Set<() => void>()
 
 let viewRef: RefObject<WorkspaceViewHandle | null> | null = null
 let publisher: WorkspaceStatePublisher | null = null
 let connected = false
 let queue: WorkspaceInboundMessage[] = []
 let shownDocument: WorkspaceDocument | null = null
-let editorOwner: object | null = null
-let layout: WorkspaceLayout = { rect: null, visible: false }
+let layout: WorkspaceLayout = { owner: null, rect: null, visible: false }
+let chrome: WorkspaceChrome = { owner: null, node: null }
+let bottomInset = 0
 let communityStyles = ""
 
 const pluginUiMirror = createPluginUiMirror({
@@ -67,7 +80,9 @@ function post(message: WorkspaceInboundMessage): void {
 		handle.receive(message)
 		return
 	}
-	if (message.type === "plugin" || message.type === "closeDocument") queue.push(message)
+	if (message.type === "plugin" || message.type === "closeDocument" || message.type === "collab") {
+		queue.push(message)
+	}
 }
 
 function stopWatchers(): void {
@@ -97,6 +112,7 @@ function handleReady(): void {
 	handle.receive({ type: "state", patch: publisher.snapshot() })
 	if (shownDocument) handle.receive({ type: "openDocument", document: shownDocument })
 	handle.receive({ type: "showEditor", visible: layout.visible })
+	handle.receive({ type: "bottomInset", value: bottomInset })
 	const queued = queue
 	queue = []
 	for (const message of queued) handle.receive(message)
@@ -143,13 +159,42 @@ async function runServiceCall(id: number, call: WorkspaceServiceCall): Promise<u
 			watchers.get(call.watchId)?.()
 			watchers.delete(call.watchId)
 			return null
+		case "saveImage":
+			return saveNoteImage(call.filePath, decodeBase64(call.base64), call.mimeType)
 	}
+}
+
+function decodeBase64(value: string): Uint8Array {
+	const binary = atob(value)
+	const bytes = new Uint8Array(binary.length)
+	for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index)
+	return bytes
+}
+
+let unregisterEditorCommands: (() => void) | null = null
+
+function registerEditorCommandProxies(commands: readonly EditorCommandSummary[]): void {
+	unregisterEditorCommands?.()
+	const entries: CommandEntry[] = commands.map((command) => ({
+		id: command.id,
+		label: command.label,
+		category: command.category,
+		aliases: command.aliases,
+		execute: () => sendCommand(command.id),
+	}))
+	unregisterEditorCommands = registerCommands(entries)
 }
 
 async function receive(message: WorkspaceOutboundMessage): Promise<void> {
 	switch (message.type) {
 		case "ready":
 			handleReady()
+			return
+		case "editorCommands":
+			registerEditorCommandProxies(message.commands)
+			return
+		case "collab":
+			receiveCollabBridgeMessage(message.message)
 			return
 		case "plugin":
 			pluginUiMirror.receive(message.message)
@@ -187,6 +232,19 @@ async function receive(message: WorkspaceOutboundMessage): Promise<void> {
 		case "reply":
 			requests.settle(message)
 	}
+}
+
+function sendCollab(message: CollabBridgeMessage): void {
+	post({ type: "collab", message })
+}
+
+function sendCommand(commandId: string, payload?: JsonValue): void {
+	post({ type: "command", commandId, payload })
+}
+
+function find(query: string, direction?: "next" | "prev"): Promise<WorkspaceFindResult> {
+	if (!connected) return Promise.resolve({ current: 0, total: 0 })
+	return requests.request<WorkspaceFindResult>((id) => post({ type: "find", id, query, direction }))
 }
 
 function attach(ref: RefObject<WorkspaceViewHandle | null>): () => void {
@@ -239,14 +297,37 @@ function setLayout(next: WorkspaceLayout): void {
 }
 
 function showEditor(owner: object, rect: WorkspaceRect): void {
-	editorOwner = owner
-	setLayout({ rect, visible: true })
+	setLayout({ owner, rect, visible: true })
 }
 
 function hideEditor(owner: object): void {
-	if (editorOwner !== owner) return
-	editorOwner = null
-	setLayout({ rect: layout.rect, visible: false })
+	if (layout.owner !== owner) return
+	setLayout({ owner: null, rect: layout.rect, visible: false })
+}
+
+/** Native chrome drawn over the bottom of the editor rectangle while `owner` shows the editor. */
+function setChrome(owner: object, node: ReactNode): void {
+	chrome = { owner, node }
+	for (const listener of chromeListeners) listener()
+}
+
+function clearChrome(owner: object): void {
+	if (chrome.owner !== owner) return
+	chrome = { owner: null, node: null }
+	for (const listener of chromeListeners) listener()
+}
+
+function setBottomInset(value: number): void {
+	const next = Math.round(value)
+	if (next === bottomInset) return
+	bottomInset = next
+	post({ type: "bottomInset", value: next })
+}
+
+/** Writes the WebView's debounced edits to the open note session. */
+function flush(): Promise<void> {
+	if (!connected) return Promise.resolve()
+	return requests.request<void>((id) => post({ type: "flush", id }))
 }
 
 export const workspaceChannel = {
@@ -257,11 +338,25 @@ export const workspaceChannel = {
 	showDocument,
 	showEditor,
 	hideEditor,
+	setChrome,
+	clearChrome,
+	setBottomInset,
+	flush,
+	sendCommand,
+	sendCollab,
+	find,
 	getLayout: () => layout,
 	subscribeLayout(listener: () => void) {
 		layoutListeners.add(listener)
 		return () => {
 			layoutListeners.delete(listener)
+		}
+	},
+	getChrome: () => chrome,
+	subscribeChrome(listener: () => void) {
+		chromeListeners.add(listener)
+		return () => {
+			chromeListeners.delete(listener)
 		}
 	},
 	getCommunityStyles: () => communityStyles,

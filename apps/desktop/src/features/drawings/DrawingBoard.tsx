@@ -198,7 +198,7 @@ export function DrawingBoard({ filePath, drawingId }: DrawingBoardProps) {
 		return (
 			<div className="drawing-board-state">
 				<p>{error ?? "The drawing could not be loaded."}</p>
-				<Button variant="outline" size="sm" onClick={reloadDocument}>
+				<Button variant="outline" onClick={reloadDocument}>
 					Retry
 				</Button>
 			</div>

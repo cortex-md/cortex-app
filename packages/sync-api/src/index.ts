@@ -18,11 +18,14 @@ export { type CollabTicket, collabSocketUrl, createCollabTicket } from "./collab
 export * from "./endpoints"
 export {
 	expectOk,
+	isCursorExpired,
+	isPayloadTooLarge,
 	isRetriable,
 	SyncError,
 	type SyncErrorKind,
 	subscriptionAccessMessage,
 	subscriptionCode,
+	throttleDelayMs,
 } from "./errors"
 export * from "./files"
 export {
@@ -43,6 +46,12 @@ export {
 	roleAccess,
 } from "./mappers"
 export {
+	createNoteSharesService,
+	type ShareCrypto,
+	type ShareKeyMaterial,
+	type ShareServiceDeps,
+} from "./noteSharesService"
+export {
 	createCachedSecretStore,
 	identitySecretKey,
 	type SecretStore,
@@ -56,3 +65,5 @@ export {
 } from "./services"
 export { AuthSession, type AuthSessionOptions, type StoredUser, scopedKey } from "./session"
 export * from "./shares"
+export { createTemplateSharesService } from "./templateSharesService"
+export * from "./templates"

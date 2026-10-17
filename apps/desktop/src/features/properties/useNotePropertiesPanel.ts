@@ -1,15 +1,19 @@
 import { getErrorMessage, noteCache, useVaultStore } from "@cortex/core"
 import {
-	duplicatePropertyDefinition,
+	createEmptyNotePropertiesSnapshot,
 	getNotePropertiesExpanded,
-	getVaultSchema,
-	loadNotePropertiesSnapshot,
+	type NotePropertiesPanelInput,
 	type NotePropertiesSnapshot,
 	onVaultSchemaChange,
 	type PropertyDefinition,
 	projectRawNote,
 	type RawNoteProjection,
+	refreshNotePropertiesSnapshot,
 	removeProperty,
+	schemaWithDuplicatedProperty,
+	schemaWithoutProperty,
+	schemaWithRegisteredProperty,
+	schemaWithUpdatedProperty,
 	setNotePropertiesExpanded,
 	setProperty,
 	updateVaultSchema,
@@ -27,22 +31,7 @@ interface ScopedMessageState {
 	message: string
 }
 
-interface NotePropertiesPanelInput {
-	rawContent?: string
-	projection?: RawNoteProjection
-}
-
-const emptySchema: VaultSchema = { version: 1, properties: [] }
-
-function createEmptySnapshot(schema: VaultSchema = emptySchema): NotePropertiesSnapshot {
-	return {
-		schema,
-		persistedMeta: {},
-		resolvedMeta: {},
-		authorConfig: { variant: "text" },
-		observedDefinitions: [],
-	}
-}
+const createEmptySnapshot = createEmptyNotePropertiesSnapshot
 
 function resolveSnapshot(
 	state: ScopedSnapshotState | null,
@@ -100,30 +89,15 @@ export function useNotePropertiesPanel(filePath: string, input: NotePropertiesPa
 				if (!isCurrentRefresh()) return
 				setSnapshotState({ filePath, snapshot: createEmptySnapshot(schema) })
 			}
-			const applyFrontmatterError = (refreshError: unknown) => {
+			const applyFrontmatterError = (message: string) => {
 				if (!isCurrentRefresh()) return
-				setFrontmatterErrorState({ filePath, message: getErrorMessage(refreshError) })
+				setFrontmatterErrorState({ filePath, message })
 			}
-			try {
-				const nextProjection =
-					nextInput.projection ??
-					(nextInput.rawContent === undefined ? undefined : projectRawNote(nextInput.rawContent))
-				const nextSnapshot = await loadNotePropertiesSnapshot(
-					filePath,
-					nextProjection
-						? { projection: nextProjection }
-						: nextInput.rawContent === undefined
-							? undefined
-							: { rawContent: nextInput.rawContent },
-				)
-				applySnapshot(nextSnapshot, nextProjection)
-			} catch (refreshError) {
-				try {
-					const schema = await getVaultSchema(vaultPath)
-					applySchemaFallback(schema)
-				} catch {}
-				applyFrontmatterError(refreshError)
-			}
+			await refreshNotePropertiesSnapshot(filePath, vaultPath, nextInput, {
+				applySnapshot,
+				applySchemaFallback,
+				applyFrontmatterError,
+			})
 		},
 		[filePath, invalidateRefresh, vaultPath],
 	)
@@ -181,45 +155,28 @@ export function useNotePropertiesPanel(filePath: string, input: NotePropertiesPa
 
 	const registerProperty = useCallback(
 		async (definition: PropertyDefinition) => {
-			await commitSchema({
-				version: 1,
-				properties: [...snapshot.schema.properties, definition],
-			})
+			await commitSchema(schemaWithRegisteredProperty(snapshot.schema, definition))
 		},
-		[commitSchema, snapshot.schema.properties],
+		[commitSchema, snapshot.schema],
 	)
 
 	const updateDefinition = useCallback(
 		async (definition: PropertyDefinition) => {
-			await commitSchema({
-				version: 1,
-				properties: snapshot.schema.properties.map((property) =>
-					property.id === definition.id ? definition : property,
-				),
-			})
+			await commitSchema(schemaWithUpdatedProperty(snapshot.schema, definition))
 		},
-		[commitSchema, snapshot.schema.properties],
+		[commitSchema, snapshot.schema],
 	)
 
 	const deleteDefinition = useCallback(
 		async (definition: PropertyDefinition) => {
-			await commitSchema({
-				version: 1,
-				properties: snapshot.schema.properties.filter(
-					(candidate) => candidate.id !== definition.id,
-				),
-			})
+			await commitSchema(schemaWithoutProperty(snapshot.schema, definition))
 		},
-		[commitSchema, snapshot.schema.properties],
+		[commitSchema, snapshot.schema],
 	)
 
 	const duplicateDefinition = useCallback(
 		async (definition: PropertyDefinition) => {
-			const duplicate = duplicatePropertyDefinition(definition, snapshot.schema)
-			await commitSchema({
-				version: 1,
-				properties: [...snapshot.schema.properties, duplicate],
-			})
+			await commitSchema(schemaWithDuplicatedProperty(snapshot.schema, definition))
 		},
 		[commitSchema, snapshot.schema],
 	)

@@ -24,6 +24,7 @@ import type { Shares } from "./interfaces/Shares"
 import type { Storage } from "./interfaces/Storage"
 import type { Subscription } from "./interfaces/Subscription"
 import type { Sync } from "./interfaces/Sync"
+import type { TemplateShares } from "./interfaces/TemplateShares"
 import type { Vault } from "./interfaces/Vault"
 
 export type {
@@ -50,10 +51,14 @@ export type {
 	NativeScrollbarStyle,
 } from "./interfaces/Appearance"
 export type {
+	AppUpdateChannel,
 	AppUpdateCheckOptions,
 	AppUpdateCheckSource,
-	AppUpdateInstallEvent,
+	AppUpdateError,
+	AppUpdateErrorCode,
+	AppUpdateInstallMode,
 	AppUpdateMetadata,
+	AppUpdatePreferences,
 	AppUpdateState,
 	AppUpdateStatus,
 	AppUpdates,
@@ -72,6 +77,7 @@ export type {
 	CollabPeer,
 	CollabWelcome,
 } from "./interfaces/Collab"
+export type { Argon2idOptions, CryptoPrimitives, X25519KeyPairBytes } from "./interfaces/Crypto"
 export type { Device, DeviceInfo } from "./interfaces/Device"
 export type { DeviceEntry, Devices } from "./interfaces/Devices"
 export type {
@@ -136,9 +142,10 @@ export type {
 export type {
 	NativeMenu,
 	NativeMenuCommand,
+	NativeMenuItemStates,
 	NativeMenuState,
 } from "./interfaces/NativeMenu"
-export type { NativeWindow, WindowMessage } from "./interfaces/NativeWindow"
+export type { NativeWindow } from "./interfaces/NativeWindow"
 export type {
 	NativeNotificationAction,
 	NativeNotificationCapabilities,
@@ -195,7 +202,24 @@ export type {
 	VaultKeyRequestResult,
 	VersionInfo,
 } from "./interfaces/Sync"
-export type { Vault, VaultMetadata, VaultRegistryEntry } from "./interfaces/Vault"
+export type {
+	PublicTemplateInfo,
+	TemplateBundle,
+	TemplateBundleFile,
+	TemplateShareAudience,
+	TemplateShareInfo,
+	TemplateShareInput,
+	TemplateShareKind,
+	TemplateSharePatch,
+	TemplateShareStatus,
+	TemplateShares,
+} from "./interfaces/TemplateShares"
+export type {
+	Vault,
+	VaultMetadata,
+	VaultRegistryEntry,
+	VaultRegistryPatch,
+} from "./interfaces/Vault"
 
 export interface Platform {
 	appearance: Appearance
@@ -221,6 +245,7 @@ export interface Platform {
 	remoteVault: RemoteVault
 	members: Members
 	shares: Shares
+	templateShares?: TemplateShares
 	collab: Collab
 	devices: Devices
 	notifications: Notifications

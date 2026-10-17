@@ -1,9 +1,16 @@
 "use dom"
 
+import { clipboardImageExtension } from "@cortex/editor/clipboard"
 import { EditorView, evictEditorDocument } from "@cortex/editor/editor-view"
 import { readonlyExtension } from "@cortex/editor/extensions"
 import { reconfigureMarkdownKeymap } from "@cortex/editor/keymap"
 import { resolveNoteAssetPath } from "@cortex/editor/note-assets"
+import { loadEditorRuntime } from "@cortex/editor/runtime"
+import {
+	searchHighlightExtension,
+	setSearchHighlight,
+	stepSearchHighlight,
+} from "@cortex/editor/search-commands"
 import { type SlashCommandMenuState, slashCommandExtension } from "@cortex/editor/slash-commands"
 import type {
 	CursorInfo,
@@ -25,19 +32,21 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react"
-
 import {
 	executeMobileEditorMarkdownCommand,
 	getMobileEditorFormatBindings,
+	listMobileEditorCommands,
 	mobileEditorSlashCommandItems,
-	mobileEditorToolbarItems,
 	registerMobileEditorCommands,
 	runMobileEditorCommand,
 	setMobileEditorCommandView,
 } from "@/features/editor/editorCommands"
+import { MOBILE_CODE_BLOCK_EMBEDS } from "@/features/editor/embeds/mobileCodeBlockEmbeds"
+import { createCollabMirror } from "@/features/workspace/collabMirror"
 import type {
 	WorkspaceCursor,
 	WorkspaceDocument,
+	WorkspaceFindResult,
 	WorkspaceOutboundMessage,
 	WorkspaceViewHandle,
 } from "@/features/workspace/workspaceProtocol"
@@ -58,8 +67,113 @@ interface PendingCommit {
 }
 
 const COMMIT_DEBOUNCE_MS = 750
+const SCROLL_MARGIN = 16
+const DRAG_DISMISS_DISTANCE = 10
+const MOBILE_BLUR_COMMAND = "mobile.blur"
+const MOBILE_FOCUS_COMMAND = "mobile.focus"
+const MOBILE_REVEAL_LINE_COMMAND = "mobile.reveal-line"
+const MOBILE_SLASH_COMMAND = "mobile.slash"
+const MOBILE_INSERT_DIVIDER_COMMAND = "mobile.insert-divider"
+const MOBILE_INSERT_TAG_COMMAND = "mobile.insert-tag"
+const MOBILE_INSERT_WIKILINK_COMMAND = "mobile.insert-wikilink"
+const MOBILE_INSERT_TEXT_COMMAND = "mobile.insert-text"
+const PLACEHOLDER_CHARACTERS = 6000
 
 const realm = createWorkspaceRealm()
+const collabMirror = createCollabMirror((message) => realm.sendCollab(message))
+
+function blobToBase64(blob: Blob): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader()
+		reader.onload = () => {
+			const result = typeof reader.result === "string" ? reader.result : ""
+			resolve(result.slice(result.indexOf(",") + 1))
+		}
+		reader.onerror = () => reject(reader.error ?? new Error("Could not read the pasted image"))
+		reader.readAsDataURL(blob)
+	})
+}
+
+function insertAtSelection(view: EditorRuntimeView, before: string, after = ""): void {
+	const range = view.state.selection.main
+	const selected = view.state.sliceDoc(range.from, range.to)
+	view.focus()
+	view.dispatch({
+		changes: { from: range.from, to: range.to, insert: `${before}${selected}${after}` },
+		selection: { anchor: range.from + before.length + selected.length },
+		scrollIntoView: true,
+	})
+}
+
+function insertDivider(view: EditorRuntimeView): void {
+	const range = view.state.selection.main
+	const line = view.state.doc.lineAt(range.from)
+	const prefix = line.text.trim().length > 0 ? "\n\n" : ""
+	view.focus()
+	view.dispatch({
+		changes: { from: line.to, insert: `${prefix}---\n` },
+		selection: { anchor: line.to + prefix.length + 4 },
+		scrollIntoView: true,
+	})
+}
+
+function revealLine(view: EditorRuntimeView, line: number): void {
+	const lineNumber = Math.min(Math.max(line + 1, 1), view.state.doc.lines)
+	const position = view.state.doc.line(lineNumber).from
+	view.dispatch({
+		selection: { anchor: position },
+		effects: [],
+		scrollIntoView: true,
+	})
+}
+
+/** Blurs the editor when the user drags the scroller, like `keyboardDismissMode="on-drag"`. */
+function dismissKeyboardOnDrag(getView: () => EditorRuntimeView | null): () => void {
+	let touching = false
+	let startScrollTop = 0
+	const onTouchStart = () => {
+		touching = true
+		startScrollTop = getView()?.scrollDOM.scrollTop ?? 0
+	}
+	const onTouchEnd = () => {
+		touching = false
+	}
+	const onScroll = (event: Event) => {
+		const view = getView()
+		if (!touching || !view || event.target !== view.scrollDOM || !view.hasFocus) return
+		if (Math.abs(view.scrollDOM.scrollTop - startScrollTop) < DRAG_DISMISS_DISTANCE) return
+		view.contentDOM.blur()
+	}
+	const passive = { capture: true, passive: true }
+	document.addEventListener("touchstart", onTouchStart, passive)
+	document.addEventListener("touchend", onTouchEnd, passive)
+	document.addEventListener("touchcancel", onTouchEnd, passive)
+	document.addEventListener("scroll", onScroll, passive)
+	return () => {
+		document.removeEventListener("touchstart", onTouchStart, passive)
+		document.removeEventListener("touchend", onTouchEnd, passive)
+		document.removeEventListener("touchcancel", onTouchEnd, passive)
+		document.removeEventListener("scroll", onScroll, passive)
+	}
+}
+
+/** Keeps the editor root inside the visual viewport if WebKit shrinks or scrolls it. */
+function syncVisualViewport(): () => void {
+	const viewport = window.visualViewport
+	if (!viewport) return () => {}
+	const root = document.documentElement.style
+	const sync = () => {
+		root.setProperty("--mobile-viewport-height", `${viewport.height}px`)
+		root.setProperty("--mobile-viewport-top", `${viewport.offsetTop}px`)
+	}
+	sync()
+	viewport.addEventListener("resize", sync)
+	viewport.addEventListener("scroll", sync)
+	return () => {
+		viewport.removeEventListener("resize", sync)
+		viewport.removeEventListener("scroll", sync)
+	}
+}
 
 function toWorkspaceCursor(cursor: CursorInfo): WorkspaceCursor {
 	return { column: cursor.col, line: cursor.line, offset: cursor.offset }
@@ -71,6 +185,10 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 	const [slashCommandState, setSlashCommandState] = useState<SlashCommandMenuState | null>(null)
 	const [assetVersion, setAssetVersion] = useState(0)
 	const [commitError, setCommitError] = useState<string | null>(null)
+	const [bottomInset, setBottomInset] = useState(0)
+	const [viewReady, setViewReady] = useState(false)
+	const firstOpenAtRef = useRef<number | null>(null)
+	const bottomInsetRef = useRef(0)
 	const [assetCache] = useState(() => new Map<string, string>())
 	const [assetLoads] = useState(() => new Set<string>())
 	const sendRef = useRef(send)
@@ -81,8 +199,12 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 	const pendingCursorRef = useRef<WorkspaceCursor | null>(null)
 	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	const flushPendingCommitRef = useRef<() => Promise<void>>(async () => {})
+	const collabState = useSyncExternalStore(collabMirror.subscribe, collabMirror.getState)
+	const collabBinding =
+		collabState && collabState.filePath === activeDocument?.filePath ? collabState.binding : null
 	const editorConfig = workspace?.editorConfig
-	const readOnly = editorConfig?.readOnly ?? false
+	const readOnly =
+		(editorConfig?.readOnly ?? false) || (collabBinding !== null && !collabState?.canWrite)
 	const slashCommandsEnabled = editorConfig?.slashCommands ?? false
 	const readOnlyRef = useRef(readOnly)
 	const slashCommandsEnabledRef = useRef(slashCommandsEnabled)
@@ -97,6 +219,18 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 
 	const [extraExtensions] = useState<EditorExtensionFactory[]>(() => [
 		createFrontmatterExtension({ initialError: null, initialMeta: {} }),
+		(runtime) =>
+			clipboardImageExtension(async (image) => {
+				const current = documentRef.current
+				if (readOnlyRef.current || !current) return null
+				return realm.saveImage(current.filePath, image.type, await blobToBase64(image))
+			})(runtime),
+		(runtime) =>
+			runtime.view.EditorView.scrollMargins.of(() => ({
+				bottom: bottomInsetRef.current + SCROLL_MARGIN,
+				top: SCROLL_MARGIN,
+			})),
+		(runtime) => searchHighlightExtension(runtime),
 		async () => (readOnlyRef.current ? await readonlyExtension() : []),
 		(runtime) =>
 			slashCommandExtension(runtime, {
@@ -113,6 +247,7 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 	function handleChange(body: string) {
 		const current = documentRef.current
 		if (readOnlyRef.current || !current) return
+		if (collabMirror.getState()?.filePath === current.filePath) return
 		setCommitError(null)
 		pendingCommitRef.current = { filePath: current.filePath, body, revision: current.revision }
 		if (timerRef.current) clearTimeout(timerRef.current)
@@ -121,12 +256,6 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 
 	function handleCursorChange(cursor: CursorInfo) {
 		pendingCursorRef.current = toWorkspaceCursor(cursor)
-	}
-
-	function executeEditorCommand(commandId: string) {
-		const view = viewRef.current
-		if (view && runMobileEditorCommand(commandId, view, "api")) return
-		void realm.executeNativeCommand(commandId)
 	}
 
 	function resolveImageUrl(src: string, currentFilePath: string): string {
@@ -154,7 +283,14 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 	}
 
 	function handleViewReady(view: EditorRuntimeView) {
+		if (!viewRef.current && firstOpenAtRef.current !== null) {
+			console.info(
+				`[editor] first paint ${Math.round(performance.now() - firstOpenAtRef.current)} ms`,
+			)
+		}
 		viewRef.current = view
+		setViewReady(true)
+		realm.markEditorReady()
 		setMobileEditorCommandView(view)
 		setEditorViewRef(view as never)
 		const current = documentRef.current
@@ -204,7 +340,11 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 			}
 		}
 
+		void loadEditorRuntime()
 		registerMobileEditorCommands()
+		sendRef
+			.current({ type: "editorCommands", commands: listMobileEditorCommands() })
+			.catch((error: unknown) => console.error("[Workspace bridge send failed]", error))
 		const disconnect = realm.connect(
 			(message) => {
 				sendRef.current(message).catch((error: unknown) => {
@@ -225,6 +365,9 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 						void flushPendingCommitRef.current()
 						setSlashCommandState(null)
 					}
+					if (!viewRef.current && firstOpenAtRef.current === null) {
+						firstOpenAtRef.current = performance.now()
+					}
 					documentRef.current = next
 					setActiveDocument(next)
 				},
@@ -243,14 +386,66 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 					viewRef.current?.contentDOM.blur()
 					void flushPendingCommitRef.current()
 				},
+				setBottomInset(value) {
+					bottomInsetRef.current = value
+					setBottomInset(value)
+				},
 				flushPendingCommit: () => flushPendingCommitRef.current(),
 				getFilePath: () => documentRef.current?.filePath ?? null,
+				runCommand(commandId, payload) {
+					const view = viewRef.current
+					if (!view) return
+					switch (commandId) {
+						case MOBILE_BLUR_COMMAND:
+							view.contentDOM.blur()
+							return
+						case MOBILE_FOCUS_COMMAND:
+							view.focus()
+							return
+						case MOBILE_SLASH_COMMAND:
+							view.focus()
+							view.dispatch(view.state.replaceSelection("/"))
+							return
+						case MOBILE_REVEAL_LINE_COMMAND:
+							if (typeof payload === "number") revealLine(view, payload)
+							return
+						case MOBILE_INSERT_DIVIDER_COMMAND:
+							insertDivider(view)
+							return
+						case MOBILE_INSERT_TAG_COMMAND:
+							insertAtSelection(view, "#")
+							return
+						case MOBILE_INSERT_TEXT_COMMAND:
+							if (typeof payload === "string") insertAtSelection(view, payload)
+							return
+						case MOBILE_INSERT_WIKILINK_COMMAND:
+							insertAtSelection(view, "[[", "]]")
+							return
+						default:
+							runMobileEditorCommand(commandId, view, "api")
+					}
+				},
+				collab(message) {
+					collabMirror.receive(message)
+				},
+				async find(query, direction): Promise<WorkspaceFindResult> {
+					const view = viewRef.current
+					if (!view) return { current: 0, total: 0 }
+					const state = direction
+						? await stepSearchHighlight(view, direction === "next" ? 1 : -1)
+						: await setSearchHighlight(view, query || null)
+					return { current: state.total === 0 ? 0 : state.index + 1, total: state.total }
+				},
 			},
 		)
 		const flush = () => void flushPendingCommitRef.current()
+		const stopDragDismiss = dismissKeyboardOnDrag(() => viewRef.current)
+		const stopViewportSync = syncVisualViewport()
 		window.addEventListener("blur", flush)
 		window.addEventListener("pagehide", flush)
 		return () => {
+			stopDragDismiss()
+			stopViewportSync()
 			window.removeEventListener("blur", flush)
 			window.removeEventListener("pagehide", flush)
 			disconnect()
@@ -291,24 +486,13 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 			className="mobile-code-mirror-root"
 			data-asset-version={assetVersion}
 			data-document-revision={activeDocument.revision}
-			style={workspace.themeTokens as CSSProperties}
+			style={
+				{
+					...workspace.themeTokens,
+					"--mobile-editor-bottom-inset": `${bottomInset}px`,
+				} as CSSProperties
+			}
 		>
-			<div className="mobile-code-mirror-toolbar">
-				<span className="mobile-code-mirror-title">{activeDocument.filePath}</span>
-				{mobileEditorToolbarItems.map((item) => (
-					<button
-						aria-label={item.label}
-						className="mobile-code-mirror-action"
-						disabled={editorConfig.readOnly}
-						key={item.id}
-						onClick={() => executeEditorCommand(item.id)}
-						title={item.label}
-						type="button"
-					>
-						{item.shortLabel}
-					</button>
-				))}
-			</div>
 			{activeDocument.frontmatterError ? (
 				<div className="mobile-code-mirror-frontmatter-error">
 					{activeDocument.frontmatterError}
@@ -316,7 +500,14 @@ export default function WorkspaceWebView({ send, ref }: WorkspaceWebViewProps) {
 			) : null}
 			{commitError ? <div className="mobile-code-mirror-commit-error">{commitError}</div> : null}
 			<div className="mobile-code-mirror-shell">
+				{viewReady ? null : (
+					<pre className="mobile-code-mirror-placeholder">
+						{activeDocument.body.slice(0, PLACEHOLDER_CHARACTERS)}
+					</pre>
+				)}
 				<EditorView
+					codeBlockEmbeds={MOBILE_CODE_BLOCK_EMBEDS}
+					collab={collabBinding}
 					commandExecutor={executeMobileEditorMarkdownCommand}
 					content={activeDocument.body}
 					documentKey={activeDocument.filePath}

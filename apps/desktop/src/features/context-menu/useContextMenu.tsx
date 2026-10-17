@@ -1,5 +1,5 @@
 import type { CommandIcon } from "@cortex/commands"
-import { formatHotkeyDisplay } from "@cortex/hotkeys"
+import { formatHotkeyDisplay } from "@cortex/commands/hotkeys"
 import {
 	DropdownMenu,
 	DropdownMenuContent,

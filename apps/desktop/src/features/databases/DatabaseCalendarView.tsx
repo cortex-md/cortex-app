@@ -124,6 +124,7 @@ function CalendarDay({
 			</div>
 			{visible.map((row) => (
 				<Button
+					size="sm"
 					key={row.path}
 					variant="ghost"
 					className="db-cal-event"
@@ -137,7 +138,7 @@ function CalendarDay({
 				</Button>
 			))}
 			{hidden > 0 && (
-				<Button variant="ghost" className="db-cal-more" onClick={() => setExpanded(true)}>
+				<Button size="sm" variant="ghost" className="db-cal-more" onClick={() => setExpanded(true)}>
 					{hidden} more
 				</Button>
 			)}

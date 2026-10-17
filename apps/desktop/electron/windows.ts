@@ -1,35 +1,30 @@
 import { basename, resolve } from "node:path"
-import type { WindowMessage } from "@cortex/platform"
 import { app, BrowserWindow, nativeTheme, type WebContents } from "electron"
 import type { MainApi, MainEventName, MainEvents } from "./contract"
 import { EVENT_CHANNEL_PREFIX } from "./contract"
 import { getInvokeSender } from "./ipc/sender"
 import { getActiveProfile } from "./profile"
 import { readWindowBounds, trackWindowBounds } from "./services/windowState"
-import { createMainWindow, createSettingsWindow } from "./window"
+import { createMainWindow } from "./window"
 
-const SETTINGS_IDLE_RELEASE_MS = 10 * 60 * 1000
 const CASCADE_OFFSET = 24
-const GLOBAL_MIRRORS = new Set(["recent-vaults", "auth", "subscription", "global-settings"])
+const SHOW_FALLBACK_MS = 4000
 
 interface MainWindowEntry {
 	window: BrowserWindow
 	vaultPath: string | null
 	ready: boolean
 	pending: ((contents: WebContents) => void)[]
+	showFallback: NodeJS.Timeout | null
 }
 
 const mainWindows = new Map<number, MainWindowEntry>()
 const claimedKeys = new Set<string>()
-const windowListeners = new Set<() => void>()
+export type WindowsChangeReason = "focus" | "list"
+
+const windowListeners = new Set<(reason: WindowsChangeReason) => void>()
 const closedListeners = new Set<(contentsId: number) => void>()
 let lastFocusedMainId: number | null = null
-let settingsWindow: BrowserWindow | null = null
-let settingsBoundTo: number | null = null
-let settingsReleaseTimer: NodeJS.Timeout | null = null
-let settingsReady = false
-const settingsPending: WindowMessage[] = []
-let quitting = false
 let urls: { renderer: string; preload: string } | null = null
 
 function isAlive(window: BrowserWindow | null | undefined): window is BrowserWindow {
@@ -50,15 +45,11 @@ function keepTitle(window: BrowserWindow, title: string): void {
 	window.on("page-title-updated", (event) => event.preventDefault())
 }
 
-function sendMessage(contents: WebContents, message: WindowMessage): void {
-	if (!contents.isDestroyed()) contents.send(`${EVENT_CHANNEL_PREFIX}window-message`, message)
+function notifyWindowsChanged(reason: WindowsChangeReason = "list"): void {
+	for (const listener of windowListeners) listener(reason)
 }
 
-function notifyWindowsChanged(): void {
-	for (const listener of windowListeners) listener()
-}
-
-export function onWindowsChanged(listener: () => void): () => void {
+export function onWindowsChanged(listener: (reason: WindowsChangeReason) => void): () => void {
 	windowListeners.add(listener)
 	return () => windowListeners.delete(listener)
 }
@@ -75,59 +66,6 @@ function rendererUrl(params: Record<string, string>): string {
 	return url.toString()
 }
 
-function cancelSettingsRelease(): void {
-	if (settingsReleaseTimer) clearTimeout(settingsReleaseTimer)
-	settingsReleaseTimer = null
-}
-
-function ensureSettingsWindow(): BrowserWindow {
-	cancelSettingsRelease()
-	if (isAlive(settingsWindow)) return settingsWindow
-	if (!urls) throw new Error("Windows are not configured")
-	const window = createSettingsWindow(rendererUrl({ window: "settings" }), urls.preload)
-	settingsReady = false
-	settingsPending.length = 0
-	keepTitle(window, withProfile("Settings"))
-	window.on("close", (event) => {
-		if (quitting || mainWindows.size === 0) return
-		event.preventDefault()
-		window.hide()
-		cancelSettingsRelease()
-		settingsReleaseTimer = setTimeout(() => {
-			settingsReleaseTimer = null
-			if (isAlive(window) && !window.isVisible()) window.destroy()
-		}, SETTINGS_IDLE_RELEASE_MS)
-	})
-	window.on("closed", () => {
-		if (settingsWindow !== window) return
-		settingsWindow = null
-		settingsReady = false
-		settingsPending.length = 0
-	})
-	settingsWindow = window
-	return window
-}
-
-function sendToSettings(window: BrowserWindow, message: WindowMessage): void {
-	if (settingsReady) sendMessage(window.webContents, message)
-	else settingsPending.push(message)
-}
-
-function bindSettingsTo(contentsId: number | null): void {
-	if (settingsBoundTo === contentsId) return
-	settingsBoundTo = contentsId
-	const entry = contentsId === null ? null : mainWindows.get(contentsId)
-	if (!entry) return
-	sendMessage(entry.window.webContents, { type: "snapshot-request" })
-	updateSettingsTitle()
-}
-
-function updateSettingsTitle(): void {
-	if (!isAlive(settingsWindow)) return
-	const vaultPath = settingsBoundTo === null ? null : mainWindows.get(settingsBoundTo)?.vaultPath
-	settingsWindow.setTitle(withProfile(vaultPath ? `Settings — ${basename(vaultPath)}` : "Settings"))
-}
-
 function cascadeBounds(): Electron.Rectangle | undefined {
 	const anchor = getFocusedMainEntry()?.window ?? [...mainWindows.values()].at(-1)?.window
 	if (!isAlive(anchor)) return undefined
@@ -141,35 +79,51 @@ function createMain(params: Record<string, string>, vaultPath: string | null): M
 	const window = createMainWindow(rendererUrl(params), urls.preload, bounds)
 	const contentsId = window.webContents.id
 	keepTitle(window, withProfile(vaultPath ? basename(vaultPath) : "Cortex"))
-	const entry: MainWindowEntry = { window, vaultPath, ready: false, pending: [] }
+	const entry: MainWindowEntry = {
+		window,
+		vaultPath,
+		ready: false,
+		pending: [],
+		showFallback: setTimeout(() => revealWindow(entry), SHOW_FALLBACK_MS),
+	}
 	mainWindows.set(contentsId, entry)
 	lastFocusedMainId = contentsId
 	trackWindowBounds(window, () => entry.vaultPath)
 
 	window.on("focus", () => {
 		lastFocusedMainId = contentsId
-		bindSettingsTo(contentsId)
-		notifyWindowsChanged()
+		notifyWindowsChanged("focus")
 	})
 	window.webContents.on("did-start-navigation", (details) => {
 		if (details.isMainFrame && !details.isSameDocument) entry.ready = false
 	})
 	window.on("closed", () => {
+		if (entry.showFallback) clearTimeout(entry.showFallback)
 		mainWindows.delete(contentsId)
 		for (const listener of closedListeners) listener(contentsId)
 		if (lastFocusedMainId === contentsId) lastFocusedMainId = null
-		if (settingsBoundTo === contentsId) {
-			settingsBoundTo = null
-			const next = getFocusedMainEntry()
-			if (next) bindSettingsTo(next.window.webContents.id)
-		}
-		if (mainWindows.size === 0 && process.platform !== "darwin" && isAlive(settingsWindow)) {
-			settingsWindow.destroy()
-		}
 		notifyWindowsChanged()
 	})
 	notifyWindowsChanged()
 	return entry
+}
+
+const firstRevealListeners = new Set<() => void>()
+let firstRevealDone = false
+
+export function onFirstWindowRevealed(listener: () => void): void {
+	if (firstRevealDone) listener()
+	else firstRevealListeners.add(listener)
+}
+
+function revealWindow(entry: MainWindowEntry): void {
+	if (entry.showFallback) clearTimeout(entry.showFallback)
+	entry.showFallback = null
+	if (isAlive(entry.window) && !entry.window.isVisible()) entry.window.show()
+	if (firstRevealDone) return
+	firstRevealDone = true
+	for (const listener of firstRevealListeners) listener()
+	firstRevealListeners.clear()
 }
 
 function focusWindow(window: BrowserWindow): void {
@@ -201,9 +155,6 @@ function findVaultOwner(vaultPath: string): MainWindowEntry | null {
 
 export function configureWindows(rendererBaseUrl: string, preloadPath: string): void {
 	urls = { renderer: rendererBaseUrl, preload: preloadPath }
-	app.on("before-quit", () => {
-		quitting = true
-	})
 }
 
 export function listMainWindows(): {
@@ -220,10 +171,7 @@ export function listMainWindows(): {
 }
 
 export function resolveMainWindowId(contentsId: number): number | null {
-	if (mainWindows.has(contentsId)) return contentsId
-	if (isAlive(settingsWindow) && settingsWindow.webContents.id === contentsId)
-		return settingsBoundTo
-	return null
+	return mainWindows.has(contentsId) ? contentsId : null
 }
 
 export function getMainWindowVault(contentsId: number): string | null {
@@ -291,44 +239,6 @@ export function emitToWindow<E extends MainEventName>(
 	}
 }
 
-export function openSettingsWindow(section?: string | null, fieldId?: string | null): void {
-	const created = !isAlive(settingsWindow)
-	const window = ensureSettingsWindow()
-	const sender = getInvokeSender()
-	if (sender && mainWindows.has(sender.id)) bindSettingsTo(sender.id)
-	else if (settingsBoundTo === null) {
-		const entry = getFocusedMainEntry()
-		if (entry) bindSettingsTo(entry.window.webContents.id)
-	}
-	if (section) sendToSettings(window, { type: "navigate", section, fieldId: fieldId ?? null })
-	if (created) window.once("ready-to-show", () => focusWindow(window))
-	else focusWindow(window)
-}
-
-function isGlobalMessage(message: WindowMessage): boolean {
-	return message.type === "store" && GLOBAL_MIRRORS.has(String(message.name))
-}
-
-function relay(message: WindowMessage): void {
-	const senderId = getInvokeSender()?.id
-	const settings = isAlive(settingsWindow) ? settingsWindow.webContents : null
-	const fromSettings = settings !== null && senderId === settings.id
-	const bound = settingsBoundTo === null ? null : mainWindows.get(settingsBoundTo)
-
-	if (isGlobalMessage(message)) {
-		for (const [contentsId, entry] of mainWindows) {
-			if (contentsId !== senderId) sendMessage(entry.window.webContents, message)
-		}
-		if (settings && !fromSettings) sendMessage(settings, message)
-		return
-	}
-	if (fromSettings) {
-		if (bound) sendMessage(bound.window.webContents, message)
-		return
-	}
-	if (settings && senderId === settingsBoundTo) sendMessage(settings, message)
-}
-
 function setWindowVault(contents: WebContents, vaultPath: string | null): void {
 	const entry = mainWindows.get(contents.id)
 	if (!entry) return
@@ -336,7 +246,6 @@ function setWindowVault(contents: WebContents, vaultPath: string | null): void {
 	entry.window.setTitle(withProfile(vaultPath ? basename(vaultPath) : "Cortex"))
 	if (process.platform === "darwin") entry.window.setRepresentedFilename(vaultPath ?? "")
 	if (vaultPath) app.addRecentDocument(vaultPath)
-	if (settingsBoundTo === contents.id) updateSettingsTitle()
 	notifyWindowsChanged()
 }
 
@@ -346,19 +255,15 @@ export const windowApi = {
 		if (sender) BrowserWindow.fromWebContents(sender)?.close()
 	},
 	focusMain: async () => {
-		const bound = settingsBoundTo === null ? null : mainWindows.get(settingsBoundTo)
-		if (bound) focusWindow(bound.window)
-		else focusMainWindow()
+		focusMainWindow()
 	},
 	restartApp: async () => {
 		app.relaunch()
 		app.exit(0)
 	},
-	openSettings: async (section, fieldId) => openSettingsWindow(section, fieldId),
 	setColorScheme: async (scheme) => {
 		nativeTheme.themeSource = scheme
 	},
-	relay: async (message) => relay(message),
 	openVaultWindow: async (vaultPath) => {
 		openVaultWindow(vaultPath)
 	},
@@ -386,14 +291,10 @@ export const windowApi = {
 	},
 	markReady: async () => {
 		const sender = getInvokeSender()
-		if (sender && isAlive(settingsWindow) && settingsWindow.webContents.id === sender.id) {
-			settingsReady = true
-			for (const message of settingsPending.splice(0)) sendMessage(sender, message)
-			return
-		}
 		const entry = sender ? mainWindows.get(sender.id) : undefined
 		if (!entry) return
 		entry.ready = true
+		revealWindow(entry)
 		const pending = entry.pending.splice(0)
 		for (const run of pending) run(entry.window.webContents)
 	},

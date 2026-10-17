@@ -39,6 +39,7 @@ vi.mock("@cortex/theme", async (importOriginal) => {
 
 vi.mock("./registryService", () => ({
 	fetchLatestRelease: vi.fn(async () => testState.release),
+	fetchReleaseForVersion: vi.fn(async () => testState.release),
 }))
 
 const pluginsDir = "/vault/.cortex/plugins"

@@ -1,0 +1,90 @@
+---
+title: Markdown Syntax
+description: The Markdown Cortex renders in Live Preview and Reading View, including tags, highlights, callouts, and code blocks.
+section: Workspace
+sectionOrder: 1
+order: 4
+---
+
+Cortex reads standard Markdown with GitHub-style tables and task lists, plus a few common extensions. Live Preview hides the markup while the cursor is elsewhere and shows it again when you edit that spot. Reading View renders the same rules.
+
+## Tags
+
+Write `#tag` anywhere in a note. Tags can contain letters from any language, digits, `_`, `-`, and `/` for nesting (`#project/cortex`). The first character after `#` must be a letter or `_`, so `#2024` is not a tag.
+
+A `#` only starts a tag at the beginning of a line or after a space, `(`, `*`, `~`, `>`, or a quote. Text inside inline code, code blocks, URLs, and link anchors such as `[top](#intro)` is never a tag.
+
+The same rule decides what is indexed, renamed, and highlighted, so every tag you see is also in the Tags view. Tags can also live in the `tags` property:
+
+```md
+---
+tags: [writing, local-first]
+---
+
+Drafting the #writing/essays plan.
+```
+
+In Reading View, click a tag to open its tag page. In Live Preview, `⌘`-click it.
+
+## Highlights
+
+Wrap text in `==` to highlight it: `==this part matters==`. There must be no space just inside the markers.
+
+## Callouts
+
+A blockquote that starts with `[!type]` becomes a callout. Add `-` to fold it by default, or `+` to start it open with a fold toggle.
+
+```md
+> [!warning] Before you release
+> Pre-release suffixes like `1.2.0-beta` break update checks.
+
+> [!question]- What happens to installed copies?
+> They stay installed until you remove them.
+```
+
+| Type | Aliases |
+| --- | --- |
+| `note` | |
+| `abstract` | `summary`, `tldr` |
+| `info` | |
+| `todo` | |
+| `tip` | `hint`, `important` |
+| `success` | `check`, `done` |
+| `question` | `help`, `faq` |
+| `warning` | `caution`, `attention` |
+| `failure` | `fail`, `missing` |
+| `danger` | `error` |
+| `bug` | |
+| `example` | |
+| `quote` | `cite` |
+
+Each type has its own icon and color family. The set matches Obsidian, so imported notes keep their callouts. Unknown types render as `note`.
+
+## Code blocks
+
+Fenced code blocks show their language in the corner, with a copy button. A few languages get special treatment:
+
+- `sh`, `bash`, `shell`, `zsh`, `console`, and `terminal` render as a dark terminal.
+- `diff` marks added and removed lines with a colored bar.
+
+````md
+```diff
+- version: "0.1.0"
++ version: "0.1.1"
+```
+````
+
+Inline code uses a monospace font.
+
+## Links
+
+- `[[Note name]]` links to another note in the vault; `[[Note name|label]]` changes the visible text.
+- Standard `[text](https://example.com)` links open in the browser and show a small `↗`.
+- `@[[Name]]` mentions work in notes and in comments.
+
+## Related docs
+
+<DocGrid>
+  <DocCard href="/docs/workspace/organizing" title="Organizing Notes" description="Use folders, tags, bookmarks, and properties together." />
+  <DocCard href="/docs/themes/markdown-and-callouts" title="Theming Markdown" description="Variables themes use to restyle these elements." />
+</DocGrid>

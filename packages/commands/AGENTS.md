@@ -34,9 +34,30 @@ must all originate here.
 - Use `context.payload` when menus or context actions need an explicit target. Do not add command
   variants solely to smuggle local UI state.
 
+## Recent Commands
+
+- `pushRecentCommandId`, `normalizeRecentCommandIds`, and `resolveRecentCommands` are the shared MRU
+  rules for command surfaces (cap `RECENT_COMMAND_LIMIT`). Hosts store the id list; resolving
+  against the current registry snapshot silently skips commands that were unregistered.
+
 ## Vim Names
 
 - Vim command names are derived from aliases, labels, and IDs.
 - Normalize to lowercase word names with underscores; dots and hyphens become underscores.
 - Avoid registering direct aliases that collide with native Vim commands. Primary ID-derived names
   must remain available, with a stable hash suffix if needed.
+
+## Hotkeys (`@cortex/commands/hotkeys`)
+
+- `@cortex/commands/hotkeys` is a binding and override engine, not a command catalog.
+- `HotkeyBinding` derives `id`, `label`, `category`, and scope from `CommandEntry`. Desktop mirrors
+  the registry through `bootstrap/commandHotkeyBridge.ts`, which calls `syncCommands(commands)`
+  once per registry change. `syncCommands` reuses unchanged binding objects and parsed keys.
+- Keep user overrides per vault in `.cortex/hotkeys.json` as `Record<commandId, { keys, enabled? }>`.
+  Overrides must survive while commands appear, disappear, or reload.
+- Parse hotkey strings when bindings enter the store. `handleKeyEvent(...)` matches pre-parsed
+  global bindings and executes them through `commandRegistry.execute(..., { source: "hotkey" })`.
+  Editor and file-explorer scoped bindings are interpreted by their focused host surfaces.
+
+- Do not add `DEFAULT_HOTKEYS`, handler maps, or another static shortcut catalog here.
+- Do not import React into store/parser modules. React hooks may stay in the hook files only.

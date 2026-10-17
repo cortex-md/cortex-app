@@ -59,6 +59,33 @@ function addLineDecoration(
 	}
 }
 
+const SHELL_CODE_LANGUAGES = new Set(["sh", "bash", "shell", "zsh", "console", "terminal"])
+
+function getCodeBlockVariant(language: string): string {
+	const normalized = language.trim().toLowerCase()
+	if (SHELL_CODE_LANGUAGES.has(normalized)) return " is-shell"
+	if (normalized === "diff") return " is-diff"
+	return ""
+}
+
+function addDiffLineDecorations(
+	runtime: EditorRuntimeModules,
+	state: EditorRuntimeState,
+	ranges: EditorRuntimeDecorationRange[],
+	block: Extract<MarkdownBlock, { kind: "code" }>,
+): void {
+	if (block.language.trim().toLowerCase() !== "diff") return
+	for (let lineNumber = block.firstLine + 1; lineNumber < block.lastLine; lineNumber++) {
+		const line = state.doc.line(lineNumber)
+		const marker = line.text[0]
+		if (marker === "+" && !line.text.startsWith("+++")) {
+			ranges.push(runtime.view.Decoration.line({ class: "cm-diff-add" }).range(line.from))
+		} else if (marker === "-" && !line.text.startsWith("---")) {
+			ranges.push(runtime.view.Decoration.line({ class: "cm-diff-del" }).range(line.from))
+		}
+	}
+}
+
 function calloutLineDecoration(
 	runtime: EditorRuntimeModules,
 	block: CalloutBlock,
@@ -170,7 +197,7 @@ function createBlockWrapper(
 		return runtime.view.BlockWrapper.create({
 			tagName: "div",
 			attributes: {
-				class: `cm-markdown-block cm-codeblock-wrapper${isEmbed ? " is-codeblock-embed" : ""}${selectionOverlaps ? " is-selection-overlap" : ""}`,
+				class: `cm-markdown-block cm-codeblock-wrapper${isEmbed ? " is-codeblock-embed" : getCodeBlockVariant(block.language)}${selectionOverlaps ? " is-selection-overlap" : ""}`,
 				"data-codeblock-id": block.id,
 			},
 		})
@@ -396,6 +423,12 @@ function buildDecorationSets(
 					attributes: { "data-codeblock-id": block.id },
 				}),
 			)
+			ranges.push(
+				runtime.view.Decoration.line({ class: "cm-codeblock-open-line" }).range(
+					state.doc.line(block.firstLine).from,
+				),
+			)
+			addDiffLineDecorations(runtime, state, ranges, block)
 			if (!selected) {
 				ranges.push(
 					runtime.view.Decoration.replace({}).range(block.openFenceFrom, block.openFenceTo),

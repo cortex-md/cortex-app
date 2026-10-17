@@ -87,7 +87,7 @@ function runCollabHistory(
 }
 
 function patchVimHistory(runtime: EditorRuntimeModules): void {
-	if (vimHistoryPatched) return
+	if (vimHistoryPatched || !runtime.vim) return
 	vimHistoryPatched = true
 	const commands = runtime.vim.CodeMirror.commands
 	const undo = commands.undo

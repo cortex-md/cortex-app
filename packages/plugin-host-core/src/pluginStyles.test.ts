@@ -25,13 +25,12 @@ describe("scopePluginMarkdownStyles", () => {
 		).toThrow("siblings outside markdown surfaces")
 	})
 
-	it.each([
-		"@import url(theme.css);",
-		"@font-face { font-family: Test; }",
-		"@keyframes pulse {}",
-	])("rejects global CSS: %s", (source) => {
-		expect(() => scopePluginMarkdownStyles(source)).toThrow("Plugin styles cannot use")
-	})
+	it.each(["@import url(theme.css);", "@font-face { font-family: Test; }", "@keyframes pulse {}"])(
+		"rejects global CSS: %s",
+		(source) => {
+			expect(() => scopePluginMarkdownStyles(source)).toThrow("Plugin styles cannot use")
+		},
+	)
 
 	it("scopes selectors inside conditional rules", () => {
 		const css = scopePluginMarkdownStyles("@media (width > 400px) { .custom { color: red } }")

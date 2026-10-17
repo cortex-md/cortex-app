@@ -16,7 +16,13 @@ describe("docs registry", () => {
 			"get-started/quickstart",
 			"workspace/local-markdown",
 			"workspace/organizing",
+			"workspace/interface",
+			"workspace/navigation",
+			"workspace/markdown",
+			"workspace/databases",
+			"workspace/vault-folder",
 			"sync/overview",
+			"sync/settings",
 			"plugins/overview",
 			"plugins/getting-started",
 			"plugins/manifest-and-capabilities",
@@ -27,7 +33,6 @@ describe("docs registry", () => {
 			"plugins/views-settings-and-ui",
 			"plugins/storage-bookmarks-notifications",
 			"plugins/publishing-and-review",
-			"plugins/github-emoji-example",
 			"themes/overview",
 			"themes/getting-started",
 			"themes/manifest",
@@ -75,9 +80,6 @@ describe("docs registry", () => {
 		expect(page?.headings.map((heading) => heading.text)).toContain("Extension surfaces")
 		expect(page?.headings.every((heading) => heading.depth === 2 || heading.depth === 3)).toBe(true)
 		expect(searchDocs("encrypted blob").map((doc) => doc.slug)).toContain("sync/overview")
-		expect(searchDocs("githubemoji").map((doc) => doc.slug)).toContain(
-			"plugins/github-emoji-example",
-		)
 		expect(searchDocs("light.css").map((doc) => doc.slug)).toContain("themes/overview")
 	})
 

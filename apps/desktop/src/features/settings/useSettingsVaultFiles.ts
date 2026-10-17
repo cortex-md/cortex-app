@@ -1,17 +1,21 @@
-import { useVaultStore } from "@cortex/core"
+import { toVaultRelativePath, useVaultFolderPaths, useVaultStore } from "@cortex/core"
 import type { FileEntry } from "@cortex/platform"
-import { useEffect } from "react"
+import type { FolderPickerOption } from "@cortex/ui"
+import { useMemo } from "react"
 
 export function useSettingsVaultFiles(): FileEntry[] {
-	const files = useVaultStore((state) => state.files)
+	return useVaultStore((state) => state.files)
+}
+
+export function useSettingsVaultFolders(): FolderPickerOption[] {
+	const folderPaths = useVaultFolderPaths()
 	const vaultPath = useVaultStore((state) => state.vault?.path)
-	const refreshFiles = useVaultStore((state) => state.refreshFiles)
-	useEffect(() => {
-		if (!vaultPath) return
-		const refresh = () => void refreshFiles()
-		refresh()
-		window.addEventListener("focus", refresh)
-		return () => window.removeEventListener("focus", refresh)
-	}, [refreshFiles, vaultPath])
-	return files
+	return useMemo<FolderPickerOption[]>(() => {
+		if (!vaultPath) return []
+		return folderPaths.flatMap((path) => {
+			const relative = toVaultRelativePath(path, vaultPath) ?? path
+			if (relative.split("/").some((segment) => segment.startsWith("."))) return []
+			return [{ value: relative, label: `${relative}/`, isDir: true }]
+		})
+	}, [folderPaths, vaultPath])
 }

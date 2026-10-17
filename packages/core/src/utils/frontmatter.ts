@@ -6,6 +6,11 @@ import {
 	serializeFrontmatter,
 	setFrontmatterValue,
 } from "@cortex/properties"
+import {
+	extractMarkdownInlineTags,
+	findMarkdownInlineTags,
+	tagMatches,
+} from "@cortex/properties/tags"
 
 export interface Frontmatter {
 	created?: string
@@ -35,7 +40,7 @@ export function hasFrontmatter(content: string): boolean {
 	return locateFrontmatter(content) !== null
 }
 
-export function parseFrontmatter(content: string): ParsedNote {
+export function parseNoteFrontmatter(content: string): ParsedNote {
 	const location = locateFrontmatter(content)
 	if (!location) {
 		return { frontmatter: null, rawYaml: "", body: content, hasFrontmatter: false }
@@ -81,7 +86,7 @@ export function updateFrontmatterField(
 }
 
 export function addTagToFrontmatter(content: string, tag: string): string {
-	const { frontmatter } = parseFrontmatter(content)
+	const { frontmatter } = parseNoteFrontmatter(content)
 	const existingTags = frontmatter?.tags ?? []
 	if (existingTags.some((existingTag) => existingTag.toLowerCase() === tag.toLowerCase())) {
 		return content
@@ -90,7 +95,7 @@ export function addTagToFrontmatter(content: string, tag: string): string {
 }
 
 export function removeTagFromFrontmatter(content: string, tag: string): string {
-	const { frontmatter } = parseFrontmatter(content)
+	const { frontmatter } = parseNoteFrontmatter(content)
 	if (!frontmatter) return content
 	const tags = frontmatter.tags.filter(
 		(existingTag) => existingTag.toLowerCase() !== tag.toLowerCase(),
@@ -117,19 +122,18 @@ export function setTagsInFrontmatter(content: string, tags: string[]): string {
 }
 
 export function extractInlineTags(content: string): string[] {
-	const matches = content.match(/#([a-zA-Z][a-zA-Z0-9_/-]*)/g)
-	if (!matches) return []
-	return [...new Set(matches.map((match) => match.slice(1).toLowerCase()))]
+	return extractMarkdownInlineTags(content)
+}
+
+export function collectNoteTags(meta: Record<string, unknown> | null, body: string): string[] {
+	const yamlTags = normalizeStringArray(meta?.tags).map((tag) => tag.toLowerCase())
+	return [...new Set([...yamlTags, ...extractInlineTags(body)])]
 }
 
 export function extractAllTags(content: string): string[] {
-	const { frontmatter, body } = parseFrontmatter(content)
-	const yamlTags = (frontmatter?.tags ?? []).map((tag) => tag.toLowerCase())
-	const inlineTags = extractInlineTags(body)
-	return [...new Set([...yamlTags, ...inlineTags])]
+	const { frontmatter, body } = parseNoteFrontmatter(content)
+	return collectNoteTags(frontmatter, body)
 }
-
-const TAG_ESCAPE_PATTERN = /[.*+?^${}()|[\]\\]/g
 
 function renameTagValue(tag: string, oldTag: string, newTag: string): string {
 	const lower = tag.toLowerCase()
@@ -142,7 +146,7 @@ export function renameTagInContent(content: string, oldTag: string, newTag: stri
 	const from = oldTag.trim().replace(/^#/, "").toLowerCase()
 	const to = newTag.trim().replace(/^#/, "")
 	if (!from || !to || from === to.toLowerCase()) return content
-	const { frontmatter } = parseFrontmatter(content)
+	const { frontmatter } = parseNoteFrontmatter(content)
 	let updated = content
 	const yamlTags = frontmatter?.tags ?? []
 	if (yamlTags.some((tag) => renameTagValue(tag, from, to) !== tag)) {
@@ -151,13 +155,15 @@ export function renameTagInContent(content: string, oldTag: string, newTag: stri
 			yamlTags.map((tag) => renameTagValue(tag, from, to)),
 		)
 	}
-	const inlinePattern = new RegExp(
-		`(^|[^\\w&#])#${from.replace(TAG_ESCAPE_PATTERN, "\\$&")}(?=[/\\s.,;:!?)\\]]|$)`,
-		"gimu",
-	)
-	const updatedBody = parseFrontmatter(updated).body
+	const updatedBody = parseNoteFrontmatter(updated).body
 	if (!updated.endsWith(updatedBody)) return updated
-	const nextBody = updatedBody.replace(inlinePattern, `$1#${to}`)
+	let nextBody = updatedBody
+	const ranges = findMarkdownInlineTags(updatedBody).filter((range) => tagMatches(range.tag, from))
+	for (let index = ranges.length - 1; index >= 0; index--) {
+		const range = ranges[index] as (typeof ranges)[number]
+		const renamed = renameTagValue(range.tag, from, to)
+		nextBody = `${nextBody.slice(0, range.from + 1)}${renamed}${nextBody.slice(range.to)}`
+	}
 	if (nextBody === updatedBody) return updated
 	return updated.slice(0, updated.length - updatedBody.length) + nextBody
 }

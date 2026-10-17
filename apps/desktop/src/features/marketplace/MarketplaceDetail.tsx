@@ -1,17 +1,23 @@
 import { ReadingView } from "@cortex/editor/reading-view"
 import {
+	BLOCKLIST_UNAVAILABLE_MESSAGE,
+	formatCount,
 	formatManifestValue,
+	formatStatsAge,
 	getCapabilityLabel,
 	getExternalUrl,
 	getMarketplaceEntryState,
 	getRepositoryLabel,
 	getRepositoryUrl,
+	getVoteUrl,
 	isEntryInstalled,
+	type MarketplaceEntryState,
 	type MarketplaceTab,
 	type RegistryEntry,
 	useMarketplaceStore,
 } from "@cortex/marketplace"
 import { getPlatform } from "@cortex/platform"
+import { usePluginStore } from "@cortex/plugin-host-core"
 import { useSettingsStore } from "@cortex/settings"
 import {
 	Alert,
@@ -21,19 +27,25 @@ import {
 	EmptyDescription,
 	EmptyMedia,
 	ScrollArea,
+	SimpleTooltip,
 	Skeleton,
 	Spinner,
 } from "@cortex/ui"
 import {
+	ArrowBigUp,
 	ArrowUp,
+	BadgeCheck,
+	Ban,
 	Download,
 	ExternalLink,
 	Package,
+	ShieldAlert,
 	ShieldCheckIcon,
 	Trash2,
 	TriangleAlert,
 } from "lucide-react"
 import { type ReactNode, useLayoutEffect, useRef } from "react"
+import { runSettingsAction } from "@/features/settings/settingsActions"
 import { useCommunityPluginsAllowed } from "../plugins/communityPluginsAccess"
 import {
 	SettingsGroup,
@@ -83,17 +95,19 @@ function MarketplaceRepositoryValue({
 	repositoryUrl: string
 }) {
 	return (
-		<Button
-			variant="link"
-			className="marketplace-repository-button"
-			title={entry.repo}
-			onClick={() => openExternalUrl(repositoryUrl)}
-		>
-			<span className="marketplace-repository-path">
-				{getRepositoryLabel(entry.repo)}
-				<ExternalLink size={11} />
-			</span>
-		</Button>
+		<SimpleTooltip label={entry.repo}>
+			<Button
+				size="sm"
+				variant="link"
+				className="marketplace-repository-button"
+				onClick={() => openExternalUrl(repositoryUrl)}
+			>
+				<span className="marketplace-repository-path">
+					{getRepositoryLabel(entry.repo)}
+					<ExternalLink size={11} />
+				</span>
+			</Button>
+		</SimpleTooltip>
 	)
 }
 
@@ -133,6 +147,78 @@ function MarketplacePermissions({
 	)
 }
 
+function MarketplaceTrustNotices({
+	entry,
+	tab,
+	entryState,
+}: {
+	entry: RegistryEntry
+	tab: MarketplaceTab
+	entryState: MarketplaceEntryState
+}) {
+	const pluginEnabled = usePluginStore((state) => state.plugins[entry.id]?.status === "enabled")
+	const kind = tab === "plugins" ? "plugin" : "theme"
+	const audit = entryState.stats?.audit
+
+	if (entryState.blockState === "item") {
+		return (
+			<Alert variant="destructive">
+				<Ban size={14} />
+				<AlertDescription>
+					This {kind} was removed from the Marketplace: {entryState.blockReason}
+					{entryState.installed && tab === "plugins" && pluginEnabled && (
+						<Button
+							variant="secondary"
+							size="xs"
+							className="marketplace-notice-action"
+							onClick={() =>
+								runSettingsAction("setPluginEnabled", { pluginId: entry.id, enabled: false })
+							}
+						>
+							Disable plugin
+						</Button>
+					)}
+				</AlertDescription>
+			</Alert>
+		)
+	}
+
+	return (
+		<>
+			{entryState.blocklistUnavailable && (
+				<Alert>
+					<ShieldAlert size={14} />
+					<AlertDescription>{BLOCKLIST_UNAVAILABLE_MESSAGE}</AlertDescription>
+				</Alert>
+			)}
+			{entryState.blockState === "versions" && (
+				<Alert variant="destructive">
+					<Ban size={14} />
+					<AlertDescription>
+						Version {entryState.blockedVersions.join(", ")} was pulled from the Marketplace:{" "}
+						{entryState.blockReason}
+					</AlertDescription>
+				</Alert>
+			)}
+			{audit && audit.status !== "pass" && (
+				<Alert variant={audit.status === "fail" ? "destructive" : "default"}>
+					<ShieldAlert size={14} />
+					<AlertDescription>
+						{audit.status === "fail"
+							? `The automated review flagged ${audit.checkedTag}. Maintainers are reviewing it.`
+							: `The automated review found warnings in ${audit.checkedTag}.`}
+						<ul className="marketplace-audit-issues">
+							{audit.issues.slice(0, 3).map((issue) => (
+								<li key={issue}>{issue}</li>
+							))}
+						</ul>
+					</AlertDescription>
+				</Alert>
+			)}
+		</>
+	)
+}
+
 export function MarketplaceDetail({ tab, entry, hasVault }: MarketplaceDetailProps) {
 	const loadingEntryId = useMarketplaceStore((state) => state.loadingEntryId)
 	const readmeCache = useMarketplaceStore((state) => state.readmeCache)
@@ -144,6 +230,11 @@ export function MarketplaceDetail({ tab, entry, hasVault }: MarketplaceDetailPro
 	const installError = useMarketplaceStore((state) => state.installError)
 	const installEntry = useMarketplaceStore((state) => state.installEntry)
 	const uninstallEntry = useMarketplaceStore((state) => state.uninstallEntry)
+	const stats = useMarketplaceStore((state) => state.stats)
+	const verified = useMarketplaceStore((state) => state.verified)
+	const blocked = useMarketplaceStore((state) => state.blocked)
+	const blocklistAvailable = useMarketplaceStore((state) => state.blocklistAvailable)
+	const statsLoaded = useMarketplaceStore((state) => state.statsLoaded)
 	const readmeScrollRef = useRef<HTMLElement>(null)
 	const allowCommunity = useCommunityPluginsAllowed()
 
@@ -160,14 +251,28 @@ export function MarketplaceDetail({ tab, entry, hasVault }: MarketplaceDetailPro
 
 	const entryState = entry
 		? getMarketplaceEntryState(
-				{ availableUpdates, appVersion, manifestMetadataCache },
+				{
+					availableUpdates,
+					appVersion,
+					manifestMetadataCache,
+					stats,
+					verified,
+					blocked,
+					blocklistAvailable,
+					statsLoaded,
+				},
 				entry.id,
 				isEntryInstalled(entry.id, tab),
+				tab,
 			)
 		: null
 	const isInstalled = entryState?.installed ?? false
 	const isLoading = loadingEntryId === entry?.id
 	const installBlocked = tab === "plugins" && !allowCommunity
+	const marketplaceBlocked = entryState?.installBlocked ?? false
+	const itemStats = entryState?.stats ?? null
+	const voteUrl = entry ? getVoteUrl(stats, tab, entry.id) : null
+	const statsAge = formatStatsAge(stats.generatedAt)
 	const readme = entry ? readmeCache[entry.id] : undefined
 	const manifestMetadata = entry ? manifestMetadataCache[entry.id] : undefined
 	const isManifestLoading = entry ? Boolean(manifestMetadataLoading[entry.id]) : false
@@ -219,7 +324,15 @@ export function MarketplaceDetail({ tab, entry, hasVault }: MarketplaceDetailPro
 					<header className="marketplace-detail-hero">
 						<MarketplaceDetailArtwork entry={entry} />
 						<div className="marketplace-detail-hero-copy">
-							<h2 title={entry.name}>{entry.name}</h2>
+							<h2>
+								{entry.name}
+								{entryState?.verified && (
+									<BadgeCheck
+										className="marketplace-verified-badge"
+										aria-label="Verified by Cortex"
+									/>
+								)}
+							</h2>
 							<div>
 								<span>{entry.author}</span>
 								{isInstalled && (
@@ -242,23 +355,29 @@ export function MarketplaceDetail({ tab, entry, hasVault }: MarketplaceDetailPro
 							</div>
 						</div>
 						<div className="marketplace-detail-actions">
+							{voteUrl && (
+								<SimpleTooltip label="Votes are upvotes on GitHub Discussions; counts refresh every 30 minutes">
+									<Button variant="ghost" onClick={() => openExternalUrl(voteUrl)}>
+										<ArrowBigUp size={13} />
+										Vote on GitHub
+									</Button>
+								</SimpleTooltip>
+							)}
 							{!hasVault ? (
-								<Button variant="secondary" size="sm" disabled>
+								<Button variant="secondary" disabled>
 									Open a vault to install
 								</Button>
 							) : isInstalled && hasUpdate ? (
 								<>
 									<Button
-										size="sm"
 										onClick={() => void installEntry(entry, tab)}
-										disabled={isLoading || installBlocked}
+										disabled={isLoading || installBlocked || marketplaceBlocked}
 									>
 										{isLoading ? <Spinner className="size-3" /> : <ArrowUp size={13} />}
 										Update to {latestVersion}
 									</Button>
 									<Button
-										variant="ghost"
-										size="sm"
+										variant="destructive-soft"
 										onClick={() => void handleUninstall(entry)}
 										disabled={isLoading}
 										className="marketplace-uninstall"
@@ -271,7 +390,6 @@ export function MarketplaceDetail({ tab, entry, hasVault }: MarketplaceDetailPro
 								<>
 									{tab === "themes" && (
 										<Button
-											size="sm"
 											disabled={isThemeInUse}
 											onClick={() => void applyMarketplaceTheme(entry)}
 										>
@@ -279,8 +397,7 @@ export function MarketplaceDetail({ tab, entry, hasVault }: MarketplaceDetailPro
 										</Button>
 									)}
 									<Button
-										variant="secondary"
-										size="sm"
+										variant="destructive-soft"
 										onClick={() => void handleUninstall(entry)}
 										disabled={isLoading}
 										className="marketplace-uninstall"
@@ -290,15 +407,15 @@ export function MarketplaceDetail({ tab, entry, hasVault }: MarketplaceDetailPro
 									</Button>
 								</>
 							) : installBlocked ? (
-								<Button variant="secondary" size="sm" disabled>
+								<Button variant="secondary" disabled>
 									Allow community plugins to install
 								</Button>
+							) : marketplaceBlocked ? (
+								<Button variant="secondary" disabled>
+									Not available
+								</Button>
 							) : (
-								<Button
-									size="sm"
-									onClick={() => void installEntry(entry, tab)}
-									disabled={isLoading}
-								>
+								<Button onClick={() => void installEntry(entry, tab)} disabled={isLoading}>
 									{isLoading ? <Spinner className="size-3" /> : <Download size={13} />}
 									Install
 								</Button>
@@ -307,6 +424,10 @@ export function MarketplaceDetail({ tab, entry, hasVault }: MarketplaceDetailPro
 					</header>
 
 					<p className="marketplace-detail-lead">{entry.description}</p>
+
+					{entryState && (
+						<MarketplaceTrustNotices entry={entry} tab={tab} entryState={entryState} />
+					)}
 
 					{hasCompatibilityWarning && (
 						<Alert variant="destructive">
@@ -323,6 +444,26 @@ export function MarketplaceDetail({ tab, entry, hasVault }: MarketplaceDetailPro
 							<TriangleAlert size={14} />
 							<AlertDescription>{installError}</AlertDescription>
 						</Alert>
+					)}
+
+					{entry.screenshots && entry.screenshots.length > 0 && (
+						<ul className="marketplace-screenshots" aria-label="Screenshots">
+							{entry.screenshots.map((url, index) => (
+								<SimpleTooltip key={url} label="Open full size">
+									<li>
+										<button type="button" onClick={() => openExternalUrl(url)}>
+											<img
+												src={url}
+												alt={`${entry.name} screenshot ${index + 1}`}
+												loading="lazy"
+												decoding="async"
+												referrerPolicy="no-referrer"
+											/>
+										</button>
+									</li>
+								</SimpleTooltip>
+							))}
+						</ul>
 					)}
 
 					<div className="marketplace-detail-body">
@@ -347,7 +488,10 @@ export function MarketplaceDetail({ tab, entry, hasVault }: MarketplaceDetailPro
 							className="marketplace-detail-aside"
 							aria-label={tab === "plugins" ? "Plugin information" : "Theme information"}
 						>
-							<SettingsSection title="Information">
+							<SettingsSection
+								title="Information"
+								footer={itemStats ? (statsAge ?? undefined) : undefined}
+							>
 								<SettingsGroup>
 									<SettingsList>
 										<MarketplaceMetadataItem
@@ -356,6 +500,22 @@ export function MarketplaceDetail({ tab, entry, hasVault }: MarketplaceDetailPro
 										/>
 										<MarketplaceMetadataItem label="Minimum Cortex" value={minimumAppVersion} />
 										<MarketplaceMetadataItem label="Scope" value="This vault" />
+										{itemStats && (
+											<>
+												<MarketplaceMetadataItem
+													label="Votes"
+													value={formatCount(itemStats.votes)}
+												/>
+												<MarketplaceMetadataItem
+													label="Downloads"
+													value={formatCount(itemStats.downloads)}
+												/>
+												<MarketplaceMetadataItem
+													label="GitHub stars"
+													value={formatCount(itemStats.stars)}
+												/>
+											</>
+										)}
 										{repositoryUrl && (
 											<MarketplaceMetadataItem
 												label="Source"

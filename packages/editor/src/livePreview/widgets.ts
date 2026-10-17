@@ -1,4 +1,8 @@
-import { type MarkdownPortableNode, sanitizeMarkdownUrl } from "@cortex/renderer"
+import {
+	getCalloutIconPaths,
+	type MarkdownPortableNode,
+	sanitizeMarkdownUrl,
+} from "@cortex/renderer"
 import { renderMathExpression } from "@cortex/renderer/math"
 import type { CodeBlockEmbedLivePreview } from "../codeBlockEmbeds"
 import { toggleTaskAt } from "../taskToggle"
@@ -45,6 +49,26 @@ async function renderMathIntoElement(
 		element.title = message
 		element.textContent = source
 	}
+}
+
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg"
+const COPY_ICON_PATHS = [
+	"M10 8h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2z",
+	"M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2",
+]
+const CHECK_ICON_PATHS = ["M20 6 9 17l-5-5"]
+
+function createIcon(paths: readonly string[], className: string): SVGSVGElement {
+	const svg = document.createElementNS(SVG_NAMESPACE, "svg")
+	svg.setAttribute("viewBox", "0 0 24 24")
+	svg.setAttribute("aria-hidden", "true")
+	svg.setAttribute("class", className)
+	for (const d of paths) {
+		const path = document.createElementNS(SVG_NAMESPACE, "path")
+		path.setAttribute("d", d)
+		svg.appendChild(path)
+	}
+	return svg
 }
 
 export function createLivePreviewWidgets(
@@ -354,6 +378,27 @@ export function createLivePreviewWidgets(
 		}
 	}
 
+	class CalloutIconWidget extends WidgetType {
+		constructor(readonly icon: string | undefined) {
+			super()
+		}
+
+		toDOM() {
+			const wrapper = document.createElement("span")
+			wrapper.className = "markdown-callout-icon-slot"
+			wrapper.appendChild(createIcon(getCalloutIconPaths(this.icon), "markdown-callout-icon"))
+			return wrapper
+		}
+
+		eq(other: CalloutIconWidget) {
+			return other.icon === this.icon
+		}
+
+		ignoreEvent() {
+			return true
+		}
+	}
+
 	class CodeBlockChromeWidget extends WidgetType {
 		constructor(
 			readonly code: string,
@@ -369,17 +414,15 @@ export function createLivePreviewWidgets(
 			const chrome = document.createElement("span")
 			chrome.className = "cm-codeblock-chrome"
 			chrome.dataset.codeblockId = this.blockId
-			if (!this.hovered) {
-				const label = this.language.trim()
-				if (label) {
-					chrome.classList.add("has-language")
-					const badge = document.createElement("span")
-					badge.className = "cm-codeblock-language"
-					badge.textContent = label
-					chrome.appendChild(badge)
-				}
-				return chrome
+			const label = this.language.trim()
+			if (label) {
+				chrome.classList.add("has-language")
+				const badge = document.createElement("span")
+				badge.className = "cm-codeblock-language"
+				badge.textContent = label
+				chrome.appendChild(badge)
 			}
+			if (!this.hovered) return chrome
 
 			const preserveSelection = (event: Event) => {
 				event.preventDefault()
@@ -387,11 +430,18 @@ export function createLivePreviewWidgets(
 			}
 			const button = document.createElement("button")
 			button.type = "button"
-			button.className = this.action ? "cm-codeblock-action" : "cm-codeblock-copy"
-			button.textContent = this.action?.label ?? "Copy"
-			button.title = this.action?.title ?? "Copy code"
 			button.dataset.codeblockId = this.blockId
 			button.dataset.controlsVisible = "true"
+			if (this.action) {
+				button.className = "cm-codeblock-action"
+				button.textContent = this.action.label
+				button.title = this.action.title
+			} else {
+				button.className = "cm-codeblock-copy"
+				button.title = "Copy code"
+				button.setAttribute("aria-label", "Copy code")
+				button.appendChild(createIcon(COPY_ICON_PATHS, "cm-codeblock-icon"))
+			}
 			button.addEventListener("pointerdown", preserveSelection)
 			button.addEventListener("mousedown", preserveSelection)
 			button.addEventListener("click", async (event) => {
@@ -402,14 +452,14 @@ export function createLivePreviewWidgets(
 				}
 				try {
 					await navigator.clipboard.writeText(this.code)
-					button.textContent = "Copied!"
+					button.replaceChildren(createIcon(CHECK_ICON_PATHS, "cm-codeblock-icon"))
 					button.classList.add("copied")
 					setTimeout(() => {
-						button.textContent = "Copy"
+						button.replaceChildren(createIcon(COPY_ICON_PATHS, "cm-codeblock-icon"))
 						button.classList.remove("copied")
 					}, 2000)
 				} catch {
-					button.textContent = "Copy"
+					button.classList.remove("copied")
 				}
 			})
 			chrome.appendChild(button)
@@ -515,6 +565,7 @@ export function createLivePreviewWidgets(
 
 	return {
 		CalloutFoldWidget,
+		CalloutIconWidget,
 		CheckboxWidget,
 		CodeBlockChromeWidget,
 		CodeBlockEmbedPreviewWidget,

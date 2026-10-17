@@ -1,6 +1,3 @@
-import type { Dirent } from "node:fs"
-import { readdir, readFile, stat } from "node:fs/promises"
-import { join } from "node:path"
 import type { SyncPreferences } from "@cortex/platform"
 import { hashBytes } from "@cortex/platform/hash"
 import { shouldIgnoreSyncPath, shouldSkipSyncDirectory } from "@cortex/platform/sync-rules"
@@ -8,6 +5,7 @@ import type { RemoteChange, RemoteFileInfo } from "@cortex/sync-api"
 import type { SyncAccess } from "./access"
 import type { FileState, NoteMetadataRecord } from "./db"
 import type { SyncOp } from "./queue"
+import { type SyncDirEntry, syncRuntime } from "./runtime"
 import { runPool } from "./util"
 
 export interface LocalFileInfo {
@@ -41,16 +39,16 @@ export async function scanLocalFiles(
 ): Promise<Map<string, LocalFileInfo>> {
 	const candidates: Array<{ relative: string; fullPath: string }> = []
 	const walk = async (directory: string, prefix: string): Promise<void> => {
-		let entries: Dirent[]
+		let entries: SyncDirEntry[]
 		try {
-			entries = await readdir(directory, { withFileTypes: true })
+			entries = await syncRuntime().fs.readdir(directory)
 		} catch {
 			return
 		}
 		const subdirectories: Promise<void>[] = []
 		for (const entry of entries) {
 			const relative = prefix ? `${prefix}/${entry.name}` : entry.name
-			const fullPath = join(directory, entry.name)
+			const fullPath = syncRuntime().path.join(directory, entry.name)
 			if (entry.isDirectory()) {
 				if (!shouldSkipSyncDirectory(relative, preferences)) {
 					subdirectories.push(walk(fullPath, relative))
@@ -76,13 +74,13 @@ export async function scanLocalFiles(
 
 async function fileInfo(path: string, state: FileState | undefined): Promise<LocalFileInfo | null> {
 	try {
-		const stats = await stat(path)
+		const stats = await syncRuntime().fs.stat(path)
 		if (!stats.isFile()) return null
 		const mtime = Math.trunc(stats.mtimeMs)
 		if (state?.localHash && state.localMtime === mtime && state.localSize === stats.size) {
 			return { hash: state.localHash, mtime, size: stats.size }
 		}
-		return { hash: hashBytes(await readFile(path)), mtime, size: stats.size }
+		return { hash: hashBytes(await syncRuntime().fs.readFile(path)), mtime, size: stats.size }
 	} catch {
 		return null
 	}

@@ -1,6 +1,8 @@
-import { dynamicIconImports, type IconName } from "lucide-react/dynamic"
+import { LUCIDE_ICON_NAMES } from "./lucide-icon-names"
 
-type LucideIconName = IconName
+type LucideIconName = string & { readonly __lucideIconName?: true }
+
+const iconNames = new Set(LUCIDE_ICON_NAMES.split("|"))
 
 function toKebabIconName(name: string): string {
 	return name
@@ -13,9 +15,9 @@ function toKebabIconName(name: string): string {
 
 function resolveLucideIconName(name: string): LucideIconName | undefined {
 	const normalized = name.trim()
-	if (normalized in dynamicIconImports) return normalized as LucideIconName
+	if (iconNames.has(normalized)) return normalized as LucideIconName
 	const kebabName = toKebabIconName(normalized)
-	if (kebabName in dynamicIconImports) return kebabName as LucideIconName
+	if (iconNames.has(kebabName)) return kebabName as LucideIconName
 	return undefined
 }
 
@@ -23,5 +25,5 @@ function isValidLucideIconName(value: string): value is LucideIconName {
 	return resolveLucideIconName(value) !== undefined
 }
 
-export { isValidLucideIconName, resolveLucideIconName }
 export type { LucideIconName }
+export { isValidLucideIconName, resolveLucideIconName }

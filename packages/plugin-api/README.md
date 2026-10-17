@@ -162,3 +162,8 @@ or Node.js types; bundle any third-party runtime dependencies.
 4. Keep vault paths relative with forward slashes.
 5. Use declarative views instead of React or DOM APIs.
 6. Return a cleanup from `activate` for timers or external resources.
+
+## License
+
+MIT. See [LICENSE](LICENSE). The Cortex app itself is licensed under AGPL-3.0-or-later; plugins
+built on this package may use any license.

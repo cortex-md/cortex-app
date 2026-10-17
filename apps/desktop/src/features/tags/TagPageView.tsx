@@ -1,23 +1,23 @@
 import {
 	formatRelativeTime,
-	getFileModifiedTimes,
 	getTagPageModel,
 	type TagPageNote,
 	toVaultRelativePath,
 	useTagsStore,
 	useUIStore,
+	useVaultModifiedTimes,
 	useVaultStore,
 	useWorkspaceStore,
 } from "@cortex/core"
 import { useSearchStore } from "@cortex/search"
 import {
 	Button,
+	Chip,
 	ColorPicker,
 	Input,
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
-	Toggle,
 } from "@cortex/ui"
 import { MoreHorizontalIcon, SearchIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
@@ -77,7 +77,7 @@ function TagActions({
 	return (
 		<Popover>
 			<PopoverTrigger asChild>
-				<Button variant="ghost" size="icon-sm" aria-label="Tag actions: rename, change colour">
+				<Button variant="ghost" size="icon" aria-label="Tag actions: rename, change colour">
 					<MoreHorizontalIcon />
 				</Button>
 			</PopoverTrigger>
@@ -129,6 +129,7 @@ function TagNoteRow({
 		.join(" · ")
 	return (
 		<Button
+			size="sm"
 			variant="ghost"
 			className="tag-page-note"
 			onClick={() => useWorkspaceStore.getState().openTab(note.filePath)}
@@ -152,13 +153,13 @@ function TagNoteRow({
 export function TagPageView({ viewState, onStateChange }: CoreViewProps) {
 	const { tag, childTag } = readTagViewState(viewState)
 	const vault = useVaultStore((state) => state.vault)
-	const files = useVaultStore((state) => state.files)
+	const modifiedTimes = useVaultModifiedTimes()
 	const tagIndex = useTagsStore((state) => state.tagIndex)
 	const fileTags = useTagsStore((state) => state.fileTags)
 	const color = useTagsStore((state) => state.tagColors[tag] ?? null)
 	const model = useMemo(
-		() => getTagPageModel(tag, tagIndex, fileTags, getFileModifiedTimes(files), { childTag }),
-		[childTag, fileTags, files, tag, tagIndex],
+		() => getTagPageModel(tag, tagIndex, fileTags, modifiedTimes, { childTag }),
+		[childTag, fileTags, modifiedTimes, tag, tagIndex],
 	)
 	const excerpts = useNoteExcerpts(
 		vault?.path,
@@ -168,7 +169,7 @@ export function TagPageView({ viewState, onStateChange }: CoreViewProps) {
 
 	const searchInTag = () => {
 		const query = `tag:${tag} `
-		useSearchStore.getState().runQuery(query)
+		void useSearchStore.getState().runQuery(query)
 		const ui = useUIStore.getState()
 		if (ui.leftSidebarCollapsed) ui.toggleLeftSidebar()
 		ui.setLeftSidebarView("search")
@@ -182,7 +183,7 @@ export function TagPageView({ viewState, onStateChange }: CoreViewProps) {
 						<i style={{ background: color ?? "var(--text-muted)" }} />#{tag}
 					</h1>
 					<span className="flex-1" />
-					<Button variant="secondary" size="sm" onClick={searchInTag}>
+					<Button variant="secondary" onClick={searchInTag}>
 						<SearchIcon />
 						Search in tag
 					</Button>
@@ -196,23 +197,19 @@ export function TagPageView({ viewState, onStateChange }: CoreViewProps) {
 				<p className="tag-page-sub">{formatCount(model.noteCount, "note")}</p>
 				{model.childTags.length > 0 && (
 					<div className="tag-page-chips" role="toolbar" aria-label="Filter by nested tag">
-						<Toggle
-							variant="outline"
-							pressed={!childTag}
-							onPressedChange={() => onStateChange({ tag })}
-						>
-							All<span>{model.noteCount}</span>
-						</Toggle>
+						<Chip size="sm" pressed={!childTag} onClick={() => onStateChange({ tag })}>
+							All<span className="tag-page-chip-count">{model.noteCount}</span>
+						</Chip>
 						{model.childTags.map((child) => (
-							<Toggle
+							<Chip
 								key={child.tag}
-								variant="outline"
+								size="sm"
 								pressed={childTag === child.tag}
-								onPressedChange={() => onStateChange({ tag, childTag: child.tag })}
+								onClick={() => onStateChange({ tag, childTag: child.tag })}
 							>
 								#{child.tag}
-								<span>{child.count}</span>
-							</Toggle>
+								<span className="tag-page-chip-count">{child.count}</span>
+							</Chip>
 						))}
 					</div>
 				)}

@@ -1,43 +1,80 @@
 {
-	"compilerOptions": {
-		"target": "ES2022",
-		"module": "ESNext",
-		"moduleResolution": "bundler",
-		"jsx": "react-jsx",
-		"strict": true,
-		"esModuleInterop": true,
-		"skipLibCheck": true,
-		"forceConsistentCasingInFileNames": true,
-		"resolveJsonModule": true,
-		"isolatedModules": true,
-		"noEmit": true
-	},
+	"files": [],
 	"references": [
-		{ "path": "packages/commands" },
-		{ "path": "packages/comments" },
-		{ "path": "packages/templates" },
-		{ "path": "packages/tasks" },
-		{ "path": "packages/platform" },
-		{ "path": "packages/collab" },
-		{ "path": "packages/sync-api" },
-		{ "path": "packages/properties" },
-		{ "path": "packages/core" },
-		{ "path": "packages/import-export" },
-		{ "path": "packages/editor" },
-		{ "path": "packages/ui" },
-		{ "path": "packages/theme" },
-		{ "path": "packages/settings" },
-		{ "path": "packages/hotkeys" },
-		{ "path": "packages/search" },
-		{ "path": "packages/plugin-api" },
-		{ "path": "packages/plugin-host-core" },
-		{ "path": "packages/renderer" },
-		{ "path": "packages/marketplace" },
-		{ "path": "apps/desktop" },
-		{ "path": "apps/mobile" },
-		{ "path": "apps/web" },
-		{ "path": "plugins" },
-		{ "path": "apps/desktop/tsconfig.node.json" }
-	],
-	"files": []
+		{
+			"path": "packages/commands"
+		},
+		{
+			"path": "packages/comments"
+		},
+		{
+			"path": "packages/tasks"
+		},
+		{
+			"path": "packages/platform"
+		},
+		{
+			"path": "packages/collab"
+		},
+		{
+			"path": "packages/properties"
+		},
+		{
+			"path": "packages/settings"
+		},
+		{
+			"path": "packages/core"
+		},
+		{
+			"path": "packages/renderer"
+		},
+		{
+			"path": "packages/import-export"
+		},
+		{
+			"path": "packages/editor"
+		},
+		{
+			"path": "packages/ui"
+		},
+		{
+			"path": "packages/theme"
+		},
+		{
+			"path": "packages/search"
+		},
+		{
+			"path": "packages/plugin-api"
+		},
+		{
+			"path": "packages/plugin-host-core"
+		},
+		{
+			"path": "packages/marketplace"
+		},
+		{
+			"path": "packages/sync-api"
+		},
+		{
+			"path": "packages/sync-engine"
+		},
+		{
+			"path": "plugins"
+		},
+		{
+			"path": "apps/desktop/tsconfig.node.json"
+		},
+		{
+			"path": "apps/desktop/tsconfig.electron.json"
+		},
+		{
+			"path": "apps/mobile"
+		},
+		{
+			"path": "apps/web"
+		},
+		{
+			"path": "apps/desktop"
+		}
+	]
 }

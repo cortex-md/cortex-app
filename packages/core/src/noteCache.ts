@@ -1,6 +1,7 @@
 import { type FileMetadata, type FileSnapshot, getPlatform } from "@cortex/platform"
 import { isMarkdownPath, isPathOrDescendant, replacePathPrefix } from "@cortex/platform/utils"
 import { prepareNoteForSave } from "@cortex/properties"
+import { captureLocalVersion } from "./history/localHistory"
 
 export type SnapshotTrigger = "auto" | "manual" | "pre-save" | "pre-sync"
 
@@ -381,6 +382,7 @@ class NoteCache {
 		}
 
 		this.takeSnapshot(filePath, "pre-save")
+		void captureLocalVersion(filePath, entry.diskContent, "edit")
 		const snapshot = await writeNoteSnapshot(filePath, preparedContent)
 		entry.diskContent = preparedContent
 		entry.hash = snapshot.hash
@@ -578,6 +580,7 @@ class NoteCache {
 			return this.processExternalChanges(filePath, load, targetHash)
 		}
 		if (entry.dirty) {
+			void captureLocalVersion(filePath, () => getPlatform().fs.readFile(filePath), "external")
 			const snapshot = this.takeSnapshot(filePath, "pre-sync")
 			if (snapshot) this.notifyExternalChange({ filePath, kind: "conflict", snapshot })
 			return
@@ -588,6 +591,7 @@ class NoteCache {
 		const content = snapshot.content
 		const actualHash = snapshot.hash
 		const contentChanged = content !== entry.content
+		if (contentChanged) void captureLocalVersion(filePath, entry.content, "external")
 		entry.content = content
 		entry.diskContent = content
 		entry.hash = actualHash

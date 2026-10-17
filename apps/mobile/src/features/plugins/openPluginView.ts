@@ -1,5 +1,5 @@
-import { router } from "expo-router"
+import { openPluginViewRoute } from "@/features/navigation/routes"
 
 export function openPluginView(viewKey: string): void {
-	router.push({ params: { viewKey }, pathname: "/(notes)/plugin-view" as never })
+	openPluginViewRoute(viewKey)
 }

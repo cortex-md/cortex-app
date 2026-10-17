@@ -1,3 +1,4 @@
+import { useHotkeyListener, useHotkeysStore } from "@cortex/commands/hotkeys"
 import {
 	bootstrapApp,
 	consumePendingOnboardingNote,
@@ -6,31 +7,27 @@ import {
 	openVaultSession,
 	reportAppError,
 	startAppRuntime,
+	startAuthSession,
 	useAppStore,
-	useAuthStore,
 	useDragStore,
 	useVaultStore,
 	useWorkspaceStore,
 } from "@cortex/core"
-import { loadEditorRuntime } from "@cortex/editor/runtime"
-import { useHotkeyListener, useHotkeysStore } from "@cortex/hotkeys"
-import { getPlatform } from "@cortex/platform"
+import { loadEditorRuntime, loadVimRuntime } from "@cortex/editor/runtime"
 import { useSettingsStore } from "@cortex/settings"
 import { useEffect } from "react"
+import { startDesktopExtensionSync } from "../features/extensions/extensionSync"
+import { useTeamTemplates } from "../features/templates/useTeamTemplates"
 import { useAppUpdateLifecycle } from "../hooks/useAppUpdates"
 import { useCommunityPluginLifecycle } from "../hooks/useCommunityPluginLifecycle"
 import { useCommunityThemeLifecycle } from "../hooks/useCommunityThemeLifecycle"
-import { useInviteDeepLink } from "../hooks/useInviteDeepLink"
+import { useDeepLinks } from "../hooks/useDeepLinks"
 import { useLiveNoteShares } from "../hooks/useLiveNoteShares"
 import { useNativeMenuEvents } from "../hooks/useNativeMenuEvents"
 import { useNativeNotifications } from "../hooks/useNativeNotifications"
-import { useResetPasswordDeepLink } from "../hooks/useResetPasswordDeepLink"
-import { useSharedNoteDeepLink } from "../hooks/useSharedNoteDeepLink"
-import { useSyncBillingDeepLink } from "../hooks/useSyncBillingDeepLink"
 import { useSyncLifecycle } from "../hooks/useSyncLifecycle"
 import { useVaultOverviewRefresh } from "../hooks/useVaultOverviewRefresh"
 import { scheduleIdleWork } from "../utils/scheduleIdleWork"
-import { useMainWindowBridge } from "../windows/useMainWindowBridge"
 import { useNativeMenuState } from "../windows/useNativeMenuState"
 
 function openStartupVault(): Promise<unknown> {
@@ -56,14 +53,7 @@ function openTabInActivePane(filePath: string) {
 }
 
 function useAuthSessionWatcher() {
-	useEffect(() => {
-		const { loadPreferences, checkAuth } = useAuthStore.getState()
-		void loadPreferences().then(() => checkAuth())
-
-		return getPlatform().app.onNativeEvent("auth-session-expired", () => {
-			void useAuthStore.getState().logout()
-		})
-	}, [])
+	useEffect(() => startAuthSession(), [])
 }
 
 function reportWorkspacePersistError(error: unknown, vaultPath: string) {
@@ -82,16 +72,19 @@ function useAppRuntime() {
 			onVaultOpened: (vault) => void useHotkeysStore.getState().loadOverrides(vault.path),
 			onWorkspaceRestored: () => {
 				void loadEditorRuntime()
+				if (useSettingsStore.getState().settings.editor.vimMode) void loadVimRuntime()
 				consumePendingOnboardingNote(openTabInActivePane)
 			},
 			onWorkspacePersistError: reportWorkspacePersistError,
 		})
+		const stopExtensionSync = startDesktopExtensionSync()
 		const handleBeforeUnload = () => {
 			void flushPendingWrites()
 		}
 		window.addEventListener("beforeunload", handleBeforeUnload)
 		return () => {
 			window.removeEventListener("beforeunload", handleBeforeUnload)
+			stopExtensionSync()
 			stopAppRuntime()
 		}
 	}, [])
@@ -139,12 +132,10 @@ export function AppLifecycle() {
 
 	useHotkeyListener()
 	useSyncLifecycle()
-	useSyncBillingDeepLink()
-	useInviteDeepLink()
-	useSharedNoteDeepLink()
-	useResetPasswordDeepLink()
+	useDeepLinks()
 	useVaultOverviewRefresh()
 	useLiveNoteShares()
+	useTeamTemplates()
 	useNativeNotifications()
 	useCommunityPluginLifecycle(vault)
 	useCommunityThemeLifecycle(vault, appearanceSettings)
@@ -155,7 +146,6 @@ export function AppLifecycle() {
 	useAppRuntime()
 	useInactiveTabSuspension(suspendInactiveTabs)
 	useGlobalDragGuards()
-	useMainWindowBridge()
 	useNativeMenuState()
 
 	return null

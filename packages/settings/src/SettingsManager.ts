@@ -92,10 +92,7 @@ export class SettingsManager {
 		})
 
 		if (isGlobalSetting(section, key as string)) {
-			this.globalSettings = GlobalAppSettingsSchema.parse({
-				appearance: { nativeWindowEffects: nextCache.appearance.nativeWindowEffects },
-				plugins: nextCache.plugins,
-			})
+			this.globalSettings = GlobalAppSettingsSchema.parse(pickGlobalSettings(nextCache))
 			await this.flushGlobalSettings()
 			return
 		}
@@ -105,10 +102,7 @@ export class SettingsManager {
 
 	applyExternalSettings(settings: AppSettings): void {
 		this.cache = settings
-		this.globalSettings = GlobalAppSettingsSchema.parse({
-			appearance: { nativeWindowEffects: settings.appearance.nativeWindowEffects },
-			plugins: settings.plugins,
-		})
+		this.globalSettings = GlobalAppSettingsSchema.parse(pickGlobalSettings(settings))
 	}
 
 	private scheduleFlush(): void {
@@ -122,7 +116,7 @@ export class SettingsManager {
 		try {
 			const platform = getPlatform()
 			const content = JSON.stringify(this.getVaultSettingsSnapshot(), null, 2)
-			await platform.fs.writeFile(
+			await platform.fs.atomicWriteFile(
 				getVaultFilePath(this.vaultPath, VAULT_FILES.appSettings),
 				content,
 			)
@@ -136,7 +130,7 @@ export class SettingsManager {
 			const platform = getPlatform()
 			const path = await this.getGlobalSettingsPath()
 			const content = JSON.stringify(this.globalSettings, null, 2)
-			await platform.fs.writeFile(path, content)
+			await platform.fs.atomicWriteFile(path, content)
 			this.globalSettingsLoadedFromFile = true
 		} catch (error) {
 			console.error("Failed to save global settings:", error)
@@ -163,21 +157,43 @@ export class SettingsManager {
 			...this.cache,
 			appearance: {
 				...this.cache.appearance,
-				nativeWindowEffects: this.globalSettings.appearance.nativeWindowEffects,
+				...this.globalSettings.appearance,
 			},
 			plugins: this.globalSettings.plugins,
+			updates: this.globalSettings.updates,
 		})
 	}
 
-	private getVaultSettingsSnapshot(): Omit<AppSettings, "plugins"> {
-		const { plugins: _plugins, ...cache } = this.cache
-		const { nativeWindowEffects: _nativeWindowEffects, ...appearance } = cache.appearance
-		return { ...cache, appearance } as Omit<AppSettings, "plugins">
+	private getVaultSettingsSnapshot(): Omit<AppSettings, "plugins" | "updates"> {
+		const { plugins: _plugins, updates: _updates, ...cache } = this.cache
+		const {
+			nativeWindowEffects: _nativeWindowEffects,
+			workspaceMode: _workspaceMode,
+			...appearance
+		} = cache.appearance
+		return { ...cache, appearance } as Omit<AppSettings, "plugins" | "updates">
 	}
 }
 
+const GLOBAL_APPEARANCE_KEYS = new Set(["nativeWindowEffects", "workspaceMode"])
+
 function isGlobalSetting(section: keyof AppSettings, key: string): boolean {
-	return section === "plugins" || (section === "appearance" && key === "nativeWindowEffects")
+	return (
+		section === "plugins" ||
+		section === "updates" ||
+		(section === "appearance" && GLOBAL_APPEARANCE_KEYS.has(key))
+	)
+}
+
+function pickGlobalSettings(settings: AppSettings): unknown {
+	return {
+		appearance: {
+			nativeWindowEffects: settings.appearance.nativeWindowEffects,
+			workspaceMode: settings.appearance.workspaceMode,
+		},
+		plugins: settings.plugins,
+		updates: settings.updates,
+	}
 }
 
 function readLegacyNativeWindowEffects(settings: unknown): boolean | null {

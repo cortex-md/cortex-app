@@ -45,7 +45,6 @@ export function GuestAccessEditor({ grants, disabled, onChange }: GuestAccessEdi
 					value=""
 					onChange={(path) => onChange([...grants, { path, canWrite: false }])}
 					placeholder="Share a folder or note"
-					reserveDropdownSpace
 				/>
 			</SettingsGroupContent>
 			{grants.length === 0 ? (

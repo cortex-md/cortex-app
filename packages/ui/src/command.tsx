@@ -44,6 +44,7 @@ function CommandDialog({
 			</DialogHeader>
 			<DialogContent
 				data-command-surface=""
+				motion="fade"
 				className={cn("overflow-hidden p-0 sm:max-w-[680px]", className)}
 				showCloseButton={showCloseButton}
 			>
@@ -63,12 +64,16 @@ function CommandDialog({
 
 function CommandInput({
 	className,
+	icon: Icon = SearchIcon,
 	trailing,
 	...props
-}: React.ComponentProps<typeof CommandPrimitive.Input> & { trailing?: React.ReactNode }) {
+}: React.ComponentProps<typeof CommandPrimitive.Input> & {
+	icon?: React.ComponentType<React.SVGProps<SVGSVGElement>>
+	trailing?: React.ReactNode
+}) {
 	return (
 		<div data-slot="command-input-wrapper" className="flex h-10 items-center gap-3 border-b px-4">
-			<SearchIcon data-slot="command-input-icon" className="size-5 shrink-0 opacity-55" />
+			<Icon data-slot="command-input-icon" className="size-5 shrink-0 opacity-55" aria-hidden />
 			<CommandPrimitive.Input
 				data-slot="command-input"
 				className={cn(
@@ -136,7 +141,7 @@ function CommandItem({ className, ...props }: React.ComponentProps<typeof Comman
 		<CommandPrimitive.Item
 			data-slot="command-item"
 			className={cn(
-				"relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground",
+				"relative flex min-h-[34px] cursor-default items-center gap-2.5 rounded-[var(--popup-item-radius,6px)] px-2.5 py-[7px] text-[14px] leading-[18px] outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-[selected=true]:bg-[var(--fill-quiet-strong,color-mix(in_srgb,var(--text-primary)_9%,transparent))] data-[selected=true]:text-text-primary [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-[18px] [&_svg:not([class*='text-'])]:text-muted-foreground",
 				className,
 			)}
 			{...props}
@@ -148,7 +153,7 @@ function CommandShortcut({ className, ...props }: React.ComponentProps<"span">) 
 	return (
 		<span
 			data-slot="command-shortcut"
-			className={cn("ml-auto text-xs text-muted-foreground", className)}
+			className={cn("ml-auto text-[12.5px] text-muted-foreground", className)}
 			{...props}
 		/>
 	)
@@ -190,6 +195,7 @@ function CommandFooterKey({ className, ...props }: React.ComponentProps<"kbd">) 
 interface CommandFooterHintItem {
 	keys: readonly string[]
 	label: string
+	align?: "end"
 }
 
 function CommandFooterHints({
@@ -199,7 +205,11 @@ function CommandFooterHints({
 	return (
 		<CommandFooter {...props}>
 			{hints.map((hint) => (
-				<CommandFooterHint key={`${hint.keys.join("-")}-${hint.label}`}>
+				<CommandFooterHint
+					key={`${hint.keys.join("-")}-${hint.label}`}
+					data-align={hint.align}
+					className={hint.align === "end" ? "ml-auto" : undefined}
+				>
 					{hint.keys.map((key) => (
 						<CommandFooterKey key={key}>{key}</CommandFooterKey>
 					))}
@@ -214,15 +224,15 @@ export type { CommandFooterHintItem }
 export {
 	Command,
 	CommandDialog,
+	CommandEmpty,
 	CommandFooter,
 	CommandFooterHint,
 	CommandFooterHints,
 	CommandFooterKey,
-	CommandInput,
-	CommandList,
-	CommandEmpty,
 	CommandGroup,
+	CommandInput,
 	CommandItem,
-	CommandShortcut,
+	CommandList,
 	CommandSeparator,
+	CommandShortcut,
 }

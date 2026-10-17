@@ -10,10 +10,13 @@ import {
 	markdownToolbarShortLabels,
 } from "@cortex/editor/markdown-format-commands"
 import type { EditorCommand, EditorRuntimeView } from "@cortex/editor/types"
-import type { HotkeyOverrides } from "@cortex/hotkeys"
+import type { HotkeyOverrides } from "@cortex/commands/hotkeys"
+
+import type { EditorCommandSummary } from "@/features/workspace/workspaceProtocol"
 
 let activeEditorView: EditorRuntimeView | null = null
 let unregisterCommands: (() => void) | null = null
+let registeredSummaries: EditorCommandSummary[] = []
 
 const mobileEditorFormatBindings = createMarkdownFormatBindings()
 const formatCommandLabels = new Map<string, string>(
@@ -46,10 +49,21 @@ export function registerMobileEditorCommands(): void {
 	const runCommand = (command: EditorCommand) => {
 		if (activeEditorView) void command(activeEditorView)
 	}
-	unregisterCommands = registerCommands([
+	const entries = [
 		...createEditorCommandEntries(runCommand),
 		...createMarkdownFormatCommandEntries(runCommand),
-	])
+	]
+	registeredSummaries = entries.map((entry) => ({
+		id: entry.id,
+		label: entry.label,
+		category: entry.category,
+		aliases: entry.aliases ? [...entry.aliases] : undefined,
+	}))
+	unregisterCommands = registerCommands(entries)
+}
+
+export function listMobileEditorCommands(): EditorCommandSummary[] {
+	return registeredSummaries
 }
 
 export function setMobileEditorCommandView(view: EditorRuntimeView | null): void {

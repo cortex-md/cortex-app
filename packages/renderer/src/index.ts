@@ -3,6 +3,7 @@ import type { SanitizedMarkdownHtml } from "./types"
 export {
 	type CalloutTypeDefinition,
 	type CalloutTypeRegistration,
+	getCalloutIconPaths,
 	getCalloutRegistryVersion,
 	getCalloutStyleVariables,
 	getCalloutTypes,
@@ -15,6 +16,7 @@ export {
 	subscribeCalloutTypes,
 } from "./callouts"
 export { type FrontmatterField, parseFrontmatterFields } from "./frontmatter"
+export { findInlineHighlights, type InlineHighlightRange } from "./inlineMarks"
 export {
 	getMarkdownInlineRegistrations,
 	getMarkdownPreprocessorEntries,

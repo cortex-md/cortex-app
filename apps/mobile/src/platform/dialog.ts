@@ -1,10 +1,55 @@
-import type { AlertDialogOptions, ConfirmDialogOptions, Platform } from "@cortex/platform"
+import type {
+	AlertDialogOptions,
+	ConfirmDialogOptions,
+	FileDialogOptions,
+	Platform,
+} from "@cortex/platform"
 import { toMessageOptions } from "@cortex/platform/utils"
-import { Directory } from "expo-file-system"
+import * as DocumentPicker from "expo-document-picker"
+import { Directory, File } from "expo-file-system"
 import { Alert } from "react-native"
 
+import { getAppDirectory, normalizeUri } from "./appStorage"
 import { unsupportedPhase1 } from "./unsupported"
 import { registerPickedDirectory } from "./vaultRoots"
+
+const STAGING_DIRECTORY = ".picked"
+
+function allowedExtensions(options?: FileDialogOptions): Set<string> | null {
+	const extensions = options?.filters?.flatMap((filter) => filter.extensions) ?? []
+	if (extensions.length === 0 || extensions.includes("*")) return null
+	return new Set(extensions.map((extension) => extension.toLowerCase()))
+}
+
+function stagingDirectory(): Directory {
+	const root = new Directory(getAppDirectory(), STAGING_DIRECTORY)
+	if (root.exists) root.delete()
+	const directory = new Directory(root, String(Date.now()))
+	directory.create({ idempotent: true, intermediates: true })
+	return directory
+}
+
+async function pickDocuments(options: FileDialogOptions | undefined, multiple: boolean) {
+	const result = await DocumentPicker.getDocumentAsync({
+		copyToCacheDirectory: true,
+		multiple,
+		type: "*/*",
+	})
+	if (result.canceled) return []
+	const allowed = allowedExtensions(options)
+	const assets = result.assets.filter((asset) => {
+		if (!allowed) return true
+		const extension = asset.name.split(".").pop()?.toLowerCase() ?? ""
+		return allowed.has(extension)
+	})
+	if (assets.length === 0) return []
+	const directory = stagingDirectory()
+	return assets.map((asset) => {
+		const target = new File(directory, asset.name)
+		new File(asset.uri).move(target)
+		return normalizeUri(target.uri)
+	})
+}
 
 function isPickerCancelled(error: unknown): boolean {
 	if (!(error instanceof Error)) return false
@@ -12,8 +57,8 @@ function isPickerCancelled(error: unknown): boolean {
 }
 
 export const dialogApi = {
-	pickFile: () => unsupportedPhase1("dialog.pickFile"),
-	pickFiles: () => unsupportedPhase1("dialog.pickFiles"),
+	pickFile: async (options) => (await pickDocuments(options, false))[0] ?? null,
+	pickFiles: (options) => pickDocuments(options, true),
 	pickFolder: async () => {
 		try {
 			const directory = await Directory.pickDirectoryAsync()

@@ -1,0 +1,25 @@
+name: Question
+description: Ask how something works when the docs do not answer it.
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the [documentation](https://cortex-md.tech/docs) first. Questions that reveal a gap in the docs may be turned into documentation issues.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What did you try?
+      description: Links, commands, settings, or steps you already followed.
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      placeholder: v0.1.0

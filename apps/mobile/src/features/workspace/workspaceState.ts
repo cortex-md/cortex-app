@@ -1,5 +1,6 @@
 import {
 	createCoreServices,
+	type EditorMode,
 	useBookmarksStore,
 	useEditorStore,
 	useTagsStore,
@@ -7,7 +8,7 @@ import {
 	useWorkspaceStore,
 } from "@cortex/core"
 import { createEditorConfig } from "@cortex/editor/editor-config"
-import { useHotkeysStore } from "@cortex/hotkeys"
+import { useHotkeysStore } from "@cortex/commands/hotkeys"
 import { getPlatform } from "@cortex/platform"
 import { type AppSettings, useSettingsStore } from "@cortex/settings"
 import { getThemeManager } from "@cortex/theme"
@@ -32,11 +33,11 @@ function memoize<T>(readDependencies: () => unknown[], compute: () => T): () => 
 	}
 }
 
-function createMobileEditorConfig(settings: AppSettings): MobileEditorConfig {
+function createMobileEditorConfig(settings: AppSettings, mode: EditorMode): MobileEditorConfig {
 	return {
 		...createEditorConfig(settings),
-		livePreview: true,
-		readOnly: false,
+		livePreview: mode !== "source",
+		readOnly: mode === "reading",
 		slashCommands: settings.editor.slashCommands,
 	}
 }
@@ -55,8 +56,12 @@ const readers: { [Key in keyof WorkspaceState]: () => WorkspaceState[Key] } = {
 	tags: memoize(() => [useTagsStore.getState().tagIndex], coreServices.metadata.getAllTags),
 	themeName: () => getThemeManager().getActiveTheme().name,
 	editorConfig: memoize(
-		() => [getSettings().editor, getSettings().appearance.editorFontSize],
-		() => createMobileEditorConfig(getSettings()),
+		() => [
+			getSettings().editor,
+			getSettings().appearance.editorFontSize,
+			useEditorStore.getState().mode,
+		],
+		() => createMobileEditorConfig(getSettings(), useEditorStore.getState().mode),
 	),
 	themeTokens: memoize(
 		() => [getThemeManager().getActiveTheme(), getSettings().appearance],

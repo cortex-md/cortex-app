@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
 	readonly SITE_URL?: string
+	readonly CLOUDFLARE_WEB_ANALYTICS_TOKEN?: string
 }
 
 interface ImportMeta {

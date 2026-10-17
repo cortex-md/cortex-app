@@ -1,20 +1,6 @@
+import type { SplitTree } from "@cortex/core"
 import type { ComponentType, ReactNode } from "react"
 import { memo, useRef } from "react"
-
-export interface LeafNode {
-	type: "leaf"
-	id: string
-}
-
-export interface SplitNode {
-	type: "split"
-	id: string
-	direction: "horizontal" | "vertical"
-	children: SplitTree[]
-	sizes: number[]
-}
-
-export type SplitTree = LeafNode | SplitNode
 
 interface Props {
 	node: SplitTree

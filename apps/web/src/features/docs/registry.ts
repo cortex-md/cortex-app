@@ -9,6 +9,18 @@ export interface DocsNavigationGroup {
 	pages: DocPage[]
 }
 
+export interface DocsNavigationLink {
+	slug: string
+	title: string
+	href: string
+}
+
+export interface DocsNavigationSummaryGroup {
+	section: string
+	sectionOrder: number
+	pages: DocsNavigationLink[]
+}
+
 export interface DocsSearchEntry {
 	id: string
 	type: "page" | "heading"
@@ -63,6 +75,12 @@ export const docsNavigation = docs.reduce<DocsNavigationGroup[]>((groups, doc) =
 
 	return groups.sort((left, right) => left.sectionOrder - right.sectionOrder)
 }, [])
+
+export const docsNavigationSummary: DocsNavigationSummaryGroup[] = docsNavigation.map((group) => ({
+	section: group.section,
+	sectionOrder: group.sectionOrder,
+	pages: group.pages.map(({ slug, title, href }) => ({ slug, title, href })),
+}))
 
 export const docsSearchIndex = docs.map((doc) => ({
 	slug: doc.slug,

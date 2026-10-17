@@ -4,6 +4,7 @@ export type ProbeCondition =
 	| { kind: "editor-has"; text: string }
 	| { kind: "selector"; selector: string }
 	| { kind: "db-filtered"; text: string }
+	| { kind: "focused"; selector: string }
 
 interface PerfProbe {
 	start: number | null
@@ -45,6 +46,10 @@ export async function installProbe(page: Page): Promise<void> {
 				if (condition.kind === "selector") {
 					return [...document.querySelectorAll(condition.selector)].some(visible)
 				}
+				if (condition.kind === "focused") {
+					const active = document.activeElement
+					return active !== null && active.matches(condition.selector) && visible(active)
+				}
 				const rows = [...document.querySelectorAll(".db-row")].filter(visible)
 				return rows.length > 0 && rows.every((row) => row.textContent?.includes(condition.text))
 			},
@@ -52,8 +57,8 @@ export async function installProbe(page: Page): Promise<void> {
 	})
 }
 
-export async function armKey(page: Page): Promise<void> {
-	await page.evaluate(() => {
+export async function armKey(page: Page, scopeSelector?: string): Promise<void> {
+	await page.evaluate((scopeSelector) => {
 		const probe = (window as ProbeWindow).__perf
 		if (!probe) throw new Error("perf probe missing")
 		probe.start = null
@@ -62,13 +67,14 @@ export async function armKey(page: Page): Promise<void> {
 		probe.observer = new MutationObserver((records) => {
 			if (probe.start !== null) probe.mutations += records.length
 		})
-		probe.observer.observe(document.body, { childList: true, subtree: true, characterData: true })
+		const scope = (scopeSelector && document.querySelector(scopeSelector)) || document.body
+		probe.observer.observe(scope, { childList: true, subtree: true, characterData: true })
 		if (probe.onKey) window.removeEventListener("keydown", probe.onKey, true)
 		probe.onKey = (event) => {
 			if (probe.start === null) probe.start = event.timeStamp
 		}
 		window.addEventListener("keydown", probe.onKey, true)
-	})
+	}, scopeSelector)
 }
 
 export async function settleKey(

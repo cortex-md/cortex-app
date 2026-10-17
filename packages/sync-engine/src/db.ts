@@ -1,8 +1,6 @@
-import { mkdirSync } from "node:fs"
-import { join } from "node:path"
-import { DatabaseSync, type SQLInputValue, type StatementSync } from "node:sqlite"
 import type { NoteSyncMetadata } from "@cortex/platform"
 import { VAULT_FILES } from "@cortex/platform/utils"
+import { type SqlDatabase, type SqlStatement, type SqlValue, syncRuntime } from "./runtime"
 
 const SCHEMA_VERSION = 4
 
@@ -101,10 +99,10 @@ const MIGRATIONS: Record<number, string> = {
 }
 
 export function syncDbPath(vaultPath: string): string {
-	return join(vaultPath, VAULT_FILES.syncDb)
+	return syncRuntime().path.join(vaultPath, VAULT_FILES.syncDb)
 }
 
-function prepareStatements(db: DatabaseSync) {
+function prepareStatements(db: SqlDatabase) {
 	return {
 		getFile: db.prepare("SELECT * FROM fileState WHERE filePath = ?"),
 		listFiles: db.prepare("SELECT * FROM fileState"),
@@ -149,6 +147,7 @@ function prepareStatements(db: DatabaseSync) {
 		retryQueue: db.prepare(
 			"UPDATE queue SET retryCount = retryCount + 1, nextRetryAt = ? WHERE id = ?",
 		),
+		deferQueue: db.prepare("UPDATE queue SET nextRetryAt = ? WHERE id = ?"),
 		firstQueuedEventAfter: db.prepare(`SELECT MIN(CAST(sourceEventId AS INTEGER)) AS eventId
 			FROM queue WHERE sourceEventId IS NOT NULL AND CAST(sourceEventId AS INTEGER) > ?`),
 		getPin: db.prepare("SELECT * FROM memberKeyPins WHERE userId = ?"),
@@ -164,7 +163,7 @@ function prepareStatements(db: DatabaseSync) {
 		setMeta: db.prepare(
 			"INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
 		),
-	} satisfies Record<string, StatementSync>
+	} satisfies Record<string, SqlStatement>
 }
 
 function nullable<T>(value: T | undefined): T | null {
@@ -176,14 +175,14 @@ function toFileState(row: unknown): FileState | null {
 }
 
 export class SyncDb {
-	private readonly db: DatabaseSync
+	private readonly db: SqlDatabase
 	private readonly sql: ReturnType<typeof prepareStatements>
 	private transactionDepth = 0
 
 	constructor(readonly vaultPath: string) {
 		const path = syncDbPath(vaultPath)
-		mkdirSync(join(vaultPath, ".cortex"), { recursive: true })
-		this.db = new DatabaseSync(path)
+		syncRuntime().fs.mkdirSync(syncRuntime().path.join(vaultPath, ".cortex"))
+		this.db = syncRuntime().openDatabase(path)
 		this.db.exec("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;")
 		this.migrate()
 		this.sql = prepareStatements(this.db)
@@ -293,7 +292,7 @@ export class SyncDb {
 	}
 
 	insertQueueRow(row: QueueRow): void {
-		const values: SQLInputValue[] = [
+		const values: SqlValue[] = [
 			row.id,
 			row.opKey,
 			row.opType,
@@ -334,6 +333,10 @@ export class SyncDb {
 		this.sql.retryQueueNow.run()
 	}
 
+	deferQueueRow(id: string, nextRetryAt: number): void {
+		this.sql.deferQueue.run(nextRetryAt, id)
+	}
+
 	firstQueuedEventAfter(eventId: number): number | null {
 		return (this.sql.firstQueuedEventAfter.get(eventId) as { eventId: number | null }).eventId
 	}
@@ -359,6 +362,8 @@ export class SyncDb {
 	}
 
 	close(): void {
-		if (this.db.isOpen) this.db.close()
+		if (!this.db.isOpen) return
+		this.db.exec("PRAGMA wal_checkpoint(TRUNCATE);")
+		this.db.close()
 	}
 }

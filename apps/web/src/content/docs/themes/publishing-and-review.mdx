@@ -8,6 +8,29 @@ order: 7
 
 Reviewed community listing installs theme assets into the active vault.
 
+## Release a Version
+
+```bash
+cortex check
+cortex release patch   # or minor, major
+```
+
+`cortex release` runs the checks, bumps `version` in `manifest.json` and `package.json`, commits,
+tags `v<version>`, and pushes. The release workflow scaffolded by `cortex create` then runs
+`cortex pack` and publishes the GitHub release with the manifest and both stylesheets.
+
+Versions are plain `MAJOR.MINOR.PATCH`; pre-release suffixes break update checks.
+
+## List in the Marketplace
+
+```bash
+cortex submit
+```
+
+`cortex submit` verifies the latest GitHub release, then opens a pull request to the Marketplace
+registry. Run it only for the first release and when the name, description, author, or cover image
+change. Every later release reaches users automatically.
+
 ## Required Release Assets
 
 Publish:
@@ -32,6 +55,7 @@ The reviewed listing flow verifies:
 
 - `manifest.json` is valid JSON.
 - `manifest.id` matches the listing entry id.
+- `manifest.name` equals `manifest.id`.
 - `colorschemes.light` and `colorschemes.dark` are safe relative paths.
 - Both stylesheet assets exist before replacing an installed theme.
 
@@ -47,10 +71,27 @@ Theme install and update use staging inside the vault themes directory. Cortex p
 previous installation until staging is promoted and community themes reload successfully. On
 failure, it removes staging and restores the previous theme best effort.
 
+## Votes, Downloads, and Review
+
+Once listed, the Marketplace and the website show community signals for your theme, published by
+the registry's GitHub Actions:
+
+- **Votes** are upvotes on the theme's Discussion in `cortex-md/registry`. "Vote on GitHub"
+  in Cortex and on the website opens it; counts refresh every 30 minutes.
+- **Downloads** add up the stylesheet downloads of every GitHub release, including updates.
+- **Automated review** scans the latest release every day with the same static rules as
+  `cortex check`. A failing release opens an issue and a proposed block for a maintainer to decide.
+- **Verified** items are hand-picked by maintainers. **Pulled** versions stop being offered as
+  installs or updates; installed copies are never removed automatically.
+
+Run `cortex stats` to see all of this for your project. `cortex submit` also checks that you own the
+repository, or are a public member of its organization, before opening the registry pull request.
+
 ## Release checklist
 
-1. Include `manifest.json`.
-2. Include both light and dark CSS assets.
-3. Keep stylesheet paths relative and free of `..`.
-4. Test applying the theme from light, dark, and system appearance modes.
-5. Test uninstall while the theme is active.
+1. Run `cortex check` and fix every error.
+2. Include `manifest.json`.
+3. Include both light and dark CSS assets.
+4. Keep stylesheet paths relative and free of `..`.
+5. Test applying the theme from light, dark, and system appearance modes.
+6. Test uninstall while the theme is active.

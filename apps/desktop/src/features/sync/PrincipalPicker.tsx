@@ -56,7 +56,7 @@ export function PrincipalPicker({
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
-				<Button variant="secondary" size="sm" disabled={disabled}>
+				<Button variant="secondary" disabled={disabled}>
 					<PlusIcon />
 					{label}
 				</Button>

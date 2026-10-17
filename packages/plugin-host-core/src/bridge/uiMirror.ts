@@ -111,7 +111,11 @@ export function createPluginUiMirror(options: {
 				unregister(message.pluginId)
 				return
 			case "records":
-				usePluginStore.setState({ plugins: message.plugins, loadErrors: message.loadErrors })
+				usePluginStore.setState({
+					plugins: message.plugins,
+					loadErrors: message.loadErrors,
+					loadedVaultPath: message.loadedVaultPath,
+				})
 				return
 			case "settings":
 				setOwnerSettingsValues(message.pluginId, message.values)

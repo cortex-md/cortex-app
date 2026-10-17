@@ -5,11 +5,20 @@
 		"noEmit": true,
 		"strict": true,
 		"paths": {
-			"@/*": ["./src/*"],
-			"@/assets/*": ["./assets/*"]
+			"@/*": [
+				"./src/*"
+			],
+			"@/assets/*": [
+				"./assets/*"
+			]
 		}
 	},
-	"include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+	"include": [
+		"**/*.ts",
+		"**/*.tsx",
+		".expo/types/**/*.ts",
+		"expo-env.d.ts"
+	],
 	"references": [
 		{
 			"path": "../../packages/plugin-api"
@@ -22,9 +31,6 @@
 		},
 		{
 			"path": "../../packages/editor"
-		},
-		{
-			"path": "../../packages/hotkeys"
 		},
 		{
 			"path": "../../packages/platform"
@@ -48,7 +54,19 @@
 			"path": "../../packages/sync-api"
 		},
 		{
+			"path": "../../packages/sync-engine"
+		},
+		{
 			"path": "../../packages/theme"
+		},
+		{
+			"path": "../../packages/import-export"
+		},
+		{
+			"path": "../../packages/search"
+		},
+		{
+			"path": "../../packages/tasks"
 		}
 	]
 }

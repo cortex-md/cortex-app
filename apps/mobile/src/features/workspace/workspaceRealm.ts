@@ -19,11 +19,13 @@ import type { BookmarkEntry, BookmarkToggleResult } from "@cortex.md/api"
 
 import {
 	answerWorkspaceRequest,
+	type CollabBridgeMessage,
 	createWorkspaceRequests,
 	type ForwardedPlatformDomain,
 	forwardedPlatformMethods,
 	type WorkspaceCursor,
 	type WorkspaceDocument,
+	type WorkspaceFindResult,
 	type WorkspaceInboundMessage,
 	type WorkspaceOutboundMessage,
 	type WorkspaceServiceCall,
@@ -35,12 +37,18 @@ export interface WorkspaceEditorHandlers {
 	openDocument(document: WorkspaceDocument): void
 	closeDocument(filePath: string): Promise<void>
 	showEditor(visible: boolean): void
+	setBottomInset(value: number): void
 	flushPendingCommit(): Promise<void>
 	getFilePath(): string | null
+	runCommand(commandId: string, payload: JsonValue | undefined): void
+	find(query: string, direction: "next" | "prev" | undefined): Promise<WorkspaceFindResult>
+	collab(message: CollabBridgeMessage): void
 }
 
 type ForwardedMethod<Domain extends ForwardedPlatformDomain> =
 	(typeof forwardedPlatformMethods)[Domain][number]
+
+const PLUGIN_LOAD_DEFER_MS = 3000
 
 export function createWorkspaceRealm() {
 	const requests = createWorkspaceRequests()
@@ -296,6 +304,28 @@ export function createWorkspaceRealm() {
 	const host = createPluginHost(services)
 	host.registerBundledPlugins(bundledPlugins)
 
+	let editorReady = false
+	let pluginLoadDeferred = false
+	let pluginLoadTimer: ReturnType<typeof setTimeout> | null = null
+
+	function markEditorReady(): void {
+		if (pluginLoadTimer) clearTimeout(pluginLoadTimer)
+		pluginLoadTimer = null
+		editorReady = true
+		if (!pluginLoadDeferred) return
+		pluginLoadDeferred = false
+		queuePluginLoad(loadVaultPlugins)
+	}
+
+	function scheduleVaultPluginLoad(): void {
+		if (editorReady) {
+			queuePluginLoad(loadVaultPlugins)
+			return
+		}
+		pluginLoadDeferred = true
+		pluginLoadTimer ??= setTimeout(markEditorReady, PLUGIN_LOAD_DEFER_MS)
+	}
+
 	function queuePluginLoad(load: () => Promise<void>): void {
 		pluginLoading = pluginLoading
 			.then(load)
@@ -320,11 +350,12 @@ export function createWorkspaceRealm() {
 		const accessChanged = state.allowCommunityPlugins !== pluginAllowCommunity
 		pluginVaultPath = state.vaultPath
 		pluginAllowCommunity = state.allowCommunityPlugins
-		if (vaultChanged) queuePluginLoad(loadVaultPlugins)
-		else if (accessChanged) queuePluginLoad(() => host.syncCommunityAccess())
+		if (vaultChanged) scheduleVaultPluginLoad()
+		else if (accessChanged && !pluginLoadDeferred) queuePluginLoad(() => host.syncCommunityAccess())
 	}
 
 	return {
+		markEditorReady,
 		connect(
 			nextSender: (message: WorkspaceOutboundMessage) => void,
 			handlers: WorkspaceEditorHandlers,
@@ -359,8 +390,27 @@ export function createWorkspaceRealm() {
 				case "showEditor":
 					editor?.showEditor(message.visible)
 					return
+				case "bottomInset":
+					editor?.setBottomInset(message.value)
+					return
+				case "flush":
+					answerWorkspaceRequest(message.id, () => editor?.flushPendingCommit(), send)
+					return
 				case "watchEvent":
 					watchListeners.get(message.watchId)?.(message.event)
+					return
+				case "command":
+					editor?.runCommand(message.commandId, message.payload)
+					return
+				case "collab":
+					editor?.collab(message.message)
+					return
+				case "find":
+					answerWorkspaceRequest(
+						message.id,
+						() => editor?.find(message.query, message.direction) ?? { current: 0, total: 0 },
+						send,
+					)
 					return
 				case "reply":
 					requests.settle(message)
@@ -375,6 +425,12 @@ export function createWorkspaceRealm() {
 		},
 		commit(filePath: string, body: string, revision: number): Promise<void> {
 			return requestNative((id) => ({ type: "commit", id, filePath, body, revision }))
+		},
+		saveImage(filePath: string, mimeType: string, base64: string): Promise<string | null> {
+			return callService<string | null>({ kind: "saveImage", filePath, mimeType, base64 })
+		},
+		sendCollab(message: CollabBridgeMessage): void {
+			send({ type: "collab", message })
 		},
 		reportCursor(cursor: WorkspaceCursor): void {
 			send({ type: "cursor", cursor })

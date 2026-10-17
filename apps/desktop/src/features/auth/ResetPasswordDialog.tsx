@@ -1,4 +1,4 @@
-import { useAuthStore, useUIStore } from "@cortex/core"
+import { useAuthStore } from "@cortex/core"
 import {
 	Alert,
 	AlertDescription,
@@ -17,8 +17,8 @@ import {
 import { KeyRound } from "lucide-react"
 import { type FormEvent, useState } from "react"
 import { ModalStoreHost } from "@/utils/ModalHost"
+import { openAuth, type ResetPasswordTarget, resetPasswordModal } from "@/utils/modals"
 import { validateNewPassword } from "./passwordValidation"
-import { type ResetPasswordTarget, resetPasswordModal } from "./resetPasswordModal"
 
 function messageOf(error: unknown): string {
 	return error instanceof Error ? error.message : String(error)
@@ -43,7 +43,6 @@ export function ResetPasswordHost() {
 function ResetPasswordContent({ target }: { target: ResetPasswordTarget }) {
 	const currentServerUrl = useAuthStore((state) => state.serverUrl)
 	const resetPassword = useAuthStore((state) => state.resetPassword)
-	const openAuth = useUIStore((state) => state.openAuth)
 	const serverUrl = target.serverUrl ?? currentServerUrl
 	const [password, setPassword] = useState("")
 	const [confirmPassword, setConfirmPassword] = useState("")
@@ -82,7 +81,6 @@ function ResetPasswordContent({ target }: { target: ResetPasswordTarget }) {
 				</DialogHeader>
 				<DialogFooter className="dialog-chrome-footer">
 					<Button
-						size="sm"
 						onClick={() => {
 							resetPasswordModal.close()
 							openAuth("login")
@@ -158,11 +156,11 @@ function ResetPasswordContent({ target }: { target: ResetPasswordTarget }) {
 				</DialogBody>
 				<DialogFooter className="dialog-chrome-footer">
 					<DialogClose asChild>
-						<Button type="button" variant="ghost" size="sm">
+						<Button type="button" variant="ghost">
 							Cancel
 						</Button>
 					</DialogClose>
-					<Button type="submit" size="sm" disabled={busy || !password || !confirmPassword}>
+					<Button type="submit" disabled={busy || !password || !confirmPassword}>
 						{busy && <Spinner className="size-3" />}
 						Change password
 					</Button>

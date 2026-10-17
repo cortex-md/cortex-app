@@ -4,7 +4,7 @@
 
 - App defaults live in `src/defaults.ts`, including system font constants, appearance defaults,
   editor defaults, file defaults, and the complete app default snapshot. Hotkey overrides live in
-  `@cortex/hotkeys`, not in app settings.
+  `@cortex/commands/hotkeys`, not in app settings.
 - `DEFAULT_ACCENT_COLOR` should match the active built-in theme accent so the desktop appearance
   layer treats the shipped theme color as the no-override state.
 - `src/defaults.ts` must stay free of React, DOM, Electron, platform, Zustand, and schema imports so
@@ -30,9 +30,13 @@
 - App-wide settings that affect native process/window startup, such as `appearance.nativeWindowEffects`,
   are persisted in the app data settings file, not in a vault's `.cortex/app.json`. Vault settings
   may parse legacy aliases for migration, but must not become the authority for native window effects.
+- `appearance.workspaceMode` (`"full" | "writing"`) is also app-wide: it lives in the app data
+  settings file next to `nativeWindowEffects` and is stripped from the vault snapshot.
 - `plugins.allowCommunity` (restricted mode, `DEFAULT_PLUGINS_SETTINGS`, off by default) is also
   app-wide: `SettingsManager` keeps the whole `plugins` section in the app data settings file
   (`isGlobalSetting`) and strips it from the vault snapshot.
+- The `updates` section (`autoCheck`, `channel: "stable" | "beta"`) is app-wide the same way; the
+  desktop renderer forwards it to the main-process updater with `appUpdates.configure`.
 
 - The `tasks` section (`DEFAULT_TASKS_SETTINGS`, `TasksSettingsSchema`) holds task reminder and
   notification preferences: reminders on/off, default reminder offset, the reminder time for tasks
@@ -51,3 +55,8 @@
 
 - `tasks.mentionsEnabled` (default `true`) gates mention and comment notifications; it shares quiet
   hours and sound with task reminders.
+
+- The `dailyNotes` section (`DEFAULT_DAILY_NOTES_SETTINGS`, `DailyNotesSettingsSchema`) is a vault
+  setting: `folder` (vault-relative, empty for the root), `format` (an `@cortex/core/templates` date
+  pattern such as `yyyy-MM-dd`, may contain `/`), and `templateId` (empty for the built-in daily
+  note).

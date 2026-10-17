@@ -9,53 +9,35 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SignupRouteImport } from './routes/signup'
-import { Route as RoadmapRouteImport } from './routes/roadmap'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
-import { Route as DocsRouteImport } from './routes/docs'
-import { Route as ChangelogRouteImport } from './routes/changelog'
-import { Route as BillingRouteImport } from './routes/billing'
-import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as DocsIndexRouteImport } from './routes/docs.index'
-import { Route as DocsLlmsDottxtRouteImport } from './routes/docs.llms[.]txt'
-import { Route as DocsSplatRouteImport } from './routes/docs.$'
+import { Route as AccountRouteImport } from './routes/account'
+import { Route as BillingRouteImport } from './routes/billing'
+import { Route as ChangelogRouteImport } from './routes/changelog'
+import { Route as ChangelogDotxmlRouteImport } from './routes/changelog[.]xml'
+import { Route as CliRouteImport } from './routes/cli'
+import { Route as DocsRouteImport } from './routes/docs'
+import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as MobileRouteImport } from './routes/mobile'
+import { Route as RoadmapRouteImport } from './routes/roadmap'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SitemapMarketplaceDotxmlRouteImport } from './routes/sitemap-marketplace[.]xml'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as SyncRouteImport } from './routes/sync'
 import { Route as BillingCancelledRouteImport } from './routes/billing.cancelled'
+import { Route as BillingSuccessRouteImport } from './routes/billing.success'
+import { Route as DocsIndexRouteImport } from './routes/docs.index'
+import { Route as DocsSplatRouteImport } from './routes/docs.$'
+import { Route as DocsLlmsDottxtRouteImport } from './routes/docs.llms[.]txt'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as MarketplaceIndexRouteImport } from './routes/marketplace.index'
+import { Route as MarketplaceBrowseRouteImport } from './routes/marketplace.browse'
+import { Route as MarketplaceKindIdRouteImport } from './routes/marketplace.$kind.$id'
 
-const SignupRoute = SignupRouteImport.update({
-  id: '/signup',
-  path: '/signup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RoadmapRoute = RoadmapRouteImport.update({
-  id: '/roadmap',
-  path: '/roadmap',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
-  id: '/llms.txt',
-  path: '/llms.txt',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DocsRoute = DocsRouteImport.update({
-  id: '/docs',
-  path: '/docs',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ChangelogRoute = ChangelogRouteImport.update({
-  id: '/changelog',
-  path: '/changelog',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BillingRoute = BillingRouteImport.update({
-  id: '/billing',
-  path: '/billing',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AccountRoute = AccountRouteImport.update({
@@ -63,19 +45,90 @@ const AccountRoute = AccountRouteImport.update({
   path: '/account',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const BillingRoute = BillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ChangelogRoute = ChangelogRouteImport.update({
+  id: '/changelog',
+  path: '/changelog',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChangelogDotxmlRoute = ChangelogDotxmlRouteImport.update({
+  id: '/changelog.xml',
+  path: '/changelog.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CliRoute = CliRouteImport.update({
+  id: '/cli',
+  path: '/cli',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsRoute = DocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
+  id: '/llms.txt',
+  path: '/llms.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MobileRoute = MobileRouteImport.update({
+  id: '/mobile',
+  path: '/mobile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RoadmapRoute = RoadmapRouteImport.update({
+  id: '/roadmap',
+  path: '/roadmap',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapMarketplaceDotxmlRoute =
+  SitemapMarketplaceDotxmlRouteImport.update({
+    id: '/sitemap-marketplace.xml',
+    path: '/sitemap-marketplace.xml',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SyncRoute = SyncRouteImport.update({
+  id: '/sync',
+  path: '/sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillingCancelledRoute = BillingCancelledRouteImport.update({
+  id: '/cancelled',
+  path: '/cancelled',
+  getParentRoute: () => BillingRoute,
+} as any)
+const BillingSuccessRoute = BillingSuccessRouteImport.update({
+  id: '/success',
+  path: '/success',
+  getParentRoute: () => BillingRoute,
 } as any)
 const DocsIndexRoute = DocsIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => DocsRoute,
-} as any)
-const DocsLlmsDottxtRoute = DocsLlmsDottxtRouteImport.update({
-  id: '/llms.txt',
-  path: '/llms.txt',
   getParentRoute: () => DocsRoute,
 } as any)
 const DocsSplatRoute = DocsSplatRouteImport.update({
@@ -83,10 +136,30 @@ const DocsSplatRoute = DocsSplatRouteImport.update({
   path: '/$',
   getParentRoute: () => DocsRoute,
 } as any)
-const BillingCancelledRoute = BillingCancelledRouteImport.update({
-  id: '/cancelled',
-  path: '/cancelled',
-  getParentRoute: () => BillingRoute,
+const DocsLlmsDottxtRoute = DocsLlmsDottxtRouteImport.update({
+  id: '/llms.txt',
+  path: '/llms.txt',
+  getParentRoute: () => DocsRoute,
+} as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketplaceIndexRoute = MarketplaceIndexRouteImport.update({
+  id: '/marketplace/',
+  path: '/marketplace/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketplaceBrowseRoute = MarketplaceBrowseRouteImport.update({
+  id: '/marketplace/browse',
+  path: '/marketplace/browse',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketplaceKindIdRoute = MarketplaceKindIdRouteImport.update({
+  id: '/marketplace/$kind/$id',
+  path: '/marketplace/$kind/$id',
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -94,29 +167,53 @@ export interface FileRoutesByFullPath {
   '/account': typeof AccountRoute
   '/billing': typeof BillingRouteWithChildren
   '/changelog': typeof ChangelogRoute
+  '/changelog.xml': typeof ChangelogDotxmlRoute
+  '/cli': typeof CliRoute
   '/docs': typeof DocsRouteWithChildren
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
+  '/mobile': typeof MobileRoute
   '/roadmap': typeof RoadmapRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/signup': typeof SignupRoute
+  '/sitemap-marketplace.xml': typeof SitemapMarketplaceDotxmlRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/sync': typeof SyncRoute
   '/billing/cancelled': typeof BillingCancelledRoute
+  '/billing/success': typeof BillingSuccessRoute
   '/docs/$': typeof DocsSplatRoute
   '/docs/llms.txt': typeof DocsLlmsDottxtRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/marketplace/browse': typeof MarketplaceBrowseRoute
   '/docs/': typeof DocsIndexRoute
+  '/marketplace/': typeof MarketplaceIndexRoute
+  '/marketplace/$kind/$id': typeof MarketplaceKindIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/billing': typeof BillingRouteWithChildren
   '/changelog': typeof ChangelogRoute
+  '/changelog.xml': typeof ChangelogDotxmlRoute
+  '/cli': typeof CliRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
+  '/mobile': typeof MobileRoute
   '/roadmap': typeof RoadmapRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/signup': typeof SignupRoute
+  '/sitemap-marketplace.xml': typeof SitemapMarketplaceDotxmlRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/sync': typeof SyncRoute
   '/billing/cancelled': typeof BillingCancelledRoute
+  '/billing/success': typeof BillingSuccessRoute
   '/docs/$': typeof DocsSplatRoute
   '/docs/llms.txt': typeof DocsLlmsDottxtRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/marketplace/browse': typeof MarketplaceBrowseRoute
   '/docs': typeof DocsIndexRoute
+  '/marketplace': typeof MarketplaceIndexRoute
+  '/marketplace/$kind/$id': typeof MarketplaceKindIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -124,15 +221,27 @@ export interface FileRoutesById {
   '/account': typeof AccountRoute
   '/billing': typeof BillingRouteWithChildren
   '/changelog': typeof ChangelogRoute
+  '/changelog.xml': typeof ChangelogDotxmlRoute
+  '/cli': typeof CliRoute
   '/docs': typeof DocsRouteWithChildren
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
+  '/mobile': typeof MobileRoute
   '/roadmap': typeof RoadmapRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/signup': typeof SignupRoute
+  '/sitemap-marketplace.xml': typeof SitemapMarketplaceDotxmlRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/sync': typeof SyncRoute
   '/billing/cancelled': typeof BillingCancelledRoute
+  '/billing/success': typeof BillingSuccessRoute
   '/docs/$': typeof DocsSplatRoute
   '/docs/llms.txt': typeof DocsLlmsDottxtRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/marketplace/browse': typeof MarketplaceBrowseRoute
   '/docs/': typeof DocsIndexRoute
+  '/marketplace/': typeof MarketplaceIndexRoute
+  '/marketplace/$kind/$id': typeof MarketplaceKindIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -141,44 +250,80 @@ export interface FileRouteTypes {
     | '/account'
     | '/billing'
     | '/changelog'
+    | '/changelog.xml'
+    | '/cli'
     | '/docs'
     | '/llms.txt'
     | '/login'
+    | '/mobile'
     | '/roadmap'
+    | '/robots.txt'
     | '/signup'
+    | '/sitemap-marketplace.xml'
+    | '/sitemap.xml'
+    | '/sync'
     | '/billing/cancelled'
+    | '/billing/success'
     | '/docs/$'
     | '/docs/llms.txt'
+    | '/invite/$token'
+    | '/marketplace/browse'
     | '/docs/'
+    | '/marketplace/'
+    | '/marketplace/$kind/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/account'
     | '/billing'
     | '/changelog'
+    | '/changelog.xml'
+    | '/cli'
     | '/llms.txt'
     | '/login'
+    | '/mobile'
     | '/roadmap'
+    | '/robots.txt'
     | '/signup'
+    | '/sitemap-marketplace.xml'
+    | '/sitemap.xml'
+    | '/sync'
     | '/billing/cancelled'
+    | '/billing/success'
     | '/docs/$'
     | '/docs/llms.txt'
+    | '/invite/$token'
+    | '/marketplace/browse'
     | '/docs'
+    | '/marketplace'
+    | '/marketplace/$kind/$id'
   id:
     | '__root__'
     | '/'
     | '/account'
     | '/billing'
     | '/changelog'
+    | '/changelog.xml'
+    | '/cli'
     | '/docs'
     | '/llms.txt'
     | '/login'
+    | '/mobile'
     | '/roadmap'
+    | '/robots.txt'
     | '/signup'
+    | '/sitemap-marketplace.xml'
+    | '/sitemap.xml'
+    | '/sync'
     | '/billing/cancelled'
+    | '/billing/success'
     | '/docs/$'
     | '/docs/llms.txt'
+    | '/invite/$token'
+    | '/marketplace/browse'
     | '/docs/'
+    | '/marketplace/'
+    | '/marketplace/$kind/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -186,62 +331,31 @@ export interface RootRouteChildren {
   AccountRoute: typeof AccountRoute
   BillingRoute: typeof BillingRouteWithChildren
   ChangelogRoute: typeof ChangelogRoute
+  ChangelogDotxmlRoute: typeof ChangelogDotxmlRoute
+  CliRoute: typeof CliRoute
   DocsRoute: typeof DocsRouteWithChildren
   LlmsDottxtRoute: typeof LlmsDottxtRoute
   LoginRoute: typeof LoginRoute
+  MobileRoute: typeof MobileRoute
   RoadmapRoute: typeof RoadmapRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
   SignupRoute: typeof SignupRoute
+  SitemapMarketplaceDotxmlRoute: typeof SitemapMarketplaceDotxmlRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  SyncRoute: typeof SyncRoute
+  InviteTokenRoute: typeof InviteTokenRoute
+  MarketplaceBrowseRoute: typeof MarketplaceBrowseRoute
+  MarketplaceIndexRoute: typeof MarketplaceIndexRoute
+  MarketplaceKindIdRoute: typeof MarketplaceKindIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/signup': {
-      id: '/signup'
-      path: '/signup'
-      fullPath: '/signup'
-      preLoaderRoute: typeof SignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/roadmap': {
-      id: '/roadmap'
-      path: '/roadmap'
-      fullPath: '/roadmap'
-      preLoaderRoute: typeof RoadmapRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/llms.txt': {
-      id: '/llms.txt'
-      path: '/llms.txt'
-      fullPath: '/llms.txt'
-      preLoaderRoute: typeof LlmsDottxtRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/docs': {
-      id: '/docs'
-      path: '/docs'
-      fullPath: '/docs'
-      preLoaderRoute: typeof DocsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/changelog': {
-      id: '/changelog'
-      path: '/changelog'
-      fullPath: '/changelog'
-      preLoaderRoute: typeof ChangelogRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/billing': {
-      id: '/billing'
-      path: '/billing'
-      fullPath: '/billing'
-      preLoaderRoute: typeof BillingRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/account': {
@@ -251,25 +365,123 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccountRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/billing': {
+      id: '/billing'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof BillingRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/changelog': {
+      id: '/changelog'
+      path: '/changelog'
+      fullPath: '/changelog'
+      preLoaderRoute: typeof ChangelogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/changelog.xml': {
+      id: '/changelog.xml'
+      path: '/changelog.xml'
+      fullPath: '/changelog.xml'
+      preLoaderRoute: typeof ChangelogDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cli': {
+      id: '/cli'
+      path: '/cli'
+      fullPath: '/cli'
+      preLoaderRoute: typeof CliRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms.txt': {
+      id: '/llms.txt'
+      path: '/llms.txt'
+      fullPath: '/llms.txt'
+      preLoaderRoute: typeof LlmsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mobile': {
+      id: '/mobile'
+      path: '/mobile'
+      fullPath: '/mobile'
+      preLoaderRoute: typeof MobileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/roadmap': {
+      id: '/roadmap'
+      path: '/roadmap'
+      fullPath: '/roadmap'
+      preLoaderRoute: typeof RoadmapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap-marketplace.xml': {
+      id: '/sitemap-marketplace.xml'
+      path: '/sitemap-marketplace.xml'
+      fullPath: '/sitemap-marketplace.xml'
+      preLoaderRoute: typeof SitemapMarketplaceDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sync': {
+      id: '/sync'
+      path: '/sync'
+      fullPath: '/sync'
+      preLoaderRoute: typeof SyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billing/cancelled': {
+      id: '/billing/cancelled'
+      path: '/cancelled'
+      fullPath: '/billing/cancelled'
+      preLoaderRoute: typeof BillingCancelledRouteImport
+      parentRoute: typeof BillingRoute
+    }
+    '/billing/success': {
+      id: '/billing/success'
+      path: '/success'
+      fullPath: '/billing/success'
+      preLoaderRoute: typeof BillingSuccessRouteImport
+      parentRoute: typeof BillingRoute
     }
     '/docs/': {
       id: '/docs/'
       path: '/'
       fullPath: '/docs/'
       preLoaderRoute: typeof DocsIndexRouteImport
-      parentRoute: typeof DocsRoute
-    }
-    '/docs/llms.txt': {
-      id: '/docs/llms.txt'
-      path: '/llms.txt'
-      fullPath: '/docs/llms.txt'
-      preLoaderRoute: typeof DocsLlmsDottxtRouteImport
       parentRoute: typeof DocsRoute
     }
     '/docs/$': {
@@ -279,22 +491,52 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocsSplatRouteImport
       parentRoute: typeof DocsRoute
     }
-    '/billing/cancelled': {
-      id: '/billing/cancelled'
-      path: '/cancelled'
-      fullPath: '/billing/cancelled'
-      preLoaderRoute: typeof BillingCancelledRouteImport
-      parentRoute: typeof BillingRoute
+    '/docs/llms.txt': {
+      id: '/docs/llms.txt'
+      path: '/llms.txt'
+      fullPath: '/docs/llms.txt'
+      preLoaderRoute: typeof DocsLlmsDottxtRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketplace/': {
+      id: '/marketplace/'
+      path: '/marketplace'
+      fullPath: '/marketplace/'
+      preLoaderRoute: typeof MarketplaceIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketplace/browse': {
+      id: '/marketplace/browse'
+      path: '/marketplace/browse'
+      fullPath: '/marketplace/browse'
+      preLoaderRoute: typeof MarketplaceBrowseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketplace/$kind/$id': {
+      id: '/marketplace/$kind/$id'
+      path: '/marketplace/$kind/$id'
+      fullPath: '/marketplace/$kind/$id'
+      preLoaderRoute: typeof MarketplaceKindIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
 
 interface BillingRouteChildren {
   BillingCancelledRoute: typeof BillingCancelledRoute
+  BillingSuccessRoute: typeof BillingSuccessRoute
 }
 
 const BillingRouteChildren: BillingRouteChildren = {
   BillingCancelledRoute: BillingCancelledRoute,
+  BillingSuccessRoute: BillingSuccessRoute,
 }
 
 const BillingRouteWithChildren =
@@ -319,11 +561,22 @@ const rootRouteChildren: RootRouteChildren = {
   AccountRoute: AccountRoute,
   BillingRoute: BillingRouteWithChildren,
   ChangelogRoute: ChangelogRoute,
+  ChangelogDotxmlRoute: ChangelogDotxmlRoute,
+  CliRoute: CliRoute,
   DocsRoute: DocsRouteWithChildren,
   LlmsDottxtRoute: LlmsDottxtRoute,
   LoginRoute: LoginRoute,
+  MobileRoute: MobileRoute,
   RoadmapRoute: RoadmapRoute,
+  RobotsDottxtRoute: RobotsDottxtRoute,
   SignupRoute: SignupRoute,
+  SitemapMarketplaceDotxmlRoute: SitemapMarketplaceDotxmlRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
+  SyncRoute: SyncRoute,
+  InviteTokenRoute: InviteTokenRoute,
+  MarketplaceBrowseRoute: MarketplaceBrowseRoute,
+  MarketplaceIndexRoute: MarketplaceIndexRoute,
+  MarketplaceKindIdRoute: MarketplaceKindIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

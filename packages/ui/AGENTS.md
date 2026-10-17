@@ -3,7 +3,11 @@
 ## Color Contract
 
 - Use `background`, `foreground`, `muted`, and `border` for neutral UI.
-- Use `brand` only for accent actions, selection, and focus.
+- Use `brand` only for the primary action, focus, links, and content markers. Hover, pressed,
+  toggled-on and selected states use the neutral `fill-quiet`, `fill-quiet-strong` and
+  `fill-selected` tokens; neutral controls sit on `surface-raised` with `shadow-raised`.
+- New colour and size tokens are read through `var(--token, fallback)` in class strings so apps
+  without the desktop token block (for example `apps/web`) still render correctly.
 - Use `status-error-*`, `status-success-*`, and `status-warning-*` for feedback.
 - Use `settings-group-*` only for Settings composition surfaces.
 - Never hardcode white or Tailwind red, green, or yellow for semantic text and controls. Solid
@@ -61,11 +65,21 @@ Full Apple-kit → primitive mapping lives in `CLAUDE.md`.
 - Overlay primitives share surface, item, and motion helpers from `lib/native-styles.ts`; keep
   `data-slot`, `data-popup-surface`, and `data-command-surface` stable so desktop CSS, plugins, and
   community themes can restyle overlays without component forks.
+- Popup surfaces (dropdown, context menu, popover, searchable pickers) share the floating-toolbar
+  language: `--surface-raised` with `--shadow-floating-pill`, no border, `--popup-radius` (14px),
+  `--popup-item-radius` (9px). A search field inside a popover is a borderless `fill-quiet` pill.
+  Change the shared surface, never one menu.
+- `SimpleTooltip` forwards trigger props and ref, so it can sit inside any Radix `asChild` trigger.
+- `Button` always renders `data-slot="button"`, even as the `asChild` target of a tooltip,
+  dropdown, or popover trigger; desktop CSS (including `-webkit-app-region: no-drag` on titlebar
+  buttons) depends on it.
 - High-use primitive geometry and typography should use public CSS variables with fallbacks instead
   of fixed arbitrary values when the rendered default can stay unchanged.
-- Command surfaces expose `CommandFooterHints` (a `{ keys, label }[]` list) on top of
-  `CommandFooter`, `CommandFooterHint`, and `CommandFooterKey` for compact keyboard hints. Keep them generic and presentational; feature-specific command behavior stays in
-  desktop feature modules.
+- Command surfaces expose `CommandFooterHints` (a `{ keys, label, align? }[]` list; `align: "end"`
+  pushes that hint and the ones after it to the right) on top of `CommandFooter`,
+  `CommandFooterHint`, and `CommandFooterKey` for compact keyboard hints. `CommandInput` takes an
+  optional leading `icon` (search by default) and a `trailing` slot. Keep them generic and
+  presentational; feature-specific command behavior stays in desktop feature modules.
 - Combobox-style primitives keep `aria-expanded` and `aria-controls` wired to their popup state.
 - Prefer native semantic containers for listbox/list-like primitives. Do not add default generic
   `role="group"`/`role="list"` to visual wrappers unless the component can provide complete,
@@ -77,8 +91,8 @@ Full Apple-kit → primitive mapping lives in `CLAUDE.md`.
   runtime.
 - Button primitives default native `<button>` rendering to `type="button"` while preserving explicit
   types and `asChild` behavior.
-- `FolderPicker` uses `reserveDropdownSpace` when it is rendered inside an overflow-clipped
-  Settings group so its inline option list remains visible.
+- `FolderPicker` renders its option list in a `Popover` portal anchored to the input, so it is never
+  clipped by dialogs or overflow-hidden Settings groups and never pushes surrounding layout.
 - `FolderPicker` keeps its custom popup options as real buttons until it implements the full
   keyboard contract for ARIA listbox/combobox semantics.
 - `SidebarNav`, `SidebarNavGroup`, and `SidebarNavItem` are a static grouped navigation list for
@@ -93,7 +107,7 @@ Full Apple-kit → primitive mapping lives in `CLAUDE.md`.
 
 - Context provider values should be stable when they wrap interactive primitives.
 - Prefer direct imports between UI primitives over package-barrel imports inside `@cortex/ui`.
-- IconPicker must not load the full generated icon catalog when callers provide `iconsList`.
+- `LucideIcon` renders names outside the static set from the lazy `lucide-lazy-icons` module; regenerate `lucide-icon-names.ts` and `lucide-lazy-icons.ts` with `node scripts/generate-lucide-icon-names.mjs` after upgrading `lucide-react`.
 - Shared Lucide rendering should use dynamic icon imports and name normalization instead of an eager
   namespace map of all icon components.
 - Avoid memo hooks that run before an early return when the computed content is cheap enough to
@@ -111,6 +125,13 @@ Full Apple-kit → primitive mapping lives in `CLAUDE.md`.
   without an overlay into a `container` element, so the panel sits in the layout (for example the
   database peek). Pair `docked` with `<Sheet modal={false}>` and prevent `onInteractOutside` when
   clicks elsewhere in the view should keep it open.
+
+## Tag
+
+- `Tag` is the inline value chip (`default | active`, optional `interactive`). Templates use the
+  `active` variant for placeholder values such as "Today" or "Note name"; pass `onRemove` with a
+  `removeLabel` to render the trailing remove button. CodeMirror widgets that need the same look
+  reuse `tagVariants` instead of copying classes.
 
 ## StatusBadge
 

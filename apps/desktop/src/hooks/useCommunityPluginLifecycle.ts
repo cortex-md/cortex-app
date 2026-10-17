@@ -31,7 +31,8 @@ export function useCommunityPluginLifecycle(vault: VaultMetadata | null): void {
 			if (signal.aborted) return
 			await pluginHost.loadEnabledPlugins()
 		},
-		reload: (pluginsDir) => pluginHost.reloadCommunityPlugins(pluginsDir),
+		reload: (pluginsDir, _signal, events) =>
+			pluginHost.reloadCommunityPlugins(pluginsDir, changedPluginDirs(pluginsDir, events)),
 		unload: () => void pluginHost.disableAllPlugins(),
 		shouldReload: shouldReloadCommunityPluginsForEvent,
 		onError: (operation, error) => {
@@ -43,6 +44,15 @@ export function useCommunityPluginLifecycle(vault: VaultMetadata | null): void {
 			})
 		},
 	})
+}
+
+function changedPluginDirs(pluginsDir: string, events: WatchEvent[]): string[] {
+	const dirs = new Set<string>()
+	for (const event of events) {
+		const segment = getRelativePluginEventPath(pluginsDir, event.path).split("/")[0]
+		if (segment) dirs.add(`${normalizePath(pluginsDir).replace(/\/+$/, "")}/${segment}`)
+	}
+	return Array.from(dirs)
 }
 
 function shouldReloadCommunityPluginsForEvent(pluginsDir: string, event: WatchEvent): boolean {

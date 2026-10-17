@@ -1,4 +1,5 @@
 import { commandRegistry } from "@cortex/commands"
+import { useHotkeysStore } from "@cortex/commands/hotkeys"
 import {
 	canReadVaultPath,
 	toVaultRelativePath,
@@ -8,15 +9,15 @@ import {
 	useUIStore,
 	useVaultStore,
 } from "@cortex/core"
-import { useHotkeysStore } from "@cortex/hotkeys"
-import { getPlatform, type NativeMenuState } from "@cortex/platform"
+import { getPlatform, type NativeMenuCommand, type NativeMenuItemStates } from "@cortex/platform"
 import { useSettingsStore } from "@cortex/settings"
 import { useEffect } from "react"
 
-const SEND_DELAY_MS = 150
+const COMMANDS_DELAY_MS = 150
+const STATES_DELAY_MS = 30
 const MENU_EDITOR_SETTINGS = ["wordWrap", "showLineNumbers", "vimMode"] as const
 
-function buildCommands(): NativeMenuState["commands"] {
+function buildCommands(): NativeMenuCommand[] {
 	const bindings = new Map(
 		useHotkeysStore.getState().bindings.map((binding) => [binding.id, binding]),
 	)
@@ -38,7 +39,7 @@ function isSyncExcluded(filePath: string, vaultPath: string): boolean {
 	return useSyncStore.getState().syncPreferences.excludedPaths.includes(relativePath)
 }
 
-function buildMenuState(): NativeMenuState {
+function buildItemStates(): NativeMenuItemStates {
 	const vault = useVaultStore.getState().vault
 	const { activeFilePath, mode } = useEditorStore.getState()
 	const ui = useUIStore.getState()
@@ -48,6 +49,8 @@ function buildMenuState(): NativeMenuState {
 	const checked: Record<string, boolean> = {
 		leftSidebar: !ui.leftSidebarCollapsed,
 		rightSidebar: !ui.rightSidebarCollapsed,
+		ribbon: appearance.showRibbon,
+		writingMode: appearance.workspaceMode === "writing",
 		[`sidebar:${ui.leftSidebarView}`]: true,
 		[`mode:${mode}`]: true,
 		[`colorscheme:${appearance.colorscheme}`]: true,
@@ -59,7 +62,6 @@ function buildMenuState(): NativeMenuState {
 	for (const key of MENU_EDITOR_SETTINGS) checked[`setting:${key}`] = editor[key]
 
 	return {
-		commands: buildCommands(),
 		checked,
 		enabled: {
 			vault: vault !== null,
@@ -70,36 +72,81 @@ function buildMenuState(): NativeMenuState {
 	}
 }
 
-export function useNativeMenuState(): void {
-	useEffect(() => {
-		let timer = 0
-		const send = () => {
+function createDebouncedSender<T>(
+	delayMs: number,
+	build: () => T,
+	send: (value: T) => Promise<void>,
+): { schedule: () => void; cancel: () => void } {
+	let timer = 0
+	let lastSignature = ""
+	return {
+		schedule: () => {
 			window.clearTimeout(timer)
 			timer = window.setTimeout(() => {
-				void getPlatform().menu.setState(buildMenuState())
-			}, SEND_DELAY_MS)
-		}
+				const value = build()
+				const signature = JSON.stringify(value)
+				if (signature === lastSignature) return
+				lastSignature = signature
+				void send(value)
+			}, delayMs)
+		},
+		cancel: () => window.clearTimeout(timer),
+	}
+}
+
+export function useNativeMenuState(): void {
+	useEffect(() => {
+		const menu = getPlatform().menu
+		const commands = createDebouncedSender(COMMANDS_DELAY_MS, buildCommands, (value) =>
+			menu.setCommands(value),
+		)
+		const states = createDebouncedSender(STATES_DELAY_MS, buildItemStates, (value) =>
+			menu.setItemStates(value),
+		)
 		const unsubscribes = [
-			commandRegistry.subscribe(send),
-			useHotkeysStore.subscribe(send),
+			commandRegistry.subscribe(commands.schedule),
+			useHotkeysStore.subscribe((state, previous) => {
+				if (state.bindings !== previous.bindings) commands.schedule()
+			}),
 			useVaultStore.subscribe((state, previous) => {
-				if (state.vault !== previous.vault) send()
+				if (state.vault !== previous.vault) states.schedule()
 			}),
 			useEditorStore.subscribe((state, previous) => {
-				if (state.activeFilePath !== previous.activeFilePath || state.mode !== previous.mode) send()
+				if (state.activeFilePath !== previous.activeFilePath || state.mode !== previous.mode) {
+					states.schedule()
+				}
 			}),
-			useUIStore.subscribe(send),
-			useSettingsStore.subscribe(send),
-			useBookmarksStore.subscribe(send),
+			useUIStore.subscribe((state, previous) => {
+				if (
+					state.leftSidebarCollapsed !== previous.leftSidebarCollapsed ||
+					state.rightSidebarCollapsed !== previous.rightSidebarCollapsed ||
+					state.leftSidebarView !== previous.leftSidebarView
+				) {
+					states.schedule()
+				}
+			}),
+			useSettingsStore.subscribe((state, previous) => {
+				if (
+					state.settings.editor !== previous.settings.editor ||
+					state.settings.appearance.colorscheme !== previous.settings.appearance.colorscheme ||
+					state.settings.appearance.showRibbon !== previous.settings.appearance.showRibbon ||
+					state.settings.appearance.workspaceMode !== previous.settings.appearance.workspaceMode
+				) {
+					states.schedule()
+				}
+			}),
+			useBookmarksStore.subscribe(states.schedule),
 			useSyncStore.subscribe((state, previous) => {
-				if (state.syncPreferences !== previous.syncPreferences) send()
+				if (state.syncPreferences !== previous.syncPreferences) states.schedule()
 			}),
 		]
-		window.addEventListener("focus", send)
-		send()
+		window.addEventListener("focus", states.schedule)
+		commands.schedule()
+		states.schedule()
 		return () => {
-			window.clearTimeout(timer)
-			window.removeEventListener("focus", send)
+			commands.cancel()
+			states.cancel()
+			window.removeEventListener("focus", states.schedule)
 			for (const unsubscribe of unsubscribes) unsubscribe()
 		}
 	}, [])

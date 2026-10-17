@@ -1,5 +1,17 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
+  - name: Ask a question or share an idea
+    url: https://github.com/cortex-md/cortex-app/discussions
+    about: Questions, ideas and show-and-tell go to Discussions. See SUPPORT.md for where to get help.
+  - name: Vote on the roadmap
+    url: https://cortex-md.tech/roadmap
+    about: See what shipped, what is in progress, and what is planned. Vote with a 👍 on the issue behind each card.
+  - name: Report a plugin or theme
+    url: https://github.com/cortex-md/registry/issues/new?template=report-extension.yml
+    about: Problems with a community extension listed in the Marketplace go to the registry.
+  - name: Report a security vulnerability
+    url: https://github.com/cortex-md/cortex-app/security/advisories/new
+    about: Report vulnerabilities privately as described in SECURITY.md. Do not open a public issue.
   - name: Contribution guide
     url: https://github.com/cortex-md/cortex-app/blob/main/CONTRIBUTING.md
     about: Read the local setup, validation, and pull request workflow.

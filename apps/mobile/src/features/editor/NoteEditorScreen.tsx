@@ -5,24 +5,31 @@ import {
 	openNoteDocumentSession,
 	useVaultStore,
 } from "@cortex/core"
+import { type NativeStackNavigationProp, useFocusEffect, useNavigation } from "expo-router"
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import {
-	type NativeStackNavigationProp,
-	Stack,
-	useFocusEffect,
-	useLocalSearchParams,
-	useNavigation,
-} from "expo-router"
-import { useCallback, useEffect, useRef, useState } from "react"
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from "react-native"
+	Dimensions,
+	Keyboard,
+	type KeyboardEvent,
+	Platform,
+	StyleSheet,
+	Text,
+	View,
+} from "react-native"
 
-import { PluginStatusMenu } from "@/features/plugins/PluginStatusMenu"
 import { workspaceChannel } from "@/features/workspace/workspaceChannel"
 import type { WorkspaceDocument } from "@/features/workspace/workspaceProtocol"
 import { useMobileColors } from "@/hooks/useMobileColors"
 
 type StackNavigation = NativeStackNavigationProp<Record<string, object | undefined>>
 
-const TRANSITION_FALLBACK_MS = 400
+const TRANSITION_FALLBACK_MS = 250
+const IS_IOS = Platform.OS === "ios"
+
+function keyboardTopFrom(event: KeyboardEvent): number | null {
+	const top = event.endCoordinates.screenY
+	return top >= Dimensions.get("window").height ? null : top
+}
 
 interface NoteScreenState {
 	error: string | null
@@ -34,11 +41,6 @@ const initialNoteScreenState: NoteScreenState = {
 	error: null,
 	filePath: null,
 	title: "Editor",
-}
-
-function getParamValue(value: string | string[] | undefined): string | null {
-	if (Array.isArray(value)) return value[0] ?? null
-	return value ?? null
 }
 
 function getNoteTitle(filePath: string, vaultPath: string | undefined): string {
@@ -55,16 +57,22 @@ function toWorkspaceDocument(snapshot: NoteDocumentSnapshot): WorkspaceDocument 
 	}
 }
 
-/** Placeholder for the persistent workspace WebView, which is laid over this screen's content. */
-export function NoteEditorScreen() {
-	const params = useLocalSearchParams<{ filePath?: string | string[] }>()
-	const filePath = getParamValue(params.filePath)
+export function NoteEditorScreen({
+	bottom,
+	filePath,
+	top,
+}: {
+	bottom?: ReactNode
+	filePath: string | null
+	top?: ReactNode
+}) {
 	const navigation = useNavigation<StackNavigation>()
 	const { colors } = useMobileColors()
 	const vaultPath = useVaultStore((state) => state.vault?.path)
 	const [screenState, setScreenState] = useState<NoteScreenState>(initialNoteScreenState)
 	const [editorOwner] = useState(() => ({}))
 	const placeholderRef = useRef<View>(null)
+	const keyboardTopRef = useRef<number | null>(null)
 	const sessionRef = useRef<NoteDocumentSession | null>(null)
 	const focusedRef = useRef(false)
 	const transitioningRef = useRef(true)
@@ -75,7 +83,8 @@ export function NoteEditorScreen() {
 		if (!focusedRef.current || transitioningRef.current || !snapshot) return
 		placeholderRef.current?.measureInWindow((x, y, width, height) => {
 			if (!focusedRef.current || transitioningRef.current) return
-			workspaceChannel.showEditor(editorOwner, { x, y, width, height })
+			const bottom = Math.min(y + height, keyboardTopRef.current ?? Number.POSITIVE_INFINITY)
+			workspaceChannel.showEditor(editorOwner, { x, y, width, height: Math.max(bottom - y, 0) })
 		})
 	}, [editorOwner])
 
@@ -153,6 +162,33 @@ export function NoteEditorScreen() {
 		}
 	}, [armTransitionFallback, editorOwner, finishTransition, navigation])
 
+	useEffect(() => {
+		const update = (top: number | null) => {
+			keyboardTopRef.current = top
+			showEditor()
+		}
+		const subscriptions = IS_IOS
+			? [
+					Keyboard.addListener("keyboardWillChangeFrame", (event) =>
+						update(keyboardTopFrom(event)),
+					),
+					Keyboard.addListener("keyboardWillHide", () => update(null)),
+				]
+			: [
+					Keyboard.addListener("keyboardDidShow", (event) => update(keyboardTopFrom(event))),
+					Keyboard.addListener("keyboardDidHide", () => update(null)),
+				]
+		return () => {
+			for (const subscription of subscriptions) subscription.remove()
+		}
+	}, [showEditor])
+
+	useEffect(() => {
+		workspaceChannel.setChrome(editorOwner, bottom)
+	}, [bottom, editorOwner])
+
+	useEffect(() => () => workspaceChannel.clearChrome(editorOwner), [editorOwner])
+
 	useFocusEffect(
 		useCallback(() => {
 			focusedRef.current = true
@@ -170,29 +206,22 @@ export function NoteEditorScreen() {
 
 	const loading = Boolean(filePath && screenState.filePath !== filePath && !screenState.error)
 	const displayError = filePath ? screenState.error : "No note was selected."
-	const displayTitle = filePath
-		? screenState.filePath === filePath
-			? screenState.title
-			: getNoteTitle(filePath, vaultPath)
-		: "Editor"
-
+	const showMessage = loading || Boolean(displayError) || !filePath
 	return (
-		<KeyboardAvoidingView
-			behavior={Platform.OS === "ios" ? "padding" : undefined}
-			keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
-			style={[styles.root, { backgroundColor: colors.background }]}
-		>
-			<Stack.Screen options={{ title: displayTitle }} />
-			<PluginStatusMenu />
-			{loading || displayError || !filePath ? (
-				<View style={styles.messageFrame}>
-					<Text selectable style={[styles.messageTitle, { color: colors.label }]}>
-						{loading ? "Opening note" : "Could not open note"}
-					</Text>
-					<Text selectable style={[styles.messageBody, { color: colors.secondaryLabel }]}>
-						{loading ? "Loading the local file snapshot." : displayError}
-					</Text>
-				</View>
+		<View style={[styles.root, { backgroundColor: colors.background }]}>
+			{top}
+			{showMessage ? (
+				<>
+					<View style={styles.messageFrame}>
+						<Text selectable style={[styles.messageTitle, { color: colors.label }]}>
+							{loading ? "Opening note" : "Could not open note"}
+						</Text>
+						<Text selectable style={[styles.messageBody, { color: colors.secondaryLabel }]}>
+							{loading ? "Loading the local file snapshot." : displayError}
+						</Text>
+					</View>
+					{bottom}
+				</>
 			) : (
 				<View
 					collapsable={false}
@@ -201,7 +230,7 @@ export function NoteEditorScreen() {
 					style={styles.editorFrame}
 				/>
 			)}
-		</KeyboardAvoidingView>
+		</View>
 	)
 }
 

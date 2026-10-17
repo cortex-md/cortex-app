@@ -1,8 +1,10 @@
 import { type CommandEntry, type CommandExecutionContext, registerCommands } from "@cortex/commands"
 import {
 	canReadVaultPath,
+	createDatabaseCommandEntries,
 	createFileCommandEntries,
 	type EditorMode,
+	getVaultIndex,
 	type RightSidebarPanel,
 	reportAppError,
 	useAppStore,
@@ -43,6 +45,7 @@ import {
 	Share2Icon,
 	StoreIcon,
 	SunMoonIcon,
+	Table2Icon,
 	TagIcon,
 	TerminalIcon,
 	TrashIcon,
@@ -50,10 +53,19 @@ import {
 	UsersIcon,
 	XIcon,
 } from "lucide-react"
+import {
+	manageAccessModal,
+	noteHistoryModal,
+	noteShareModal,
+	openCreateFromTemplate,
+	openQuickFinder,
+	toggleCommandPalette,
+	toggleQuickFinder,
+	toggleTagPicker,
+} from "@/utils/modals"
 import { checkForAppUpdate } from "../features/app-updates/appUpdateStore"
 import { openChangelogTab } from "../features/app-updates/openChangelog"
 import { commentCommands } from "../features/comments/commentCommands"
-import { createDatabaseCommandEntries } from "../features/databases/databaseCommands"
 import { insertDrawingBlock } from "../features/drawings/drawingCommands"
 import { copyFilePath, toggleSyncExclusion } from "../features/file-explorer/fileActions"
 import {
@@ -64,13 +76,15 @@ import {
 	exportNoteFromDialog,
 	importFilesFromDialog,
 } from "../features/import-export/importExportActions"
+import { importObsidianVaultFromDialog } from "../features/import-export/obsidianImport"
 import { openMarketplaceView } from "../features/marketplace/openMarketplaceView"
-import { manageAccessModal } from "../features/sync/manageAccessModal"
-import { noteHistoryModal } from "../features/sync/noteHistoryModal"
-import { noteShareModal } from "../features/sync/noteShareModal"
+import { openSettings } from "../features/settings/settingsModal"
+import { toggleRibbon } from "../features/sidebar/ribbon"
 import { deletedNotesModal, syncLogsModal } from "../features/sync/syncDialogStores"
 import { openTasksSidebar, openTodayView } from "../features/tasks/taskModel"
-import { pickVaultFolder } from "../features/vault/createVaultModalStore"
+import { openNewTemplate, openTemplatesView } from "../features/templates/templateActions"
+import { openAddVault } from "../features/vault/vaultActions"
+import { toggleWritingMode } from "../features/workspace-mode/workspaceMode"
 
 const HELP_URLS = {
 	docs: "https://github.com/cortex-md/cortex-app#readme",
@@ -260,13 +274,20 @@ const appCommands: CommandEntry[] = [
 	...createFileCommandEntries({
 		openFile: (filePath) => useWorkspaceStore.getState().openTab(filePath),
 	}),
-	...createDatabaseCommandEntries(),
+	...createDatabaseCommandEntries({ icon: Table2Icon }),
 	{
 		id: "vault.open",
 		label: "Open Vault",
 		category: "Vault",
 		aliases: ["open-vault"],
-		execute: () => void pickVaultFolder("open"),
+		execute: () => openAddVault({ start: "open" }),
+	},
+	{
+		id: "vault.add",
+		label: "Add Vault…",
+		category: "Vault",
+		aliases: ["new-vault", "create-vault", "download-vault"],
+		execute: () => openAddVault(),
 	},
 	{
 		id: "vault.close",
@@ -358,7 +379,7 @@ const appCommands: CommandEntry[] = [
 	{
 		id: "sync.show-version-history",
 		label: "Version History",
-		category: "Sync",
+		category: "File",
 		aliases: ["version-history", "note-history"],
 		icon: HistoryIcon,
 		execute: withTargetFile((filePath) => {
@@ -381,8 +402,7 @@ const appCommands: CommandEntry[] = [
 		icon: UsersIcon,
 		execute: withTargetFile((filePath, context) => {
 			const isDirectory =
-				getPayload(context).isDirectory === true ||
-				(useVaultStore.getState().files.find((file) => file.path === filePath)?.isDir ?? false)
+				getPayload(context).isDirectory === true || getVaultIndex().get(filePath)?.isDir === true
 			if (isDirectory) manageAccessModal.open({ filePath })
 			else noteShareModal.open({ filePath })
 		}),
@@ -414,6 +434,14 @@ const appCommands: CommandEntry[] = [
 		execute: () => void importFilesFromDialog("command-palette"),
 	},
 	{
+		id: "import.obsidian",
+		label: "Import from Obsidian",
+		category: "Import / Export",
+		aliases: ["import-obsidian", "obsidian"],
+		icon: UploadIcon,
+		execute: () => void importObsidianVaultFromDialog(),
+	},
+	{
 		id: "export.active-html",
 		label: "Export Active Note as HTML",
 		category: "Import / Export",
@@ -441,7 +469,7 @@ const appCommands: CommandEntry[] = [
 		aliases: ["quick-finder", "open-note"],
 		icon: SearchIcon,
 		hotkey: { defaultKeys: "mod+o", scope: "global" },
-		execute: () => useUIStore.getState().toggleQuickFinder(),
+		execute: () => toggleQuickFinder(),
 	},
 	{
 		id: "navigate.command-palette",
@@ -450,7 +478,7 @@ const appCommands: CommandEntry[] = [
 		aliases: ["command-palette", "commands"],
 		icon: TerminalIcon,
 		hotkey: { defaultKeys: "mod+p", scope: "global" },
-		execute: () => useUIStore.getState().toggleCommandPalette(),
+		execute: () => toggleCommandPalette(),
 	},
 	{
 		id: "navigate.mru-next",
@@ -492,7 +520,7 @@ const appCommands: CommandEntry[] = [
 		category: "File",
 		aliases: ["new-tab"],
 		icon: PlusIcon,
-		execute: () => useUIStore.getState().openQuickFinder(),
+		execute: () => openQuickFinder(),
 	},
 	{
 		id: "view.toggle-right-sidebar",
@@ -511,6 +539,23 @@ const appCommands: CommandEntry[] = [
 		icon: PanelLeftIcon,
 		hotkey: { defaultKeys: "mod+[", scope: "global" },
 		execute: () => useUIStore.getState().toggleLeftSidebar(),
+	},
+	{
+		id: "view.toggle-writing-mode",
+		label: "Toggle Writing Mode",
+		category: "View",
+		aliases: ["writing", "focus", "zen", "distraction-free", "full-workspace"],
+		icon: PencilIcon,
+		hotkey: { defaultKeys: "mod+.", scope: "global" },
+		execute: toggleWritingMode,
+	},
+	{
+		id: "view.toggle-ribbon",
+		label: "Toggle Ribbon",
+		category: "View",
+		aliases: ["ribbon", "rail", "hide-ribbon", "show-ribbon"],
+		icon: PanelLeftIcon,
+		execute: toggleRibbon,
 	},
 	{
 		id: "view.files",
@@ -593,7 +638,10 @@ const appCommands: CommandEntry[] = [
 		aliases: ["settings", "open-settings"],
 		icon: SettingsIcon,
 		hotkey: { defaultKeys: "mod+,", scope: "global" },
-		execute: () => useUIStore.getState().openSettings(),
+		execute: (context) => {
+			const section = (context.payload as { section?: string } | undefined)?.section
+			openSettings(section)
+		},
 	},
 	{
 		id: "marketplace.open",
@@ -626,7 +674,7 @@ const appCommands: CommandEntry[] = [
 		aliases: ["tag-picker"],
 		icon: TagIcon,
 		hotkey: { defaultKeys: "mod+t", scope: "global" },
-		execute: () => useUIStore.getState().toggleTagPicker(),
+		execute: () => toggleTagPicker(),
 	},
 	{
 		id: FILE_EXPLORER_COMMAND_IDS.openMenu,
@@ -673,16 +721,36 @@ const appCommands: CommandEntry[] = [
 		aliases: ["template", "new-from-template"],
 		icon: LayoutTemplateIcon,
 		execute: () => {
-			if (useVaultStore.getState().vault) useUIStore.getState().openCreateFromTemplate()
+			if (useVaultStore.getState().vault) openCreateFromTemplate()
 		},
 	},
 	{
 		id: "templates.manage",
-		label: "Manage templates",
+		label: "Open Templates",
 		category: "Templates",
 		aliases: ["templates", "manage-templates"],
 		icon: LayoutTemplateIcon,
-		execute: () => useUIStore.getState().openSettings("templates"),
+		execute: () => openTemplatesView(),
+	},
+	{
+		id: "templates.new",
+		label: "New template",
+		category: "Templates",
+		aliases: ["create-template", "add-template"],
+		icon: LayoutTemplateIcon,
+		execute: () => openNewTemplate({ start: "blank" }),
+	},
+	{
+		id: "templates.save-note-as-template",
+		label: "Save note as template",
+		category: "Templates",
+		aliases: ["save-as-template", "template-from-note"],
+		icon: LayoutTemplateIcon,
+		execute: (context) => {
+			const notePath =
+				getPayloadString(context, "filePath") ?? useEditorStore.getState().activeFilePath
+			if (notePath?.endsWith(".md")) openNewTemplate({ start: "note", notePath })
+		},
 	},
 	{
 		id: "editor.toggle-mode",
@@ -733,7 +801,7 @@ const appCommands: CommandEntry[] = [
 		label: "Keyboard Shortcuts",
 		category: "Help",
 		aliases: ["hotkeys", "shortcuts"],
-		execute: () => useUIStore.getState().openSettings("hotkeys"),
+		execute: () => openSettings("hotkeys"),
 	},
 	{
 		id: "sync.now",
@@ -760,7 +828,7 @@ const appCommands: CommandEntry[] = [
 		id: "sync.settings",
 		label: "Sync Settings",
 		category: "Sync",
-		execute: () => useUIStore.getState().openSettings("sync"),
+		execute: () => openSettings("sync"),
 	},
 	{
 		id: "view.zoom-in",

@@ -8,8 +8,8 @@ import {
 } from "./config"
 
 describe("Sync runtime config", () => {
-	it("uses the local Sync server by default", () => {
-		expect(getSyncBaseUrl({})).toBe("http://localhost:8080")
+	it("uses the Cortex Cloud Sync server by default", () => {
+		expect(getSyncBaseUrl({})).toBe("https://api.cortex-md.tech")
 	})
 
 	it("normalizes configured HTTP base URLs", () => {
@@ -25,7 +25,7 @@ describe("Sync runtime config", () => {
 
 		expect(getSiteBaseUrl(env)).toBe("http://localhost:3001")
 		expect(getBillingReturnUrl(env)).toBe("http://localhost:3001/billing/cancelled")
-		expect(getBillingCompletionUrl({})).toBe("cortex://sync/checkout-complete")
+		expect(getBillingCompletionUrl(env)).toBe("http://localhost:3001/billing/success")
 	})
 
 	it("accepts explicit billing callback URLs", () => {

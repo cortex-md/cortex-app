@@ -136,6 +136,7 @@ const TableRow = memo(function TableRow({
 					</span>
 				) : (
 					<Button
+						size="sm"
 						variant="ghost"
 						className="db-title-cell"
 						draggable={Boolean(onReorder)}
@@ -231,12 +232,18 @@ export function DatabaseTableView({
 		<div ref={scrollRef} className="db-table-scroll">
 			<div className="db-table" style={style}>
 				<div className="db-tr db-th">
-					<Button variant="ghost" className="db-th-cell" onClick={() => onSort(DATABASE_TITLE_KEY)}>
+					<Button
+						size="sm"
+						variant="ghost"
+						className="db-th-cell"
+						onClick={() => onSort(DATABASE_TITLE_KEY)}
+					>
 						Name
 						<SortIndicator sort={sort} columnKey={DATABASE_TITLE_KEY} />
 					</Button>
 					{columns.map((definition) => (
 						<Button
+							size="sm"
 							key={definition.id}
 							variant="ghost"
 							className="db-th-cell"
@@ -260,6 +267,7 @@ export function DatabaseTableView({
 							>
 								{item.kind === "group" ? (
 									<Button
+										size="sm"
 										variant="ghost"
 										className="db-group-head"
 										data-first={item.first || undefined}
@@ -286,6 +294,7 @@ export function DatabaseTableView({
 									/>
 								) : (
 									<Button
+										size="sm"
 										variant="ghost"
 										className="db-new-row"
 										onClick={() => onCreate(item.group)}

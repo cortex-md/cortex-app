@@ -65,6 +65,7 @@ function DeletedNoteRow({
 	const deletedAt = parseTimestamp(file.deletedAt)
 	return (
 		<Button
+			size="sm"
 			variant="ghost"
 			className="history-row deleted-note-row"
 			data-selected={selected ? "true" : undefined}
@@ -261,16 +262,11 @@ function DeletedNotesContent() {
 									<FolderIcon className="size-3.5" aria-hidden="true" />
 									Restores to <b>{noteFolder(selected.filePath)}</b>
 								</span>
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={handleCopy}
-									disabled={preview?.status !== "ready"}
-								>
+								<Button variant="ghost" onClick={handleCopy} disabled={preview?.status !== "ready"}>
 									<CopyIcon />
 									{copied ? "Copied" : "Copy text"}
 								</Button>
-								<Button size="sm" onClick={() => void handleRestore()} disabled={restoring}>
+								<Button onClick={() => void handleRestore()} disabled={restoring}>
 									{restoring ? <Spinner className="size-3" /> : <RotateCcwIcon />}
 									Restore note
 								</Button>

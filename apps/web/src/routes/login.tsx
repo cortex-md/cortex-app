@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { siteConfig } from "../config/site"
+import { authCopy } from "../content/auth"
 import { AuthPage } from "../features/auth/AuthPage"
-import { createSeoHead, noIndexRobots } from "../seo/metadata"
+import { createPrivateSeoHead, pageTitle } from "../seo/metadata"
 import { getSession, sanitizeRedirectPath } from "../server/auth"
 
 function getRedirectTarget(href: string) {
@@ -17,11 +17,10 @@ export const Route = createFileRoute("/login")({
 		}
 	},
 	head: () =>
-		createSeoHead({
-			title: `Login — ${siteConfig.name}`,
-			description: "Sign in to Cortex for hosted Sync checkout and account access.",
+		createPrivateSeoHead({
+			title: pageTitle(authCopy.login.seoTitle),
+			description: authCopy.login.seoDescription,
 			path: "/login",
-			robots: noIndexRobots,
 		}),
 	component: LoginRoute,
 })

@@ -1,5 +1,6 @@
 import type { Plugin } from "unified"
 import { visit } from "unist-util-visit"
+import { getCalloutIconPaths } from "../callouts/icons"
 import { parseCalloutMarker } from "../callouts/model"
 import { getCalloutStyleVariables, resolveCalloutType } from "../callouts/registry"
 import { getRendererFeatureFlags } from "../features"
@@ -114,7 +115,22 @@ export const rehypeCallouts: Plugin = () => {
 				properties: { className: ["markdown-callout-title-inner"] },
 				children: resolvedTitleChildren,
 			}
-			const titleChildren = [titleInnerNode]
+			const iconNode: HastNode = {
+				type: "element",
+				tagName: "svg",
+				properties: {
+					className: ["markdown-callout-icon"],
+					viewBox: "0 0 24 24",
+					ariaHidden: "true",
+				},
+				children: getCalloutIconPaths(definition.icon).map((d) => ({
+					type: "element",
+					tagName: "path",
+					properties: { d },
+					children: [],
+				})),
+			}
+			const titleChildren = [iconNode, titleInnerNode]
 			if (fold) {
 				titleChildren.push({
 					type: "element",

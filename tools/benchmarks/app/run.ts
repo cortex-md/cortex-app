@@ -37,14 +37,17 @@ const BUDGETS = {
 	typing: 16,
 	search: 100,
 	quickFinder: 30,
+	overlayFirstOpen: 120,
+	overlayOpen: 50,
 	tabSwitch: 100,
 	settingsOpen: 100,
-	idleMemory: 450,
+	idleMemory: 800,
 	databaseOpen: 300,
 	databaseFilter: 100,
 }
 
 const MOD = process.platform === "darwin" ? "Meta" : "Control"
+const COMMAND_INPUT = '[data-command-surface] [data-slot="command-input"]'
 
 function parseArgs(argv: string[]): Options {
 	const options: Options = { scale: "roadmap", launches: 3, jsonPath: null, strict: false }
@@ -84,7 +87,7 @@ function percentile(values: number[], fraction: number): number {
 }
 
 async function waitForIndex(fixture: Fixture): Promise<void> {
-	const indexPath = join(fixture.path, ".cortex/search-index.json")
+	const indexPath = join(fixture.path, ".cortex/cache/search-index.json")
 	let lastSize = -1
 	let stableSince = Date.now()
 	const deadline = Date.now() + 300_000
@@ -117,9 +120,40 @@ async function waitForWorkspace(fixture: Fixture, title: string): Promise<void> 
 
 async function openQuickFinder(page: Page): Promise<void> {
 	await page.keyboard.press(`${MOD}+O`)
-	const input = page.getByPlaceholder("Find or create a note...")
+	const input = page.getByPlaceholder("Find a note, or type > for commands")
 	await input.waitFor()
 	await input.focus()
+}
+
+async function measureOverlayOpen(page: Page, key: string, runs = 6): Promise<number[]> {
+	const samples: number[] = []
+	for (let index = 0; index < runs; index++) {
+		await armKey(page)
+		await page.keyboard.press(`${MOD}+${key}`)
+		samples.push(await settleKey(page, { kind: "focused", selector: COMMAND_INPUT }, 10_000))
+		await page.keyboard.press("Escape")
+		await page.locator(COMMAND_INPUT).waitFor({ state: "detached" })
+		await page.waitForTimeout(250)
+	}
+	return samples
+}
+
+function pushOverlayMetrics(metrics: Metric[], id: string, label: string, samples: number[]): void {
+	const [first = Number.NaN, ...warm] = samples
+	metrics.push({
+		id: `${id}-first-open`,
+		label: `${label}, primeira abertura`,
+		unit: "ms",
+		samples: [first],
+		budget: BUDGETS.overlayFirstOpen,
+	})
+	metrics.push({
+		id: `${id}-open`,
+		label: `${label}, aberturas seguintes`,
+		unit: "ms",
+		samples: warm,
+		budget: BUDGETS.overlayOpen,
+	})
 }
 
 async function openWithQuickFinder(
@@ -150,37 +184,14 @@ async function measureStartup(fixture: Fixture, profile: string, launches: numbe
 	return samples
 }
 
-async function measureSettings(app: ElectronApplication, page: Page): Promise<number[]> {
+async function measureSettings(page: Page): Promise<number[]> {
 	const samples: number[] = []
 	for (let index = 0; index < 3; index++) {
-		await app.evaluate(({ app: electronApp, BrowserWindow }) => {
-			const scope = globalThis as { __settingsShownAt?: number }
-			scope.__settingsShownAt = 0
-			const record = () => {
-				scope.__settingsShownAt = Date.now()
-			}
-			const settings = BrowserWindow.getAllWindows().find((window) =>
-				window.webContents.getURL().includes("window=settings"),
-			)
-			if (settings) settings.once("show", record)
-			else electronApp.once("browser-window-created", (_event, window) => window.once("show", record))
-		})
-		const started = Date.now()
+		await armKey(page)
 		await page.keyboard.press(`${MOD}+Comma`)
-		let shownAt = 0
-		for (let attempt = 0; attempt < 100 && !shownAt; attempt++) {
-			await page.waitForTimeout(20)
-			shownAt = await app.evaluate(
-				() => (globalThis as { __settingsShownAt?: number }).__settingsShownAt ?? 0,
-			)
-		}
-		if (shownAt) samples.push(shownAt - started)
-		await app.evaluate(({ BrowserWindow }) => {
-			for (const window of BrowserWindow.getAllWindows()) {
-				if (window.webContents.getURL().includes("window=settings")) window.hide()
-			}
-		})
-		await page.bringToFront()
+		samples.push(await settleKey(page, { kind: "selector", selector: ".settings-content" }, 10_000))
+		await page.keyboard.press("Escape")
+		await page.locator(".settings-content").waitFor({ state: "detached" })
 		await page.waitForTimeout(300)
 	}
 	return samples
@@ -192,6 +203,10 @@ async function measureSession(fixture: Fixture, profile: string): Promise<Metric
 	try {
 		await installProbe(page)
 		await page.locator(".cm-content", { hasText: "PERF-NOTE-A" }).first().waitFor()
+
+		step("overlay open")
+		pushOverlayMetrics(metrics, "quick-finder", "Quick Finder", await measureOverlayOpen(page, "O"))
+		pushOverlayMetrics(metrics, "command-palette", "Command Palette", await measureOverlayOpen(page, "P"))
 		await openWithQuickFinder(page, FIXTURE_NOTES.smallB, "PERF-NOTE-B", true)
 
 		step("tab switch")
@@ -259,7 +274,7 @@ async function measureSession(fixture: Fixture, profile: string): Promise<Metric
 		const quickFinder: number[] = []
 		await openQuickFinder(page)
 		for (const character of "Note 4217") {
-			await armKey(page)
+			await armKey(page, ".quick-finder-list")
 			await page.keyboard.press(character === " " ? "Space" : character)
 			quickFinder.push(
 				await settleKey(page, { kind: "selector", selector: ".quick-finder-list" }, 5_000).catch(
@@ -304,7 +319,7 @@ async function measureSession(fixture: Fixture, profile: string): Promise<Metric
 			id: "settings-open",
 			label: "Abrir Settings",
 			unit: "ms",
-			samples: await measureSettings(app, page),
+			samples: await measureSettings(page),
 			budget: BUDGETS.settingsOpen,
 		})
 

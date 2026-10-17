@@ -1,7 +1,7 @@
 import { reportAppError } from "@cortex/core"
 import type { FontInfo } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
-import type { AppearanceSettings } from "@cortex/settings"
+import type { AppearanceSettings, WorkspaceMode } from "@cortex/settings"
 import { getThemeManager, type ThemeFamily, type ThemeTokens } from "@cortex/theme"
 import {
 	Button,
@@ -9,6 +9,7 @@ import {
 	type ColorPickerOption,
 	NativeSelect,
 	NativeSelectOption,
+	SimpleTooltip,
 	Slider,
 	Switch,
 } from "@cortex/ui"
@@ -171,6 +172,10 @@ export function AppearanceSection({
 		setNativeWindowEffectsRestartPending(true)
 	}
 
+	const handleShowRibbonChange = (visible: boolean) => {
+		onUpdate("appearance", "showRibbon", visible)
+	}
+
 	const handleEditorFontFamilyChange = (fontFamily: string) => {
 		onUpdate("appearance", "editorFontFamily", fontFamily)
 		applyOverrides({ editorFontFamily: fontFamily })
@@ -191,7 +196,7 @@ export function AppearanceSection({
 				title="Theme"
 				description="Choose the active theme, color scheme, and accent color."
 				action={
-					<Button variant="ghost" size="sm" onClick={() => onBrowseMarketplace("themes")}>
+					<Button variant="ghost" onClick={() => onBrowseMarketplace("themes")}>
 						<Store size={12} />
 						Browse themes
 					</Button>
@@ -211,16 +216,20 @@ export function AppearanceSection({
 									</NativeSelectOption>
 								))}
 							</NativeSelect>
-							<Button
-								variant="ghost"
-								size="sm"
-								disabled={!canOpenSelectedThemeInMarketplace}
-								onClick={handleOpenSelectedThemeInMarketplace}
-								title={canOpenSelectedThemeInMarketplace ? undefined : "Built-in theme"}
+							<SimpleTooltip
+								label={canOpenSelectedThemeInMarketplace ? undefined : "Built-in theme"}
 							>
-								<Store size={12} />
-								View
-							</Button>
+								<span className="inline-flex">
+									<Button
+										variant="ghost"
+										disabled={!canOpenSelectedThemeInMarketplace}
+										onClick={handleOpenSelectedThemeInMarketplace}
+									>
+										<Store size={12} />
+										View
+									</Button>
+								</span>
+							</SimpleTooltip>
 						</div>
 					</SettingsField>
 
@@ -301,7 +310,7 @@ export function AppearanceSection({
 					<SettingsField fieldId="appearance.native-window-effects" htmlFor="native-window-effects">
 						<div className="flex items-center gap-3">
 							{nativeWindowEffectsRestartPending && (
-								<Button variant="outline" size="sm" onClick={restartApp}>
+								<Button variant="outline" onClick={restartApp}>
 									<RefreshCw size={12} />
 									Restart now
 								</Button>
@@ -312,6 +321,27 @@ export function AppearanceSection({
 								onCheckedChange={handleNativeWindowEffectsChange}
 							/>
 						</div>
+					</SettingsField>
+
+					<SettingsField fieldId="appearance.workspace-mode" htmlFor="workspace-mode">
+						<NativeSelect
+							id="workspace-mode"
+							value={settings.workspaceMode}
+							onChange={(event) =>
+								onUpdate("appearance", "workspaceMode", event.target.value as WorkspaceMode)
+							}
+						>
+							<NativeSelectOption value="full">Full workspace</NativeSelectOption>
+							<NativeSelectOption value="writing">Writing</NativeSelectOption>
+						</NativeSelect>
+					</SettingsField>
+
+					<SettingsField fieldId="appearance.show-ribbon" htmlFor="show-ribbon">
+						<Switch
+							id="show-ribbon"
+							checked={settings.showRibbon}
+							onCheckedChange={handleShowRibbonChange}
+						/>
 					</SettingsField>
 				</SettingsGroup>
 			</SettingsSection>

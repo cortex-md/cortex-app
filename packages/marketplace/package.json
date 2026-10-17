@@ -1,9 +1,11 @@
 {
 	"name": "@cortex/marketplace",
+	"license": "AGPL-3.0-or-later",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.ts",
+		"./catalog": "./src/catalog.ts"
 	},
 	"dependencies": {
 		"@cortex/platform": "workspace:*",

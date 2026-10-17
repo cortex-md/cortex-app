@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import type { Stats } from "node:fs"
-import { promises as fs } from "node:fs"
+import { promises as fs, constants as fsConstants } from "node:fs"
 import { dirname, join, resolve, sep } from "node:path"
 import type { FileEntry, FileMetadata, FileSnapshot, TextFileRead } from "@cortex/platform"
 import { hashBytes } from "@cortex/platform/hash"
@@ -13,7 +13,6 @@ import {
 	toFileEntry,
 	toFileMetadata,
 } from "@cortex/platform/vault"
-import AdmZip from "adm-zip"
 import writeFileAtomic from "write-file-atomic"
 import type { MainApi } from "../contract"
 import { assertAllowedPath } from "../security"
@@ -95,6 +94,7 @@ function archiveOutputPath(destination: string, entryName: string): string | nul
 }
 
 async function downloadAndExtract(url: string, destDir: string): Promise<void> {
+	const { default: AdmZip } = await import("adm-zip")
 	const archive = new AdmZip(Buffer.from(await (await fetchOk(url)).arrayBuffer()))
 	const destination = resolve(destDir)
 	await fs.mkdir(destination, { recursive: true })
@@ -166,6 +166,12 @@ export const fsApi = {
 		await writeFileAtomic(allowedPath, content, "utf8")
 	},
 	writeBinaryFile: async (path, data) => await writeWithParents(assertAllowedPath(path), data),
+	copyFile: async (sourcePath, targetPath) => {
+		const allowedSource = assertAllowedPath(sourcePath)
+		const allowedTarget = assertAllowedPath(targetPath)
+		await fs.mkdir(dirname(allowedTarget), { recursive: true })
+		await fs.copyFile(allowedSource, allowedTarget, fsConstants.COPYFILE_EXCL)
+	},
 	deleteFile: async (path) => await fs.rm(assertAllowedPath(path), { recursive: true }),
 	renameFile: async (oldPath, newPath) =>
 		await renameFile(assertAllowedPath(oldPath), assertAllowedPath(newPath)),

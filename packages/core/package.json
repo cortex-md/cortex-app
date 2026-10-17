@@ -1,12 +1,18 @@
 {
 	"name": "@cortex/core",
+	"license": "AGPL-3.0-or-later",
 	"private": true,
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
 		"./bookmark-paths": "./src/utils/bookmarkPaths.ts",
-		"./frontmatter": "./src/utils/frontmatter.ts"
+		"./frontmatter": "./src/utils/frontmatter.ts",
+		"./members": "./src/sync/members.ts",
+		"./database-view-ids": "./src/runtime/databaseViewIds.ts",
+		"./collab-transport": "./src/collab/collabTransport.ts",
+		"./task-notification-actions": "./src/runtime/taskNotificationActions.ts",
+		"./templates": "./src/templates/index.ts"
 	},
 	"dependencies": {
 		"@cortex/collab": "workspace:*",
@@ -16,15 +22,12 @@
 		"@cortex/properties": "workspace:*",
 		"@cortex/search": "workspace:*",
 		"@cortex/settings": "workspace:*",
+		"@cortex/sync-api": "workspace:*",
 		"@cortex/tasks": "workspace:*",
-		"@cortex/templates": "workspace:*",
 		"immer": "^10.1.1",
 		"zustand": "^5.0.0"
 	},
 	"peerDependencies": {
 		"react": ">=19"
-	},
-	"devDependencies": {
-		"typescript": "~5.8.3"
 	}
 }

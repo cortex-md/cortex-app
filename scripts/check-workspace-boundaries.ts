@@ -1,6 +1,5 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
-import ts from "typescript"
 
 interface WorkspacePackage {
 	name: string
@@ -15,13 +14,12 @@ interface WorkspacePackage {
 const workspaceRoots = ["apps", "packages"]
 const bundledPluginsDirectory = "plugins"
 const allowedDependencies: Record<string, readonly string[]> = {
-	"@cortex/commands": [],
+	"@cortex/commands": ["@cortex/platform"],
 	"@cortex/comments": [],
 	"@cortex/platform": [],
 	"@cortex/properties": [],
 	"@cortex/renderer": ["@cortex/properties"],
 	"@cortex/tasks": [],
-	"@cortex/templates": [],
 	"@cortex/theme": [],
 	"@cortex/settings": ["@cortex/platform"],
 	"@cortex/sync-api": ["@cortex/platform"],
@@ -36,7 +34,6 @@ const allowedDependencies: Record<string, readonly string[]> = {
 		"@cortex/settings",
 		"@cortex/sync-api",
 		"@cortex/tasks",
-		"@cortex/templates",
 	],
 	"@cortex/editor": [
 		"@cortex/collab",
@@ -57,26 +54,28 @@ const allowedDependencies: Record<string, readonly string[]> = {
 	],
 	"@cortex/ui": [],
 	"@cortex/search": ["@cortex/platform", "@cortex/properties"],
-	"@cortex/hotkeys": ["@cortex/commands", "@cortex/platform"],
 	"@cortex/import-export": ["@cortex/platform", "@cortex/renderer"],
 	"@cortex/marketplace": ["@cortex/platform", "@cortex/theme"],
 	"@cortex/plugins": ["@cortex.md/api"],
-	"@cortex/web": ["@cortex/sync-api", "@cortex/ui"],
+	"@cortex/web": ["@cortex/marketplace", "@cortex/sync-api", "@cortex/ui"],
 	"@cortex/mobile": [
 		"@cortex.md/api",
 		"@cortex/collab",
 		"@cortex/commands",
 		"@cortex/core",
 		"@cortex/editor",
-		"@cortex/hotkeys",
+		"@cortex/import-export",
 		"@cortex/marketplace",
 		"@cortex/platform",
 		"@cortex/plugin-host-core",
 		"@cortex/plugins",
 		"@cortex/properties",
 		"@cortex/renderer",
+		"@cortex/search",
 		"@cortex/settings",
 		"@cortex/sync-api",
+		"@cortex/sync-engine",
+		"@cortex/tasks",
 		"@cortex/theme",
 	],
 }
@@ -184,6 +183,7 @@ const commandSurfaceRules: readonly CommandSurfaceRule[] = [
 			"apps/desktop/src/bootstrap/appCommands.ts",
 			"apps/mobile/src/features/editor/editorCommands.ts",
 			"apps/mobile/src/bootstrap/appCommands.ts",
+			"apps/mobile/src/features/workspace/workspaceChannel.ts",
 		],
 	},
 	{
@@ -236,54 +236,25 @@ function collectSourceFiles(directory: string): string[] {
 	return files
 }
 
+const MODULE_SPECIFIER_PATTERN =
+	/\b(?:import|export)\s+(?:type\s+)?(?:[\w$*{},\s]+\s+from\s+)?["']([^"']+)["']|\bimport\(\s*["']([^"']+)["']\s*\)/g
+
+function readCode(path: string): string {
+	return readFileSync(path, "utf8")
+		.replace(/\/\*[\s\S]*?\*\/|(^|[^:])\/\/.*$/gm, "$1")
+		.replace(/`(?:\\.|[^`\\])*`/g, "``")
+}
+
 function collectModuleSpecifiers(path: string): string[] {
-	const source = readFileSync(path, "utf8")
-	const sourceFile = ts.createSourceFile(
-		path,
-		source,
-		ts.ScriptTarget.Latest,
-		true,
-		path.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+	return Array.from(
+		readCode(path).matchAll(MODULE_SPECIFIER_PATTERN),
+		(match) => match[1] ?? match[2] ?? "",
 	)
-	const specifiers: string[] = []
-	const visit = (node: ts.Node) => {
-		if (
-			(ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
-			node.moduleSpecifier &&
-			ts.isStringLiteral(node.moduleSpecifier)
-		) {
-			specifiers.push(node.moduleSpecifier.text)
-		}
-		if (
-			ts.isCallExpression(node) &&
-			node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-			node.arguments.length === 1 &&
-			ts.isStringLiteral(node.arguments[0])
-		) {
-			specifiers.push(node.arguments[0].text)
-		}
-		ts.forEachChild(node, visit)
-	}
-	visit(sourceFile)
-	return specifiers
 }
 
 function collectIdentifiers(path: string): Set<string> {
-	const source = readFileSync(path, "utf8")
-	const sourceFile = ts.createSourceFile(
-		path,
-		source,
-		ts.ScriptTarget.Latest,
-		true,
-		path.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
-	)
-	const identifiers = new Set<string>()
-	const visit = (node: ts.Node) => {
-		if (ts.isIdentifier(node)) identifiers.add(node.text)
-		ts.forEachChild(node, visit)
-	}
-	visit(sourceFile)
-	return identifiers
+	const code = readCode(path).replace(/"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/g, "")
+	return new Set(code.match(/[A-Za-z_$][\w$]*/g) ?? [])
 }
 
 function isTestSource(path: string): boolean {

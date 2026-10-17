@@ -231,7 +231,7 @@ export function NotificationsSection({ settings, onUpdate }: NotificationsSectio
 					</SettingsField>
 				</SettingsGroup>
 				<div className="task-test-reminder">
-					<Button variant="secondary" size="sm" onClick={() => void sendTestReminder()}>
+					<Button variant="secondary" onClick={() => void sendTestReminder()}>
 						<BellIcon />
 						Send a test reminder
 					</Button>

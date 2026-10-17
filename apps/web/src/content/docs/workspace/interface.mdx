@@ -1,0 +1,73 @@
+---
+title: The Workspace
+description: The start screen, the sidebar and its ribbon, the file tree, and what an empty pane offers.
+section: Workspace
+sectionOrder: 1
+order: 2
+---
+
+Cortex opens into a single window: a sidebar on the left, tabs and split panes in the middle, and an optional right sidebar for the outline, backlinks, and comments.
+
+## Start screen
+
+When no vault is open, Cortex shows the start screen.
+
+- **Returning:** "Pick up where you left off" lists your recent vaults with their folder path. Use the arrow keys to move between them and Enter to open one. **New vault** and **Open folder…** sit below the list.
+- **First run:** with no recent vaults, Cortex explains that notes are plain Markdown files in a folder you pick, and offers **Create a vault** and **Open a folder**. If you already use Cortex Sync, **Sign in** downloads your vaults instead.
+
+Your account is in the top-right corner, and the app version with a **What's new** link sits in the bottom-left corner.
+
+## Sidebar and ribbon
+
+The sidebar has two parts:
+
+- **The ribbon:** the column of icons on the left edge. It switches between Files, Search, Bookmarks, Tags, Tasks, and views added by plugins. Templates, Marketplace, and Settings sit at the bottom.
+- **The panel:** the vault switcher at the top, then the active view.
+
+`⌘[` (`Ctrl+[` on Windows and Linux) shows and hides the whole sidebar. When it is hidden, the ribbon stays visible as a thin strip.
+
+### Hide the ribbon
+
+You can hide the ribbon in any of these places:
+
+- **Settings → Appearance → Interface → Show ribbon**
+- Right-click the ribbon and choose **Hide ribbon**
+- **View → Ribbon** in the menu bar
+- The **Toggle Ribbon** command in the command palette
+
+Without the ribbon, a compact row of view icons appears under the vault switcher. Right-click that row and choose **Show ribbon** to bring the ribbon back. Hiding the sidebar then removes it completely, leaving the full width to your notes. Templates, Marketplace, and Settings stay available from the command palette and `⌘,`.
+
+The setting is stored per vault in the app settings, so it syncs when **App settings** sync is on.
+
+## File tree
+
+The tree keeps icons for things that are not ordinary notes:
+
+| Item | How it looks |
+| --- | --- |
+| Note | Title only, without `.md` |
+| Folder | A chevron, with thin guides for nested levels |
+| Database | A small accent tile showing its first view (table, board, calendar, or gallery) and its note count |
+| Database row | A colored dot taken from the first select property |
+| PDF, image, other file | A muted file-type icon |
+
+Folders sort before files, and names sort naturally, so "Note 2" comes before "Note 10". Click a folder to expand it; the tree only marks the note you have open. Arrow keys move through the tree when it has focus.
+
+## Empty pane
+
+A pane with no open tabs offers three starting points with their shortcuts, followed by your most recent notes:
+
+| Action | Shortcut |
+| --- | --- |
+| New note | `⌘N` |
+| Find a note | `⌘O` |
+| Run a command | `⌘P` |
+
+Shortcuts are shown only when they are bound. You can change them in **Settings → Hotkeys**.
+
+## Related docs
+
+<DocGrid>
+  <DocCard href="/docs/workspace/navigation" title="Quick Finder and Commands" description="Find notes, create them, and run any command from the keyboard." />
+  <DocCard href="/docs/workspace/databases" title="Databases" description="Turn a folder of notes into a table, board, calendar, or gallery." />
+</DocGrid>

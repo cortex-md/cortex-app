@@ -1,5 +1,6 @@
 {
 	"name": "@cortex/collab",
+	"license": "AGPL-3.0-or-later",
 	"private": true,
 	"version": "0.1.0",
 	"type": "module",
@@ -17,8 +18,5 @@
 		"@noble/hashes": "1.8.0",
 		"y-protocols": "1.0.7",
 		"yjs": "13.6.33"
-	},
-	"devDependencies": {
-		"typescript": "~5.8.3"
 	}
 }

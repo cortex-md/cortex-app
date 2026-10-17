@@ -1,6 +1,5 @@
 const defaultSiteUrl = "https://cortex-md.tech"
-const defaultSyncUrl = "http://localhost:8080"
-const defaultBillingCompletionUrl = "cortex://sync/checkout-complete"
+const defaultSyncUrl = "https://api.cortex-md.tech"
 
 export interface SyncRuntimeEnv {
 	CORTEX_BILLING_COMPLETION_URL?: string
@@ -41,5 +40,8 @@ export function getBillingReturnUrl(env: SyncRuntimeEnv = process.env) {
 }
 
 export function getBillingCompletionUrl(env: SyncRuntimeEnv = process.env) {
-	return env.CORTEX_BILLING_COMPLETION_URL?.trim() || defaultBillingCompletionUrl
+	const configuredCompletionUrl = env.CORTEX_BILLING_COMPLETION_URL?.trim()
+	if (configuredCompletionUrl) return configuredCompletionUrl
+
+	return `${getSiteBaseUrl(env)}/billing/success`
 }

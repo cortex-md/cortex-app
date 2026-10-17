@@ -5,6 +5,7 @@ import type {
 	InitialSyncProgressEvent,
 	KeyTrustIssue,
 	SyncEngineState,
+	SyncFileEvent,
 	SyncPreferences,
 	VaultEncryptionStatus,
 	VaultKeyRequestResult,
@@ -17,11 +18,12 @@ import {
 	normalizeSyncPreferences,
 	shouldIgnoreSyncPath,
 } from "@cortex/platform/sync-rules"
-import { getVaultFilePath, VAULT_FILES } from "@cortex/platform/utils"
+import { VAULT_FILES } from "@cortex/platform/utils"
 import { notifyVaultSchemaChanged } from "@cortex/properties"
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
+import { getVaultSyncState } from "../vault/vaultStateFiles"
 import { useAccessStore } from "./accessStore"
 import { useSubscriptionStore } from "./subscriptionStore"
 import { useSyncLogStore } from "./syncLogStore"
@@ -104,7 +106,18 @@ let lastSyncStart: {
 	requiresEntitlement: boolean
 } | null = null
 
+export function writeSyncPreferences(
+	vaultPath: string,
+	preferences: SyncPreferences,
+): Promise<void> {
+	return getVaultSyncState(vaultPath).update(
+		(state) => ({ ...state, preferences: { ...preferences } }),
+		{ immediate: true },
+	)
+}
+
 const VAULT_KEY_RETRY_MS = 15_000
+const FILE_EVENT_BATCH_MS = 50
 let vaultKeyRetryTimer: ReturnType<typeof setTimeout> | null = null
 
 function clearVaultKeyRetry(): void {
@@ -138,29 +151,20 @@ export const useSyncStore = create<SyncState>()(
 
 			loadSyncPreferences: async (vaultPath) => {
 				const platform = getPlatform()
-				const filePath = getVaultFilePath(vaultPath, VAULT_FILES.syncPreferences)
-				try {
-					const content = await platform.fs.readFile(filePath)
-					const parsed = JSON.parse(content) as Partial<SyncPreferences>
-					const prefs = normalizeSyncPreferences(parsed)
-					set((state) => {
-						state.syncPreferences = prefs
-					})
-					await platform.sync.updateSyncPreferences(prefs)
-				} catch {
-					const defaults = createDefaultSyncPreferences()
-					set((state) => {
-						state.syncPreferences = defaults
-					})
-					await platform.sync.updateSyncPreferences(defaults)
-				}
+				const { preferences } = await getVaultSyncState(vaultPath).read()
+				const prefs = preferences
+					? normalizeSyncPreferences(preferences as Partial<SyncPreferences>)
+					: createDefaultSyncPreferences()
+				set((state) => {
+					state.syncPreferences = prefs
+				})
+				await platform.sync.updateSyncPreferences(prefs)
 			},
 
 			saveSyncPreferences: async (vaultPath, preferences) => {
 				const platform = getPlatform()
 				const prefs = normalizeSyncPreferences(preferences)
-				const filePath = getVaultFilePath(vaultPath, VAULT_FILES.syncPreferences)
-				await platform.fs.writeFile(filePath, JSON.stringify(prefs, null, "\t"))
+				await writeSyncPreferences(vaultPath, prefs)
 				set((state) => {
 					state.syncPreferences = prefs
 				})
@@ -174,10 +178,7 @@ export const useSyncStore = create<SyncState>()(
 				})
 				const prefs = get().syncPreferences
 				const vaultPath = getCurrentVaultPath()
-				if (vaultPath) {
-					const filePath = getVaultFilePath(vaultPath, VAULT_FILES.syncPreferences)
-					await platform.fs.writeFile(filePath, JSON.stringify(prefs, null, "\t"))
-				}
+				if (vaultPath) await writeSyncPreferences(vaultPath, prefs)
 				await platform.sync.updateSyncPreferences(prefs)
 			},
 
@@ -197,10 +198,7 @@ export const useSyncStore = create<SyncState>()(
 				})
 				const prefs = get().syncPreferences
 				const vaultPath = getCurrentVaultPath()
-				if (vaultPath) {
-					const filePath = getVaultFilePath(vaultPath, VAULT_FILES.syncPreferences)
-					await platform.fs.writeFile(filePath, JSON.stringify(prefs, null, "\t"))
-				}
+				if (vaultPath) await writeSyncPreferences(vaultPath, prefs)
 				await platform.sync.updateSyncPreferences(prefs)
 			},
 
@@ -394,6 +392,40 @@ export const useSyncStore = create<SyncState>()(
 
 			subscribeEvents: async () => {
 				const platform = getPlatform()
+				let pendingFileEvents: SyncFileEvent[] = []
+				let fileEventTimer: ReturnType<typeof setTimeout> | null = null
+				const flushFileEvents = () => {
+					fileEventTimer = null
+					const events = pendingFileEvents
+					pendingFileEvents = []
+					if (events.length === 0) return
+					set((state) => {
+						let synced = false
+						for (const event of events) {
+							if (
+								event.status === "synced" ||
+								event.status === "merged" ||
+								event.status === "deleted"
+							) {
+								delete state.syncingFiles[event.path]
+								synced = true
+								if (event.status !== "deleted") {
+									state.noteMetadataRevisions[event.path] =
+										(state.noteMetadataRevisions[event.path] ?? 0) + 1
+								}
+							} else if (event.status.startsWith("error:") || event.status === "conflict") {
+								delete state.syncingFiles[event.path]
+							} else {
+								state.syncingFiles[event.path] = event.status
+							}
+						}
+						if (synced) state.lastSyncedAt = Date.now()
+					})
+				}
+				const queueFileEvent = (event: SyncFileEvent) => {
+					pendingFileEvents.push(event)
+					fileEventTimer ??= setTimeout(flushFileEvents, FILE_EVENT_BATCH_MS)
+				}
 				const scheduleVaultKeyRetry = () => {
 					clearVaultKeyRetry()
 					vaultKeyRetryTimer = setTimeout(() => {
@@ -410,6 +442,11 @@ export const useSyncStore = create<SyncState>()(
 				}
 
 				const unlisteners = [
+					() => {
+						if (fileEventTimer) clearTimeout(fileEventTimer)
+						fileEventTimer = null
+						pendingFileEvents = []
+					},
 					platform.sync.onStateChanged((event) => {
 						set((state) => {
 							state.engineState = event.state
@@ -421,24 +458,7 @@ export const useSyncStore = create<SyncState>()(
 						})
 					}),
 					platform.sync.onFileEvent((event) => {
-						set((state) => {
-							if (
-								event.status === "synced" ||
-								event.status === "merged" ||
-								event.status === "deleted"
-							) {
-								delete state.syncingFiles[event.path]
-								state.lastSyncedAt = Date.now()
-								if (event.status !== "deleted") {
-									state.noteMetadataRevisions[event.path] =
-										(state.noteMetadataRevisions[event.path] ?? 0) + 1
-								}
-							} else if (event.status.startsWith("error:") || event.status === "conflict") {
-								delete state.syncingFiles[event.path]
-							} else {
-								state.syncingFiles[event.path] = event.status
-							}
-						})
+						queueFileEvent(event)
 
 						if (
 							event.path === VAULT_FILES.propertySchema &&

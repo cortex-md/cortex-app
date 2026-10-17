@@ -1,6 +1,10 @@
-import { randomBytes } from "node:crypto"
-import type { AccountKeyCrypto, DerivedAccountKeys } from "@cortex/sync-api"
-import { argon2id, hash } from "argon2"
+import {
+	ACCOUNT_KDF,
+	ACCOUNT_KEY_INFO,
+	type AccountKeyCrypto,
+	type DerivedAccountKeys,
+} from "@cortex/sync-api"
+import { fromBase64 as decodeBase64, toBase64 as encodeBase64, toBase64Url } from "./bytes"
 import { decrypt, encrypt } from "./crypto"
 import {
 	encodeRecoveryKey,
@@ -13,35 +17,32 @@ import {
 	wrapWithRecoveryKey,
 	x25519PublicKey,
 } from "./keys"
+import { syncRuntime } from "./runtime"
 
 const KDF_SALT_LENGTH = 16
-const AUTH_INFO = "cortex/auth/v1"
-const WRAP_INFO = "cortex/wrap/v1"
 
 export async function deriveAccountKeys(
 	password: string,
 	kdfSalt: Uint8Array,
 ): Promise<DerivedAccountKeys> {
-	const master = await hash(password, {
-		type: argon2id,
-		memoryCost: 65536,
-		timeCost: 3,
-		parallelism: 1,
-		hashLength: 32,
-		salt: Buffer.from(kdfSalt),
-		raw: true,
+	const master = await syncRuntime().crypto.argon2id(password, {
+		memoryCost: ACCOUNT_KDF.memoryKib,
+		timeCost: ACCOUNT_KDF.iterations,
+		parallelism: ACCOUNT_KDF.parallelism,
+		hashLength: ACCOUNT_KDF.hashLength,
+		salt: Uint8Array.from(kdfSalt),
 	})
 	return {
-		authKey: hkdf(master, AUTH_INFO).toString("base64url"),
-		wrapKey: hkdf(master, WRAP_INFO),
+		authKey: toBase64Url(hkdf(master, ACCOUNT_KEY_INFO.auth)),
+		wrapKey: hkdf(master, ACCOUNT_KEY_INFO.wrap),
 	}
 }
 
-const fromBase64 = (value: string) => Buffer.from(value, "base64")
-const toBase64 = (value: Uint8Array) => Buffer.from(value).toString("base64")
+const fromBase64 = (value: string) => decodeBase64(value)
+const toBase64 = (value: Uint8Array) => encodeBase64(value)
 
-export const nodeAccountKeyCrypto: AccountKeyCrypto = {
-	createSalt: () => toBase64(randomBytes(KDF_SALT_LENGTH)),
+export const accountKeyCrypto: AccountKeyCrypto = {
+	createSalt: () => toBase64(syncRuntime().crypto.randomBytes(KDF_SALT_LENGTH)),
 	deriveKeys: (password, kdfSalt) => deriveAccountKeys(password, fromBase64(kdfSalt)),
 	generateIdentity: () => {
 		const pair = generateX25519KeyPair()

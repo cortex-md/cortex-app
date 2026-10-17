@@ -1,5 +1,10 @@
+import {
+	type HotkeyBinding,
+	matchesEvent,
+	type ParsedHotkey,
+	parseHotkey,
+} from "@cortex/commands/hotkeys"
 import { type FileTreeNode, type FileTreeVisibleNodeRow, getParentPath } from "@cortex/core"
-import { type HotkeyBinding, matchesEvent, type ParsedHotkey, parseHotkey } from "@cortex/hotkeys"
 import type { Virtualizer } from "@tanstack/react-virtual"
 import { type KeyboardEvent, type RefObject, useCallback } from "react"
 import { FILE_EXPLORER_COMMAND_IDS, type FileExplorerCommandId } from "./fileExplorerCommands"

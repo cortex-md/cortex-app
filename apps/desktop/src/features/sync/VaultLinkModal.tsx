@@ -1,43 +1,36 @@
 import {
-	resolveSyncServerUrl,
-	useAccountStore,
+	CLOUD_SERVER_LABEL,
+	createVaultKeyDraft,
+	NEW_REMOTE,
 	useRemoteVaultStore,
-	useSubscriptionStore,
-	useSyncStore,
 	useVaultStore,
+	type VaultKeyDraft,
 } from "@cortex/core"
-import type { RemoteVaultInfo } from "@cortex/platform"
-import { getPlatform } from "@cortex/platform"
 import {
-	Alert,
-	AlertDescription,
-	AlertTitle,
 	Button,
-	DialogBody,
-	DialogClose,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	Input,
-	Label,
+	Item,
+	ItemContent,
+	ItemDescription,
+	ItemMedia,
+	ItemTitle,
 	Spinner,
 } from "@cortex/ui"
-import {
-	Cloud,
-	CreditCard,
-	Hourglass,
-	KeyRound,
-	Link,
-	Lock,
-	Plus,
-	Unlink,
-	Users,
-} from "lucide-react"
-import { useEffect, useEffectEvent, useRef, useState } from "react"
+import { Check } from "lucide-react"
+import { useState } from "react"
 import { ModalHost } from "@/utils/ModalHost"
-import { RecoveryKeyPanel } from "../auth/RecoveryKeyPanel"
+import { openSettings } from "../settings/settingsModal"
+import { RemoteStep } from "../vault/add-vault/AddVaultSteps"
+import { useAddVaultRemotes } from "../vault/add-vault/useAddVaultRemotes"
+import {
+	FlowBody,
+	FlowDialogContent,
+	FlowError,
+	FlowFooter,
+	FlowHeader,
+	FlowProgressBars,
+} from "../vault/FlowDialog"
+import { useVaultKeyFlow } from "./vault-key/useVaultKeyFlow"
+import { VaultKeyStepView } from "./vault-key/VaultKeyStepView"
 
 interface VaultLinkModalProps {
 	open: boolean
@@ -45,447 +38,7 @@ interface VaultLinkModalProps {
 	unlockMode?: boolean
 }
 
-type EncryptionStep =
-	| "none"
-	| "checking"
-	| "enter-password"
-	| "waiting"
-	| "setup-keys"
-	| "recovery-key"
-
-const VAULT_KEY_POLL_MS = 10_000
-
-interface UnlockPasswordDialogProps {
-	password: string
-	encryptionError: string | null
-	encryptionLoading: boolean
-	onPasswordChange: (value: string) => void
-	onBack?: () => void
-	onSubmit: () => void
-}
-
-interface KeySetupDialogProps {
-	password: string
-	encryptionError: string | null
-	encryptionLoading: boolean
-	onPasswordChange: (value: string) => void
-	onBack: () => void
-	onSubmit: () => void
-}
-
-interface WaitingForAccessDialogProps {
-	hasPasswordKey: boolean
-	encryptionError: string | null
-	onCheck: () => Promise<void>
-	onUsePassword: () => void
-}
-
-interface LinkedRemoteVaultViewProps {
-	linkedVault: RemoteVaultInfo
-	onUnlink: () => void
-}
-
-interface CreateRemoteVaultViewProps {
-	newVaultName: string
-	newVaultDescription: string
-	onNameChange: (value: string) => void
-	onDescriptionChange: (value: string) => void
-	onCancel: () => void
-	onCreate: () => void
-}
-
-interface RemoteVaultPickerViewProps {
-	remoteVaults: RemoteVaultInfo[]
-	loading: boolean
-	encryptionLoading: boolean
-	onSelectVault: (remoteVaultId: string) => void
-	onCreateClick: () => void
-}
-
-interface VaultLinkDraft {
-	showCreate: boolean
-	newVaultName: string
-	newVaultDescription: string
-	encryptionStep: EncryptionStep
-	password: string
-	hasPasswordKey: boolean
-	recoveryKey: string | null
-	encryptionError: string | null
-	encryptionLoading: boolean
-}
-
-function createVaultLinkDraft(unlockMode: boolean | undefined, linkedVaultId: string | null) {
-	return {
-		showCreate: false,
-		newVaultName: "",
-		newVaultDescription: "",
-		encryptionStep: unlockMode && linkedVaultId ? "checking" : "none",
-		password: "",
-		hasPasswordKey: false,
-		recoveryKey: null,
-		encryptionError: null,
-		encryptionLoading: false,
-	} satisfies VaultLinkDraft
-}
-
-function UnlockPasswordDialog({
-	password,
-	encryptionError,
-	encryptionLoading,
-	onPasswordChange,
-	onBack,
-	onSubmit,
-}: UnlockPasswordDialogProps) {
-	return (
-		<DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-[420px]">
-			<DialogHeader className="dialog-chrome-header">
-				<DialogTitle className="flex items-center gap-2">
-					<Lock size={16} />
-					Unlock with vault password
-				</DialogTitle>
-				<DialogDescription>
-					This vault still has a vault password from before keys were shared automatically.
-				</DialogDescription>
-			</DialogHeader>
-			<DialogBody className="dialog-chrome-body flex flex-col gap-3">
-				<div>
-					<Label htmlFor="unlock-password" className="text-xs">
-						Password
-					</Label>
-					<Input
-						id="unlock-password"
-						type="password"
-						className="mt-1"
-						value={password}
-						onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-							onPasswordChange(event.target.value)
-						}
-						onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) =>
-							event.key === "Enter" && onSubmit()
-						}
-						autoFocus
-					/>
-				</div>
-				{encryptionError && (
-					<p className="text-xs text-status-error-foreground">{encryptionError}</p>
-				)}
-			</DialogBody>
-			<DialogFooter className="dialog-chrome-footer">
-				{onBack ? (
-					<Button variant="ghost" size="sm" className="text-xs" onClick={onBack}>
-						Back
-					</Button>
-				) : (
-					<DialogClose asChild>
-						<Button variant="ghost" size="sm" className="text-xs">
-							Cancel
-						</Button>
-					</DialogClose>
-				)}
-				<Button
-					variant="default"
-					size="sm"
-					className="text-xs"
-					onClick={onSubmit}
-					disabled={!password || encryptionLoading}
-				>
-					{encryptionLoading ? "Unlocking..." : "Unlock"}
-				</Button>
-			</DialogFooter>
-		</DialogContent>
-	)
-}
-
-function KeySetupDialog({
-	password,
-	encryptionError,
-	encryptionLoading,
-	onPasswordChange,
-	onBack,
-	onSubmit,
-}: KeySetupDialogProps) {
-	return (
-		<DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-[420px]">
-			<DialogHeader className="dialog-chrome-header">
-				<DialogTitle className="flex items-center gap-2">
-					<KeyRound size={16} />
-					Unlock your encryption keys
-				</DialogTitle>
-				<DialogDescription>
-					Enter your account password once on this device. Vault keys are then shared with you
-					automatically, without a separate vault password.
-				</DialogDescription>
-			</DialogHeader>
-			<DialogBody className="dialog-chrome-body flex flex-col gap-3">
-				<div>
-					<Label htmlFor="key-setup-password" className="text-xs">
-						Account password
-					</Label>
-					<Input
-						id="key-setup-password"
-						type="password"
-						autoComplete="current-password"
-						className="mt-1"
-						value={password}
-						onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-							onPasswordChange(event.target.value)
-						}
-						onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) =>
-							event.key === "Enter" && onSubmit()
-						}
-						autoFocus
-					/>
-				</div>
-				{encryptionError && (
-					<p className="text-xs text-status-error-foreground">{encryptionError}</p>
-				)}
-			</DialogBody>
-			<DialogFooter className="dialog-chrome-footer">
-				<Button variant="ghost" size="sm" className="text-xs" onClick={onBack}>
-					Back
-				</Button>
-				<Button
-					variant="default"
-					size="sm"
-					className="text-xs"
-					onClick={onSubmit}
-					disabled={password.length < 8 || encryptionLoading}
-				>
-					{encryptionLoading ? "Unlocking..." : "Continue"}
-				</Button>
-			</DialogFooter>
-		</DialogContent>
-	)
-}
-
-function WaitingForAccessDialog({
-	hasPasswordKey,
-	encryptionError,
-	onCheck,
-	onUsePassword,
-}: WaitingForAccessDialogProps) {
-	const [checking, setChecking] = useState(false)
-	const check = useEffectEvent(() => {
-		void onCheck()
-	})
-
-	useEffect(() => {
-		const interval = setInterval(check, VAULT_KEY_POLL_MS)
-		return () => clearInterval(interval)
-	}, [])
-
-	const checkNow = async () => {
-		setChecking(true)
-		try {
-			await onCheck()
-		} finally {
-			setChecking(false)
-		}
-	}
-
-	return (
-		<DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-[440px]">
-			<DialogHeader className="dialog-chrome-header">
-				<DialogTitle className="flex items-center gap-2">
-					<Hourglass size={16} />
-					Waiting for an admin to grant access
-				</DialogTitle>
-				<DialogDescription>
-					This vault is linked. Its key is shared with you automatically as soon as a vault admin's
-					device is online, and sync starts on its own. You can close this window.
-				</DialogDescription>
-			</DialogHeader>
-			<DialogBody className="dialog-chrome-body flex flex-col gap-3">
-				<div className="flex items-center gap-2 text-xs text-muted-foreground">
-					<Spinner className="size-3" />
-					Checking for access
-				</div>
-				{encryptionError && (
-					<p className="text-xs text-status-error-foreground">{encryptionError}</p>
-				)}
-			</DialogBody>
-			<DialogFooter className="dialog-chrome-footer">
-				{hasPasswordKey && (
-					<Button variant="ghost" size="sm" className="text-xs" onClick={onUsePassword}>
-						Unlock with vault password
-					</Button>
-				)}
-				<Button
-					variant="secondary"
-					size="sm"
-					className="text-xs"
-					disabled={checking}
-					onClick={() => void checkNow()}
-				>
-					Check now
-				</Button>
-				<DialogClose asChild>
-					<Button size="sm" className="text-xs">
-						Close
-					</Button>
-				</DialogClose>
-			</DialogFooter>
-		</DialogContent>
-	)
-}
-
-function LinkedRemoteVaultView({ linkedVault, onUnlink }: LinkedRemoteVaultViewProps) {
-	return (
-		<div className="flex flex-col gap-3">
-			<div className="flex items-center gap-3 rounded-[8px] bg-muted/35 p-3">
-				<Cloud size={18} className="shrink-0" />
-				<div className="flex flex-col min-w-0 flex-1">
-					<span className="text-sm font-medium truncate">{linkedVault.name}</span>
-					{linkedVault.description && (
-						<span className="text-[10px] text-text-muted truncate">{linkedVault.description}</span>
-					)}
-				</div>
-				<Button
-					variant="ghost"
-					size="sm"
-					onClick={onUnlink}
-					className="h-6 px-2 text-xs text-status-error-foreground hover:text-status-error"
-				>
-					<Unlink size={12} />
-					Unlink
-				</Button>
-			</div>
-		</div>
-	)
-}
-
-function CreateRemoteVaultView({
-	newVaultName,
-	newVaultDescription,
-	onNameChange,
-	onDescriptionChange,
-	onCancel,
-	onCreate,
-}: CreateRemoteVaultViewProps) {
-	return (
-		<div className="flex flex-col gap-3">
-			<div>
-				<Label htmlFor="remote-vault-name" className="text-xs">
-					Name
-				</Label>
-				<Input
-					id="remote-vault-name"
-					className="mt-1"
-					placeholder="My Vault"
-					value={newVaultName}
-					onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-						onNameChange(event.target.value)
-					}
-				/>
-			</div>
-			<div>
-				<Label htmlFor="remote-vault-desc" className="text-xs">
-					Description (optional)
-				</Label>
-				<Input
-					id="remote-vault-desc"
-					className="mt-1"
-					placeholder="A brief description"
-					value={newVaultDescription}
-					onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-						onDescriptionChange(event.target.value)
-					}
-				/>
-			</div>
-			<div className="flex items-center justify-end gap-2">
-				<Button variant="ghost" size="sm" onClick={onCancel}>
-					Cancel
-				</Button>
-				<Button variant="default" size="sm" onClick={onCreate}>
-					Create & Link
-				</Button>
-			</div>
-		</div>
-	)
-}
-
-function RemoteVaultPickerView({
-	remoteVaults,
-	loading,
-	encryptionLoading,
-	onSelectVault,
-	onCreateClick,
-}: RemoteVaultPickerViewProps) {
-	return (
-		<div className="flex flex-col gap-3">
-			{loading || encryptionLoading ? (
-				<div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
-					<Spinner className="size-4" />
-					<span>{encryptionLoading ? "Checking encryption..." : "Loading remote vaults..."}</span>
-				</div>
-			) : remoteVaults.length === 0 ? (
-				<div className="flex flex-col items-center gap-2 py-6 text-center">
-					<Cloud size={20} className="text-muted-foreground" />
-					<p className="text-sm text-muted-foreground">
-						No remote vaults found. Create one to start syncing.
-					</p>
-				</div>
-			) : (
-				<div className="flex max-h-[220px] flex-col gap-1 overflow-y-auto">
-					{remoteVaults.map((remoteVault) => (
-						<Button
-							key={remoteVault.id}
-							variant="ghost"
-							className="h-auto min-h-10 w-full justify-start gap-3 rounded-[8px] p-2 text-left whitespace-normal hover:bg-muted/55 active:scale-100 active:brightness-100"
-							onClick={() => onSelectVault(remoteVault.id)}
-						>
-							<Cloud size={14} className="text-text-muted shrink-0" />
-							<div className="flex flex-col min-w-0 flex-1">
-								<span className="text-xs font-medium truncate">{remoteVault.name}</span>
-								{remoteVault.description && (
-									<span className="text-[10px] text-text-muted truncate">
-										{remoteVault.description}
-									</span>
-								)}
-							</div>
-							{(remoteVault.memberCount ?? 0) > 1 && (
-								<span className="flex items-center gap-1 text-[10px] text-text-muted shrink-0">
-									<Users size={10} />
-									{remoteVault.memberCount}
-								</span>
-							)}
-							<Link size={12} className="text-text-muted shrink-0" />
-						</Button>
-					))}
-				</div>
-			)}
-			<Button variant="ghost" size="sm" onClick={onCreateClick} className="self-start">
-				<Plus size={12} />
-				Create new remote vault
-			</Button>
-		</div>
-	)
-}
-
-function SubscriptionBlockedView({
-	message,
-	loading,
-	onManagePlan,
-}: {
-	message: string
-	loading: boolean
-	onManagePlan: () => void
-}) {
-	return (
-		<Alert variant="destructive">
-			<CreditCard />
-			<AlertTitle>Plan required</AlertTitle>
-			<AlertDescription>
-				<div className="flex flex-col gap-3">
-					<p>{message}</p>
-					<Button size="sm" className="w-fit" onClick={onManagePlan} disabled={loading}>
-						{loading ? "Opening plan page" : "Manage plan"}
-					</Button>
-				</div>
-			</AlertDescription>
-		</Alert>
-	)
-}
+type LinkView = "pick" | "key" | "done"
 
 export function VaultLinkModal({ open, onOpenChange, unlockMode }: VaultLinkModalProps) {
 	const linkedVaultId = useRemoteVaultStore((state) => state.linkedVaultId)
@@ -497,361 +50,191 @@ export function VaultLinkModal({ open, onOpenChange, unlockMode }: VaultLinkModa
 	)
 }
 
-interface VaultKeyFlowOptions {
-	unlockMode: boolean | undefined
-	draft: VaultLinkDraft
-	updateDraft: (nextDraft: Partial<VaultLinkDraft>) => void
-	onOpenChange: (open: boolean) => void
-}
-
-function useVaultKeyFlow({ unlockMode, draft, updateDraft, onOpenChange }: VaultKeyFlowOptions) {
-	const vaultPath = useVaultStore((state) => state.vault?.path ?? null)
-	const linkedVaultId = useRemoteVaultStore((state) => state.linkedVaultId)
-	const linkVault = useRemoteVaultStore((state) => state.linkVault)
-	const checkVaultEncryption = useSyncStore((state) => state.checkVaultEncryption)
-	const createVaultKey = useSyncStore((state) => state.createVaultKey)
-	const requestVaultKey = useSyncStore((state) => state.requestVaultKey)
-	const unlockVaultKey = useSyncStore((state) => state.unlockVaultKey)
-	const loadKeyStatus = useAccountStore((state) => state.loadKeyStatus)
-	const setupKeys = useAccountStore((state) => state.setupKeys)
-	const pendingVaultIdRef = useRef<string | null>(unlockMode ? linkedVaultId : null)
-	const { password } = draft
-
-	const reset = () => {
-		pendingVaultIdRef.current = null
-		updateDraft({ encryptionStep: "none", password: "", encryptionError: null })
-	}
-
-	const finishLink = async (remoteVaultId: string) => {
-		if (!unlockMode && vaultPath) await linkVault(vaultPath, remoteVaultId)
-		else if (useSyncStore.getState().vekRequired) await useSyncStore.getState().restartSync()
-		onOpenChange(false)
-	}
-
-	const resolveVaultKey = async (remoteVaultId: string) => {
-		const status = await checkVaultEncryption(remoteVaultId)
-		if (status.hasLocalKey) return finishLink(remoteVaultId)
-		if (!status.hasKey) {
-			await createVaultKey(remoteVaultId)
-			return finishLink(remoteVaultId)
-		}
-		const result = await requestVaultKey(remoteVaultId)
-		if (result === "granted") return finishLink(remoteVaultId)
-		if (!unlockMode && vaultPath) await linkVault(vaultPath, remoteVaultId)
-		updateDraft({ encryptionStep: "waiting", hasPasswordKey: status.hasPasswordKey })
-	}
-
-	const runStep = async (task: () => Promise<void>, failureStep?: EncryptionStep) => {
-		updateDraft({ encryptionLoading: true, encryptionError: null })
-		try {
-			await task()
-		} catch (e) {
-			updateDraft({
-				encryptionError: String(e),
-				...(failureStep ? { encryptionStep: failureStep } : {}),
-			})
-		} finally {
-			updateDraft({ encryptionLoading: false })
-		}
-	}
-
-	const link = (remoteVaultId: string) => {
-		if (!vaultPath) return Promise.resolve()
-		pendingVaultIdRef.current = remoteVaultId
-		return runStep(
-			async () => {
-				const keyStatus = await loadKeyStatus()
-				if (keyStatus && (keyStatus.kdfVersion === 0 || !keyStatus.hasLocalIdentity)) {
-					updateDraft({ encryptionStep: "setup-keys" })
-					return
-				}
-				await resolveVaultKey(remoteVaultId)
-			},
-			unlockMode ? "waiting" : "none",
-		)
-	}
-
-	const startUnlockCheck = useEffectEvent(() => {
-		if (unlockMode && linkedVaultId) void link(linkedVaultId)
-	})
-
-	useEffect(() => {
-		startUnlockCheck()
-	}, [])
-
-	const checkAccess = async () => {
-		const pendingVaultId = pendingVaultIdRef.current
-		if (!pendingVaultId) return
-		try {
-			const result = await requestVaultKey(pendingVaultId)
-			if (result === "granted") await finishLink(pendingVaultId)
-		} catch (e) {
-			updateDraft({ encryptionError: String(e) })
-		}
-	}
-
-	const submitKeySetup = () => {
-		const pendingVaultId = pendingVaultIdRef.current
-		if (!pendingVaultId || password.length < 8) return Promise.resolve()
-		return runStep(async () => {
-			const result = await setupKeys(password)
-			updateDraft({ password: "" })
-			if (result.recoveryKey) {
-				updateDraft({ encryptionStep: "recovery-key", recoveryKey: result.recoveryKey })
-				return
-			}
-			await resolveVaultKey(pendingVaultId)
-		})
-	}
-
-	const confirmRecoveryKeySaved = () => {
-		const pendingVaultId = pendingVaultIdRef.current
-		updateDraft({ recoveryKey: null, encryptionStep: "checking" })
-		if (!pendingVaultId) return Promise.resolve()
-		return runStep(() => resolveVaultKey(pendingVaultId), "waiting")
-	}
-
-	const submitVaultPassword = async () => {
-		const pendingVaultId = pendingVaultIdRef.current
-		if (!pendingVaultId || !password || !vaultPath) return
-		updateDraft({ encryptionLoading: true, encryptionError: null })
-		try {
-			await unlockVaultKey(pendingVaultId, password)
-			await finishLink(pendingVaultId)
-		} catch (e) {
-			const msg = String(e)
-			updateDraft({ encryptionError: msg.includes("Wrong password") ? "Wrong password" : msg })
-		} finally {
-			updateDraft({ encryptionLoading: false })
-		}
-	}
-
-	return {
-		reset,
-		link,
-		checkAccess,
-		submitKeySetup,
-		confirmRecoveryKeySaved,
-		submitVaultPassword,
-	}
-}
-
-type VaultKeyFlow = ReturnType<typeof useVaultKeyFlow>
-
-interface VaultKeyStepDialogProps {
-	draft: VaultLinkDraft
-	flow: VaultKeyFlow
-	updateDraft: (nextDraft: Partial<VaultLinkDraft>) => void
-}
-
-function VaultKeyStepDialog({ draft, flow, updateDraft }: VaultKeyStepDialogProps) {
-	const { encryptionStep, password, encryptionError, encryptionLoading, recoveryKey } = draft
-	const changePassword = (nextPassword: string) => updateDraft({ password: nextPassword })
-
-	switch (encryptionStep) {
-		case "enter-password":
-			return (
-				<UnlockPasswordDialog
-					password={password}
-					encryptionError={encryptionError}
-					encryptionLoading={encryptionLoading}
-					onPasswordChange={changePassword}
-					onBack={() => updateDraft({ encryptionStep: "waiting", encryptionError: null })}
-					onSubmit={flow.submitVaultPassword}
-				/>
-			)
-		case "setup-keys":
-			return (
-				<KeySetupDialog
-					password={password}
-					encryptionError={encryptionError}
-					encryptionLoading={encryptionLoading}
-					onPasswordChange={changePassword}
-					onBack={flow.reset}
-					onSubmit={() => void flow.submitKeySetup()}
-				/>
-			)
-		case "recovery-key":
-			return recoveryKey ? (
-				<DialogContent
-					className="gap-0 overflow-hidden p-0 sm:max-w-[460px]"
-					showCloseButton={false}
-				>
-					<RecoveryKeyPanel
-						recoveryKey={recoveryKey}
-						confirmLabel="Continue"
-						onDone={() => void flow.confirmRecoveryKeySaved()}
-					/>
-				</DialogContent>
-			) : null
-		case "waiting":
-			return (
-				<WaitingForAccessDialog
-					hasPasswordKey={draft.hasPasswordKey}
-					encryptionError={encryptionError}
-					onCheck={flow.checkAccess}
-					onUsePassword={() =>
-						updateDraft({ encryptionStep: "enter-password", encryptionError: null })
-					}
-				/>
-			)
-		case "checking":
-			return (
-				<DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-[420px]">
-					<DialogHeader className="dialog-chrome-header">
-						<DialogTitle className="flex items-center gap-2">
-							<Lock size={16} />
-							Checking vault access
-						</DialogTitle>
-						<DialogDescription>Looking for the key to this vault.</DialogDescription>
-					</DialogHeader>
-					<DialogBody className="dialog-chrome-body flex items-center justify-center py-6">
-						<Spinner className="size-4" />
-					</DialogBody>
-				</DialogContent>
-			)
-		case "none":
-			return null
-	}
-}
-
 function VaultLinkModalContent({
 	onOpenChange,
 	unlockMode,
 }: Pick<VaultLinkModalProps, "onOpenChange" | "unlockMode">) {
 	const vault = useVaultStore((state) => state.vault)
-	const remoteVaults = useRemoteVaultStore((state) => state.remoteVaults)
 	const linkedVaultId = useRemoteVaultStore((state) => state.linkedVaultId)
-	const loading = useRemoteVaultStore((state) => state.loading)
-	const error = useRemoteVaultStore((state) => state.error)
-	const fetchRemoteVaults = useRemoteVaultStore((state) => state.fetchRemoteVaults)
 	const createRemoteVault = useRemoteVaultStore((state) => state.createRemoteVault)
-	const unlinkVault = useRemoteVaultStore((state) => state.unlinkVault)
-	const loadLink = useRemoteVaultStore((state) => state.loadLink)
-	const syncConfig = useRemoteVaultStore((state) => state.syncConfig)
-	const subscriptionBlock = useSubscriptionStore((state) => state.block)
-	const subscriptionLoading = useSubscriptionStore((state) => state.loading)
-	const refreshSubscriptionStatus = useSubscriptionStore((state) => state.refreshStatus)
-	const openBillingPage = useSubscriptionStore((state) => state.openBillingPage)
-
-	const [draft, setDraft] = useState<VaultLinkDraft>(() =>
-		createVaultLinkDraft(unlockMode, linkedVaultId),
+	const remotes = useAddVaultRemotes()
+	const vaultName = vault?.name ?? "this vault"
+	const [view, setView] = useState<LinkView>(unlockMode ? "key" : "pick")
+	const [selected, setSelected] = useState<string | null>(linkedVaultId)
+	const [newRemoteName, setNewRemoteName] = useState(vaultName)
+	const [targetName, setTargetName] = useState("")
+	const [busy, setBusy] = useState(false)
+	const [error, setError] = useState<string | null>(null)
+	const [keyDraft, setKeyDraft] = useState<VaultKeyDraft>(() =>
+		createVaultKeyDraft(unlockMode && linkedVaultId ? "checking" : "none"),
 	)
-	const {
-		showCreate,
-		newVaultName,
-		newVaultDescription,
-		encryptionStep,
-		encryptionError,
-		encryptionLoading,
-	} = draft
+	const updateKeyDraft = (next: Partial<VaultKeyDraft>) =>
+		setKeyDraft((current) => ({ ...current, ...next }))
+	const close = () => onOpenChange(false)
 
-	const updateDraft = (nextDraft: Partial<VaultLinkDraft>) => {
-		setDraft((current) => ({ ...current, ...nextDraft }))
-	}
-	const flow = useVaultKeyFlow({ unlockMode, draft, updateDraft, onOpenChange })
+	const flow = useVaultKeyFlow({
+		vaultPath: vault?.path ?? null,
+		unlockMode,
+		initialRemoteVaultId: linkedVaultId,
+		draft: keyDraft,
+		updateDraft: updateKeyDraft,
+		onLinked: () => {
+			if (unlockMode) close()
+			else setView("done")
+		},
+	})
 
-	useEffect(() => {
-		if (unlockMode) return
-		fetchRemoteVaults()
-		if (vault?.path) {
-			loadLink(vault.path)
-		}
-	}, [vault?.path, fetchRemoteVaults, loadLink, unlockMode])
+	const options = remotes.options.map((option) =>
+		option.takenBy?.entry.path === vault?.path ? { ...option, takenBy: null } : option,
+	)
+	const isNew = selected === NEW_REMOTE
+	const selectedName = isNew
+		? newRemoteName.trim()
+		: (options.find((option) => option.remote.id === selected)?.remote.name ?? "")
+	const linked = Boolean(linkedVaultId)
+	const nameForKey = targetName || selectedName || vaultName
 
-	useEffect(() => {
-		if (syncConfig.selfHosted) return
-		void refreshSubscriptionStatus(resolveSyncServerUrl(syncConfig)).catch(() => {})
-	}, [refreshSubscriptionStatus, syncConfig])
-
-	const handleUnlink = async () => {
-		if (!vault?.path) return
-		const confirmed = await getPlatform().dialog.showConfirm({
-			title: "Unlink vault",
-			message: "Are you sure you want to unlink this vault from remote sync?",
-			destructive: true,
-			confirmLabel: "Unlink",
-		})
-		if (!confirmed) return
+	const startLink = async () => {
+		if (!selected) return
+		setBusy(true)
+		setError(null)
 		try {
-			await unlinkVault(vault.path)
-		} catch (unlinkError) {
-			updateDraft({ encryptionError: String(unlinkError) })
+			let remoteVaultId = selected
+			if (remoteVaultId === NEW_REMOTE) {
+				const created = await createRemoteVault(newRemoteName.trim(), null)
+				remoteVaultId = created.id
+				setSelected(created.id)
+			}
+			setTargetName(selectedName)
+			setView("key")
+			await flow.link(remoteVaultId)
+		} catch (linkError) {
+			setError(linkError instanceof Error ? linkError.message : String(linkError))
+		} finally {
+			setBusy(false)
 		}
 	}
 
-	const handleCreate = async () => {
-		if (!newVaultName.trim() || !vault?.path) return
-		try {
-			const created = await createRemoteVault(
-				newVaultName.trim(),
-				newVaultDescription.trim() || null,
+	if (view === "key") {
+		if (keyDraft.encryptionStep === "none") {
+			return (
+				<FlowDialogContent className="sm:max-w-[500px]" aria-describedby={undefined}>
+					<FlowHeader title={`Couldn’t link ${nameForKey}`}>
+						<FlowProgressBars total={3} current={1} />
+					</FlowHeader>
+					<FlowBody>
+						<FlowError>{keyDraft.encryptionError ?? error ?? "Something went wrong."}</FlowError>
+					</FlowBody>
+					<FlowFooter
+						start={
+							<Button variant="ghost" onClick={() => setView("pick")}>
+								Back
+							</Button>
+						}
+					>
+						<Button onClick={close}>Close</Button>
+					</FlowFooter>
+				</FlowDialogContent>
 			)
-			await flow.link(created.id)
-		} catch (e) {
-			updateDraft({ encryptionError: String(e) })
 		}
+		return (
+			<FlowDialogContent className="sm:max-w-[500px]" aria-describedby={undefined}>
+				<VaultKeyStepView
+					draft={keyDraft}
+					flow={flow}
+					updateDraft={updateKeyDraft}
+					targetName={nameForKey}
+					progress={unlockMode ? null : <FlowProgressBars total={3} current={1} />}
+					onBack={
+						unlockMode
+							? undefined
+							: () => {
+									flow.reset()
+									setView("pick")
+								}
+					}
+					onClose={close}
+					submitLabel={isNew ? "Create & link" : "Unlock & link"}
+				/>
+			</FlowDialogContent>
+		)
 	}
 
-	const handleOpenBilling = () => {
-		void openBillingPage().catch(() => {})
-	}
-
-	const linkedVault = remoteVaults.find((v) => v.id === linkedVaultId)
-
-	if (encryptionStep !== "none") {
-		return <VaultKeyStepDialog draft={draft} flow={flow} updateDraft={updateDraft} />
+	if (view === "done") {
+		return (
+			<FlowDialogContent className="sm:max-w-[500px]" aria-describedby={undefined}>
+				<FlowHeader title="Linked" lead="You can change or stop this from Settings → Sync.">
+					<FlowProgressBars total={3} current={2} />
+				</FlowHeader>
+				<FlowBody>
+					<Item variant="muted">
+						<ItemMedia variant="icon" className="text-status-success-foreground">
+							<Check />
+						</ItemMedia>
+						<ItemContent>
+							<ItemTitle>
+								{vaultName} syncs with {nameForKey}
+							</ItemTitle>
+							<ItemDescription>First sync running. You can keep writing.</ItemDescription>
+						</ItemContent>
+					</Item>
+				</FlowBody>
+				<FlowFooter>
+					<Button onClick={close}>Done</Button>
+				</FlowFooter>
+			</FlowDialogContent>
+		)
 	}
 
 	return (
-		<DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-[500px]">
-			<DialogHeader className="dialog-chrome-header">
-				<DialogTitle>Link to Remote Vault</DialogTitle>
-				<DialogDescription>Link this local vault to a remote vault for syncing.</DialogDescription>
-			</DialogHeader>
-
-			<DialogBody className="dialog-chrome-body">
-				{linkedVaultId && linkedVault ? (
-					<LinkedRemoteVaultView linkedVault={linkedVault} onUnlink={handleUnlink} />
-				) : !syncConfig.selfHosted && subscriptionBlock ? (
-					<SubscriptionBlockedView
-						message={subscriptionBlock.message}
-						loading={subscriptionLoading}
-						onManagePlan={handleOpenBilling}
-					/>
-				) : showCreate ? (
-					<CreateRemoteVaultView
-						newVaultName={newVaultName}
-						newVaultDescription={newVaultDescription}
-						onNameChange={(nextName) => updateDraft({ newVaultName: nextName })}
-						onDescriptionChange={(nextDescription) =>
-							updateDraft({ newVaultDescription: nextDescription })
-						}
-						onCancel={() => updateDraft({ showCreate: false })}
-						onCreate={handleCreate}
-					/>
-				) : (
-					<RemoteVaultPickerView
-						remoteVaults={remoteVaults}
-						loading={loading}
-						encryptionLoading={encryptionLoading}
-						onSelectVault={(remoteVaultId) => void flow.link(remoteVaultId)}
-						onCreateClick={() => updateDraft({ showCreate: true })}
-					/>
-				)}
-
-				{(error || encryptionError) && (
-					<p className="mt-3 text-xs text-status-error-foreground">{encryptionError || error}</p>
-				)}
-			</DialogBody>
-
-			<DialogFooter className="dialog-chrome-footer">
-				<DialogClose asChild>
-					<Button variant="ghost" size="sm" className="text-xs">
-						Close
+		<FlowDialogContent className="sm:max-w-[500px]" aria-describedby={undefined}>
+			<FlowHeader
+				title={linked ? "Change remote vault" : `Sync “${vaultName}”`}
+				lead="Pick the remote vault this one syncs with."
+			>
+				<FlowProgressBars total={3} current={0} />
+			</FlowHeader>
+			<FlowBody>
+				<RemoteStep
+					authenticated={remotes.authenticated}
+					loading={remotes.loading}
+					locked={remotes.locked}
+					selfHosted={remotes.syncConfig.selfHosted}
+					serverLabel={remotes.serverLabel}
+					options={options}
+					selected={selected}
+					allowNew
+					newRemoteName={newRemoteName}
+					newRemoteTarget={remotes.syncConfig.selfHosted ? "your server" : CLOUD_SERVER_LABEL}
+					onSelect={setSelected}
+					onNewRemoteNameChange={setNewRemoteName}
+					onSeePlans={remotes.openBillingPage}
+					onSwitchServer={() => openSettings("sync-self-host")}
+					onSignIn={() => openSettings("sync-account")}
+				/>
+				<FlowError>{error}</FlowError>
+			</FlowBody>
+			<FlowFooter
+				start={
+					<Button variant="ghost" onClick={close} disabled={busy}>
+						Cancel
 					</Button>
-				</DialogClose>
-			</DialogFooter>
-		</DialogContent>
+				}
+			>
+				<Button
+					onClick={() => void startLink()}
+					disabled={
+						busy ||
+						remotes.locked ||
+						!selected ||
+						(selected === linkedVaultId && !isNew) ||
+						(isNew && !newRemoteName.trim())
+					}
+				>
+					{busy ? <Spinner className="size-3.5" /> : null}
+					Continue
+				</Button>
+			</FlowFooter>
+		</FlowDialogContent>
 	)
 }

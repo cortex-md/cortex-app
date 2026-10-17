@@ -13,7 +13,17 @@
   the X25519 identity there (no recovery key on web). KDF v0 accounts still send the raw password
   and are upgraded by the desktop app.
 - Landing sections live one-per-file in `src/features/landing/sections`; shared landing primitives
-  live in `src/features/landing/components`.
+  live in `src/features/landing/components`. Product pages follow the same pattern under
+  `src/features/product/<page>`, with shared mock frames in `src/features/product/shared`.
+- `SiteHeader` and `SiteFooter` are rendered once by `routes/__root.tsx`; pages never render their
+  own header, footer, or `<main>`.
+- Every route head goes through `createSeoHead`/`createPrivateSeoHead` (`src/seo/metadata.ts`) and
+  JSON-LD helpers in `src/seo/structuredData.ts`. Private routes are `noindex` and excluded from
+  `sitemap.xml`, which is the explicit route in `src/routes/sitemap[.]xml.ts`.
+- Track product events only through `trackEvent` in `src/lib/analytics.ts`; never send emails,
+  tokens, or vault ids.
+- `@cortex/web` may only depend on `@cortex/sync-api` and `@cortex/ui`; registry parsing lives in
+  `src/lib/registry`.
 - Import shared UI primitives by subpath, such as `@cortex/ui/button`. Do not import the package barrel.
 - Keep TanStack DevTools development-only and preserve server-side rendering and prerendering.
 - Keep `apps/web/biome.json` as a nested Biome config with `root: false` so the repository root
@@ -23,7 +33,8 @@
 
 - Cortex is local-first, open source, and based on plain Markdown files.
 - Describe sync as client-side encryption with encrypted blob storage. Do not make absolute security guarantees.
-- Do not claim a public download, license, or platform release unless the repository adds one.
+- The repository is AGPL-3.0-or-later (the `@cortex.md/api` plugin package is MIT). Do not claim a
+  public download or platform release that the GitHub Releases page does not have.
 - Present open source as collaborative product trust, not a repository showcase. Keep GitHub links discreet.
 - Keep Sync and Plugins as separate product stories: Sync explains ownership, encryption, history,
   and self-hosting; Plugins explains extension through a clear API example and practical benefits.
@@ -36,14 +47,17 @@
 
 ## Style
 
-- Use the macOS system font stack with `-apple-system`, `SF Pro Text`, and `SF Pro Display` first.
+- Use Geist (sans) and Geist Mono, self-hosted via Fontsource (`@fontsource-variable/geist`,
+  `@fontsource-variable/geist-mono`). Never load fonts from Google Fonts in production.
 - Preserve the paper, ink, and amber editorial direction.
 - Use Tailwind utilities for landing layout and component styling. `src/styles.css` is reserved for
   Tailwind imports, sources, theme mappings, CSS variables, and base element defaults.
 - Do not add semantic layout classes or `@apply` back into `src/styles.css`.
-- Product feature cards must use the shared `FeatureCard`, which wraps `@cortex/ui/card`.
-- Landing components must not use `font-mono` or `font-display`; use the system font stack and
-  create hierarchy with size, weight, color, and spacing.
+- Use `font-mono` (Geist Mono) only for code, terminal output, permission keys, and other technical
+  identifiers. Everything else uses Geist and creates hierarchy with size, weight, color, and spacing.
+- Site tokens (`--site-*`, `bg-cell`, `bg-sep`, `shadow-ring`, `shadow-lift`) mirror the design canvas;
+  never hardcode colors outside them except real theme palettes inside Marketplace screenshots.
+- Breakpoints follow the canvas: tablet at `max-[1000px]:` and phone at `max-sm:` (640px).
 - Section headings should not use numbered markers, eyebrow tags, or labels above the title unless
   the content is an actual ordered process.
 - FAQ interactions use the standard shared accordion trigger appearance; collapse animation belongs

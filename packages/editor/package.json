@@ -1,5 +1,6 @@
 {
 	"name": "@cortex/editor",
+	"license": "AGPL-3.0-or-later",
 	"private": true,
 	"version": "0.1.0",
 	"type": "module",
@@ -17,9 +18,11 @@
 		"./extensions": "./src/extensions.ts",
 		"./folding": "./src/folding.ts",
 		"./folding-commands": "./src/foldingCommands.ts",
+		"./inline-tags": "./src/inlineTags.ts",
 		"./keymap": "./src/markdownKeymap.ts",
 		"./markdown-format-commands": "./src/markdownFormatCommands.ts",
 		"./mentions": "./src/mentions.ts",
+		"./mermaid": "./src/mermaidRenderer.ts",
 		"./navigation-commands": "./src/navigationCommands.ts",
 		"./note-assets": "./src/noteAssets.ts",
 		"./reading-view": "./src/ReadingView.tsx",
@@ -56,14 +59,15 @@
 		"@lezer/highlight": "^1.2.1",
 		"@lezer/markdown": "^1.4.2",
 		"@replit/codemirror-vim": "6.3.0",
+		"dompurify": "^3.4.17",
 		"katex": "^0.17.0",
+		"mermaid": "^11.16.0",
 		"y-codemirror.next": "0.3.6",
 		"y-protocols": "1.0.7",
 		"yjs": "13.6.33"
 	},
 	"devDependencies": {
 		"@types/react": "^19.1.8",
-		"react": "^19.1.0",
-		"typescript": "~5.8.3"
+		"react": "^19.1.0"
 	}
 }

@@ -2,28 +2,27 @@ import type { AlertDialogOptions, ConfirmDialogOptions } from "./interfaces/Dial
 
 export const VAULT_CONFIG_DIR = ".cortex"
 
+const VAULT_CACHE_DIR = `${VAULT_CONFIG_DIR}/cache`
+
 export const VAULT_FILES = {
 	appSettings: `${VAULT_CONFIG_DIR}/app.json`,
 	bookmarks: `${VAULT_CONFIG_DIR}/bookmarks.json`,
+	cache: VAULT_CACHE_DIR,
 	comments: `${VAULT_CONFIG_DIR}/comments`,
-	databaseRows: `${VAULT_CONFIG_DIR}/database-rows`,
-	linkIndex: `${VAULT_CONFIG_DIR}/links-index.json`,
+	databaseRows: `${VAULT_CACHE_DIR}/database-rows`,
+	history: `${VAULT_CONFIG_DIR}/history`,
+	localState: `${VAULT_CONFIG_DIR}/local.json`,
+	notesIndex: `${VAULT_CACHE_DIR}/notes-index.json`,
+	pluginsSyncManifest: `${VAULT_CONFIG_DIR}/plugins.sync.json`,
 	propertySchema: `${VAULT_CONFIG_DIR}/schema/properties.json`,
-	searchHistory: `${VAULT_CONFIG_DIR}/search-history.json`,
-	searchIndex: `${VAULT_CONFIG_DIR}/search-index.json`,
-	syncConfig: `${VAULT_CONFIG_DIR}/sync-config.json`,
+	searchIndex: `${VAULT_CACHE_DIR}/search-index.json`,
 	syncDb: `${VAULT_CONFIG_DIR}/sync.db`,
-	syncPlugins: `${VAULT_CONFIG_DIR}/sync-plugins.json`,
-	syncPreferences: `${VAULT_CONFIG_DIR}/sync-preferences.json`,
-	syncThemes: `${VAULT_CONFIG_DIR}/sync-themes.json`,
-	tagColors: `${VAULT_CONFIG_DIR}/tags.json`,
-	tagIndex: `${VAULT_CONFIG_DIR}/tags-index.json`,
+	syncState: `${VAULT_CONFIG_DIR}/sync.json`,
 	taskInbox: `${VAULT_CONFIG_DIR}/inbox.md`,
-	taskIndex: `${VAULT_CONFIG_DIR}/tasks-index.json`,
 	templates: `${VAULT_CONFIG_DIR}/templates`,
 	themes: `${VAULT_CONFIG_DIR}/themes`,
-	vaultId: `${VAULT_CONFIG_DIR}/vault-id.json`,
-	vaultMetadata: `${VAULT_CONFIG_DIR}/vault-metadata.json`,
+	themesSyncManifest: `${VAULT_CONFIG_DIR}/themes.sync.json`,
+	vault: `${VAULT_CONFIG_DIR}/vault.json`,
 	workspace: `${VAULT_CONFIG_DIR}/workspace.json`,
 } as const
 
@@ -73,6 +72,88 @@ export function isMarkdownPath(path: string): boolean {
 
 export function isPdfPath(path: string): boolean {
 	return path.toLocaleLowerCase().endsWith(".pdf")
+}
+
+const IMAGE_EXTENSIONS = new Set([
+	"png",
+	"jpg",
+	"jpeg",
+	"gif",
+	"webp",
+	"avif",
+	"bmp",
+	"tif",
+	"tiff",
+	"heic",
+	"heif",
+	"ico",
+	"svg",
+])
+
+export type FileKind = "note" | "pdf" | "image" | "other"
+
+export function isImagePath(path: string): boolean {
+	return IMAGE_EXTENSIONS.has(getExtension(path))
+}
+
+export function getFileKind(path: string): FileKind {
+	if (isMarkdownPath(path)) return "note"
+	if (isPdfPath(path)) return "pdf"
+	if (isImagePath(path)) return "image"
+	return "other"
+}
+
+const COMBINING_MARKS = /\p{M}+/gu
+const DIGIT_RUN = /\d+/g
+const LEADING_ZEROS = /^0+(?=\d)/u
+const SORT_KEY_CACHE_LIMIT = 100_000
+const sortKeyCache = new Map<string, string>()
+
+function encodeDigitRun(digits: string): string {
+	const value = digits.replace(LEADING_ZEROS, "")
+	return `${String.fromCharCode(0x30 + Math.min(value.length, 74))}${value}`
+}
+
+function buildFileNameSortKey(name: string): string {
+	let ascii = true
+	let digits = false
+	for (let index = 0; index < name.length; index++) {
+		const code = name.charCodeAt(index)
+		if (code > 0x7f) ascii = false
+		else if (code >= 0x30 && code <= 0x39) digits = true
+	}
+	const folded = ascii
+		? name.toLowerCase()
+		: name.normalize("NFKD").replace(COMBINING_MARKS, "").toLocaleLowerCase()
+	return digits || !ascii ? folded.replace(DIGIT_RUN, encodeDigitRun) : folded
+}
+
+export function getFileNameSortKey(name: string): string {
+	const cached = sortKeyCache.get(name)
+	if (cached !== undefined) return cached
+	const key = buildFileNameSortKey(name)
+	if (sortKeyCache.size >= SORT_KEY_CACHE_LIMIT) sortKeyCache.clear()
+	sortKeyCache.set(name, key)
+	return key
+}
+
+export function compareFileSortKeys(
+	left: { key: string; name: string; isDir: boolean },
+	right: { key: string; name: string; isDir: boolean },
+): number {
+	if (left.isDir !== right.isDir) return left.isDir ? -1 : 1
+	if (left.key !== right.key) return left.key < right.key ? -1 : 1
+	return left.name < right.name ? -1 : left.name > right.name ? 1 : 0
+}
+
+export function compareFileEntryNames(
+	left: { name: string; isDir: boolean },
+	right: { name: string; isDir: boolean },
+): number {
+	return compareFileSortKeys(
+		{ key: getFileNameSortKey(left.name), name: left.name, isDir: left.isDir },
+		{ key: getFileNameSortKey(right.name), name: right.name, isDir: right.isDir },
+	)
 }
 
 export function stripMarkdownExtension(fileName: string): string {

@@ -1,7 +1,11 @@
 import type { PluginViewState } from "@cortex.md/api"
 import { reportPluginOperationError } from "../communityPlugins"
 import type { RegisteredView } from "../pluginStore"
-import type { PluginViewController, PluginViewSnapshot } from "../pluginViewController"
+import type {
+	ControlledPluginViewState,
+	PluginViewController,
+	PluginViewSnapshot,
+} from "../pluginViewController"
 import type {
 	JsonValue,
 	PluginInvokeRequest,
@@ -38,12 +42,14 @@ export function createRemoteViewController(
 	const listeners = new Set<() => void>()
 	let state = initialState
 	let snapshot: PluginViewSnapshot = { status: "loading" }
+	let controlledState: ControlledPluginViewState | undefined
 
 	function report(operation: string) {
 		return (error: unknown) => reportPluginOperationError(operation, pluginId, error)
 	}
 
 	function publish(nextState: PluginViewState, nextSnapshot: PluginViewSnapshot) {
+		if (nextState !== state) controlledState?.onStateChange?.(nextState)
 		state = nextState
 		snapshot = nextSnapshot
 		for (const listener of listeners) listener()
@@ -80,8 +86,12 @@ export function createRemoteViewController(
 			}
 		},
 		getState: () => state,
-		render: () => snapshot,
-		dispatch(action, payload) {
+		render(controlled) {
+			controlledState = controlled
+			return snapshot
+		},
+		dispatch(action, payload, controlled) {
+			if (controlled) controlledState = controlled
 			runtime
 				.invoke(pluginId, {
 					kind: "viewAction",

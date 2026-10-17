@@ -1,7 +1,12 @@
 import { validateVaultSchema } from "./definitions"
-import { invalidatePropertySuggestions } from "./discovery/suggestions"
+import { invalidatePropertySuggestionSchema } from "./discovery/suggestions"
 import { getPropertiesRuntime } from "./runtime"
-import { getVaultSchema } from "./schemaPersistence"
+import {
+	getVaultSchema,
+	getVaultSchemaPath,
+	invalidateVaultSchemaCache,
+	primeVaultSchemaCache,
+} from "./schemaPersistence"
 import type { VaultSchema } from "./types"
 
 export { getVaultSchema } from "./schemaPersistence"
@@ -11,7 +16,8 @@ type VaultSchemaChangeListener = () => void
 const vaultSchemaChangeListeners = new Map<string, Set<VaultSchemaChangeListener>>()
 
 export function notifyVaultSchemaChanged(vaultPath: string): void {
-	invalidatePropertySuggestions(vaultPath)
+	invalidateVaultSchemaCache(vaultPath)
+	invalidatePropertySuggestionSchema(vaultPath)
 	for (const listener of vaultSchemaChangeListeners.get(vaultPath) ?? []) listener()
 }
 
@@ -41,8 +47,9 @@ export async function updateVaultSchema(vaultPath: string, schema: VaultSchema):
 		}
 	}
 	await runtime.files.atomicWriteFile(
-		`${vaultPath}/.cortex/schema/properties.json`,
+		getVaultSchemaPath(vaultPath),
 		JSON.stringify(validated, null, "\t"),
 	)
 	notifyVaultSchemaChanged(vaultPath)
+	primeVaultSchemaCache(vaultPath, validated)
 }

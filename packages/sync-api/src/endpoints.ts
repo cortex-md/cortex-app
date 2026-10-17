@@ -19,6 +19,7 @@ import type {
 	VaultMember,
 	VaultOverview,
 } from "@cortex/platform"
+import { ACCOUNT_KDF } from "./accountKeys"
 import { type ApiClient, segment } from "./client"
 import { expectOk } from "./errors"
 import {
@@ -96,10 +97,10 @@ export interface PendingVaultKeyMember {
 }
 
 export const DEFAULT_KDF: KdfParameters = {
-	algorithm: "argon2id",
-	memoryKib: 65536,
-	iterations: 3,
-	parallelism: 1,
+	algorithm: ACCOUNT_KDF.algorithm,
+	memoryKib: ACCOUNT_KDF.memoryKib,
+	iterations: ACCOUNT_KDF.iterations,
+	parallelism: ACCOUNT_KDF.parallelism,
 }
 
 function numberOr(value: unknown, fallback: number): number {

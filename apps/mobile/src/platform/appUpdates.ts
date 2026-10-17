@@ -1,22 +1,28 @@
-import type { Platform } from "@cortex/platform"
+import type { AppUpdateStatus, Platform } from "@cortex/platform"
 
 import { getCurrentAppVersion } from "./app"
 
-async function getUnsupportedUpdateStatus() {
+async function getUnsupportedUpdateStatus(): Promise<AppUpdateStatus> {
 	return {
 		contentLength: null,
 		currentVersion: await getCurrentAppVersion(),
 		downloaded: 0,
+		installMode: "unsupported",
+		installOnQuit: false,
 		lastCheckedAt: null,
-		lastError: "Expo updates are not wired in Cortex Mobile yet",
+		lastError: null,
 		pendingUpdate: null,
-		state: "unsupported" as const,
+		state: "unsupported",
 	}
 }
 
 export const appUpdatesApi = {
 	checkForUpdate: getUnsupportedUpdateStatus,
+	configure: getUnsupportedUpdateStatus,
+	downloadUpdate: getUnsupportedUpdateStatus,
 	fetchChangelog: async () => null,
 	getStatus: getUnsupportedUpdateStatus,
-	installUpdate: getUnsupportedUpdateStatus,
+	installNow: getUnsupportedUpdateStatus,
+	onStatusChanged: () => () => {},
+	setInstallOnQuit: getUnsupportedUpdateStatus,
 } satisfies Platform["appUpdates"]

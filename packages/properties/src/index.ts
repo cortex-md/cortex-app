@@ -20,6 +20,7 @@ export {
 export { getObservedPropertyDefinitions } from "./discovery/observed"
 export {
 	getPropertyValueUsage,
+	invalidatePropertySuggestionSchema,
 	invalidatePropertySuggestions,
 	type PropertyValueUsage,
 	suggestProperties,
@@ -38,6 +39,16 @@ export {
 	setFrontmatterValue,
 } from "./frontmatter"
 export {
+	createEmptyNotePropertiesSnapshot,
+	type NotePropertiesPanelInput,
+	type NotePropertiesRefreshHandlers,
+	refreshNotePropertiesSnapshot,
+	schemaWithDuplicatedProperty,
+	schemaWithoutProperty,
+	schemaWithRegisteredProperty,
+	schemaWithUpdatedProperty,
+} from "./notePropertiesPanel"
+export {
 	getPropertyMap,
 	loadNotePropertiesSnapshot,
 	removeProperty,
@@ -55,6 +66,7 @@ export {
 	initializeProperties,
 	resetPropertiesRuntime,
 } from "./runtime"
+export { invalidateVaultSchemaCache } from "./schemaPersistence"
 export {
 	getVaultSchema,
 	notifyVaultSchemaChanged,
@@ -66,6 +78,7 @@ export {
 	prepareDuplicatedNote,
 	prepareNoteForSave,
 } from "./system"
+export { mergeMissingNoteProperties, removeNoteProperties } from "./templateProperties"
 export type {
 	BuiltInPropertyType,
 	CreatePropertyDefinitionInput,
@@ -81,8 +94,11 @@ export type {
 	PropertiesFileService,
 	PropertiesIdentityService,
 	PropertiesMetadataService,
+	PropertiesNoteIndexService,
+	PropertiesNoteIndexSnapshot,
 	PropertiesNoteService,
 	PropertiesRuntime,
+	PropertiesUiStateService,
 	PropertyAuthorContext,
 	PropertyColor,
 	PropertyDefinition,
@@ -124,6 +140,13 @@ export {
 	supportsMultipleValues,
 	togglePropertyValue,
 } from "./values"
+export {
+	EMPTY_VAULT_SCHEMA,
+	getVaultSchemaSnapshot,
+	setVaultSchemaSnapshot,
+	subscribeVaultSchemaSnapshot,
+	upsertVaultSchemaDefinition,
+} from "./vaultSchemaSnapshot"
 export {
 	getHiddenPropertyDefinitions,
 	getVisiblePropertyDefinitions,

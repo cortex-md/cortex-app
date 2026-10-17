@@ -1,11 +1,6 @@
 import type { FileEntry } from "@cortex/platform"
 import { getPlatform } from "@cortex/platform"
-import {
-	type CommunityThemeManifest,
-	getThemeManager,
-	parseCommunityThemeManifest,
-	type ThemeFamily,
-} from "@cortex/theme"
+import { getThemeManager, parseCommunityThemeManifest, type ThemeFamily } from "@cortex/theme"
 
 interface CommunityThemeStylesheet {
 	themeName: string
@@ -27,23 +22,22 @@ export async function loadCommunityThemes(themesDir: string): Promise<void> {
 		return
 	}
 
-	for (const dir of dirs.filter((e) => e.isDir)) {
-		const manifestPath = `${themesDir}/${dir.name}/manifest.json`
+	const manifests = await Promise.all(
+		dirs
+			.filter((entry) => entry.isDir)
+			.map(async (dir) => {
+				try {
+					const raw = await platform.fs.readFile(`${themesDir}/${dir.name}/manifest.json`)
+					return { dir, manifest: parseCommunityThemeManifest(raw) }
+				} catch {
+					return null
+				}
+			}),
+	)
 
-		let raw: string
-		try {
-			raw = await platform.fs.readFile(manifestPath)
-		} catch {
-			continue
-		}
-
-		let manifest: CommunityThemeManifest
-		try {
-			manifest = parseCommunityThemeManifest(raw)
-		} catch {
-			continue
-		}
-
+	for (const item of manifests) {
+		if (!item) continue
+		const { dir, manifest } = item
 		const family: ThemeFamily = {
 			name: manifest.name,
 			displayName: manifest.displayName,

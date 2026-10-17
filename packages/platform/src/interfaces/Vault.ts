@@ -16,7 +16,13 @@ export interface VaultRegistryEntry {
 	name: string
 	lastOpened: number
 	icon: string | null
+	color?: string | null
 	displayPath?: string | null
+}
+
+export interface VaultRegistryPatch {
+	path?: string
+	color?: string | null
 }
 
 export interface Vault {
@@ -26,4 +32,8 @@ export interface Vault {
 	readVaultRegistry(): Promise<VaultRegistryEntry[]>
 	updateVaultRegistry(uuid: string, path: string, name: string, icon?: string | null): Promise<void>
 	removeFromVaultRegistry(uuid: string): Promise<void>
+	patchVaultRegistry?(uuid: string, patch: VaultRegistryPatch): Promise<void>
+	getDefaultVaultLocation?(): Promise<string>
+	createVaultFolder?(parentPath: string | null, name: string): Promise<string>
+	pathExists?(path: string): Promise<boolean>
 }

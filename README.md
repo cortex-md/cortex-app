@@ -1,100 +1,112 @@
 # Cortex
 
-Cortex is a local-first, modular Markdown workspace. The project is building a fast desktop app for
-notes, vaults, sync, themes, and community extensions, with shared packages that keep the core app
-logic portable over time.
+Cortex is a local-first Markdown workspace. It opens a folder you control, keeps every note as a
+plain `.md` file, and adds the structure you need on top: live preview, properties, databases,
+tasks, fast search, and optional end-to-end encrypted sync. Plugins and themes extend it without
+changing how your notes are stored.
 
-The repository is currently desktop-first. Mobile and web packages exist in the monorepo, but the
-default development and CI gates focus on the Electron desktop app and the shared packages it uses.
+Website and docs: [cortex-md.tech](https://cortex-md.tech) ·
+[Documentation](https://cortex-md.tech/docs) · [Roadmap](https://cortex-md.tech/roadmap) ·
+[Changelog](https://cortex-md.tech/changelog)
 
-## Project Goals
+> **Status:** pre-release. Cortex is under active development; file formats under `.cortex/`,
+> APIs and UI can still change between releases. Keep backups of important vaults.
 
-- Make Markdown vaults feel fast, native, and durable on desktop.
-- Keep file ownership local-first and transparent.
-- Provide a stable plugin and theme surface for community extensions.
-- Preserve clear package boundaries so desktop, future mobile, and developer tooling can share the
-  same core contracts without leaking platform details.
+## Features
 
-## Contributions Welcome
+- **Plain files.** Vaults are ordinary folders of Markdown, readable in any editor. Cortex keeps its
+  own state in a hidden `.cortex/` folder.
+- **Live Preview editor** built on CodeMirror, with callouts, tables, tasks, code blocks, math,
+  `#tags`, `==highlights==` and wikilinks, plus a Reading View.
+- **Properties and databases.** Frontmatter properties with a vault schema; folders can become
+  databases with table, board, calendar and gallery views.
+- **Navigation.** Quick finder, command palette, full-text search, backlinks, bookmarks, tags and
+  outline, built for vaults with tens of thousands of notes.
+- **Tasks and reminders** with native notifications.
+- **Templates, version history and comments.**
+- **Cortex Sync (optional).** End-to-end encrypted sync between devices, shared vaults and members,
+  hosted or self-hosted.
+- **Plugins and themes** from the Marketplace, built with the public
+  [`@cortex.md/api`](packages/plugin-api) and the [Cortex CLI](https://github.com/cortex-md/cli).
+- **Apps:** desktop (macOS, Windows, Linux) on Electron; mobile (iOS, Android) on Expo is in
+  progress.
 
-Issues, bug reports, design feedback, docs improvements, and pull requests are welcome. If you want
-to work on a larger feature or architectural change, please open an issue first so we can align on
-scope before you spend a lot of time on it.
+## Download
 
-Start with [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution workflow, pull request checklist,
-and local validation commands.
+Pre-release builds for macOS (Apple Silicon), Windows and Linux are published on the
+[Releases](https://github.com/cortex-md/cortex-app/releases) page. Unsigned macOS prereleases may
+need *Open Anyway* in System Settings → Privacy & Security.
+
+## Build From Source
+
+Requires [Bun](https://bun.sh/) 1.3.3 (and Node.js 22 for the performance harness).
+
+```bash
+git clone https://github.com/cortex-md/cortex-app.git
+cd cortex-app
+bun install
+bun run dev:desktop      # run the desktop app in development
+bun run dist:desktop     # build an installable desktop package
+```
+
+Validation used by CI:
+
+```bash
+bun run check            # Biome lint and format
+bun run typecheck        # TypeScript project references
+bun run check:boundaries # workspace dependency boundaries
+bun run test             # Vitest suites
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for mobile and web scripts, testing policy and the pull
+request workflow.
 
 ## Repository Map
 
 ```text
 apps/
-  desktop/          Electron desktop app: main process, preload, React shell and features
-  mobile/           Expo mobile app, currently outside the default CI gate
-  web/              Public web app, validated through explicit web scripts
+  desktop/          Electron app: main process, preload, React shell and features
+  mobile/           Expo app (iOS, Android)
+  web/              Website, docs, account and Marketplace pages
 packages/
-  core/             Pure app logic, stores, NoteCache, vault state, sync state
-  platform/         Cross-platform interfaces for filesystem, dialogs, windows, services
-  sync-engine/      Sync engine (utilityProcess) and the shared server API client
-  editor/           CodeMirror editor runtime and Markdown editing behavior
-  ui/               Shared React primitives
-  plugin-api/       Public API package for community plugins
-  plugin-host-*/    Declarative plugin host, permissions, and React rendering of contributions
+  core/             App logic: stores, vault index, note cache, indexing, sync state
+  platform/         Platform interfaces (filesystem, dialogs, windows) and vault file rules
+  editor/           CodeMirror runtime, Live Preview and Reading View
   renderer/         Sanitized Markdown rendering pipeline
-  theme/            Desktop/web theme tokens and community theme manifests
-  marketplace/      Extension install, update, staging, and rollback logic
-docs/               Public docs for development, modules, plugins, themes, and mobile roadmap
-plugins/            Bundled community-style plugins
+  properties/       Frontmatter properties, schema and databases
+  search/           Full-text search index and worker backend
+  sync-engine/      Sync engine (runs in an Electron utility process)
+  sync-api/         Sync server API client
+  plugin-api/       Public plugin API, published as @cortex.md/api (MIT)
+  plugin-host-core/ Plugin host, permissions and contributions
+  marketplace/      Plugin and theme install, update and config sync
+  theme/            Theme tokens and community theme contract
+  ui/               Shared React primitives
+  ...               commands, settings, tasks, comments, collab, import-export
+plugins/            Bundled plugins
 tools/              Benchmarks and development tooling
+docs/               Contributor and community documentation
 ```
 
-## Prerequisites
+Every app and package has an `AGENTS.md` with its ownership, rules and validation. It is the
+guidance for human contributors and coding agents alike.
 
-- [Bun](https://bun.sh/) 1.3.3, matching the repository `packageManager`.
+## Plugins And Themes
 
-Electron downloads its own runtime during `bun install`; no native toolchain is required for
-development.
+- [Plugin docs](https://cortex-md.tech/docs/plugins/overview) and
+  [theme docs](https://cortex-md.tech/docs/themes/overview)
+- [Registry](https://github.com/cortex-md/registry): how extensions are listed and reviewed
+- [CLI](https://github.com/cortex-md/cli): scaffold, develop, check and release extensions
 
-## Run The Desktop App
+## Contributing
 
-From the repository root:
+Issues, docs fixes, design feedback and pull requests are welcome. Read
+[CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md). For help, see
+[SUPPORT.md](SUPPORT.md); for vulnerabilities, [SECURITY.md](SECURITY.md).
 
-```bash
-bun install
-bun run dev:desktop
-```
+## License
 
-Useful desktop commands:
+Cortex is licensed under the [GNU Affero General Public License v3.0 or later](LICENSE).
 
-```bash
-bun run check              # Desktop Biome lint, format, and import checks
-bun run typecheck          # Desktop TypeScript project references
-bun run check:boundaries   # Workspace dependency boundaries
-bun run test               # Desktop frontend suites plus sync-engine tests
-bun run doctor             # React Doctor on apps/desktop changed scope
-```
-
-Mobile and web checks are still available explicitly:
-
-```bash
-bun run check:mobile
-bun run check:web
-bun run test:mobile
-bun run test:web
-bun run typecheck:all
-```
-
-## Documentation
-
-- [Development docs](docs/development/README.md): desktop setup, quality gates, architecture, and
-  development practices.
-- [Module map](docs/modules/README.md): package boundaries and community-facing contracts.
-- [Community plugin docs](docs/community/plugins/README.md): plugin authoring with
-  `@cortex.md/api`.
-- [Community theme docs](docs/community/themes/README.md): vault-scoped CSS themes.
-- [Mobile roadmap](docs/mobile/roadmap.md): current mobile direction.
-
-## Current Status
-
-Cortex is under active development. Expect APIs, UI, and workflows to evolve as the desktop app
-stabilizes. The best contributions right now are focused, well-tested fixes and small improvements
-that keep desktop behavior reliable.
+The plugin API package [`@cortex.md/api`](packages/plugin-api) is licensed under the
+[MIT License](packages/plugin-api/LICENSE), so community plugins and themes can use any license.

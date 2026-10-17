@@ -3,7 +3,6 @@
 import type { VariantProps } from "class-variance-authority"
 import { ToggleGroup as ToggleGroupPrimitive } from "radix-ui"
 import * as React from "react"
-import { nativeGlassSurface } from "./lib/native-styles"
 import { cn } from "./lib/utils"
 import { toggleVariants } from "./toggle-variants"
 
@@ -38,8 +37,7 @@ function ToggleGroup({
 			data-spacing={spacing}
 			style={{ "--gap": spacing } as React.CSSProperties}
 			className={cn(
-				"group/toggle-group flex w-fit items-center gap-[--spacing(var(--gap))] rounded-full p-1 data-[variant=outline]:border data-[variant=outline]:border-border/50 data-[variant=outline]:bg-background/70 data-[variant=default]:bg-transparent",
-				spacing === 0 && nativeGlassSurface,
+				"group/toggle-group flex w-fit items-center gap-[--spacing(var(--gap))] rounded-full bg-transparent data-[spacing=0]:gap-0.5",
 				className,
 			)}
 			{...props}
@@ -69,8 +67,7 @@ function ToggleGroupItem({
 					variant: context.variant || variant,
 					size: context.size || size,
 				}),
-				"w-auto min-w-7 shrink-0 rounded-full px-2 focus:z-10 focus-visible:z-10",
-				"data-[spacing=0]:shadow-none data-[spacing=0]:data-[variant=outline]:border-l-0 data-[spacing=0]:data-[variant=outline]:first:border-l",
+				"w-auto shrink-0 focus:z-10 focus-visible:z-10",
 				className,
 			)}
 			{...props}

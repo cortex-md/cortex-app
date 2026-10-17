@@ -1,5 +1,16 @@
+import { executeCommand } from "@cortex/commands"
 import type { FileTabKind, Tab, ViewTabState } from "@cortex/core"
-import { inferFileTabKind, useDragStore, useEditorStore, useWorkspaceStore } from "@cortex/core"
+import {
+	getNoteTitle,
+	getParentPath,
+	getRecentFilePaths,
+	inferFileTabKind,
+	toVaultRelativePath,
+	useDragStore,
+	useEditorStore,
+	useVaultStore,
+	useWorkspaceStore,
+} from "@cortex/core"
 import type { CursorInfo, EditorConfig } from "@cortex/editor/types"
 import { usePluginStore } from "@cortex/plugin-host-core"
 import { Button, Kbd, Spinner } from "@cortex/ui"
@@ -72,6 +83,7 @@ function SuspendedTabContent({ tab, paneId, isActive }: TabEditorProps) {
 			aria-hidden={!isActive}
 		>
 			<Button
+				size="sm"
 				variant="ghost"
 				className="flex-1 flex items-center justify-center text-xs text-text-muted bg-bg-primary border-none font-family-ui w-full hover:bg-bg-secondary"
 				onClick={handleResume}
@@ -145,7 +157,6 @@ const ViewTabContent = memo(function ViewTabContent({
 					View not available
 					<Button
 						variant="ghost"
-						size="sm"
 						onClick={() => useWorkspaceStore.getState().closeTab(tab.id, paneId)}
 					>
 						Close tab
@@ -156,23 +167,63 @@ const ViewTabContent = memo(function ViewTabContent({
 	)
 })
 
-function EmptyPaneHint({ commandId, label }: { commandId: string; label: string }) {
+const EMPTY_PANE_RECENT_LIMIT = 5
+
+function EmptyPaneCommandRow({ commandId, label }: { commandId: string; label: string }) {
 	const hotkey = useCommandHotkey(commandId)
-	if (!hotkey) return null
 	return (
-		<p className="flex gap-1 items-center">
-			<Kbd>{hotkey}</Kbd>
+		<button
+			type="button"
+			className="empty-pane-start-row"
+			onClick={() => executeCommand(commandId)}
+		>
 			<span>{label}</span>
-		</p>
+			{hotkey && <Kbd>{hotkey}</Kbd>}
+		</button>
 	)
 }
 
-function EmptyPaneState() {
+function EmptyPaneRecentNotes({ paneId }: { paneId: string }) {
+	const panes = useWorkspaceStore((state) => state.panes)
+	const recentlyClosed = useWorkspaceStore((state) => state.recentlyClosed)
+	const openTab = useWorkspaceStore((state) => state.openTab)
+	const vaultPath = useVaultStore((state) => state.vault?.path ?? "")
+	const recentPaths = useMemo(
+		() => getRecentFilePaths(panes, recentlyClosed, EMPTY_PANE_RECENT_LIMIT),
+		[panes, recentlyClosed],
+	)
+	if (recentPaths.length === 0) return null
 	return (
-		<div className="flex flex-col items-center justify-center gap-5 h-full text-sm text-text-muted">
-			<p>No open files</p>
-			<EmptyPaneHint commandId="file.new" label="New File" />
-			<EmptyPaneHint commandId="navigate.quick-finder" label="Search notes" />
+		<>
+			<div className="empty-pane-start-heading">Recent</div>
+			{recentPaths.map((filePath) => {
+				const folder = getParentPath(toVaultRelativePath(filePath, vaultPath) ?? filePath)
+				return (
+					<button
+						key={filePath}
+						type="button"
+						className="empty-pane-start-row"
+						onClick={() => openTab(filePath, { paneId })}
+					>
+						<span>{getNoteTitle(filePath)}</span>
+						{folder && <small>{folder.split("/").join(" / ")}</small>}
+					</button>
+				)
+			})}
+		</>
+	)
+}
+
+function EmptyPaneState({ paneId }: { paneId: string }) {
+	return (
+		<div className="empty-pane-start">
+			<div className="empty-pane-start-column">
+				<div className="empty-pane-start-heading">Start</div>
+				<EmptyPaneCommandRow commandId="file.new" label="New note" />
+				<EmptyPaneCommandRow commandId="navigate.quick-finder" label="Find a note" />
+				<EmptyPaneCommandRow commandId="navigate.command-palette" label="Run a command" />
+				<EmptyPaneRecentNotes paneId={paneId} />
+			</div>
 		</div>
 	)
 }
@@ -202,7 +253,7 @@ function PaneContent({
 		<div className="pane-content flex-1 overflow-hidden relative" data-drop-pane-id={paneId}>
 			{isDragging && <DropZoneOverlay paneId={paneId} />}
 			{paneTabs.length === 0 ? (
-				<EmptyPaneState />
+				<EmptyPaneState paneId={paneId} />
 			) : (
 				paneTabs.map((tab) =>
 					tab.tabType === "view" ? (

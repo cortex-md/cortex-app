@@ -2,7 +2,10 @@ import { XIcon } from "lucide-react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 import type * as React from "react"
 import { Button } from "./button"
+import { buttonVariants } from "./button-variants"
 import {
+	nativeCommandSurface,
+	nativeCommandSurfaceMotion,
 	nativeDialogContentMotion,
 	nativeDialogSurface,
 	nativeOverlayMotion,
@@ -25,14 +28,21 @@ function DialogClose({ ...props }: React.ComponentProps<typeof DialogPrimitive.C
 	return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
 }
 
+type DialogMotion = "scale" | "fade"
+
 function DialogOverlay({
 	className,
+	motion = "scale",
 	...props
-}: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
+}: React.ComponentProps<typeof DialogPrimitive.Overlay> & { motion?: DialogMotion }) {
 	return (
 		<DialogPrimitive.Overlay
 			data-slot="dialog-overlay"
-			className={cn("fixed inset-0 z-[90] bg-black/20", nativeOverlayMotion, className)}
+			className={cn(
+				"fixed inset-0 z-[90] bg-black/20",
+				motion === "fade" ? nativeCommandSurfaceMotion : nativeOverlayMotion,
+				className,
+			)}
 			{...props}
 		/>
 	)
@@ -42,13 +52,15 @@ function DialogContent({
 	className,
 	children,
 	showCloseButton = true,
+	motion = "scale",
 	...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
 	showCloseButton?: boolean
+	motion?: DialogMotion
 }) {
 	return (
 		<DialogPortal data-slot="dialog-portal">
-			<DialogOverlay />
+			<DialogOverlay motion={motion} />
 			<div
 				data-slot="dialog-positioner"
 				className="pointer-events-none fixed inset-0 z-[100] grid place-items-center p-4"
@@ -57,9 +69,9 @@ function DialogContent({
 					data-slot="dialog-content"
 					className={cn(
 						"pointer-events-auto relative grid w-full max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] gap-4 rounded-[var(--dialog-radius,14px)] p-6 outline-none sm:max-w-lg",
-						nativeDialogSurface,
-						nativeOverlayMotion,
-						nativeDialogContentMotion,
+						motion === "fade"
+							? [nativeCommandSurface, nativeCommandSurfaceMotion]
+							: [nativeDialogSurface, nativeOverlayMotion, nativeDialogContentMotion],
 						className,
 					)}
 					{...props}
@@ -68,7 +80,10 @@ function DialogContent({
 					{showCloseButton && (
 						<DialogPrimitive.Close
 							data-slot="dialog-close"
-							className="absolute top-3.5 right-3.5 inline-flex size-8 items-center justify-center rounded-[8px] text-muted-foreground opacity-75 outline-none transition-[background-color,color,opacity,box-shadow] duration-150 ease-out after:absolute after:inset-[-4px] hover:bg-muted/70 hover:text-foreground hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/40 disabled:pointer-events-none data-[state=open]:bg-muted/70 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+							className={cn(
+								buttonVariants({ variant: "ghost", size: "icon-sm" }),
+								"absolute top-3.5 right-3.5 after:absolute after:inset-[-4px]",
+							)}
 						>
 							<XIcon />
 							<span className="sr-only">Close</span>
@@ -114,7 +129,9 @@ function DialogFooter({
 			{children}
 			{showCloseButton && (
 				<DialogPrimitive.Close asChild>
-					<Button variant="outline">Close</Button>
+					<Button size="sm" variant="outline">
+						Close
+					</Button>
 				</DialogPrimitive.Close>
 			)}
 		</div>

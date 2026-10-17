@@ -1,8 +1,7 @@
 import { COMMUNITY_PLUGINS_WARNING } from "@cortex/marketplace"
 import { type PluginRecord, usePluginStore } from "@cortex/plugin-host-core"
-import { Button, Item, LucideIcon, Switch } from "@cortex/ui"
+import { Button, Item, LucideIcon, SimpleTooltip, Switch } from "@cortex/ui"
 import { ExternalLink, FolderOpen, Store } from "lucide-react"
-import { runInMainWindow } from "../../windows/runInMainWindow"
 import type { OpenMarketplaceHandler } from "../marketplace/openMarketplaceView"
 import {
 	setCommunityPluginsAllowed,
@@ -17,6 +16,7 @@ import {
 	SettingsPage,
 	SettingsSection,
 } from "./SettingsPrimitives"
+import { runSettingsAction } from "./settingsActions"
 
 interface PluginsSectionProps {
 	onBrowseMarketplace: OpenMarketplaceHandler
@@ -50,25 +50,23 @@ function PluginRow({
 					</div>
 					<div className="flex min-w-0 flex-1 flex-col">
 						<div className="flex items-center gap-2">
-							<span
-								className="truncate text-sm font-medium text-foreground"
-								title={record.manifest.name}
-							>
-								{record.manifest.name}
-							</span>
+							<SimpleTooltip label={record.manifest.name}>
+								<span className="truncate text-sm font-medium text-foreground">
+									{record.manifest.name}
+								</span>
+							</SimpleTooltip>
 							<span className="text-xs text-muted-foreground">v{record.manifest.version}</span>
 							<span className="text-xs text-muted-foreground">by {record.manifest.author}</span>
 						</div>
-						<span
-							className="truncate text-xs text-muted-foreground"
-							title={record.manifest.description}
-						>
-							{record.manifest.description}
-						</span>
+						<SimpleTooltip label={record.manifest.description}>
+							<SimpleTooltip label={record.error}>
+								<span className="truncate text-xs text-muted-foreground">
+									{record.manifest.description}
+								</span>
+							</SimpleTooltip>
+						</SimpleTooltip>
 						{hasError && record.error && (
-							<span className="truncate text-xs text-status-error-foreground" title={record.error}>
-								{record.error}
-							</span>
+							<span className="truncate text-xs text-status-error-foreground">{record.error}</span>
 						)}
 					</div>
 					{onOpenMarketplace && (
@@ -79,7 +77,7 @@ function PluginRow({
 			<Switch
 				checked={isEnabled}
 				onCheckedChange={(enabled) =>
-					runInMainWindow("setPluginEnabled", { pluginId: record.manifest.id, enabled })
+					runSettingsAction("setPluginEnabled", { pluginId: record.manifest.id, enabled })
 				}
 			/>
 		</SettingsListItem>
@@ -136,15 +134,11 @@ export function PluginsSection({ onBrowseMarketplace }: PluginsSectionProps) {
 				description="Vault-scoped plugins installed in this workspace."
 				action={
 					<>
-						<Button variant="ghost" size="sm" onClick={() => onBrowseMarketplace("plugins")}>
+						<Button variant="ghost" onClick={() => onBrowseMarketplace("plugins")}>
 							<Store size={12} />
 							Browse
 						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={() => runInMainWindow("openCommunityPluginsFolder")}
-						>
+						<Button variant="ghost" onClick={() => runSettingsAction("openCommunityPluginsFolder")}>
 							<FolderOpen size={12} />
 							Open folder
 						</Button>

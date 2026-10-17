@@ -1,3 +1,4 @@
+export { CALLOUT_ICON_PATHS, getCalloutIconPaths } from "./icons"
 export {
 	formatCalloutLabel,
 	normalizeCalloutName,

@@ -10,7 +10,6 @@ export function CopyButton({ value, label = "Copy link" }: { value: string; labe
 	return (
 		<Button
 			variant="secondary"
-			size="sm"
 			onClick={() => {
 				void getPlatform().clipboard.writeText(value).then(markCopied)
 			}}

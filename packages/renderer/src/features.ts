@@ -9,6 +9,8 @@ export interface RendererFeatureFlags {
 	hasTables: boolean
 	hasGfmSyntax: boolean
 	hasMath: boolean
+	hasInlineTags: boolean
+	hasHighlights: boolean
 }
 
 interface RendererFeatureOptions {
@@ -27,6 +29,8 @@ const allRendererFeatures: RendererFeatureFlags = {
 	hasTables: true,
 	hasGfmSyntax: true,
 	hasMath: true,
+	hasInlineTags: true,
+	hasHighlights: true,
 }
 
 const taskListPattern = /(?:^|\n)[ \t>]*(?:[-+*]|\d+[.)])\s+\[[ xX]\](?:\s|$)/
@@ -35,6 +39,8 @@ const calloutPattern = /(?:^|\n)>\s*\[!/
 const tablePattern = /(?:^|\n)\s*\|?.+\|.+\n\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?(?=\n|$)/
 const autolinkLiteralPattern = /(?:^|[\s(])(?:https?:\/\/|www\.)[^\s<]+/g
 const footnotePattern = /(?:^|\n)\[\^[^\]\n]+]:|(?:^|[^[])\[\^[^\]\n]+]/
+const inlineTagCandidatePattern = /#[\p{L}_]/u
+const highlightCandidatePattern = /==[^\s=]/
 const mathCandidatePattern = /(?:^|\n)\s{0,3}(?:\$\$|\\\[)(?:\s|$)|(?:^|[^\\])(?:\$|\\\()/
 
 function hasAutolinkLiteral(markdown: string): boolean {
@@ -58,7 +64,9 @@ function isRendererFeatureFlags(value: unknown): value is RendererFeatureFlags {
 		typeof flags.hasTextTransforms === "boolean" &&
 		typeof flags.hasTables === "boolean" &&
 		typeof flags.hasGfmSyntax === "boolean" &&
-		typeof flags.hasMath === "boolean"
+		typeof flags.hasMath === "boolean" &&
+		typeof flags.hasInlineTags === "boolean" &&
+		typeof flags.hasHighlights === "boolean"
 	)
 }
 
@@ -82,6 +90,8 @@ export function detectRendererFeatureFlags(
 		hasGfmSyntax:
 			markdown.includes("~~") || hasAutolinkLiteral(markdown) || footnotePattern.test(markdown),
 		hasMath: mathCandidatePattern.test(markdown) && containsMarkdownMath(markdown),
+		hasInlineTags: inlineTagCandidatePattern.test(markdown),
+		hasHighlights: highlightCandidatePattern.test(markdown),
 	}
 }
 

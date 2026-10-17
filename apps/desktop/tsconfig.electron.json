@@ -17,7 +17,7 @@
 	},
 	"include": ["electron"],
 	"references": [
-		{ "path": "../../packages/collab" },
+		{ "path": "../../packages/core" },
 		{ "path": "../../packages/platform" },
 		{ "path": "../../packages/sync-api" },
 		{ "path": "../../packages/sync-engine" },

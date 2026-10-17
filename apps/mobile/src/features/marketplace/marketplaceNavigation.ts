@@ -1,16 +1,19 @@
 import { getPlatform } from "@cortex/platform"
-import { router } from "expo-router"
+
+import { openSettings } from "@/features/navigation/routes"
 
 export function openMarketplace(): void {
-	router.push("/(settings)/marketplace" as never)
+	openSettings("marketplace")
 }
 
-export function openMarketplaceEntry(entryId: string): void {
-	router.push({ params: { id: entryId }, pathname: "/(settings)/marketplace-detail" as never })
+export type MarketplaceEntryKind = "plugin" | "theme" | "template"
+
+export function openMarketplaceEntry(entryId: string, kind: MarketplaceEntryKind = "plugin"): void {
+	openSettings("marketplace-detail", { id: entryId, kind })
 }
 
 export function openMarketplaceReadme(entryId: string): void {
-	router.push({ params: { id: entryId }, pathname: "/(settings)/marketplace-readme" as never })
+	openSettings("marketplace-readme", { id: entryId })
 }
 
 export async function openExternalUrl(url: string): Promise<void> {

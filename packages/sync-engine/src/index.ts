@@ -1,6 +1,9 @@
 export { accessFor, accessLevel, FULL_ACCESS, type SyncAccess } from "./access"
-export { deriveAccountKeys, nodeAccountKeyCrypto } from "./accountCrypto"
+export { accountKeyCrypto, deriveAccountKeys } from "./accountCrypto"
+export * from "./bytes"
 export { decodeVek, vekSecretKey } from "./crypto"
+export { type FileState, SyncDb, syncDbPath } from "./db"
+export { SyncEngine, type SyncEngineDeps } from "./engine"
 export { createInviteKeyLink, storeInviteKey } from "./inviteKey"
 export {
 	encodeRecoveryKey,
@@ -13,6 +16,7 @@ export {
 	wrapWithRecoveryKey,
 	x25519PublicKey,
 } from "./keys"
+export { mergeMarkdown } from "./merge"
 export {
 	type FromWorkerMessage,
 	type MainMethods,
@@ -25,6 +29,20 @@ export {
 	type VaultRef,
 	type WorkerMethods,
 } from "./protocol"
+export { retryBackoffSecs, SyncQueue } from "./queue"
+export {
+	configureSyncRuntime,
+	isNotFoundError,
+	type SqlDatabase,
+	type SqlStatement,
+	type SqlValue,
+	type SyncDirEntry,
+	type SyncFileStats,
+	type SyncFs,
+	type SyncPath,
+	type SyncRuntime,
+	syncRuntime,
+} from "./runtime"
 export {
 	createShareKey,
 	decodeShareKey,
@@ -33,4 +51,12 @@ export {
 	sealShareBundle,
 	unwrapShareKey,
 } from "./shareCrypto"
-export { createVaultKey, ensureOwnVaultKey, requestVaultKey, unlockVaultKey } from "./vek"
+export { normalizeRelativePath } from "./util"
+export {
+	createVaultKey,
+	ensureOwnVaultKey,
+	loadVaultKey,
+	requestVaultKey,
+	unlockVaultKey,
+	type VaultKeyLoaderDeps,
+} from "./vek"

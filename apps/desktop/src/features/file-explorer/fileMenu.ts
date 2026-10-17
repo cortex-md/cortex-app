@@ -1,4 +1,5 @@
 import {
+	canReadVaultPath,
 	canWriteVaultPath,
 	type FileEntryActionId,
 	getFileEntryActions,
@@ -22,13 +23,17 @@ import {
 	FilePlusIcon,
 	FileTextIcon,
 	FolderPlusIcon,
+	LayoutTemplateIcon,
 	PencilIcon,
+	PlusIcon,
+	RepeatIcon,
 	Table2Icon,
 	TableIcon,
 } from "lucide-react"
 import {
 	commandMenuItem,
 	compactMenuItems,
+	getCommandHotkey,
 	getPluginMenuItems,
 	MENU_SEPARATOR,
 	type MenuItem,
@@ -70,7 +75,7 @@ function buildFileEntryMenuItems(
 	)
 }
 
-export function canShowVersionHistory(): boolean {
+export function isSyncLinked(): boolean {
 	const { syncConfig } = useRemoteVaultStore.getState()
 	return syncConfig.enabled && syncConfig.remoteVaultId !== null
 }
@@ -90,8 +95,9 @@ export function buildFileMenuItems(
 	const syncExcluded = shouldIgnoreSyncPath(relativePath, syncPreferences)
 	const bookmarked =
 		isNote && vaultPath ? useBookmarksStore.getState().isBookmarked(vaultPath, filePath) : false
-	const syncLinked = canShowVersionHistory()
-	const showVersionHistory = isNote && syncLinked
+	const syncLinked = isSyncLinked()
+	const canShare = isNote && syncLinked
+	const showVersionHistory = isNote && Boolean(vaultPath) && canReadVaultPath(filePath)
 	const entryItems = buildFileEntryMenuItems({ filePath, isDirectory })
 	const canCreateInside = isDirectory && canWriteVaultPath(filePath, true)
 	const isDatabase = isDirectory && Boolean(useDatabaseStore.getState().databases[filePath])
@@ -147,6 +153,13 @@ export function buildFileMenuItems(
 			}),
 		MENU_SEPARATOR,
 		entryItems.duplicate,
+		isNote &&
+			commandMenuItem("templates.save-note-as-template", {
+				id: "save-as-template",
+				text: "Save as Template…",
+				icon: LayoutTemplateIcon,
+				payload,
+			}),
 		isNote && {
 			type: "submenu",
 			id: "export-note",
@@ -207,7 +220,7 @@ export function buildFileMenuItems(
 				text: "Manage Access…",
 				payload: { filePath, isDirectory },
 			}),
-		showVersionHistory &&
+		canShare &&
 			commandMenuItem("sync.share-note", {
 				id: "share-note",
 				text: "Share…",
@@ -240,5 +253,37 @@ export function buildFileMenuItems(
 		MENU_SEPARATOR,
 		entryItems.delete,
 		...getPluginMenuItems({ location: "file", filePath }),
+	])
+}
+
+export interface CreateMenuActions {
+	onNewNote: () => void
+	onNewFolder: () => void
+}
+
+export function buildCreateMenuItems({ onNewNote, onNewFolder }: CreateMenuActions): MenuItem[] {
+	return compactMenuItems([
+		{
+			id: "new-file",
+			text: "Note",
+			icon: FilePlusIcon,
+			hotkey: getCommandHotkey("file.new"),
+			action: onNewNote,
+		},
+		commandMenuItem("templates.create-note", {
+			id: "new-from-template",
+			text: "Note from a template…",
+			icon: LayoutTemplateIcon,
+		}),
+		commandMenuItem("database.new", { id: "new-database", text: "Database", icon: Table2Icon }),
+		{ id: "new-folder", text: "Folder", icon: FolderPlusIcon, action: onNewFolder },
+		MENU_SEPARATOR,
+		commandMenuItem("database.convert-folder", {
+			id: "convert-database",
+			text: "Turn a folder into a database",
+			icon: RepeatIcon,
+		}),
+		MENU_SEPARATOR,
+		commandMenuItem("templates.new", { id: "new-template", text: "New template…", icon: PlusIcon }),
 	])
 }

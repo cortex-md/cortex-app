@@ -161,20 +161,30 @@ export function mapRemoteChange(
 	}
 }
 
+const FILE_LIST_PAGE_SIZE = 5000
+
 export async function listFileIndex(
 	api: ApiClient,
 	vaultId: string,
 	includeDeleted = false,
 ): Promise<RemoteFileIndex> {
-	const path = withQuery(filesPath(vaultId, "/list"), {
-		include_deleted: includeDeleted ? true : null,
-	})
-	const response = await api.send("GET", path, "List remote files")
-	const raw = (await response.json()) as RemoteFileResponse[]
-	return {
-		files: raw.map(mapRemoteFile),
-		latestEventId: response.headers.get("X-Latest-Event-ID"),
-	}
+	const files: RemoteFileInfo[] = []
+	let latestEventId: string | null = null
+	let cursor: string | null = null
+	do {
+		const path = withQuery(filesPath(vaultId, "/list"), {
+			include_deleted: includeDeleted ? true : null,
+			limit: FILE_LIST_PAGE_SIZE,
+			cursor,
+		})
+		const response = await api.send("GET", path, "List remote files")
+		if (cursor === null) latestEventId = response.headers.get("X-Latest-Event-ID")
+		for (const raw of (await response.json()) as RemoteFileResponse[]) {
+			files.push(mapRemoteFile(raw))
+		}
+		cursor = response.headers.get("X-Next-Cursor")
+	} while (cursor)
+	return { files, latestEventId }
 }
 
 export async function fileInfo(

@@ -13,10 +13,10 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   release-metadata:
@@ -28,6 +28,15 @@ jobs:
       is_prerelease: ${{ steps.version.outputs.is_prerelease }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require a commit on main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Releases are cut from main; $GITHUB_SHA is not on origin/main."
+            exit 1
+          fi
 
       - name: Resolve release version
         id: version
@@ -36,17 +45,23 @@ jobs:
         run: |
           node scripts/release/resolve-desktop-release-metadata.mjs
 
-  ci:
-    name: CI
-    uses: ./.github/workflows/ci.yml
+      - name: Require release notes
+        run: |
+          notes="release-notes/${{ steps.version.outputs.version }}.md"
+          if [ ! -s "$notes" ]; then
+            echo "::error::Write $notes before tagging. Its New/Fixed sections feed the GitHub release, the site changelog and the update notes."
+            exit 1
+          fi
 
   build-electron:
     name: Build ${{ matrix.name }}
     needs:
       - release-metadata
-      - ci
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 60
+    environment: release
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -54,6 +69,9 @@ jobs:
           - name: macOS Apple Silicon
             platform: macos-15
             electron_args: --mac --arm64
+          - name: macOS Intel
+            platform: macos-15-intel
+            electron_args: --mac --x64
           - name: Windows
             platform: windows-latest
             electron_args: --win --x64
@@ -79,6 +97,23 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Cache Electron downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/electron
+            ${{ runner.temp }}/electron-builder
+          key: ${{ runner.os }}-${{ runner.arch }}-electron-${{ hashFiles('bun.lock', 'apps/desktop/electron-builder.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-electron-
+
+      - name: Install rpm tooling
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
+      - name: Updater tests
+        run: bunx vitest run --project desktop-electron
+
       - name: Apply release version
         env:
           RELEASE_VERSION: ${{ needs.release-metadata.outputs.version }}
@@ -96,6 +131,17 @@ jobs:
           CORTEX_BILLING_URL: ${{ vars.CORTEX_BILLING_URL }}
         run: bun run --cwd apps/desktop build
 
+      - name: Select Xcode 26
+        if: runner.os == 'macOS'
+        run: |
+          xcode=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$xcode" ]; then
+            echo "::error::Xcode 26 is required to compile build/icon.icon (Icon Composer) into the app icon."
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode"
+          actool --version
+
       - name: Package
         shell: bash
         env:
@@ -106,39 +152,73 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           IS_PRERELEASE: ${{ needs.release-metadata.outputs.is_prerelease }}
+          ELECTRON_CACHE: ${{ runner.temp }}/electron
+          ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/electron-builder
         run: |
-          args=(${{ matrix.electron_args }})
+          args=(${{ matrix.electron_args }} --publish never)
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            args+=(-c.mac.icon=icon.icon)
+          fi
           if [ "$RUNNER_OS" != "macOS" ]; then
             unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
           elif [ -n "$CSC_LINK" ] && [ -n "$APPLE_ID" ] && [ -n "$APPLE_TEAM_ID" ]; then
             args+=(-c.mac.notarize=true)
-          elif [ "$IS_PRERELEASE" = "true" ]; then
-            echo "::warning::Unsigned macOS prerelease: auto-update and notifications will not work on macOS."
+          else
+            echo "::warning::No Apple certificate: macOS builds are ad-hoc signed. Users approve the first launch once; Cortex updates itself afterwards."
             unset CSC_LINK CSC_KEY_PASSWORD
             export CSC_IDENTITY_AUTO_DISCOVERY=false
-          else
-            echo "::error::Stable macOS releases need MAC_CERTIFICATE_P12, MAC_CERTIFICATE_PASSWORD, APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID."
-            exit 1
+            args+=(-c.mac.identity=- -c.mac.hardenedRuntime=false)
           fi
           bun run --cwd apps/desktop pack -- "${args[@]}"
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            for app in apps/desktop/release/mac*/Cortex.app; do
+              codesign --verify --deep --strict "$app"
+            done
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: cortex-${{ matrix.platform }}
-          path: apps/desktop/release/**/*
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
+            apps/desktop/release/*.rpm
           if-no-files-found: error
 
   publish-release:
-    name: Publish GitHub Release
+    name: Sign manifest and publish release
     needs:
       - release-metadata
       - build-electron
     runs-on: ubuntu-22.04
+    environment: release
+    permissions:
+      contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            release-notes
+            scripts/release
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+
+      - name: Create and sign cortex-update.json
+        env:
+          RELEASE_VERSION: ${{ needs.release-metadata.outputs.version }}
+          RELEASE_TAG: ${{ needs.release-metadata.outputs.tag_name }}
+          ARTIFACTS_DIR: artifacts
+          OUTPUT_DIR: artifacts/update-manifest
+          REQUIRED_PLATFORMS: darwin-arm64,darwin-x64,win32-x64,linux-x64
+          RELEASE_NOTES_FILE: release-notes/${{ needs.release-metadata.outputs.version }}.md
+          CORTEX_UPDATE_PRIVATE_KEY: ${{ secrets.CORTEX_UPDATE_PRIVATE_KEY }}
+        run: node scripts/release/create-update-manifest.mjs
 
       - name: Create release
         uses: softprops/action-gh-release@v2
@@ -146,6 +226,7 @@ jobs:
           tag_name: ${{ needs.release-metadata.outputs.tag_name }}
           name: Cortex ${{ needs.release-metadata.outputs.version }}
           prerelease: ${{ needs.release-metadata.outputs.is_prerelease == 'true' }}
+          body_path: release-notes/${{ needs.release-metadata.outputs.version }}.md
           files: artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

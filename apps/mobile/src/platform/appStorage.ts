@@ -4,7 +4,7 @@ import { Directory, File, Paths } from "expo-file-system"
 import { MobilePathNotFoundError } from "./errors"
 import { isMobileVaultLogicalPath } from "./mobile-vault-paths"
 
-const appDirectoryName = "Cortex"
+export const appDirectoryName = "Cortex"
 const vaultRegistryFileName = "vaults.json"
 const vaultRootMapFileName = "mobile-vault-roots.json"
 
@@ -20,7 +20,7 @@ export function joinUri(parent: string, child: string): string {
 	return `${normalizeUri(parent)}/${child}`
 }
 
-function getAppDirectory(): Directory {
+export function getAppDirectory(): Directory {
 	return new Directory(Paths.document, appDirectoryName)
 }
 

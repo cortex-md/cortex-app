@@ -1,7 +1,7 @@
 import type { EditorConfig } from "./types"
 
 export interface EditorConfigSettings {
-	appearance: { editorFontSize: number }
+	appearance: { editorFontSize: number; workspaceMode?: "full" | "writing" }
 	editor: Pick<
 		Required<EditorConfig>,
 		"wordWrap" | "folding" | "tabSize" | "useSpaces" | "showLineNumbers" | "vimMode"
@@ -15,7 +15,8 @@ export function createEditorConfig({ appearance, editor }: EditorConfigSettings)
 		folding: editor.folding,
 		tabSize: editor.tabSize,
 		useSpaces: editor.useSpaces,
-		showLineNumbers: editor.showLineNumbers,
+		showLineNumbers: editor.showLineNumbers && appearance.workspaceMode !== "writing",
 		vimMode: editor.vimMode,
+		typewriterScroll: appearance.workspaceMode === "writing",
 	}
 }

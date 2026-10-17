@@ -1,4 +1,5 @@
 import { getPlatform } from "@cortex/platform"
+import { captureLocalVersion, type LocalVersionReason } from "../history/localHistory"
 import { noteCache } from "../noteCache"
 import { pathExists } from "../utils/createdNote"
 
@@ -33,12 +34,13 @@ async function readNote(path: string, allowMissing: boolean): Promise<string> {
 export function mutateNote(
 	path: string,
 	transform: (content: string) => string,
-	options: { allowMissing?: boolean } = {},
+	options: { allowMissing?: boolean; historyReason?: LocalVersionReason } = {},
 ): Promise<NoteMutation | null> {
 	return enqueue(path, async () => {
 		const previous = await readNote(path, options.allowMissing ?? false)
 		const next = transform(previous)
 		if (next === previous) return null
+		void captureLocalVersion(path, previous, options.historyReason ?? "external")
 		if (noteCache.getEntry(path)) noteCache.writeExternal(path, next)
 		else await getPlatform().fs.atomicWriteFile(path, next)
 		return { previous, next }

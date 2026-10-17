@@ -1,8 +1,8 @@
 import { type RegisteredSettingsPage, usePluginStore } from "@cortex/plugin-host-core"
-import { runInMainWindow } from "../../windows/runInMainWindow"
 import { PluginSettingsRenderer } from "../plugins/rendering/PluginSettingsRenderer"
 import { desktopSettingsControls } from "./desktopSettingsControls"
 import { SettingsPage, SettingsSection } from "./SettingsPrimitives"
+import { runSettingsAction } from "./settingsActions"
 
 export function PluginSettingsPage({ page }: { page: RegisteredSettingsPage }) {
 	const values = usePluginStore((state) => state.settingsValues[page.owner])
@@ -19,7 +19,7 @@ export function PluginSettingsPage({ page }: { page: RegisteredSettingsPage }) {
 					controls={desktopSettingsControls}
 					fieldIdPrefix={`plugin:${page.owner}.`}
 					onUpdate={(key, value) =>
-						runInMainWindow("setPluginSetting", { pluginId: page.owner, key, value })
+						runSettingsAction("setPluginSetting", { pluginId: page.owner, key, value })
 					}
 				/>
 			</SettingsSection>

@@ -1,7 +1,13 @@
-import { getBaseName, normalizeAccessPath, toVaultRelativePath, useVaultStore } from "@cortex/core"
+import {
+	getBaseName,
+	getVaultIndex,
+	normalizeAccessPath,
+	toVaultRelativePath,
+	useVaultStore,
+} from "@cortex/core"
 import { DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@cortex/ui"
 import { ModalStoreHost } from "@/utils/ModalHost"
-import { manageAccessModal } from "./manageAccessModal"
+import { manageAccessModal } from "@/utils/modals"
 import { isVaultAdminRole } from "./memberDirectory"
 import { ShareAccessPanel } from "./ShareAccessPanel"
 import { useLinkedVaultOverview, useLinkedVaultRole } from "./useLinkedVault"
@@ -17,9 +23,7 @@ export function ManageAccessHost() {
 function ManageAccessContent({ filePath }: { filePath: string }) {
 	const vaultPath = useVaultStore((state) => state.vault?.path ?? null)
 	const isDirectory = useVaultStore(
-		(state) =>
-			filePath === vaultPath ||
-			(state.files.find((file) => file.path === filePath)?.isDir ?? false),
+		(state) => filePath === state.vault?.path || getVaultIndex().get(filePath)?.isDir === true,
 	)
 	const { vaultId, role } = useLinkedVaultRole()
 	useLinkedVaultOverview(vaultId)

@@ -1,3 +1,20 @@
+import bash from "highlight.js/lib/languages/bash"
+import c from "highlight.js/lib/languages/c"
+import cpp from "highlight.js/lib/languages/cpp"
+import csharp from "highlight.js/lib/languages/csharp"
+import css from "highlight.js/lib/languages/css"
+import diff from "highlight.js/lib/languages/diff"
+import go from "highlight.js/lib/languages/go"
+import java from "highlight.js/lib/languages/java"
+import javascript from "highlight.js/lib/languages/javascript"
+import json from "highlight.js/lib/languages/json"
+import markdown from "highlight.js/lib/languages/markdown"
+import python from "highlight.js/lib/languages/python"
+import rust from "highlight.js/lib/languages/rust"
+import sql from "highlight.js/lib/languages/sql"
+import typescript from "highlight.js/lib/languages/typescript"
+import xml from "highlight.js/lib/languages/xml"
+import yaml from "highlight.js/lib/languages/yaml"
 import rehypeHighlight from "rehype-highlight"
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize"
 import rehypeStringify from "rehype-stringify"
@@ -15,7 +32,9 @@ import {
 } from "./features"
 import { normalizeMathDelimiters } from "./mathSyntax"
 import { rehypeCallouts } from "./plugins/callouts"
+import { rehypeCodeChrome } from "./plugins/codeChrome"
 import { remarkStripFrontmatter } from "./plugins/frontmatter"
+import { rehypeInlineMarks } from "./plugins/inlineMarks"
 import { createRehypeSemanticRegistrations } from "./plugins/semanticRegistrations"
 import { remarkFastTables } from "./plugins/tables"
 import { rehypeTaskList } from "./plugins/taskList"
@@ -60,6 +79,8 @@ const markdownSanitizeSchema = {
 		...(defaultSchema.tagNames ?? []),
 		"annotation",
 		"aside",
+		"button",
+		"mark",
 		"math",
 		"menclose",
 		"mfrac",
@@ -94,6 +115,8 @@ const markdownSanitizeSchema = {
 		"*": [...(defaultSchema.attributes?.["*"] ?? []), "className"],
 		a: [...(defaultSchema.attributes?.a ?? []), "data-wiki-link"],
 		aside: ["className", "data-callout", "data-callout-fold", "style"],
+		button: ["className", "type", "data-code-copy", "ariaLabel", "title"],
+		mark: ["className"],
 		details: [
 			...(defaultSchema.attributes?.details ?? []),
 			"className",
@@ -132,13 +155,14 @@ const markdownSanitizeSchema = {
 			"aria-checked",
 			"className",
 			"data-state",
+			"data-tag",
 			"data-task-checkbox",
 			"role",
 			"style",
 			"title",
 		],
 		summary: [...(defaultSchema.attributes?.summary ?? []), "className", "data-callout-toggle"],
-		svg: ["aria-hidden", "className", "focusable", "viewBox"],
+		svg: ["aria-hidden", "ariaHidden", "className", "focusable", "viewBox"],
 	},
 	protocols: {
 		...defaultSchema.protocols,
@@ -227,7 +251,7 @@ function applyProcessors(pipeline: unknown, entries: RegisteredMarkdownProcessor
 type RehypeHighlightTransformer = (tree: unknown, file: unknown) => unknown
 type RehypeHighlightPlugin = (
 	this: unknown,
-	options: { detect: boolean },
+	options: { detect: boolean; languages: Record<string, unknown> },
 ) => RehypeHighlightTransformer | undefined
 
 interface RehypeElementNode {
@@ -257,10 +281,45 @@ function removeNonKatexSpanStyles(node: RehypeElementNode, insideKatex = false):
 	for (const child of node.children ?? []) removeNonKatexSpanStyles(child, nextInsideKatex)
 }
 
+const HIGHLIGHT_LANGUAGES = {
+	bash,
+	c,
+	cpp,
+	csharp,
+	css,
+	diff,
+	go,
+	java,
+	javascript,
+	json,
+	markdown,
+	python,
+	rust,
+	sql,
+	typescript,
+	xml,
+	yaml,
+	html: xml,
+	js: javascript,
+	ts: typescript,
+	sh: bash,
+	shell: bash,
+	zsh: bash,
+	yml: yaml,
+	py: python,
+	rs: rust,
+	md: markdown,
+	"c++": cpp,
+	cs: csharp,
+	jsx: javascript,
+	tsx: typescript,
+}
+
 function createConditionalHighlight(): Plugin {
 	const plugin = function conditionalHighlight(this: unknown) {
 		const transformer = (rehypeHighlight as unknown as RehypeHighlightPlugin).call(this, {
-			detect: true,
+			detect: false,
+			languages: HIGHLIGHT_LANGUAGES,
 		})
 		if (typeof transformer !== "function") return
 		return function transformHighlightedCode(this: unknown, tree: unknown, file: unknown) {
@@ -397,8 +456,10 @@ function createRenderPipeline(
 		.use(createRehypeSemanticRegistrations(surface))
 		.use(rehypeCallouts)
 		.use(rehypeWikiLinks)
+		.use(rehypeInlineMarks)
 		.use(rehypeTaskList)
 		.use(createConditionalHighlight())
+		.use(rehypeCodeChrome)
 		.use(rehypeMarkdownUrlPolicy)
 		.use(rehypeLimitMathStyles())
 		.use(rehypeSanitize, markdownSanitizeSchema)

@@ -1,6 +1,8 @@
 {
 	"name": "cortex",
+	"license": "AGPL-3.0-or-later",
 	"private": true,
+	"type": "module",
 	"packageManager": "bun@1.3.3",
 	"workspaces": [
 		"apps/*",
@@ -15,12 +17,12 @@
 		"dev:mobile": "bun run --cwd apps/mobile start",
 		"dev:web": "bun run --cwd apps/web dev",
 		"dist:desktop": "bun run --cwd apps/desktop dist",
-		"check": "biome check apps/desktop packages plugins scripts tools package.json biome.json tsconfig.json tsconfig.desktop.json vitest.config.ts",
-		"check:fix": "biome check --write apps/desktop packages plugins scripts tools package.json biome.json tsconfig.json tsconfig.desktop.json vitest.config.ts",
+		"check": "biome check apps/desktop packages plugins scripts tools package.json biome.json tsconfig.json tsconfig.base.json vitest.config.ts",
+		"check:fix": "biome check --write apps/desktop packages plugins scripts tools package.json biome.json tsconfig.json tsconfig.base.json vitest.config.ts",
 		"check:boundaries": "bun run scripts/check-workspace-boundaries.ts",
 		"check:mobile": "bun run --cwd apps/mobile check",
 		"check:web": "bun run --cwd apps/web check",
-		"typecheck": "tsc -b tsconfig.desktop.json && tsc -p tools/benchmarks",
+		"typecheck": "tsc -b apps/desktop apps/desktop/tsconfig.electron.json apps/desktop/tsconfig.node.json plugins && tsc -p tools/benchmarks",
 		"typecheck:all": "tsc -b",
 		"typecheck:mobile": "bun run --cwd apps/mobile typecheck",
 		"typecheck:web": "bun run --cwd apps/web typecheck",
@@ -38,27 +40,31 @@
 		"doctor:mobile": "bun run --cwd apps/mobile doctor"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.4.6",
+		"@biomejs/biome": "2.5.15",
 		"@testing-library/jest-dom": "^6.9.1",
-		"@testing-library/react": "^16.3.2",
-		"@testing-library/user-event": "^14.6.1",
-		"@types/react": "^19.1.8",
-		"@types/react-dom": "^19.1.6",
-		"@vitest/coverage-v8": "^4.1.9",
-		"jsdom": "^29.0.1",
-		"react": "^19.1.0",
-		"react-dom": "^19.1.0",
-		"typescript": "~5.8.3",
-		"vitest": "^4.1.9"
+		"@testing-library/react": "^16.3.3",
+		"@testing-library/user-event": "^14.6.8",
+		"@types/react": "^19.3.0",
+		"@types/react-dom": "^19.3.0",
+		"@typescript/native": "npm:typescript@^7.0.2",
+		"@vitest/coverage-v8": "^4.1.11",
+		"jsdom": "^30.1.2",
+		"react": "^19.3.1",
+		"react-dom": "^19.3.1",
+		"typescript": "npm:@typescript/typescript6@^6.0.2",
+		"vitest": "^4.1.11"
 	},
 	"dependencies": {
-		"@testing-library/dom": "^10.4.1"
+		"@testing-library/dom": "^10.4.2"
 	},
 	"trustedDependencies": [
 		"electron"
 	],
 	"overrides": {
+		"dompurify": "3.4.17",
+		"katex": "0.17.0",
 		"undici": "7.28.0",
-		"yjs": "13.6.33"
+		"yjs": "13.6.33",
+		"react-native-screens": "4.26.2"
 	}
 }

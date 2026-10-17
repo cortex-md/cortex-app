@@ -146,11 +146,16 @@ export const useAuthStore = create<AuthState>()(
 						password,
 						displayName,
 					)
-					const loginRecoveryKey = await get().login(email, password, resolvedServerUrl)
 					set((state) => {
-						if (state.user) state.user.displayName = result.displayName
+						state.authenticated = true
+						state.user = {
+							userId: result.userId,
+							email: result.email,
+							displayName: result.displayName,
+						}
+						state.loading = false
 					})
-					return result.recoveryKey ?? loginRecoveryKey
+					return result.recoveryKey
 				} catch (e) {
 					set((state) => {
 						state.loading = false

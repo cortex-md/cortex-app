@@ -1,0 +1,43 @@
+.add-vault-choice[data-slot="item"] {
+	width: 100%;
+	text-align: left;
+}
+
+.add-vault-choice[data-slot="item"]:hover {
+	background: var(--fill-quiet);
+}
+
+.add-vault-name-input[data-slot="input"] {
+	flex: 1;
+	min-width: 0;
+	height: auto;
+	padding: 0;
+	border-color: transparent;
+	background: transparent;
+	box-shadow: none;
+	font-size: 20px;
+	font-weight: 600;
+	line-height: 28px;
+}
+
+.add-vault-name-input[data-slot="input"]:focus-visible {
+	border-color: transparent;
+	box-shadow: none;
+}
+
+body[data-reduced-motion="true"]
+	:where(
+		[data-slot="button"],
+		[data-slot="toggle"],
+		[data-slot="toggle-group-item"],
+		[data-slot="chip"],
+		[data-slot="tabs-trigger"],
+		[data-slot="dialog-close"]
+	) {
+	transition-duration: 1ms;
+}
+
+body[data-reduced-motion="true"]
+	:where([data-slot="button"], [data-slot="chip"], [data-slot="dialog-close"]):active {
+	transform: none;
+}

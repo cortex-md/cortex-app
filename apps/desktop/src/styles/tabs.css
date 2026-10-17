@@ -1,0 +1,382 @@
+/* ─── Tab Bar ─────────────────────────────────────────────────────────────── */
+
+.tab-bar-row {
+	--tab-bar-padding-left: 8px;
+	position: relative;
+	z-index: 35;
+	display: flex;
+	flex-direction: row;
+	flex-shrink: 0;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	height: var(--titlebar-height, 48px);
+	padding: 0 8px 0 var(--tab-bar-padding-left);
+	-webkit-app-region: drag;
+}
+
+.tab-bar {
+	position: relative;
+	display: flex;
+	flex: 0 1 auto;
+	align-items: center;
+	justify-content: flex-start;
+	width: auto;
+	min-width: 0;
+	max-width: 100%;
+	height: auto;
+	margin: 0;
+	padding: 3px;
+	overflow-x: auto;
+	overflow-y: hidden;
+	gap: 2px;
+	border: 0;
+	border-radius: var(--control-pill-radius);
+	background: var(--fill-quiet);
+	box-shadow: none;
+	scrollbar-width: none;
+	-webkit-app-region: no-drag;
+}
+
+.tab-bar:empty {
+	display: none;
+}
+
+.tab-bar::-webkit-scrollbar {
+	display: none;
+}
+
+.tab-trigger {
+	position: relative;
+	flex: 0 1 auto;
+	width: auto;
+	min-width: 84px;
+	max-width: 200px;
+	height: 30px;
+	gap: 6px;
+	justify-content: flex-start;
+	padding: 0 14px;
+	border: 0;
+	border-radius: var(--control-pill-radius);
+	background: transparent;
+	color: var(--text-secondary);
+	font-size: 13.5px;
+	font-weight: 500;
+	line-height: 18px;
+	transition:
+		max-width var(--macos-duration-base, 140ms) var(--macos-ease, cubic-bezier(0.2, 0.8, 0.2, 1)),
+		opacity var(--macos-duration-base, 120ms) var(--macos-ease, ease),
+		background-color var(--macos-duration-base, 140ms) var(--macos-ease, ease),
+		box-shadow var(--macos-duration-base, 140ms) var(--macos-ease, ease),
+		color var(--macos-duration-base, 140ms) var(--macos-ease, ease);
+	animation: tab-enter var(--macos-duration-base, 150ms)
+		var(--macos-ease, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
+	-webkit-app-region: no-drag;
+}
+
+.tab-trigger:hover {
+	background: var(--fill-quiet);
+	color: var(--text-primary);
+}
+
+.tab-bar .tab-trigger[aria-selected="true"] {
+	z-index: 1;
+	flex-shrink: 0;
+	max-width: 260px;
+	background: var(--surface-raised);
+	box-shadow: var(--shadow-raised);
+	color: var(--text-primary);
+}
+
+.tab-trigger:has(.tab-close-btn) {
+	padding-right: 28px;
+}
+
+.tab-trigger--dragging {
+	opacity: 0.54;
+	transform: scale(0.98);
+}
+
+.file-tree-chevron-hit {
+	position: relative;
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	pointer-events: auto;
+}
+
+.file-tree-chevron-hit::after {
+	position: absolute;
+	inset: -6px -4px;
+	content: "";
+}
+
+.file-tree-trail {
+	flex: none;
+	margin-left: auto;
+	color: var(--text-muted);
+	font-size: 11.5px;
+	font-weight: 500;
+	font-variant-numeric: tabular-nums;
+	line-height: 15px;
+}
+
+.file-tree-db-dot {
+	--file-tree-dot: var(--text-muted);
+	flex: none;
+	width: 7px;
+	height: 7px;
+	margin: 0 2px;
+	border-radius: 999px;
+	background: var(--file-tree-dot);
+	opacity: 0.5;
+}
+
+[data-theme-scheme="dark"] .file-tree-db-dot {
+	background: color-mix(in srgb, var(--file-tree-dot) 60%, #fff);
+}
+
+.file-tree-db-dot[data-color] {
+	opacity: 1;
+}
+
+.file-tree-db-dot[data-color="blue"] {
+	--file-tree-dot: var(--syntax-function, #3f6fa8);
+}
+
+.file-tree-db-dot[data-color="green"] {
+	--file-tree-dot: var(--status-success);
+}
+
+.file-tree-db-dot[data-color="red"] {
+	--file-tree-dot: var(--status-error);
+}
+
+.file-tree-db-dot[data-color="amber"] {
+	--file-tree-dot: var(--status-warning);
+}
+
+.file-tree-db-dot[data-color="purple"] {
+	--file-tree-dot: #7c3aed;
+}
+
+.file-tree-db-dot[data-color="pink"] {
+	--file-tree-dot: var(--accent);
+}
+
+.file-tree-db-dot[data-color="teal"] {
+	--file-tree-dot: #0d9488;
+}
+
+.file-tree-db-dot[data-color="gray"] {
+	opacity: 0.5;
+}
+
+.tab-database-icon {
+	flex: none;
+	width: 13px;
+	height: 13px;
+	margin-right: 6px;
+	color: var(--accent-text);
+}
+
+.tab-title {
+	min-width: 0;
+	flex: 1 1 auto;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.tab-drop-marker,
+.tab-drop-marker-end {
+	position: absolute;
+	top: 5px;
+	bottom: 5px;
+	width: 2px;
+	border-radius: var(--control-pill-radius);
+	background: var(--tab-accent);
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--tab-accent) 18%, transparent);
+	pointer-events: none;
+	animation: tab-marker var(--macos-duration-base, 120ms) var(--macos-ease, ease-out) both;
+}
+
+.tab-drop-marker--before {
+	left: -2px;
+}
+
+.tab-drop-marker--after {
+	right: -2px;
+}
+
+.tab-drop-marker-end {
+	position: relative;
+	display: block;
+	flex: 0 0 2px;
+	height: 20px;
+	top: auto;
+	bottom: auto;
+	margin-inline: 2px;
+}
+
+.tab-close-btn {
+	position: absolute;
+	top: 50%;
+	right: 6px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	border-radius: 999px;
+	color: var(--text-muted);
+	opacity: 0;
+	pointer-events: none;
+	transform: translateY(-50%);
+	transition:
+		opacity 120ms ease-out,
+		background-color 120ms ease-out,
+		color 120ms ease-out;
+	-webkit-app-region: no-drag;
+}
+
+.tab-trigger:hover .tab-close-btn,
+.tab-close-btn[data-active] {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.tab-bar-nav[data-slot="button"],
+.app-sidebar-toggle[data-slot="button"],
+.tab-bar-right-toggle[data-slot="button"] {
+	width: 34px;
+	min-width: 34px;
+	height: 34px;
+	flex: none;
+	padding: 0;
+	border-radius: var(--control-pill-radius);
+	background: var(--surface-raised);
+	box-shadow: var(--shadow-raised);
+	color: var(--text-secondary);
+	-webkit-app-region: no-drag;
+}
+
+.tab-bar-nav[data-slot="button"]:hover,
+.app-sidebar-toggle[data-slot="button"]:hover,
+.tab-bar-right-toggle[data-slot="button"]:hover {
+	background: var(--surface-raised-hover);
+	color: var(--text-primary);
+}
+
+.tab-bar-nav[data-slot="button"] .lucide {
+	width: 17px;
+	height: 17px;
+}
+
+.tab-bar-nav[data-slot="button"]:disabled {
+	background: transparent;
+	box-shadow: inset 0 0 0 1px var(--hairline);
+	color: var(--text-disabled);
+	opacity: 1;
+}
+
+.tab-bar-right-toggle[data-slot="button"][aria-pressed="true"] {
+	background: var(--fill-quiet-strong);
+	box-shadow: none;
+	color: var(--text-primary);
+}
+
+.tab-bar-fill {
+	flex: 1;
+	min-width: 8px;
+	align-self: stretch;
+}
+
+.tab-new[data-slot="button"],
+.tab-more[data-slot="button"] {
+	flex: none;
+	height: 30px;
+	border-radius: var(--control-pill-radius);
+	color: var(--text-secondary);
+	-webkit-app-region: no-drag;
+}
+
+.tab-new[data-slot="button"] {
+	width: 30px;
+	min-width: 30px;
+}
+
+.tab-more[data-slot="button"] {
+	padding: 0 12px;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.tab-more[data-state="open"] {
+	background: var(--surface-raised);
+	box-shadow: var(--shadow-raised);
+	color: var(--text-primary);
+}
+
+.app-sidebar-toggle[data-slot="button"] {
+	transition:
+		left var(--sidebar-transition-duration) var(--sidebar-transition-ease),
+		transform 120ms ease-out,
+		background-color 120ms ease-out,
+		box-shadow 120ms ease-out,
+		color 120ms ease-out;
+}
+
+.split-leaf:not([data-split-end-pane="true"]) .tab-bar-right-toggle {
+	display: none;
+}
+
+.tab-tooltip[data-slot="tooltip-content"] {
+	display: flex;
+	max-width: 320px;
+	flex-direction: column;
+	gap: 2px;
+	padding: 6px 10px;
+	font-size: 11px;
+	line-height: 15px;
+}
+
+.tab-tooltip b {
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 16px;
+}
+
+.tab-tooltip span {
+	opacity: 0.7;
+}
+
+.tab-close-btn:hover {
+	background: var(--fill-quiet-strong);
+	color: var(--text-primary);
+}
+
+@keyframes tab-enter {
+	from {
+		opacity: 0;
+		transform: translate3d(0, -3px, 0) scale(0.98);
+	}
+
+	to {
+		opacity: 1;
+		transform: translate3d(0, 0, 0) scale(1);
+	}
+}
+
+@keyframes tab-marker {
+	from {
+		opacity: 0;
+		transform: scaleY(0.72);
+	}
+
+	to {
+		opacity: 1;
+		transform: scaleY(1);
+	}
+}

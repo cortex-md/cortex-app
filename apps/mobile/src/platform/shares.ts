@@ -1,10 +1,17 @@
-import type { Platform } from "@cortex/platform"
-import { unsupportedPhase1 } from "./unsupported"
+import { createNoteSharesService, createTemplateSharesService } from "@cortex/sync-api"
 
-export const sharesApi = {
-	list: () => unsupportedPhase1("shares.list"),
-	publish: () => unsupportedPhase1("shares.publish"),
-	updateExpiry: () => unsupportedPhase1("shares.updateExpiry"),
-	revoke: () => unsupportedPhase1("shares.revoke"),
-	open: () => unsupportedPhase1("shares.open"),
-} satisfies Platform["shares"]
+import { secrets } from "./keychain"
+import { serverApi } from "./serverApi"
+import { shareCrypto } from "./shareCrypto"
+
+export const sharesApi = createNoteSharesService({
+	secrets,
+	client: () => serverApi.client(),
+	crypto: shareCrypto,
+})
+
+export const templateSharesApi = createTemplateSharesService({
+	secrets,
+	client: () => serverApi.client(),
+	crypto: shareCrypto,
+})

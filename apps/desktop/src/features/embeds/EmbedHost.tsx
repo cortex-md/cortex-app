@@ -41,7 +41,7 @@ function EmbedModal() {
 					{target?.body}
 				</DialogBody>
 				<DialogFooter className="dialog-chrome-footer shrink-0">
-					<Button type="button" variant="outline" onClick={handleOpenInTab}>
+					<Button size="sm" type="button" variant="outline" onClick={handleOpenInTab}>
 						<PanelTopOpenIcon className="size-4" aria-hidden="true" />
 						Open in tab
 					</Button>

@@ -7,6 +7,7 @@ import {
 import { Button } from "@cortex/ui"
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react"
 import { memo, useCallback, useMemo, useState } from "react"
+import { useWritingMode } from "../workspace-mode/workspaceMode"
 import { AddPropertyPopover } from "./AddPropertyPopover"
 import { PropertyRow } from "./PropertyRow"
 import { useNotePropertiesPanel } from "./useNotePropertiesPanel"
@@ -19,6 +20,8 @@ interface NotePropertiesPanelProps {
 
 function NotePropertiesPanelView({ filePath, projection, readOnly }: NotePropertiesPanelProps) {
 	const panel = useNotePropertiesPanel(filePath, { projection })
+	const writingMode = useWritingMode()
+	const [writingReveal, setWritingReveal] = useState(false)
 	const [revealedState, setRevealedState] = useState<{
 		filePath: string
 		definitionIds: Set<string>
@@ -56,16 +59,20 @@ function NotePropertiesPanelView({ filePath, projection, readOnly }: NotePropert
 		[panel.schema.properties, visibleDefinitions],
 	)
 	if (!panel.vaultPath) return null
+	const expanded = writingMode ? writingReveal : panel.expanded
+	const toggleExpanded = writingMode
+		? () => setWritingReveal((revealed) => !revealed)
+		: panel.toggleExpanded
 
 	return (
 		<section className="note-properties" aria-label="Note properties">
 			<div className="note-properties-header">
-				<Button variant="ghost" size="xs" onClick={panel.toggleExpanded}>
-					{panel.expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+				<Button variant="ghost" size="xs" onClick={toggleExpanded}>
+					{expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
 					Properties
 				</Button>
 			</div>
-			{panel.expanded && (
+			{expanded && (
 				<div
 					className="note-properties-content"
 					aria-disabled={Boolean(panel.frontmatterError)}

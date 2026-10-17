@@ -163,6 +163,7 @@ export function TasksSidebar() {
 				)}
 				{nothingDue && <p className="task-sidebar-empty">Nothing due today.</p>}
 				<Button
+					size="sm"
 					variant="ghost"
 					className="task-sidebar-group task-sidebar-group-link"
 					onClick={() => openTodayView("upcoming")}
@@ -172,7 +173,12 @@ export function TasksSidebar() {
 				</Button>
 			</div>
 			<TaskUndoToast surface="sidebar" />
-			<Button variant="ghost" className="task-sidebar-open" onClick={() => openTodayView()}>
+			<Button
+				size="sm"
+				variant="ghost"
+				className="task-sidebar-open"
+				onClick={() => openTodayView()}
+			>
 				<span>Open Today</span>
 				{openTodayHotkey && <Kbd className="task-kbd">{openTodayHotkey}</Kbd>}
 			</Button>

@@ -1,10 +1,9 @@
-import { getPlatform } from "@cortex/platform"
+import { normalizeRecentCommandIds, pushRecentCommandId } from "@cortex/commands"
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
 
 export type LeftSidebarView = string
-export type AuthView = "login" | "register"
 
 export interface LeftSidebarLayout {
 	collapsed: boolean
@@ -19,12 +18,6 @@ export interface RightSidebarLayout {
 	collapsed: boolean
 	panel: RightSidebarPanel
 }
-
-export type QuickFinderRequest =
-	| { kind: "open" }
-	| { kind: "relink-bookmark"; bookmarkPath: string; query: string }
-
-const DEFAULT_QUICK_FINDER_REQUEST: QuickFinderRequest = { kind: "open" }
 
 export interface UIState {
 	leftSidebarCollapsed: boolean
@@ -42,34 +35,17 @@ export interface UIState {
 	toggleRightSidebar: () => void
 	setRightSidebarLayout: (layout: Partial<RightSidebarLayout>) => void
 
-	quickFinderOpen: boolean
-	quickFinderRequest: QuickFinderRequest
 	quickFinderPreview: boolean
-	toggleQuickFinder: () => void
-	openQuickFinder: (request?: QuickFinderRequest) => void
 	setQuickFinderPreview: (preview: boolean) => void
 
-	commandPaletteOpen: boolean
-	toggleCommandPalette: () => void
-
-	tagPickerOpen: boolean
-	toggleTagPicker: () => void
-
-	createFromTemplateOpen: boolean
-	openCreateFromTemplate: () => void
-	closeCreateFromTemplate: () => void
-
-	openSettings: (section?: string, fieldId?: string) => void
-
-	authOpen: boolean
-	authInitialView: AuthView
-	authReturnTo: string | null
-	openAuth: (view?: AuthView, returnTo?: string | null) => void
-	closeAuth: () => void
+	recentCommandIds: string[]
+	recordRecentCommand: (commandId: string) => void
+	setRecentCommandIds: (ids: unknown) => void
 }
 
 export const LEFT_SIDEBAR_WIDTH_BOUNDS = {
-	min: 228,
+	min: 160,
+	minWithRibbon: 200,
 	max: 448,
 }
 
@@ -78,8 +54,15 @@ const DEFAULT_LEFT_SIDEBAR_LAYOUT: LeftSidebarLayout = {
 	width: 292,
 }
 
-export function clampLeftSidebarWidth(width: number): number {
-	return Math.min(LEFT_SIDEBAR_WIDTH_BOUNDS.max, Math.max(LEFT_SIDEBAR_WIDTH_BOUNDS.min, width))
+export function getLeftSidebarMinWidth(showRibbon: boolean): number {
+	return showRibbon ? LEFT_SIDEBAR_WIDTH_BOUNDS.minWithRibbon : LEFT_SIDEBAR_WIDTH_BOUNDS.min
+}
+
+export function clampLeftSidebarWidth(
+	width: number,
+	minWidth: number = LEFT_SIDEBAR_WIDTH_BOUNDS.min,
+): number {
+	return Math.min(LEFT_SIDEBAR_WIDTH_BOUNDS.max, Math.max(minWidth, width))
 }
 
 export const useUIStore = create<UIState>()(
@@ -140,72 +123,23 @@ export const useUIStore = create<UIState>()(
 					}
 				}),
 
-			quickFinderOpen: false,
-			quickFinderRequest: DEFAULT_QUICK_FINDER_REQUEST,
 			quickFinderPreview: false,
-
-			toggleQuickFinder: () =>
-				set((s) => {
-					s.quickFinderOpen = !s.quickFinderOpen
-					s.quickFinderRequest = DEFAULT_QUICK_FINDER_REQUEST
-				}),
-
-			openQuickFinder: (request = DEFAULT_QUICK_FINDER_REQUEST) =>
-				set((s) => {
-					s.quickFinderOpen = true
-					s.quickFinderRequest = request
-				}),
 
 			setQuickFinderPreview: (preview) =>
 				set((s) => {
 					s.quickFinderPreview = preview
 				}),
 
-			commandPaletteOpen: false,
+			recentCommandIds: [],
 
-			toggleCommandPalette: () =>
+			recordRecentCommand: (commandId) =>
 				set((s) => {
-					s.commandPaletteOpen = !s.commandPaletteOpen
+					s.recentCommandIds = pushRecentCommandId(s.recentCommandIds, commandId)
 				}),
 
-			tagPickerOpen: false,
-
-			toggleTagPicker: () =>
+			setRecentCommandIds: (ids) =>
 				set((s) => {
-					s.tagPickerOpen = !s.tagPickerOpen
-				}),
-
-			createFromTemplateOpen: false,
-
-			openCreateFromTemplate: () =>
-				set((s) => {
-					s.createFromTemplateOpen = true
-				}),
-
-			closeCreateFromTemplate: () =>
-				set((s) => {
-					s.createFromTemplateOpen = false
-				}),
-
-			openSettings: (section, fieldId) => {
-				void getPlatform().window.openSettings(section ?? null, fieldId ?? null)
-			},
-
-			authOpen: false,
-			authInitialView: "login" as AuthView,
-			authReturnTo: null,
-
-			openAuth: (view = "login", returnTo = null) =>
-				set((s) => {
-					s.authOpen = true
-					s.authInitialView = view
-					s.authReturnTo = returnTo
-				}),
-
-			closeAuth: () =>
-				set((s) => {
-					s.authOpen = false
-					s.authReturnTo = null
+					s.recentCommandIds = normalizeRecentCommandIds(ids)
 				}),
 		})),
 		{ name: "uiStore" },

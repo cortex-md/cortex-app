@@ -3,7 +3,6 @@ import { Switch } from "@cortex/ui"
 import type { UpdateSettingFn } from "."
 import { AccountSection } from "./general/AccountSection"
 import { UpdatesSection } from "./general/UpdatesSection"
-import { VaultsSection } from "./general/VaultsSection"
 import { SettingsField, SettingsGroup, SettingsPage, SettingsSection } from "./SettingsPrimitives"
 
 interface GeneralSectionProps {
@@ -30,7 +29,6 @@ export function GeneralSection({ settings, onUpdate }: GeneralSectionProps) {
 				</SettingsGroup>
 			</SettingsSection>
 			<UpdatesSection />
-			<VaultsSection />
 		</SettingsPage>
 	)
 }

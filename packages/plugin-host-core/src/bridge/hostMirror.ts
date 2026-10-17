@@ -26,7 +26,7 @@ export interface PluginHostMirror {
 
 type MirroredState = Pick<
 	PluginStoreState,
-	"plugins" | "loadErrors" | "settingsValues" | "modalInstances"
+	"plugins" | "loadErrors" | "loadedVaultPath" | "settingsValues" | "modalInstances"
 >
 
 interface HostView {
@@ -43,6 +43,7 @@ export function createPluginHostMirror(
 	let previous: MirroredState = {
 		plugins: {},
 		loadErrors: {},
+		loadedVaultPath: null,
 		settingsValues: {},
 		modalInstances: [],
 	}
@@ -63,8 +64,17 @@ export function createPluginHostMirror(
 	}
 
 	function sync(state: PluginStoreState): void {
-		if (state.plugins !== previous.plugins || state.loadErrors !== previous.loadErrors) {
-			send({ type: "records", plugins: state.plugins, loadErrors: state.loadErrors })
+		if (
+			state.plugins !== previous.plugins ||
+			state.loadErrors !== previous.loadErrors ||
+			state.loadedVaultPath !== previous.loadedVaultPath
+		) {
+			send({
+				type: "records",
+				plugins: state.plugins,
+				loadErrors: state.loadErrors,
+				loadedVaultPath: state.loadedVaultPath,
+			})
 			syncRegistrations(state.plugins)
 		}
 		if (state.settingsValues !== previous.settingsValues) {

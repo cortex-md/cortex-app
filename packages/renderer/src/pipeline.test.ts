@@ -155,6 +155,8 @@ describe("processor isolation and sanitization", () => {
 			hasTables: false,
 			hasGfmSyntax: false,
 			hasMath: false,
+			hasInlineTags: false,
+			hasHighlights: false,
 		})
 		expect(
 			detectRendererFeatureFlags(
@@ -172,6 +174,8 @@ describe("processor isolation and sanitization", () => {
 			hasTables: true,
 			hasGfmSyntax: false,
 			hasMath: false,
+			hasInlineTags: false,
+			hasHighlights: false,
 		})
 	})
 

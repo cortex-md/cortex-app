@@ -1,5 +1,6 @@
 {
 	"name": "@cortex/plugin-host-core",
+	"license": "AGPL-3.0-or-later",
 	"private": true,
 	"version": "0.1.0",
 	"type": "module",
@@ -19,7 +20,6 @@
 		"zustand": "^5.0.0"
 	},
 	"devDependencies": {
-		"@types/css-tree": "^2.3.11",
-		"typescript": "~5.8.3"
+		"@types/css-tree": "^2.3.11"
 	}
 }

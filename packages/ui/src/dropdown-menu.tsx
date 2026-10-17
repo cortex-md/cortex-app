@@ -9,6 +9,8 @@ import {
 	nativeMenuItemDestructive,
 	nativeMenuItemFocus,
 	nativeMenuItemIcon,
+	nativeMenuLabel,
+	nativeMenuShortcut,
 	nativePopupContentMotion,
 	nativePopupSurface,
 } from "./lib/native-styles"
@@ -145,10 +147,7 @@ function DropdownMenuLabel({
 		<DropdownMenuPrimitive.Label
 			data-slot="dropdown-menu-label"
 			data-inset={inset}
-			className={cn(
-				"px-2 py-1.5 text-[var(--control-font-size,13px)] font-medium data-[inset]:pl-8",
-				className,
-			)}
+			className={cn(nativeMenuLabel, "data-[inset]:pl-8", className)}
 			{...props}
 		/>
 	)
@@ -171,7 +170,7 @@ function DropdownMenuShortcut({ className, ...props }: React.ComponentProps<"spa
 	return (
 		<span
 			data-slot="dropdown-menu-shortcut"
-			className={cn("ml-auto text-xs tracking-widest text-muted-foreground", className)}
+			className={cn(nativeMenuShortcut, className)}
 			{...props}
 		/>
 	)
@@ -229,18 +228,18 @@ function DropdownMenuSubContent({
 
 export {
 	DropdownMenu,
-	DropdownMenuPortal,
-	DropdownMenuTrigger,
+	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
 	DropdownMenuGroup,
-	DropdownMenuLabel,
 	DropdownMenuItem,
-	DropdownMenuCheckboxItem,
+	DropdownMenuLabel,
+	DropdownMenuPortal,
 	DropdownMenuRadioGroup,
 	DropdownMenuRadioItem,
 	DropdownMenuSeparator,
 	DropdownMenuShortcut,
 	DropdownMenuSub,
-	DropdownMenuSubTrigger,
 	DropdownMenuSubContent,
+	DropdownMenuSubTrigger,
+	DropdownMenuTrigger,
 }

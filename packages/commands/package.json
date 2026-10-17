@@ -1,13 +1,21 @@
 {
 	"name": "@cortex/commands",
+	"license": "AGPL-3.0-or-later",
 	"private": true,
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.ts",
+		"./hotkeys": "./src/hotkeys/index.ts"
+	},
+	"dependencies": {
+		"@cortex/platform": "workspace:*",
+		"zustand": "^5.0.11"
+	},
+	"peerDependencies": {
+		"react": ">=19"
 	},
 	"devDependencies": {
-		"typescript": "~5.8.3",
-		"vitest": "^4.1.0"
+		"@types/react": "^19.1.8"
 	}
 }

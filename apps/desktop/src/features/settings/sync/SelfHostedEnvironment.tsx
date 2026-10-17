@@ -4,7 +4,17 @@ import {
 	type SelfHostedEnvironmentGroup,
 } from "@cortex/core"
 import { getPlatform } from "@cortex/platform"
-import { Button, Collapsible, CollapsibleContent, CollapsibleTrigger, Input } from "@cortex/ui"
+import {
+	Button,
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+	Input,
+	NativeSelect,
+	NativeSelectOption,
+	SimpleTooltip,
+	Switch,
+} from "@cortex/ui"
 import {
 	ChevronRight,
 	ClipboardCopy,
@@ -37,11 +47,66 @@ interface EnvironmentDisclosureProps {
 	onFieldChange(field: SelfHostedEnvironmentField, value: string): Promise<void>
 }
 
+interface EnvironmentControlProps {
+	field: SelfHostedEnvironmentField
+	value: string
+	onChange(value: string): void
+}
+
 const ENVIRONMENT_GROUP_ICONS: Record<string, LucideIcon> = {
 	server: ServerIcon,
 	database: DatabaseIcon,
 	authentication: KeyRoundIcon,
 	storage: HardDriveIcon,
+}
+
+function EnvironmentControl({ field, value, onChange }: EnvironmentControlProps) {
+	const effectiveValue = value || field.defaultValue
+	if (field.kind === "boolean") {
+		return (
+			<Switch
+				id={field.key}
+				size="sm"
+				checked={effectiveValue === "true"}
+				onCheckedChange={(checked) => onChange(checked ? "true" : "false")}
+			/>
+		)
+	}
+	if (field.options) {
+		return (
+			<NativeSelect
+				id={field.key}
+				size="sm"
+				value={effectiveValue}
+				onChange={(event: ChangeEvent<HTMLSelectElement>) => onChange(event.target.value)}
+			>
+				{field.options.map((option) => (
+					<NativeSelectOption key={option} value={option}>
+						{option}
+					</NativeSelectOption>
+				))}
+			</NativeSelect>
+		)
+	}
+	return (
+		<div className="settings-env-control">
+			<SimpleTooltip label="Stored in the OS keychain">
+				<Input
+					id={field.key}
+					size="sm"
+					type={field.secret ? "password" : "text"}
+					value={value}
+					onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(event.target.value)}
+					placeholder={field.defaultValue}
+				/>
+			</SimpleTooltip>
+			{field.secret && (
+				<span className="settings-env-secret">
+					<LockIcon />
+				</span>
+			)}
+		</div>
+	)
 }
 
 function EnvironmentDisclosure({
@@ -58,18 +123,18 @@ function EnvironmentDisclosure({
 	return (
 		<Collapsible open={open} onOpenChange={onOpenChange} asChild>
 			<SettingsGroup className="settings-env-group">
-				<CollapsibleTrigger asChild>
-					<Button variant="ghost" aria-label={group.label} className="settings-env-trigger">
-						<ChevronRight className="settings-env-chevron" />
-						<SettingsIconTile>
-							<GroupIcon />
-						</SettingsIconTile>
-						<span className="settings-env-copy">
-							<b>{group.label}</b>
-							<span>{group.description}</span>
-						</span>
-						<span className="settings-count-pill">{fieldCount}</span>
-					</Button>
+				<CollapsibleTrigger className="settings-env-trigger">
+					<ChevronRight className="settings-env-chevron" />
+					<SettingsIconTile>
+						<GroupIcon />
+					</SettingsIconTile>
+					<span className="settings-env-copy">
+						<span className="settings-env-title">{group.label}</span>
+						<span className="settings-env-description">{group.description}</span>
+					</span>
+					<span className="settings-env-count">
+						{fieldCount} {fieldCount === 1 ? "field" : "fields"}
+					</span>
 				</CollapsibleTrigger>
 				<CollapsibleContent
 					forceMount
@@ -93,26 +158,11 @@ function EnvironmentDisclosure({
 										htmlFor={field.key}
 										controlClassName="settings-env-control-column"
 									>
-										<div className="settings-env-control">
-											<Input
-												id={field.key}
-												size="sm"
-												type={field.secret ? "password" : "text"}
-												value={
-													field.secret ? (secrets[field.key] ?? "") : (values[field.key] ?? "")
-												}
-												onChange={(event: ChangeEvent<HTMLInputElement>) =>
-													void onFieldChange(field, event.target.value)
-												}
-												placeholder={field.defaultValue}
-											/>
-											{field.secret && (
-												<span className="settings-env-secret" title="Stored in the OS keychain">
-													<LockIcon />
-													Secret
-												</span>
-											)}
-										</div>
+										<EnvironmentControl
+											field={field}
+											value={field.secret ? (secrets[field.key] ?? "") : (values[field.key] ?? "")}
+											onChange={(value) => void onFieldChange(field, value)}
+										/>
 									</SettingsField>
 								))}
 							</div>
@@ -135,17 +185,28 @@ function findEnvironmentGroupId(fieldId: string | undefined): string | null {
 	return group?.id ?? null
 }
 
+const DEFAULT_OPEN_GROUP_IDS = ["server", "authentication"]
+
 export function SelfHostedEnvironment() {
 	const { environment, environmentFile, secrets, updateField } = useSelfHostedEnvironment()
 	const [copied, showCopied] = useCopyFeedback()
 	const [exported, showExported] = useCopyFeedback()
-	const [openGroupId, setOpenGroupId] = useState<string | null>(null)
+	const [openGroupIds, setOpenGroupIds] = useState<ReadonlySet<string>>(
+		() => new Set(DEFAULT_OPEN_GROUP_IDS),
+	)
+	const setGroupOpen = (groupId: string, open: boolean) =>
+		setOpenGroupIds((current) => {
+			const next = new Set(current)
+			if (open) next.add(groupId)
+			else next.delete(groupId)
+			return next
+		})
 	const revealTarget = useSettingsRevealTarget()
 	const [handledRevealNonce, setHandledRevealNonce] = useState<number | null>(null)
 	if (revealTarget && revealTarget.nonce !== handledRevealNonce) {
 		setHandledRevealNonce(revealTarget.nonce)
 		const revealGroupId = findEnvironmentGroupId(revealTarget.fieldId)
-		if (revealGroupId) setOpenGroupId(revealGroupId)
+		if (revealGroupId) setGroupOpen(revealGroupId, true)
 	}
 
 	const handleCopy = async () => {
@@ -187,10 +248,10 @@ export function SelfHostedEnvironment() {
 					<EnvironmentDisclosure
 						key={group.id}
 						group={group}
-						open={openGroupId === group.id}
+						open={openGroupIds.has(group.id)}
 						values={environment}
 						secrets={secrets}
-						onOpenChange={(open) => setOpenGroupId(open ? group.id : null)}
+						onOpenChange={(open) => setGroupOpen(group.id, open)}
 						onFieldChange={updateField}
 					/>
 				))}

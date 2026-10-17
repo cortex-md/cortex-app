@@ -1,8 +1,15 @@
 import { reportAppError } from "@cortex/core"
-import { type MarketplaceNotificationEvent, setMarketplaceCallbacks } from "@cortex/marketplace"
+import {
+	findThemeFamily,
+	type MarketplaceNotificationEvent,
+	setMarketplaceCallbacks,
+} from "@cortex/marketplace"
 import { getPlatform } from "@cortex/platform"
+import { getThemeManager } from "@cortex/theme"
 
 import { mobilePluginHost } from "@/bootstrap/pluginHost"
+import { toast } from "@/features/feedback/useToast"
+import { getCommunityThemesDir, reloadCommunityThemes } from "@/features/themes/communityThemes"
 
 async function notifyMarketplaceEvent(event: MarketplaceNotificationEvent): Promise<void> {
 	if (event.level === "error") {
@@ -15,6 +22,11 @@ async function notifyMarketplaceEvent(event: MarketplaceNotificationEvent): Prom
 		})
 		return
 	}
+	if (event.kind === "themes") {
+		if (event.action === "uninstall") await reloadCommunityThemes()
+		toast(event.title)
+		return
+	}
 	if (event.action !== "install") return
 	await getPlatform().dialog.showAlert({
 		title: event.title,
@@ -25,10 +37,11 @@ async function notifyMarketplaceEvent(event: MarketplaceNotificationEvent): Prom
 export function registerMobileMarketplace(): void {
 	setMarketplaceCallbacks({
 		getPluginsDir: mobilePluginHost.getCommunityPluginsDir,
-		getThemesDir: () => null,
+		getThemesDir: getCommunityThemesDir,
 		pluginHost: mobilePluginHost,
-		reloadThemes: async () => {},
-		isThemeInstalled: () => false,
+		reloadThemes: reloadCommunityThemes,
+		isThemeInstalled: (id) =>
+			findThemeFamily({ id, name: id }, getThemeManager().getThemeFamilies()) !== null,
 		notify: notifyMarketplaceEvent,
 	})
 }

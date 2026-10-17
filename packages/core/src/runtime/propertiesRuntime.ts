@@ -6,6 +6,7 @@ import {
 	type PropertiesRuntime,
 	type PropertyAuthorContext,
 } from "@cortex/properties"
+import { noteMetadataIndex } from "../indexing/noteMetadataIndex"
 import { noteCache } from "../noteCache"
 import { mutateNote } from "../notes/mutateNote"
 import { assertVaultPathWritable } from "../stores/accessStore"
@@ -14,6 +15,7 @@ import { useDevicesStore } from "../stores/devicesStore"
 import { useMembersStore } from "../stores/membersStore"
 import { useRemoteVaultStore } from "../stores/remoteVaultStore"
 import { useVaultStore } from "../stores/vaultStore"
+import { getLocalVaultState } from "../vault/vaultStateFiles"
 
 export interface PropertiesRuntimeOptions {
 	deviceType: string
@@ -170,6 +172,18 @@ export function createPropertiesRuntime(options: PropertiesRuntimeOptions): Prop
 		files: {
 			readFile: (path) => platform.fs.readFile(path),
 			atomicWriteFile: (path, content) => platform.fs.atomicWriteFile(path, content),
+		},
+		noteIndex: {
+			getNoteProperties: (vaultPath) => noteMetadataIndex.getNoteProperties(vaultPath),
+		},
+		uiState: {
+			readExpanded: async (vaultPath) =>
+				(await getLocalVaultState(vaultPath).read()).propertiesExpanded,
+			writeExpanded: (vaultPath, expanded) =>
+				getLocalVaultState(vaultPath).update((state) => ({
+					...state,
+					propertiesExpanded: expanded,
+				})),
 		},
 		notes: {
 			readNote: (path) => {

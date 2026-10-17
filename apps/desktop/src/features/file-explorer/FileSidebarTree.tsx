@@ -1,14 +1,16 @@
 import type { FileTreeNode, FileTreeRow, FileTreeVisibleNodeRow } from "@cortex/core"
-import { getFileTreeNodeTitle, getParentPath, useDragStore } from "@cortex/core"
-import { Button, Input } from "@cortex/ui"
-import type { Virtualizer } from "@tanstack/react-virtual"
 import {
-	ChevronRightIcon,
-	FilePlusIcon,
-	FolderIcon,
-	FolderPlusIcon,
-	Table2Icon,
-} from "lucide-react"
+	ensureMarkdownExtension,
+	getFileKind,
+	getFileTreeNodeTitle,
+	getParentPath,
+	isMarkdownPath,
+	stripMarkdownExtension,
+	useDragStore,
+} from "@cortex/core"
+import { Button, Input, SimpleTooltip } from "@cortex/ui"
+import type { Virtualizer } from "@tanstack/react-virtual"
+import { ChevronRightIcon, FilePlusIcon, FolderIcon, FolderPlusIcon } from "lucide-react"
 import { type MouseEvent, memo, type RefObject, useEffect, useRef } from "react"
 import {
 	DatabaseRowDot,
@@ -17,6 +19,7 @@ import {
 } from "../databases/DatabaseTreeDecorations"
 import { useInternalDragSource } from "../split-view/useInternalDragSource"
 import { type FileExplorerHotkeyBinding, useFileExplorerKeyboard } from "./fileExplorerKeyboard"
+import { DatabaseViewTile, getFileKindIcon } from "./fileKindIcon"
 import { getFileTreeItemId } from "./fileTreeDom"
 import { getFileTreeDepthStyle } from "./fileTreeLayout"
 import type { FileTreeActions } from "./useFileSidebarActions"
@@ -58,7 +61,7 @@ interface FileSidebarTreeRowsProps {
 }
 
 export interface FileSidebarTreeProps extends Omit<FileSidebarTreeRowsProps, "dropTarget"> {
-	tree: FileTreeNode[]
+	tree: readonly FileTreeNode[]
 	nodeRows: FileTreeVisibleNodeRow[]
 	nodeRowIndexByPath: Map<string, number>
 	isCreatingAtRoot: boolean
@@ -168,26 +171,24 @@ export function FileSidebarTree({
 			data-file-tree-root-path={vaultPath}
 			onContextMenu={handleRootContextMenu}
 			onFocus={handleFocus}
-			onKeyDown={handleKeyDown}
+			onPointerDown={(event) => {
+				delete event.currentTarget.dataset.keyboardNav
+			}}
+			onKeyDown={(event) => {
+				event.currentTarget.dataset.keyboardNav = ""
+				handleKeyDown(event)
+			}}
 		>
 			{tree.length === 0 && !isCreatingAtRoot ? (
 				<div className="flex flex-col items-center justify-center gap-3 p-8 text-center">
 					<FolderIcon className="size-6 text-text-muted" />
 					<p className="m-0 text-xs text-text-muted">No files yet</p>
 					<div className="flex items-center gap-2">
-						<Button
-							variant="secondary"
-							size="sm"
-							onClick={() => actions.startCreate(vaultPath, "file")}
-						>
+						<Button variant="secondary" onClick={() => actions.startCreate(vaultPath, "file")}>
 							<FilePlusIcon className="size-3.5" />
 							New note
 						</Button>
-						<Button
-							variant="secondary"
-							size="sm"
-							onClick={() => actions.startCreate(vaultPath, "folder")}
-						>
+						<Button variant="secondary" onClick={() => actions.startCreate(vaultPath, "folder")}>
 							<FolderPlusIcon className="size-3.5" />
 							New folder
 						</Button>
@@ -231,11 +232,9 @@ function FileSidebarTreeRows({
 								data-create-type={row.createType}
 							>
 								{row.createType === "folder" && (
-									<ChevronRightIcon
-										size={15}
-										strokeWidth={2.5}
-										className="text-text-muted flex-shrink-0"
-									/>
+									<span className="file-tree-chevron-hit">
+										<ChevronRightIcon size={14} strokeWidth={2.2} />
+									</span>
 								)}
 								<InlineInput
 									defaultValue={row.createType === "folder" ? "New Folder" : "Untitled"}
@@ -281,6 +280,7 @@ function TreeNodeRow({
 	actions,
 }: TreeNodeRowProps) {
 	const parentIsDatabase = useIsDatabaseFolder(parentPath)
+	const isNote = !node.isDir && isMarkdownPath(node.path)
 	const canDragEntry = !visualState.renaming
 	const dragProps = useInternalDragSource(
 		() => ({
@@ -293,6 +293,7 @@ function TreeNodeRow({
 
 	return (
 		<Button
+			size="sm"
 			id={getFileTreeItemId(node.path)}
 			variant={"ghost"}
 			role="treeitem"
@@ -305,7 +306,7 @@ function TreeNodeRow({
 			data-file-tree-parent-path={parentPath}
 			data-file-tree-path={node.path}
 			data-drop-position={dropPosition ?? undefined}
-			className={`file-tree-item flex items-center text-left gap-1 w-full select-none outline-none focus-visible:ring-1 focus-visible:ring-border-focus ${
+			className={`file-tree-item flex items-center text-left w-full select-none outline-none ${
 				visualState.active ? "active" : ""
 			} ${visualState.focused ? "focused" : ""}`}
 			{...dragProps}
@@ -339,30 +340,34 @@ function TreeNodeRow({
 			{node.isDir && (
 				<span className="file-tree-chevron-hit" data-file-tree-chevron="">
 					<ChevronRightIcon
-						size={15}
-						strokeWidth={2.5}
-						className={`text-text-muted flex-shrink-0 transition-transform duration-100 ${
-							visualState.expanded ? "rotate-90" : ""
-						}`}
+						size={14}
+						strokeWidth={2.2}
+						className={visualState.expanded ? "rotate-90" : undefined}
 					/>
 				</span>
 			)}
-			{node.isDatabase && (
-				<Table2Icon size={14} className="text-brand-text flex-shrink-0" aria-hidden="true" />
-			)}
+			{node.isDatabase && <DatabaseViewTile folderPath={node.path} />}
+			{!node.isDir && <FileKindGlyph path={node.path} />}
 			{node.isDatabase && visualState.expanded && <DatabaseTreeRetainer folderPath={node.path} />}
 			{parentIsDatabase && !node.isDir && (
 				<DatabaseRowDot folderPath={parentPath} path={node.path} />
 			)}
 			{visualState.renaming ? (
-				<InlineInput
-					defaultValue={node.name}
-					onConfirm={(newName) => void actions.confirmRename(node.path, newName)}
-					onCancel={actions.cancelRename}
-					selectBaseName={!node.isDir}
-				/>
+				<SimpleTooltip label={node.name} side="right">
+					<InlineInput
+						defaultValue={isNote ? stripMarkdownExtension(node.name) : node.name}
+						onConfirm={(newName) =>
+							void actions.confirmRename(
+								node.path,
+								isNote ? ensureMarkdownExtension(newName) : newName,
+							)
+						}
+						onCancel={actions.cancelRename}
+						selectBaseName={!node.isDir && !isNote}
+					/>
+				</SimpleTooltip>
 			) : (
-				<span className="overflow-hidden text-ellipsis whitespace-nowrap flex-1" title={node.name}>
+				<span className="overflow-hidden text-ellipsis whitespace-nowrap flex-1">
 					{getFileTreeNodeTitle(node)}
 				</span>
 			)}
@@ -370,6 +375,16 @@ function TreeNodeRow({
 				<span className="file-tree-trail">{countNotes(node)}</span>
 			)}
 		</Button>
+	)
+}
+
+function FileKindGlyph({ path }: { path: string }) {
+	if (getFileKind(path) === "note") return null
+	const Icon = getFileKindIcon(path)
+	return (
+		<span className="file-tree-kind-icon" aria-hidden="true">
+			<Icon size={15} strokeWidth={2} />
+		</span>
 	)
 }
 

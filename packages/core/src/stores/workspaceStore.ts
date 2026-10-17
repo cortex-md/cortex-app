@@ -81,6 +81,7 @@ interface WorkspaceSnapshot {
 	leftSidebar?: Partial<LeftSidebarLayout>
 	rightSidebar?: Partial<RightSidebarLayout>
 	quickFinderPreview?: boolean
+	recentCommandIds?: string[]
 }
 
 export interface OpenTabOptions {
@@ -154,12 +155,12 @@ export function getRecentFilePaths(
 	recentlyClosed: readonly RecentlyClosed[],
 	limit = 15,
 ): string[] {
+	const openTabs = Object.values(panes)
+		.flatMap((pane) => pane.tabs)
+		.filter((tab) => tab.tabType === "file" && tab.filePath)
+		.sort((a, b) => b.lastAccessed - a.lastAccessed)
 	const paths = new Set<string>()
-	for (const pane of Object.values(panes)) {
-		for (const tab of [...pane.tabs].sort((a, b) => b.lastAccessed - a.lastAccessed)) {
-			if (tab.tabType === "file" && tab.filePath) paths.add(tab.filePath)
-		}
-	}
+	for (const tab of openTabs) paths.add(tab.filePath)
 	for (const closed of recentlyClosed) paths.add(closed.filePath)
 	return Array.from(paths).slice(0, limit)
 }
@@ -909,13 +910,14 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 					rightSidebarCollapsed,
 					rightSidebarPanel,
 					quickFinderPreview,
+					recentCommandIds,
 				} = useUIStore.getState()
 				const platform = getPlatform()
 				const configPath = getVaultFilePath(vaultPath, VAULT_FILES.workspace)
 				const persistedPanes = Object.fromEntries(
 					Object.entries(panes).map(([paneId, pane]) => [paneId, createPersistedPane(pane)]),
 				)
-				await platform.fs.writeFile(
+				await platform.fs.atomicWriteFile(
 					configPath,
 					JSON.stringify(
 						{
@@ -931,6 +933,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 								panel: rightSidebarPanel,
 							},
 							quickFinderPreview,
+							recentCommandIds,
 						},
 						null,
 						2,
@@ -979,8 +982,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 					if (typeof data.quickFinderPreview === "boolean") {
 						useUIStore.getState().setQuickFinderPreview(data.quickFinderPreview)
 					}
+					useUIStore.getState().setRecentCommandIds(data.recentCommandIds)
 				} catch {
 					useUIStore.getState().resetLeftSidebarLayout()
+					useUIStore.getState().setRecentCommandIds([])
 				}
 			},
 

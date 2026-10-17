@@ -119,7 +119,11 @@ export {
 } from "./markdownKeymap"
 export { type NoteAssetPath, resolveNoteAssetPath } from "./noteAssets"
 export { ReadingView } from "./ReadingView"
-export { loadCodeMirrorCommunityPluginExternals, loadEditorRuntime } from "./runtime"
+export {
+	loadCodeMirrorCommunityPluginExternals,
+	loadEditorRuntime,
+	loadVimRuntime,
+} from "./runtime"
 export { SideBySideView } from "./SideBySideView"
 export { openFindPanel } from "./searchCommands"
 export {

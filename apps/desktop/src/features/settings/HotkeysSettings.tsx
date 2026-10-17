@@ -1,7 +1,14 @@
 import { commandRegistry } from "@cortex/commands"
+import { formatHotkeyDisplay, type HotkeyBinding, useHotkeysStore } from "@cortex/commands/hotkeys"
 import { useVaultStore } from "@cortex/core"
-import { formatHotkeyDisplay, type HotkeyBinding, useHotkeysStore } from "@cortex/hotkeys"
-import { Button, InputGroup, InputGroupAddon, InputGroupInput, Kbd } from "@cortex/ui"
+import {
+	Button,
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	Kbd,
+	SimpleTooltip,
+} from "@cortex/ui"
 import { RotateCcwIcon, SearchIcon } from "lucide-react"
 import {
 	memo,
@@ -72,7 +79,6 @@ function HotkeyRecorder({
 			<Button
 				ref={recorderRef}
 				variant="outline"
-				size="sm"
 				className="min-w-[100px] text-xs text-brand border-brand/50 animate-pulse"
 				onClick={() => setRecording(false)}
 			>
@@ -85,7 +91,6 @@ function HotkeyRecorder({
 		<Button
 			aria-label={hasKeys ? "Change shortcut" : "Add shortcut"}
 			variant="outline"
-			size="sm"
 			className="min-w-[100px] text-xs"
 			onClick={() => setRecording(true)}
 		>
@@ -133,15 +138,16 @@ const HotkeyRow = memo(function HotkeyRow({
 					onRecord={(keys) => onRecord(binding.id, keys)}
 				/>
 				{binding.keys !== binding.defaultKeys && (
-					<Button
-						variant="ghost"
-						size="sm"
-						className="text-xs text-muted-foreground h-7 w-7 p-0"
-						onClick={() => onReset(binding.id)}
-						title="Reset to default"
-					>
-						<RotateCcwIcon className="size-3" />
-					</Button>
+					<SimpleTooltip label="Reset to default">
+						<Button
+							variant="ghost"
+							size="icon-xs"
+							onClick={() => onReset(binding.id)}
+							aria-label="Reset to default"
+						>
+							<RotateCcwIcon />
+						</Button>
+					</SimpleTooltip>
 				)}
 			</div>
 		</SettingsListItem>
@@ -232,7 +238,7 @@ export function HotkeysSection() {
 				title="Keyboard shortcuts"
 				description="Search, record, and reset command bindings for this vault."
 				action={
-					<Button variant="ghost" size="sm" onClick={handleResetAll}>
+					<Button variant="ghost" onClick={handleResetAll}>
 						<RotateCcwIcon className="size-3" />
 						Reset All
 					</Button>

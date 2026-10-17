@@ -1,7 +1,11 @@
-import { useAuthStore, useMembersStore, useRemoteVaultStore, useSyncStore } from "@cortex/core"
+import {
+	startVaultOverviewRefresh,
+	useAuthStore,
+	useRemoteVaultStore,
+	useSyncStore,
+} from "@cortex/core"
 import { useEffect } from "react"
-
-const FOCUS_REFRESH_INTERVAL_MS = 60_000
+import { onWindowFocus } from "@/utils/windowFocus"
 
 export function useVaultOverviewRefresh() {
 	const authenticated = useAuthStore((state) => state.authenticated)
@@ -12,14 +16,6 @@ export function useVaultOverviewRefresh() {
 
 	useEffect(() => {
 		if (!authenticated || !linkedVaultId || !syncActive) return
-		let lastRefresh = Date.now()
-		void useMembersStore.getState().fetchOverview(linkedVaultId)
-		const refreshOnFocus = () => {
-			if (Date.now() - lastRefresh < FOCUS_REFRESH_INTERVAL_MS) return
-			lastRefresh = Date.now()
-			void useMembersStore.getState().fetchOverview(linkedVaultId)
-		}
-		window.addEventListener("focus", refreshOnFocus)
-		return () => window.removeEventListener("focus", refreshOnFocus)
+		return startVaultOverviewRefresh(linkedVaultId, onWindowFocus)
 	}, [authenticated, linkedVaultId, syncActive])
 }

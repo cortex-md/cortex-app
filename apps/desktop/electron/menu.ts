@@ -1,6 +1,6 @@
-import type { NativeMenuCommand, NativeMenuState } from "@cortex/platform"
+import type { NativeMenuCommand, NativeMenuItemStates, NativeMenuState } from "@cortex/platform"
 import { sortRecentVaults } from "@cortex/platform/vault"
-import { app, Menu, type MenuItemConstructorOptions } from "electron"
+import { app, Menu, type MenuItem, type MenuItemConstructorOptions } from "electron"
 import type { MainApi } from "./contract"
 import { setupDockMenu } from "./dock"
 import { getInvokeSender } from "./ipc/sender"
@@ -10,7 +10,6 @@ import {
 	emitToTargetWindow,
 	listMainWindows,
 	openNewWindow,
-	openSettingsWindow,
 	openVaultWindow,
 	resolveMainWindowId,
 } from "./windows"
@@ -51,12 +50,42 @@ const COLOR_SCHEMES = [
 	["system", "System"],
 ] as const
 
+interface ItemBinding {
+	commandId: string
+	requires?: Requirement
+	checkedKey?: string
+}
+
+interface LiveItemBinding extends ItemBinding {
+	item: MenuItem
+}
+
 const menuStates = new Map<number, NativeMenuState>()
+const pendingBindings = new Map<string, ItemBinding>()
+let liveBindings: LiveItemBinding[] = []
+let builtCommandsSignature: string | null = null
 let rebuildTimer: NodeJS.Timeout | null = null
+let syncTimer: NodeJS.Timeout | null = null
+
+function focusedContentsId(): number | null {
+	return listMainWindows().find((entry) => entry.focused)?.contentsId ?? null
+}
 
 function focusedMenuState(): NativeMenuState | null {
-	const focused = listMainWindows().find((entry) => entry.focused)
-	return focused ? (menuStates.get(focused.contentsId) ?? null) : null
+	const contentsId = focusedContentsId()
+	return contentsId === null ? null : (menuStates.get(contentsId) ?? null)
+}
+
+function commandsSignature(state: NativeMenuState | null): string {
+	return JSON.stringify(state?.commands ?? [])
+}
+
+function emptyMenuState(): NativeMenuState {
+	return { commands: [], checked: {}, enabled: {} }
+}
+
+function itemId(commandId: string, payload: Record<string, unknown> | undefined): string {
+	return payload ? `${commandId}|${JSON.stringify(payload)}` : commandId
 }
 
 function isEnabled(context: MenuContext, id: string, requires?: Requirement): boolean {
@@ -74,10 +103,17 @@ function commandItem(
 	const command = context.commands.get(id)
 	const showShortcut = options.showShortcut ?? !options.payload
 	const accelerator = showShortcut ? toAccelerator(command?.keys) : undefined
+	const menuItemId = itemId(id, options.payload)
+	pendingBindings.set(menuItemId, {
+		commandId: id,
+		requires: options.requires,
+		checkedKey: options.checked,
+	})
 	return {
+		id: menuItemId,
 		label: options.label ?? command?.label ?? id,
 		accelerator,
-		registerAccelerator: context.isMac,
+		registerAccelerator: false,
 		enabled: isEnabled(context, id, options.requires),
 		...(options.type && {
 			type: options.type,
@@ -89,6 +125,13 @@ function commandItem(
 				...(options.payload && { payload: options.payload }),
 			}),
 	}
+}
+
+function openSettings(section?: string): void {
+	emitToTargetWindow("menu-command", {
+		id: "app.settings",
+		...(section && { payload: { section } }),
+	})
 }
 
 function separator(): MenuItemConstructorOptions {
@@ -120,7 +163,7 @@ function appMenu(context: MenuContext): MenuItemConstructorOptions {
 			{
 				label: "Settings…",
 				accelerator: "CmdOrCtrl+,",
-				click: () => openSettingsWindow(),
+				click: () => openSettings(),
 			},
 			separator(),
 			{ role: "services" },
@@ -148,10 +191,11 @@ function fileMenu(context: MenuContext): MenuItemConstructorOptions {
 			{
 				label: "New Window",
 				accelerator: toAccelerator(context.commands.get("window.new")?.keys) ?? "CmdOrCtrl+Shift+N",
-				registerAccelerator: context.isMac,
+				registerAccelerator: false,
 				click: () => openNewWindow(),
 			},
 			separator(),
+			commandItem(context, "vault.add", { label: "Add Vault…" }),
 			commandItem(context, "vault.open", { label: "Open Vault…" }),
 			recentsSubmenu(),
 			commandItem(context, "navigate.quick-finder", { label: "Quick Open…", requires: "vault" }),
@@ -185,6 +229,10 @@ function fileMenu(context: MenuContext): MenuItemConstructorOptions {
 			},
 			separator(),
 			commandItem(context, "import.files", { label: "Import…", requires: "vault" }),
+			commandItem(context, "import.obsidian", {
+				label: "Import from Obsidian…",
+				requires: "vault",
+			}),
 			{
 				label: "Export",
 				submenu: [
@@ -202,7 +250,7 @@ function fileMenu(context: MenuContext): MenuItemConstructorOptions {
 							label: "Settings…",
 							accelerator: "CmdOrCtrl+,",
 							registerAccelerator: false,
-							click: () => openSettingsWindow(),
+							click: () => openSettings(),
 						},
 						separator(),
 						{ role: "quit" as const },
@@ -308,6 +356,18 @@ function viewMenu(context: MenuContext): MenuItemConstructorOptions {
 				requires: "vault",
 				type: "checkbox",
 				checked: "leftSidebar",
+			}),
+			commandItem(context, "view.toggle-writing-mode", {
+				label: "Writing Mode",
+				requires: "vault",
+				type: "checkbox",
+				checked: "writingMode",
+			}),
+			commandItem(context, "view.toggle-ribbon", {
+				label: "Ribbon",
+				requires: "vault",
+				type: "checkbox",
+				checked: "ribbon",
 			}),
 			commandItem(context, "view.toggle-right-sidebar", {
 				label: "Right Sidebar",
@@ -488,7 +548,7 @@ function pluginsMenu(context: MenuContext): MenuItemConstructorOptions {
 		submenu: [
 			...pluginSubmenus,
 			...(pluginSubmenus.length > 0 ? [separator()] : []),
-			{ label: "Manage Plugins…", click: () => openSettingsWindow("plugins") },
+			{ label: "Manage Plugins…", click: () => openSettings("plugins") },
 			commandItem(context, "marketplace.open-plugins", {
 				label: "Browse Plugins…",
 				requires: "vault",
@@ -522,7 +582,7 @@ function helpMenu(context: MenuContext): MenuItemConstructorOptions {
 		submenu: [
 			commandItem(context, "help.open-docs", { label: "Cortex Help" }),
 			commandItem(context, "app.whats-new", { label: "What's New", requires: "vault" }),
-			{ label: "Keyboard Shortcuts", click: () => openSettingsWindow("hotkeys") },
+			{ label: "Keyboard Shortcuts", click: () => openSettings("hotkeys") },
 			separator(),
 			commandItem(context, "help.report-issue", { label: "Report an Issue…" }),
 			...(!context.isMac
@@ -536,6 +596,29 @@ function helpMenu(context: MenuContext): MenuItemConstructorOptions {
 	}
 }
 
+function collectBindings(menu: Menu, bindings: LiveItemBinding[]): void {
+	for (const item of menu.items) {
+		const binding = item.id ? pendingBindings.get(item.id) : undefined
+		if (binding) bindings.push({ ...binding, item })
+		if (item.submenu) collectBindings(item.submenu, bindings)
+	}
+}
+
+function applyItemStates(): void {
+	const state = focusedMenuState()
+	const context: MenuContext = {
+		state,
+		commands: new Map(),
+		isMac: process.platform === "darwin",
+	}
+	for (const binding of liveBindings) {
+		binding.item.enabled = isEnabled(context, binding.commandId, binding.requires)
+		if (binding.checkedKey) {
+			binding.item.checked = state?.checked[binding.checkedKey] === true
+		}
+	}
+}
+
 function buildApplicationMenu(): Menu {
 	const state = focusedMenuState()
 	const context: MenuContext = {
@@ -543,7 +626,8 @@ function buildApplicationMenu(): Menu {
 		commands: new Map((state?.commands ?? []).map((command) => [command.id, command])),
 		isMac: process.platform === "darwin",
 	}
-	return Menu.buildFromTemplate([
+	pendingBindings.clear()
+	const menu = Menu.buildFromTemplate([
 		...(context.isMac ? [appMenu(context)] : []),
 		fileMenu(context),
 		editMenu(context),
@@ -556,6 +640,12 @@ function buildApplicationMenu(): Menu {
 		windowMenu(context),
 		helpMenu(context),
 	])
+	const bindings: LiveItemBinding[] = []
+	collectBindings(menu, bindings)
+	liveBindings = bindings
+	pendingBindings.clear()
+	builtCommandsSignature = commandsSignature(state)
+	return menu
 }
 
 export function setupApplicationMenu(): void {
@@ -570,16 +660,42 @@ function scheduleMenuRebuild(): void {
 	rebuildTimer = setTimeout(setupApplicationMenu, REBUILD_DELAY_MS)
 }
 
+export function syncApplicationMenu(): void {
+	if (syncTimer) clearTimeout(syncTimer)
+	syncTimer = setTimeout(() => {
+		syncTimer = null
+		if (rebuildTimer) return
+		if (commandsSignature(focusedMenuState()) !== builtCommandsSignature) setupApplicationMenu()
+		else applyItemStates()
+	}, REBUILD_DELAY_MS)
+}
+
 export function forgetMenuState(contentsId: number): void {
 	menuStates.delete(contentsId)
 }
 
+function senderMenuState(): { contentsId: number; state: NativeMenuState } | null {
+	const sender = getInvokeSender()
+	const contentsId = sender ? resolveMainWindowId(sender.id) : null
+	if (contentsId === null || contentsId !== sender?.id) return null
+	const state = menuStates.get(contentsId) ?? emptyMenuState()
+	menuStates.set(contentsId, state)
+	return { contentsId, state }
+}
+
 export const menuApi = {
-	setState: async (state) => {
-		const sender = getInvokeSender()
-		const contentsId = sender ? resolveMainWindowId(sender.id) : null
-		if (contentsId === null || contentsId !== sender?.id) return
-		menuStates.set(contentsId, state)
-		scheduleMenuRebuild()
+	setCommands: async (commands) => {
+		const target = senderMenuState()
+		if (!target) return
+		target.state.commands = commands
+		if (target.contentsId !== focusedContentsId()) return
+		if (commandsSignature(target.state) !== builtCommandsSignature) scheduleMenuRebuild()
+	},
+	setItemStates: async (states: NativeMenuItemStates) => {
+		const target = senderMenuState()
+		if (!target) return
+		target.state.checked = states.checked
+		target.state.enabled = states.enabled
+		if (target.contentsId === focusedContentsId() && !rebuildTimer) applyItemStates()
 	},
 } satisfies MainApi["menu"]

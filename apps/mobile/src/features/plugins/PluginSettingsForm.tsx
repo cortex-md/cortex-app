@@ -5,10 +5,14 @@ import {
 	usePluginStore,
 } from "@cortex/plugin-host-core"
 import type { PluginSettingsSchema } from "@cortex.md/api"
-import { FieldGroup, ListItem, Picker, Slider, Switch } from "@expo/ui"
 
 import { mobilePluginHost } from "@/bootstrap/pluginHost"
-import { MobileTextField } from "@/components/ui/MobileTextField"
+import { FormSection, FormToggle } from "@/components/ui/Form"
+import {
+	SettingsPicker,
+	SettingsSlider,
+	SettingsTextField,
+} from "@/features/settings/SettingsControls"
 
 const emptyValues: Record<string, unknown> = {}
 
@@ -33,83 +37,62 @@ function PluginSettingRow({
 	switch (field.type) {
 		case "boolean":
 			return (
-				<ListItem
-					supportingText={field.description}
-					trailing={<Switch label={field.label} onValueChange={onChange} value={field.value} />}
-				>
-					{field.label}
-				</ListItem>
+				<FormToggle
+					onValueChange={onChange}
+					subtitle={field.description}
+					title={field.label}
+					value={field.value}
+				/>
 			)
 		case "select":
 			return (
-				<ListItem
-					supportingText={field.description}
-					trailing={
-						<Picker onValueChange={(value) => onChange(String(value))} selectedValue={field.value}>
-							{field.options.map((option) => (
-								<Picker.Item key={option.value} label={option.label} value={option.value} />
-							))}
-						</Picker>
-					}
-				>
-					{field.label}
-				</ListItem>
+				<SettingsPicker
+					onChange={(value) => onChange(String(value))}
+					options={field.options}
+					title={field.label}
+					value={field.value}
+				/>
 			)
 		case "slider":
 			return (
-				<>
-					<ListItem
-						supportingText={
-							field.description ? `${field.description} · ${field.value}` : String(field.value)
-						}
-					>
-						{field.label}
-					</ListItem>
-					<Slider
-						max={field.max ?? 100}
-						min={field.min ?? 0}
-						onValueChange={onChange}
-						step={field.step ?? 1}
-						value={field.value}
-					/>
-				</>
+				<SettingsSlider
+					max={field.max ?? 100}
+					min={field.min ?? 0}
+					onChange={onChange}
+					step={field.step ?? 1}
+					title={field.label}
+					value={field.value}
+					valueLabel={String(field.value)}
+				/>
 			)
 		case "number":
 			return (
-				<>
-					<ListItem supportingText={field.description}>{field.label}</ListItem>
-					<MobileTextField
-						accessibilityLabel={field.label}
-						defaultValue={String(field.value)}
-						key={field.value}
-						keyboardType="decimal-pad"
-						onEndEditing={(event) => {
-							const value = toNumberSetting(event.nativeEvent.text)
-							if (value !== null && value !== field.value) onChange(value)
-						}}
-						returnKeyType="done"
-					/>
-				</>
+				<SettingsTextField
+					defaultValue={String(field.value)}
+					key={field.value}
+					numeric
+					onCommit={(text) => {
+						const value = toNumberSetting(text)
+						if (value !== null && value !== field.value) onChange(value)
+					}}
+					subtitle={field.description}
+					title={field.label}
+				/>
 			)
 		default:
 			return (
-				<>
-					<ListItem supportingText={field.description}>{field.label}</ListItem>
-					<MobileTextField
-						accessibilityLabel={field.label}
-						autoCapitalize="none"
-						autoCorrect={false}
-						defaultValue={field.value}
-						key={field.value}
-						onEndEditing={(event) => {
-							if (event.nativeEvent.text !== field.value) onChange(event.nativeEvent.text)
-						}}
-						placeholder={
-							field.placeholder ?? (field.type === "folder-path" ? "Enter path..." : undefined)
-						}
-						returnKeyType="done"
-					/>
-				</>
+				<SettingsTextField
+					defaultValue={field.value}
+					key={field.value}
+					onCommit={(text) => {
+						if (text !== field.value) onChange(text)
+					}}
+					placeholder={
+						field.placeholder ?? (field.type === "folder-path" ? "Enter path..." : undefined)
+					}
+					subtitle={field.description}
+					title={field.label}
+				/>
 			)
 	}
 }
@@ -117,16 +100,14 @@ function PluginSettingRow({
 export function PluginSettingsForm({
 	owner,
 	schema,
-	title,
 }: {
 	owner: string
 	schema: PluginSettingsSchema
-	title: string
 }) {
 	const values = usePluginStore((state) => state.settingsValues[owner]) ?? emptyValues
 
 	return (
-		<FieldGroup.Section title={title}>
+		<FormSection>
 			{resolvePluginSettingFields(schema, values).map((field) => (
 				<PluginSettingRow
 					field={field}
@@ -134,6 +115,6 @@ export function PluginSettingsForm({
 					onChange={(value) => updatePluginSetting(owner, field.key, value)}
 				/>
 			))}
-		</FieldGroup.Section>
+		</FormSection>
 	)
 }

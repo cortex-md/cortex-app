@@ -1,32 +1,57 @@
 import type { VaultMetadata } from "@cortex/core"
-import { getPlatform } from "@cortex/platform"
+import { sendCoreNotification } from "@cortex/core"
+import { type AppUpdateStatus, getPlatform } from "@cortex/platform"
+import { useSettingsStore } from "@cortex/settings"
 import { useEffect, useRef } from "react"
 import {
 	readLastSeenAppVersion,
 	writeLastSeenAppVersion,
 } from "../features/app-updates/appUpdateChangelogMarker"
-import { checkForAppUpdate, refreshAppUpdateStatus } from "../features/app-updates/appUpdateStore"
+import {
+	configureAppUpdates,
+	refreshAppUpdateStatus,
+	startAppUpdateSync,
+	useAppUpdateSelector,
+} from "../features/app-updates/appUpdateStore"
 import { openChangelogTab } from "../features/app-updates/openChangelog"
-import { sendCoreNotification } from "../utils/nativeNotifications"
+
+function selectReadyVersion(status: AppUpdateStatus): string | null {
+	return status.state === "ready" ? (status.pendingUpdate?.version ?? null) : null
+}
 
 export function useAppUpdateLifecycle(version: string | null, vault: VaultMetadata | null) {
-	const startupCheckAttempted = useRef(false)
+	const autoCheck = useSettingsStore((state) => state.settings.updates.autoCheck)
+	const channel = useSettingsStore((state) => state.settings.updates.channel)
 	const handledChangelogVersions = useRef<Set<string> | null>(null)
 	handledChangelogVersions.current ??= new Set()
 
 	useEffect(() => {
-		if (!version || startupCheckAttempted.current) return
-		startupCheckAttempted.current = true
-		void getPlatform()
-			.window.claimOnce("app-update-startup-check")
-			.then((claimed) => {
-				if (claimed) void checkForAppUpdate("startup")
-			})
-	}, [version])
+		const stopSync = startAppUpdateSync()
+		void refreshAppUpdateStatus()
+		return stopSync
+	}, [])
 
 	useEffect(() => {
-		void refreshAppUpdateStatus()
-	}, [])
+		void configureAppUpdates({ autoCheck, channel })
+	}, [autoCheck, channel])
+
+	const readyVersion = useAppUpdateSelector(selectReadyVersion)
+	useEffect(() => {
+		if (!readyVersion) return
+		void getPlatform()
+			.window.claimOnce(`app-update-ready:${readyVersion}`)
+			.then((claimed) => {
+				if (!claimed) return
+				void sendCoreNotification({
+					id: `app-update-ready:${readyVersion}`,
+					tag: "app-update",
+					title: `Cortex ${readyVersion} is ready`,
+					body: "It installs the next time you quit Cortex.",
+					kind: "info",
+					urgency: "low",
+				})
+			})
+	}, [readyVersion])
 
 	useEffect(() => {
 		if (!version || !vault) return

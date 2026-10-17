@@ -1,9 +1,8 @@
 import type {
 	Account,
 	AlertDialogOptions,
-	AppUpdateCheckOptions,
-	AppUpdateInstallEvent,
 	AppUpdateStatus,
+	AppUpdates,
 	Auth,
 	CollabAvailability,
 	CollabChannelEvent,
@@ -39,10 +38,10 @@ import type {
 	SyncConflictEvent,
 	SyncFileEvent,
 	SyncStateEvent,
+	TemplateShares,
 	Vault,
 	WatchEvent,
 	WatchOptions,
-	WindowMessage,
 } from "@cortex/platform"
 
 type SyncCommands = {
@@ -50,8 +49,9 @@ type SyncCommands = {
 }
 
 export interface MainApi {
-	fs: Omit<FileSystem, "startWatching" | "readBinaryFile"> & {
+	fs: Omit<FileSystem, "startWatching" | "readBinaryFile" | "copyFile"> & {
 		readBinaryFile(path: string): Promise<Uint8Array>
+		copyFile(sourcePath: string, targetPath: string): Promise<void>
 		startWatching(path: string, options: WatchOptions): Promise<string>
 		stopWatching(watcherId: string): Promise<void>
 		downloadText(url: string): Promise<string>
@@ -76,13 +76,11 @@ export interface MainApi {
 		openExternalUrl(url: string): Promise<void>
 		getAppearanceSnapshot(): Promise<Partial<NativeAppearanceSnapshot>>
 	}
-	window: Omit<NativeWindow, "onMessage">
+	window: NativeWindow
 	menu: NativeMenu
-	appUpdates: {
-		getStatus(): Promise<AppUpdateStatus>
-		checkForUpdate(options: AppUpdateCheckOptions): Promise<AppUpdateStatus>
-		installUpdate(): Promise<AppUpdateStatus>
-		fetchChangelog(version: string): Promise<string | null>
+	appUpdates: Omit<AppUpdates, "onStatusChanged" | "onBeforeInstall" | "moveToApplications"> & {
+		moveToApplications(): Promise<boolean>
+		completeBeforeInstall(requestId: string, error: string | null): Promise<void>
 	}
 	notifications: {
 		getPermission(): Promise<NativeNotificationPermissionState>
@@ -100,6 +98,7 @@ export interface MainApi {
 	remoteVault: RemoteVault
 	members: Members
 	shares: Shares
+	templateShares: TemplateShares
 	devices: Devices
 	sync: SyncCommands
 	collab: {
@@ -120,7 +119,8 @@ export interface MainEvents {
 	"vault-file-changed": WatchEvent & { watcherId: string }
 	"deep-link-open": string[]
 	"auth-session-expired": undefined
-	"app-update-install": AppUpdateInstallEvent
+	"app-update-status": AppUpdateStatus
+	"app-update-before-install": { requestId: string }
 	"sync-state-changed": SyncStateEvent
 	"sync-file-event": SyncFileEvent
 	"sync-initial-progress": InitialSyncProgressEvent
@@ -132,7 +132,6 @@ export interface MainEvents {
 	"sync-key-trust-issue": KeyTrustIssue
 	"sync-log": { level: string; message: string }
 	"menu-command": { id: string; payload?: unknown }
-	"window-message": WindowMessage
 	"collab-event": { channelId: string; event: CollabChannelEvent }
 	"notification-activation": NotificationActivation
 }

@@ -1,5 +1,6 @@
 {
 	"name": "@cortex/sync-api",
+	"license": "AGPL-3.0-or-later",
 	"private": true,
 	"version": "0.1.0",
 	"type": "module",
@@ -11,8 +12,5 @@
 	},
 	"dependencies": {
 		"@cortex/platform": "workspace:*"
-	},
-	"devDependencies": {
-		"typescript": "~5.8.3"
 	}
 }

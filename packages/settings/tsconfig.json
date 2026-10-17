@@ -1,17 +1,14 @@
 {
-	"extends": "../../tsconfig.json",
+	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
-		"composite": true,
 		"noEmit": false,
-		"declaration": true,
-		"declarationMap": true,
 		"outDir": "./dist",
-		"rootDir": "./src",
-		"baseUrl": ".",
-		"paths": {
-			"@/*": ["./*"]
-		}
+		"rootDir": "./src"
 	},
 	"include": ["src"],
-	"references": [{ "path": "../platform" }]
+	"references": [
+		{
+			"path": "../platform"
+		}
+	]
 }

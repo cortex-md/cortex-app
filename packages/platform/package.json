@@ -1,5 +1,6 @@
 {
 	"name": "@cortex/platform",
+	"license": "AGPL-3.0-or-later",
 	"private": true,
 	"version": "0.1.0",
 	"type": "module",
@@ -8,12 +9,11 @@
 		"./utils": "./src/utils.ts",
 		"./hash": "./src/hash.ts",
 		"./vault": "./src/vault.ts",
-		"./sync-rules": "./src/sync-rules.ts"
+		"./sync-rules": "./src/sync-rules.ts",
+		"./state-file": "./src/stateFile.ts",
+		"./vault-state": "./src/vaultState.ts"
 	},
 	"dependencies": {
 		"@noble/hashes": "1.8.0"
-	},
-	"devDependencies": {
-		"typescript": "^5.7.0"
 	}
 }

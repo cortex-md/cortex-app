@@ -1,6 +1,6 @@
 import { getPlatform } from "@cortex/platform"
 import { getPropertyType, getPropertyValueHref } from "@cortex/properties"
-import { Button, Popover, PopoverAnchor, PopoverContent } from "@cortex/ui"
+import { Button, Popover, PopoverAnchor, PopoverContent, SimpleTooltip, toast } from "@cortex/ui"
 import { CopyIcon, ExternalLinkIcon } from "lucide-react"
 import { useState } from "react"
 import { InlinePropertyValueEditor } from "./editors/InlinePropertyValueEditor"
@@ -169,19 +169,23 @@ export function PropertyRow({
 		>
 			<div className="note-property-row" data-read-only={readOnly || undefined}>
 				{definitionConfigurable ? (
-					<Button
-						variant="ghost"
-						className="note-property-name"
-						disabled={unavailable}
-						title={unavailable ? "Unsupported property type" : undefined}
-						onClick={(event) => {
-							event.stopPropagation()
-							openPanel({ kind: "settings" })
-						}}
-					>
-						<PropertyTypeIcon icon={propertyType?.icon ?? "circle-help"} />
-						<span>{definition.name}</span>
-					</Button>
+					<SimpleTooltip label={unavailable ? "Unsupported property type" : undefined}>
+						<span className="flex w-full min-w-0">
+							<Button
+								size="sm"
+								variant="ghost"
+								className="note-property-name"
+								disabled={unavailable}
+								onClick={(event) => {
+									event.stopPropagation()
+									openPanel({ kind: "settings" })
+								}}
+							>
+								<PropertyTypeIcon icon={propertyType?.icon ?? "circle-help"} />
+								<span>{definition.name}</span>
+							</Button>
+						</span>
+					</SimpleTooltip>
 				) : (
 					<div className="note-property-name note-property-name-static">
 						<PropertyTypeIcon icon={propertyType?.icon ?? "circle-help"} />
@@ -201,50 +205,56 @@ export function PropertyRow({
 								/>
 							</div>
 						) : (
-							<Button
-								variant="ghost"
-								className="note-property-value"
-								aria-label={definition.name}
-								disabled={readOnly || unavailable}
-								title={
+							<SimpleTooltip
+								label={
 									unavailable
 										? "Unsupported property type"
 										: readOnly
 											? "Read-only frontmatter value"
 											: undefined
 								}
-								onClick={(event) => {
-									event.stopPropagation()
-									if (checkboxValue) {
-										toggleCheckboxValue()
-										return
-									}
-									if (inlineEditable) {
-										startInlineEditing()
-										return
-									}
-									openPanel({ kind: "value" })
-								}}
-								onKeyDown={(event) => {
-									if (event.key !== "Enter" && event.key !== " ") return
-									event.preventDefault()
-									if (checkboxValue) {
-										toggleCheckboxValue()
-										return
-									}
-									if (inlineEditable) {
-										startInlineEditing()
-										return
-									}
-									openPanel({ kind: "value" })
-								}}
 							>
-								<PropertyValueDisplay
-									definition={definition}
-									value={value}
-									authorConfig={authorConfig}
-								/>
-							</Button>
+								<span className="flex w-full min-w-0">
+									<Button
+										size="sm"
+										variant="ghost"
+										className="note-property-value"
+										aria-label={definition.name}
+										disabled={readOnly || unavailable}
+										onClick={(event) => {
+											event.stopPropagation()
+											if (checkboxValue) {
+												toggleCheckboxValue()
+												return
+											}
+											if (inlineEditable) {
+												startInlineEditing()
+												return
+											}
+											openPanel({ kind: "value" })
+										}}
+										onKeyDown={(event) => {
+											if (event.key !== "Enter" && event.key !== " ") return
+											event.preventDefault()
+											if (checkboxValue) {
+												toggleCheckboxValue()
+												return
+											}
+											if (inlineEditable) {
+												startInlineEditing()
+												return
+											}
+											openPanel({ kind: "value" })
+										}}
+									>
+										<PropertyValueDisplay
+											definition={definition}
+											value={value}
+											authorConfig={authorConfig}
+										/>
+									</Button>
+								</span>
+							</SimpleTooltip>
 						)}
 						{!inlineEditing && valueHref && (
 							<span className="note-property-link-actions">
@@ -260,7 +270,11 @@ export function PropertyRow({
 									variant="ghost"
 									size="icon-xs"
 									aria-label="Copy link"
-									onClick={() => void getPlatform().clipboard.writeText(String(value))}
+									onClick={() =>
+										void getPlatform()
+											.clipboard.writeText(String(value))
+											.then(() => toast("Link copied"))
+									}
 								>
 									<CopyIcon />
 								</Button>

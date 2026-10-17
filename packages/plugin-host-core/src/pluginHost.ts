@@ -1,4 +1,5 @@
 import { type FileEntry, getPlatform, type WatchEvent } from "@cortex/platform"
+import { getLocalVaultState } from "@cortex/platform/vault-state"
 import { registerPropertyType } from "@cortex/properties"
 import { registerMarkdownPreprocessor, registerMarkdownProcessor } from "@cortex/renderer"
 import type {
@@ -76,12 +77,16 @@ export interface PluginHost {
 	isPluginInstalled(pluginId: string): boolean
 	getCommunityPluginsDir(): string | null
 	getCommunityPluginLoadError(pluginId: string): string | null
-	discoverCommunityPlugins(pluginsDir: string): Promise<void>
-	reloadCommunityPlugins(pluginsDir: string): Promise<void>
+	discoverCommunityPlugins(pluginsDir: string, pluginDirs?: readonly string[]): Promise<void>
+	reloadCommunityPlugins(pluginsDir: string, pluginDirs?: readonly string[]): Promise<void>
 	syncCommunityAccess(): Promise<void>
 	unregisterCommunityPlugin(pluginId: string): void
 	getPluginContext(pluginId: string): PluginContext | null
 	getPluginDefinition(pluginId: string): PluginDefinition | null
+}
+
+function normalizePluginDir(path: string): string {
+	return path.replace(/\\/g, "/").replace(/\/+$/, "")
 }
 
 function runInOrder(ids: string[], operation: (id: string) => Promise<void>): Promise<void> {
@@ -155,15 +160,23 @@ export function createPluginHost(services: PluginHostServices): PluginHost {
 		return vaultPath ? `${vaultPath}/.cortex/plugins/${pluginId}/settings.json` : null
 	}
 
+	const settingsPrefetch = new Map<string, Promise<Record<string, unknown>>>()
+
+	async function readStoredSettingsFile(pluginId: string): Promise<Record<string, unknown>> {
+		const filePath = getSettingsFilePath(pluginId)
+		if (!filePath) return {}
+		try {
+			return JSON.parse(await getPlatform().fs.readFile(filePath)) as Record<string, unknown>
+		} catch {
+			return {}
+		}
+	}
+
 	async function loadStoredSettings(plugin: ActivePlugin): Promise<Record<string, unknown>> {
 		if (plugin.storedSettings) return plugin.storedSettings
-		const filePath = getSettingsFilePath(plugin.id)
-		let stored: Record<string, unknown> = {}
-		if (filePath) {
-			try {
-				stored = JSON.parse(await getPlatform().fs.readFile(filePath)) as Record<string, unknown>
-			} catch {}
-		}
+		const prefetched = settingsPrefetch.get(plugin.id)
+		settingsPrefetch.delete(plugin.id)
+		const stored = await (prefetched ?? readStoredSettingsFile(plugin.id))
 		plugin.storedSettings = stored
 		setOwnerSettingsValues(plugin.id, { ...getSettingDefaults(plugin.entry.definition), ...stored })
 		return stored
@@ -447,7 +460,10 @@ export function createPluginHost(services: PluginHostServices): PluginHost {
 		}
 	}
 
-	async function discoverCommunityPlugins(pluginsDir: string): Promise<void> {
+	async function discoverCommunityPlugins(
+		pluginsDir: string,
+		pluginDirs?: readonly string[],
+	): Promise<void> {
 		if (!services.community) throw new Error("Community plugins are not supported by this host")
 		if (!isCommunityAllowed()) return
 		let directories: FileEntry[]
@@ -455,6 +471,10 @@ export function createPluginHost(services: PluginHostServices): PluginHost {
 			directories = (await getPlatform().fs.listDir(pluginsDir)).filter((entry) => entry.isDir)
 		} catch {
 			return
+		}
+		const scopedDirs = pluginDirs ? new Set(pluginDirs.map(normalizePluginDir)) : null
+		if (scopedDirs) {
+			directories = directories.filter((entry) => scopedDirs.has(normalizePluginDir(entry.path)))
 		}
 		const discoveries = await Promise.all(directories.map(discoverCommunityPlugin))
 		const discoveredIds = new Set(discoveries.map((discovery) => discovery.pluginId))
@@ -470,7 +490,10 @@ export function createPluginHost(services: PluginHostServices): PluginHost {
 			})
 		}
 		const removedIds = getCommunityEntryIds(
-			(id, dirPath) => isPluginDirInside(dirPath, pluginsDir) && !discoveredIds.has(id),
+			(id, dirPath) =>
+				isPluginDirInside(dirPath, pluginsDir) &&
+				(!scopedDirs || scopedDirs.has(normalizePluginDir(dirPath))) &&
+				!discoveredIds.has(id),
 		)
 		await runInOrder(removedIds, async (pluginId) => {
 			await disablePlugin(pluginId)
@@ -478,12 +501,19 @@ export function createPluginHost(services: PluginHostServices): PluginHost {
 		})
 	}
 
-	async function reloadCommunityPlugins(pluginsDir: string): Promise<void> {
+	async function reloadCommunityPlugins(
+		pluginsDir: string,
+		pluginDirs?: readonly string[],
+	): Promise<void> {
+		const scopedDirs = pluginDirs ? new Set(pluginDirs.map(normalizePluginDir)) : null
 		const enabledIds = getCommunityEntryIds(
-			(id, dirPath) => active.has(id) && isPluginDirInside(dirPath, pluginsDir),
+			(id, dirPath) =>
+				active.has(id) &&
+				isPluginDirInside(dirPath, pluginsDir) &&
+				(!scopedDirs || scopedDirs.has(normalizePluginDir(dirPath))),
 		)
 		await runInOrder(enabledIds, disablePlugin)
-		await discoverCommunityPlugins(pluginsDir)
+		await discoverCommunityPlugins(pluginsDir, pluginDirs)
 		await runInOrder(enabledIds, async (pluginId) => {
 			if (!entries.has(pluginId)) return
 			try {
@@ -519,6 +549,12 @@ export function createPluginHost(services: PluginHostServices): PluginHost {
 		const storedIds = vaultPath ? await readEnabledPluginIds(vaultPath) : null
 		const ids =
 			storedIds ?? Array.from(entries, ([id, entry]) => (entry.community ? [] : [id])).flat()
+		for (const pluginId of ids) {
+			const entry = entries.get(pluginId)
+			if (entry?.definition.settings && !settingsPrefetch.has(pluginId)) {
+				settingsPrefetch.set(pluginId, readStoredSettingsFile(pluginId))
+			}
+		}
 		await runInOrder(ids, async (pluginId) => {
 			if (!entries.has(pluginId)) return
 			try {
@@ -527,25 +563,13 @@ export function createPluginHost(services: PluginHostServices): PluginHost {
 				reportPluginOperationError("load-enabled", pluginId, error)
 			}
 		})
+		settingsPrefetch.clear()
 		if (vaultPath && !storedIds) await saveEnabledPlugins()
+		usePluginStore.setState({ loadedVaultPath: vaultPath })
 	}
 
 	async function readEnabledPluginIds(vaultPath: string): Promise<string[] | null> {
-		let content: string
-		try {
-			content = await getPlatform().fs.readFile(`${vaultPath}/.cortex/plugins.json`)
-		} catch {
-			return null
-		}
-		try {
-			const data = JSON.parse(content) as { enabled?: unknown }
-			return Array.isArray(data.enabled)
-				? data.enabled.filter((id): id is string => typeof id === "string")
-				: []
-		} catch (error) {
-			reportPluginOperationError("read-enabled", "registry", error)
-			return []
-		}
+		return (await getLocalVaultState(vaultPath).read()).enabledPlugins
 	}
 
 	async function saveEnabledPlugins(): Promise<void> {
@@ -556,9 +580,11 @@ export function createPluginHost(services: PluginHostServices): PluginHost {
 			const stored = (await readEnabledPluginIds(vaultPath)) ?? []
 			enabled.push(...stored.filter((pluginId) => !entries.has(pluginId)))
 		}
-		const content = JSON.stringify({ enabled }, null, "\t")
 		try {
-			await getPlatform().fs.writeFile(`${vaultPath}/.cortex/plugins.json`, content)
+			await getLocalVaultState(vaultPath).update(
+				(state) => ({ ...state, enabledPlugins: enabled }),
+				{ immediate: true },
+			)
 		} catch (error) {
 			reportPluginOperationError("save-enabled", "registry", error)
 		}
@@ -570,7 +596,10 @@ export function createPluginHost(services: PluginHostServices): PluginHost {
 		},
 		enablePlugin,
 		disablePlugin,
-		disableAllPlugins: () => runInOrder(Array.from(active.keys()), disablePlugin),
+		disableAllPlugins: async () => {
+			usePluginStore.setState({ loadedVaultPath: null })
+			await runInOrder(Array.from(active.keys()), disablePlugin)
+		},
 		loadEnabledPlugins,
 		saveEnabledPlugins,
 		async setPluginSetting(pluginId, key, value) {

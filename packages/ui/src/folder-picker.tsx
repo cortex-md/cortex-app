@@ -3,8 +3,8 @@
 import { FileIcon, FolderIcon } from "lucide-react"
 import { useCallback, useId, useMemo, useRef, useState } from "react"
 import { Input } from "./input"
-import { nativeGlassSurface } from "./lib/native-styles"
 import { cn } from "./lib/utils"
+import { Popover, PopoverAnchor, PopoverContent } from "./popover"
 
 export interface FolderPickerOption {
 	value: string
@@ -20,7 +20,6 @@ interface FolderPickerProps {
 	className?: string
 	allowCustomValue?: boolean
 	getCustomValueLabel?: (value: string) => string
-	reserveDropdownSpace?: boolean
 }
 
 const MAX_VISIBLE_OPTIONS = 200
@@ -33,11 +32,11 @@ export function FolderPicker({
 	className,
 	allowCustomValue = false,
 	getCustomValueLabel = (customValue) => `Add "${customValue}"`,
-	reserveDropdownSpace = false,
 }: FolderPickerProps) {
 	const [search, setSearch] = useState("")
 	const [dropdownOpen, setDropdownOpen] = useState(false)
 	const inputRef = useRef<HTMLInputElement>(null)
+	const anchorRef = useRef<HTMLDivElement>(null)
 	const listboxId = useId()
 
 	const filteredOptions = useMemo(() => {
@@ -75,84 +74,85 @@ export function FolderPicker({
 	const dropdownVisible =
 		dropdownOpen && (filteredOptions.length > 0 || customValueAvailable || Boolean(trimmedSearch))
 
+	const optionClassName =
+		"flex min-h-[34px] w-full cursor-default items-center gap-2.5 rounded-[var(--popup-item-radius,6px)] px-2.5 py-[7px] text-left text-[14px] leading-[18px] hover:bg-[var(--fill-quiet-strong,color-mix(in_srgb,var(--text-primary)_9%,transparent))]"
+
 	return (
-		<div
-			className={cn(
-				"relative transition-[padding] duration-150",
-				dropdownVisible && reserveDropdownSpace && "pb-64",
-				className,
-			)}
-		>
-			<Input
-				ref={inputRef}
-				role="combobox"
-				aria-controls={listboxId}
-				aria-expanded={dropdownOpen}
-				aria-label={placeholder}
-				value={dropdownOpen ? search : (selectedLabel ?? "")}
-				onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-					setSearch(e.target.value)
-					setDropdownOpen(true)
-				}}
-				onFocus={() => {
-					setSearch("")
-					setDropdownOpen(true)
-				}}
-				onBlur={() => {
-					setTimeout(() => setDropdownOpen(false), 150)
-				}}
-				onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => {
-					if (event.key === "Enter" && customValueAvailable) {
-						event.preventDefault()
-						handleCustomSelect()
-					}
-				}}
-				placeholder={placeholder}
-			/>
-			{dropdownOpen && (filteredOptions.length > 0 || customValueAvailable) && (
-				<div
-					id={listboxId}
-					className={cn(
-						"absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-[10px] p-1",
-						nativeGlassSurface,
-					)}
-				>
-					{filteredOptions.map((option) => (
-						<button
-							key={option.value}
-							type="button"
-							onMouseDown={(e) => e.preventDefault()}
-							onClick={() => handleSelect(option.value)}
-							className="flex items-center gap-2 w-full rounded-[6px] px-2 py-1.5 text-[13px] text-left hover:bg-accent/70"
-						>
-							{option.isDir ? (
-								<FolderIcon className="size-3.5 shrink-0 text-muted-foreground" />
-							) : (
-								<FileIcon className="size-3.5 shrink-0 text-muted-foreground" />
-							)}
-							<span className="truncate">{option.label}</span>
-						</button>
-					))}
-					{customValueAvailable && (
-						<button
-							type="button"
-							onMouseDown={(e) => e.preventDefault()}
-							onClick={handleCustomSelect}
-							className="flex items-center gap-2 w-full rounded-[6px] px-2 py-1.5 text-[13px] text-left hover:bg-accent/70"
-						>
-							<FileIcon className="size-3.5 shrink-0 text-muted-foreground" />
-							<span className="truncate">{getCustomValueLabel(trimmedSearch)}</span>
-						</button>
-					)}
+		<Popover open={dropdownVisible} onOpenChange={(open) => !open && setDropdownOpen(false)}>
+			<PopoverAnchor asChild>
+				<div ref={anchorRef} className={cn("relative", className)}>
+					<Input
+						ref={inputRef}
+						role="combobox"
+						aria-controls={listboxId}
+						aria-expanded={dropdownVisible}
+						aria-label={placeholder}
+						value={dropdownOpen ? search : (selectedLabel ?? "")}
+						onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+							setSearch(e.target.value)
+							setDropdownOpen(true)
+						}}
+						onFocus={() => {
+							setSearch("")
+							setDropdownOpen(true)
+						}}
+						onBlur={() => {
+							setTimeout(() => setDropdownOpen(false), 150)
+						}}
+						onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => {
+							if (event.key === "Escape") setDropdownOpen(false)
+							if (event.key === "Enter" && customValueAvailable) {
+								event.preventDefault()
+								handleCustomSelect()
+							}
+						}}
+						placeholder={placeholder}
+					/>
 				</div>
-			)}
-			{dropdownOpen && trimmedSearch && filteredOptions.length === 0 && !customValueAvailable && (
-				<div className={cn("absolute z-50 mt-1 w-full rounded-[10px] p-1", nativeGlassSurface)}>
-					<p className="px-3 py-2 text-[13px] text-muted-foreground text-center">
+			</PopoverAnchor>
+			<PopoverContent
+				id={listboxId}
+				align="start"
+				className="max-h-60 w-(--radix-popover-trigger-width) min-w-48 overflow-y-auto p-1"
+				onOpenAutoFocus={(event) => event.preventDefault()}
+				onCloseAutoFocus={(event) => event.preventDefault()}
+				onInteractOutside={(event) => {
+					if (anchorRef.current?.contains(event.target as Node)) event.preventDefault()
+				}}
+			>
+				{filteredOptions.map((option) => (
+					<button
+						key={option.value}
+						type="button"
+						onMouseDown={(e) => e.preventDefault()}
+						onClick={() => handleSelect(option.value)}
+						className={optionClassName}
+					>
+						{option.isDir ? (
+							<FolderIcon className="size-3.5 shrink-0 text-muted-foreground" />
+						) : (
+							<FileIcon className="size-3.5 shrink-0 text-muted-foreground" />
+						)}
+						<span className="truncate">{option.label}</span>
+					</button>
+				))}
+				{customValueAvailable && (
+					<button
+						type="button"
+						onMouseDown={(e) => e.preventDefault()}
+						onClick={handleCustomSelect}
+						className={optionClassName}
+					>
+						<FileIcon className="size-3.5 shrink-0 text-muted-foreground" />
+						<span className="truncate">{getCustomValueLabel(trimmedSearch)}</span>
+					</button>
+				)}
+				{trimmedSearch && filteredOptions.length === 0 && !customValueAvailable && (
+					<p className="px-3 py-2 text-center text-[13px] text-muted-foreground">
 						No matching folders
 					</p>
-				</div>
-			)}
-		</div>
+				)}
+			</PopoverContent>
+		</Popover>
 	)
 }

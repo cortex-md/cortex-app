@@ -5,7 +5,7 @@ const RELOAD_DELAY_MS = 300
 
 export interface WatchedDirectoryHandlers {
 	load: (directory: string, signal: AbortSignal) => Promise<void>
-	reload: (directory: string, signal: AbortSignal) => Promise<void>
+	reload: (directory: string, signal: AbortSignal, events: WatchEvent[]) => Promise<void>
 	unload: () => void
 	shouldReload?: (directory: string, event: WatchEvent) => boolean
 	onError: (operation: "load" | "reload", error: unknown) => void
@@ -29,12 +29,16 @@ export function useWatchedDirectory(
 		const controller = new AbortController()
 		let stopWatching: (() => void) | null = null
 		let reloadTimer: ReturnType<typeof setTimeout> | null = null
+		let pendingEvents: WatchEvent[] = []
 
 		const scheduleReload = (event: WatchEvent) => {
 			if (!shouldReload(directory, event)) return
+			pendingEvents.push(event)
 			if (reloadTimer !== null) clearTimeout(reloadTimer)
 			reloadTimer = setTimeout(() => {
-				reload(directory, controller.signal).catch((error) => reportError("reload", error))
+				const events = pendingEvents
+				pendingEvents = []
+				reload(directory, controller.signal, events).catch((error) => reportError("reload", error))
 			}, RELOAD_DELAY_MS)
 		}
 

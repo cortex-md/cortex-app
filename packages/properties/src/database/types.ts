@@ -114,6 +114,7 @@ export interface DatabasePreset {
 	properties: DatabasePropertySpec[]
 	views: Array<Omit<DatabaseView, "id">>
 	samples: DatabasePresetSample[]
+	rowTemplates?: Array<Omit<DatabaseRowTemplate, "id">>
 }
 
 export interface ResolvedDatabaseProperties {

@@ -1,7 +1,9 @@
 import { initializeCoreProperties } from "@cortex/core"
 import { initPlatform, type NativeAppearanceSnapshot, type NativePlatform } from "@cortex/platform"
+import { setSearchBackend } from "@cortex/search"
 import { generateCSSString, generateCSSVariables, initThemeManager } from "@cortex/theme"
 import { pdfDocumentImport } from "../features/import-export/pdfDocumentImport"
+import { createSearchWorkerBackend } from "../features/search/searchWorkerBackend"
 import { WebThemeAdapter } from "../features/themes/webThemeAdapter"
 import { electronPlatform } from "../platform/electron-platform"
 
@@ -10,7 +12,7 @@ let macosStylesRequested = false
 function loadPlatformStyles(platform: NativePlatform) {
 	if (platform !== "macos" || macosStylesRequested) return
 	macosStylesRequested = true
-	void import("../styles.macos.css")
+	void import("../styles/macos.css")
 }
 
 function applyNativeAppearance(snapshot: NativeAppearanceSnapshot) {
@@ -48,6 +50,7 @@ function detectInitialPlatform(): NativePlatform {
 export function initRenderer(): void {
 	initPlatform({ ...electronPlatform, documentImport: pdfDocumentImport })
 	initializeCoreProperties({ deviceType: "desktop" })
+	setSearchBackend(createSearchWorkerBackend())
 	initThemeManager("ink", new WebThemeAdapter(), { generateCSSString, generateCSSVariables })
 
 	const initialPlatform = detectInitialPlatform()

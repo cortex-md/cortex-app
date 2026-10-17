@@ -1,5 +1,7 @@
 import {
 	convertFolderToDatabase,
+	type DatabaseViewState,
+	readDatabaseViewState,
 	removeDatabaseRowTemplate,
 	saveDatabaseRowTemplate,
 	useCanWriteVaultPath,
@@ -21,6 +23,7 @@ import {
 } from "@cortex/ui"
 import { useCallback, useRef, useState } from "react"
 import type { CoreViewProps } from "../split-view/coreViewProps"
+import { openShareDatabaseTemplate } from "../templates/shareActions"
 import { DatabaseBoardView, getBoardGroupKey } from "./DatabaseBoardView"
 import { DatabaseCalendarView } from "./DatabaseCalendarView"
 import { DatabaseFilterBar } from "./DatabaseFilterBar"
@@ -29,7 +32,6 @@ import { DatabaseHeader } from "./DatabaseHeader"
 import { DatabasePeek } from "./DatabasePeek"
 import { DatabaseTableView } from "./DatabaseTableView"
 import { DatabaseToolbar } from "./DatabaseToolbar"
-import { type DatabaseViewState, readDatabaseViewState } from "./databaseWorkspace"
 import {
 	type DatabaseController,
 	type PatchDatabaseViewState,
@@ -55,11 +57,7 @@ function NotADatabase({ folderPath }: { folderPath: string }) {
 				</EmptyDescription>
 			</EmptyHeader>
 			<EmptyContent>
-				<Button
-					variant="secondary"
-					size="sm"
-					onClick={() => void convertFolderToDatabase(folderPath)}
-				>
+				<Button variant="secondary" onClick={() => void convertFolderToDatabase(folderPath)}>
 					Turn into database
 				</Button>
 			</EmptyContent>
@@ -198,6 +196,7 @@ function DatabaseWorkspace(props: DatabasePaneProps & { readOnly: boolean }) {
 						removeDatabaseRowTemplate(controller.folderPath, templateId)
 					}
 					onRename={controller.renameDatabase}
+					onShare={readOnly ? undefined : () => openShareDatabaseTemplate(controller.folderPath)}
 				/>
 				{entry.configError && (
 					<p className="db-warning">

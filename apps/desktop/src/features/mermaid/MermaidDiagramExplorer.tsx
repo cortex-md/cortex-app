@@ -1,4 +1,4 @@
-import { Button } from "@cortex/ui"
+import { Button, SimpleTooltip } from "@cortex/ui"
 import {
 	Maximize2Icon,
 	RotateCcwIcon,
@@ -366,50 +366,50 @@ export function MermaidDiagramExplorer({
 	return (
 		<div className={`mermaid-explorer${className ? ` ${className}` : ""}`}>
 			<div className="mermaid-explorer-toolbar" role="toolbar" aria-label={`${title} controls`}>
-				<Button
-					type="button"
-					variant="ghost"
-					size="sm"
-					className="mermaid-explorer-tool"
-					aria-label="Zoom out"
-					title="Zoom out"
-					onClick={() => zoomAt(-1)}
-				>
-					<ZoomOutIcon className="size-4" aria-hidden="true" />
-				</Button>
-				<Button
-					type="button"
-					variant="ghost"
-					size="sm"
-					className="mermaid-explorer-tool"
-					aria-label="Zoom in"
-					title="Zoom in"
-					onClick={() => zoomAt(1)}
-				>
-					<ZoomInIcon className="size-4" aria-hidden="true" />
-				</Button>
-				<Button
-					type="button"
-					variant="ghost"
-					size="sm"
-					className="mermaid-explorer-tool"
-					aria-label="Fit diagram"
-					title="Fit diagram"
-					onClick={fitDiagram}
-				>
-					<Maximize2Icon className="size-4" aria-hidden="true" />
-				</Button>
-				<Button
-					type="button"
-					variant="ghost"
-					size="sm"
-					className="mermaid-explorer-tool"
-					aria-label="Reset view"
-					title="Reset view"
-					onClick={fitDiagram}
-				>
-					<RotateCcwIcon className="size-4" aria-hidden="true" />
-				</Button>
+				<SimpleTooltip label="Zoom out">
+					<Button
+						type="button"
+						variant="ghost"
+						className="mermaid-explorer-tool"
+						aria-label="Zoom out"
+						onClick={() => zoomAt(-1)}
+					>
+						<ZoomOutIcon className="size-4" aria-hidden="true" />
+					</Button>
+				</SimpleTooltip>
+				<SimpleTooltip label="Zoom in">
+					<Button
+						type="button"
+						variant="ghost"
+						className="mermaid-explorer-tool"
+						aria-label="Zoom in"
+						onClick={() => zoomAt(1)}
+					>
+						<ZoomInIcon className="size-4" aria-hidden="true" />
+					</Button>
+				</SimpleTooltip>
+				<SimpleTooltip label="Fit diagram">
+					<Button
+						type="button"
+						variant="ghost"
+						className="mermaid-explorer-tool"
+						aria-label="Fit diagram"
+						onClick={fitDiagram}
+					>
+						<Maximize2Icon className="size-4" aria-hidden="true" />
+					</Button>
+				</SimpleTooltip>
+				<SimpleTooltip label="Reset view">
+					<Button
+						type="button"
+						variant="ghost"
+						className="mermaid-explorer-tool"
+						aria-label="Reset view"
+						onClick={fitDiagram}
+					>
+						<RotateCcwIcon className="size-4" aria-hidden="true" />
+					</Button>
+				</SimpleTooltip>
 			</div>
 			<div
 				ref={viewportRef}

@@ -1,5 +1,6 @@
 import type { FileEntry } from "@cortex/platform"
 import {
+	compareFileEntryNames,
 	getParentPath,
 	isPathOrDescendant,
 	normalizePath,
@@ -49,10 +50,7 @@ export interface VisibleFileTreeProjection {
 }
 
 function sortNodes(nodes: FileTreeNode[]): void {
-	nodes.sort((left, right) => {
-		if (left.isDir !== right.isDir) return left.isDir ? -1 : 1
-		return left.name.localeCompare(right.name)
-	})
+	nodes.sort(compareFileEntryNames)
 }
 
 export function buildFileTree(
@@ -173,6 +171,21 @@ export function getFileTreeNodeTitle(node: Pick<FileTreeNode, "name" | "isDir">)
 	return node.isDir ? node.name : stripMarkdownExtension(node.name) || node.name
 }
 
+export function createFileTreeViewModelFromTree(
+	tree: readonly FileTreeNode[],
+	folderPaths: readonly string[],
+	expanded: ReadonlySet<string>,
+): FileTreeViewModel {
+	const rows = projectVisibleFileTree(tree, expanded, null, null).nodeRows.map(
+		({ depth, node }) => ({ depth, node, title: getFileTreeNodeTitle(node) }),
+	)
+	return {
+		rows,
+		folderPaths: [...folderPaths],
+		allExpanded: folderPaths.length > 0 && folderPaths.every((path) => expanded.has(path)),
+	}
+}
+
 export function createFileTreeViewModel(
 	files: readonly FileEntry[],
 	vaultPath: string | null,
@@ -180,19 +193,12 @@ export function createFileTreeViewModel(
 	options: FileTreeOptions = {},
 ): FileTreeViewModel {
 	const folderPaths = files.flatMap((file) => (file.isDir ? [file.path] : []))
-	const rows = vaultPath
-		? projectVisibleFileTree(
-				buildFileTree(files, vaultPath, options),
-				expanded,
-				null,
-				null,
-			).nodeRows.map(({ depth, node }) => ({ depth, node, title: getFileTreeNodeTitle(node) }))
-		: []
-	return {
-		rows,
+	if (!vaultPath) return { rows: [], folderPaths, allExpanded: false }
+	return createFileTreeViewModelFromTree(
+		buildFileTree(files, vaultPath, options),
 		folderPaths,
-		allExpanded: folderPaths.length > 0 && folderPaths.every((path) => expanded.has(path)),
-	}
+		expanded,
+	)
 }
 
 export function canMoveEntryTo(entry: MovableEntry, targetParentPath: string): boolean {

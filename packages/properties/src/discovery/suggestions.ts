@@ -1,7 +1,7 @@
 import { parseFrontmatter } from "../frontmatter"
 import { getPropertiesRuntime } from "../runtime"
 import { getVaultSchema } from "../schemaPersistence"
-import type { PropertyDefinition } from "../types"
+import type { PropertyDefinition, PropertyMap } from "../types"
 import {
 	createObservedPropertyDefinition,
 	EXCLUDED_OBSERVED_PROPERTY_KEYS,
@@ -29,7 +29,8 @@ function countValues(target: Map<string, number>, value: unknown): void {
 
 interface SuggestionCacheEntry {
 	generation: number
-	builtGeneration: number
+	schemaGeneration: number
+	built: { generation: number; schemaGeneration: number; indexVersion: number | null } | null
 	indexed: IndexedProperty[] | null
 	pending: Promise<void> | null
 }
@@ -71,8 +72,24 @@ function fuzzyScore(query: string, candidate: string): number {
 	return 0
 }
 
-async function buildIndex(vaultPath: string): Promise<IndexedProperty[]> {
+async function readNotePropertyMaps(vaultPath: string): Promise<Iterable<PropertyMap | null>> {
 	const runtime = getPropertiesRuntime()
+	const snapshot = runtime.noteIndex?.getNoteProperties(vaultPath)
+	if (snapshot) return snapshot.notes
+	return mapWithConcurrency(
+		await runtime.notes.listMarkdownFiles(vaultPath),
+		SUGGESTION_INDEX_READ_CONCURRENCY,
+		async (filePath) => {
+			try {
+				return parseFrontmatter(await runtime.notes.readNote(filePath)).meta
+			} catch {
+				return null
+			}
+		},
+	)
+}
+
+async function buildIndex(vaultPath: string): Promise<IndexedProperty[]> {
 	const schema = await getVaultSchema(vaultPath)
 	const indexed = new Map<string, IndexedProperty>(
 		schema.properties.map((definition) => [
@@ -80,20 +97,9 @@ async function buildIndex(vaultPath: string): Promise<IndexedProperty[]> {
 			{ definition, usage: 0, values: new Map<string, number>() },
 		]),
 	)
-	const notePropertyEntries = await mapWithConcurrency(
-		await runtime.notes.listMarkdownFiles(vaultPath),
-		SUGGESTION_INDEX_READ_CONCURRENCY,
-		async (filePath) => {
-			try {
-				return Object.entries(parseFrontmatter(await runtime.notes.readNote(filePath)).meta)
-			} catch {
-				return null
-			}
-		},
-	)
-	for (const entries of notePropertyEntries) {
-		if (!entries) continue
-		for (const [key, value] of entries) {
+	for (const meta of await readNotePropertyMaps(vaultPath)) {
+		if (!meta) continue
+		for (const [key, value] of Object.entries(meta)) {
 			const normalizedKey = key.toLocaleLowerCase()
 			if (EXCLUDED_OBSERVED_PROPERTY_KEYS.has(normalizedKey)) continue
 			const existing = indexed.get(normalizedKey)
@@ -120,7 +126,8 @@ function getSuggestionCacheEntry(vaultPath: string): SuggestionCacheEntry {
 	if (existing) return existing
 	const entry: SuggestionCacheEntry = {
 		generation: 0,
-		builtGeneration: -1,
+		schemaGeneration: 0,
+		built: null,
 		indexed: null,
 		pending: null,
 	}
@@ -128,39 +135,58 @@ function getSuggestionCacheEntry(vaultPath: string): SuggestionCacheEntry {
 	return entry
 }
 
+function getIndexVersion(vaultPath: string): number | null {
+	return getPropertiesRuntime().noteIndex?.getNoteProperties(vaultPath)?.version ?? null
+}
+
+function isFresh(entry: SuggestionCacheEntry, indexVersion: number | null): boolean {
+	const built = entry.built
+	if (!built || entry.indexed === null || built.schemaGeneration !== entry.schemaGeneration) {
+		return false
+	}
+	if (indexVersion !== null) return built.indexVersion === indexVersion
+	return built.indexVersion === null && built.generation === entry.generation
+}
+
 async function getSuggestionIndex(vaultPath: string): Promise<IndexedProperty[]> {
 	const entry = getSuggestionCacheEntry(vaultPath)
-	if (entry.indexed !== null && entry.builtGeneration === entry.generation) {
-		return entry.indexed
-	}
-	if (!entry.pending) {
-		const generation = entry.generation
-		entry.pending = buildIndex(vaultPath)
-			.then((indexed) => {
-				if (entry.generation === generation) {
+	for (;;) {
+		const indexVersion = getIndexVersion(vaultPath)
+		if (entry.indexed !== null && isFresh(entry, indexVersion)) return entry.indexed
+		if (!entry.pending) {
+			const built = {
+				generation: entry.generation,
+				schemaGeneration: entry.schemaGeneration,
+				indexVersion,
+			}
+			entry.pending = buildIndex(vaultPath)
+				.then((indexed) => {
+					if (built.schemaGeneration !== entry.schemaGeneration) return
+					if (built.indexVersion === null && built.generation !== entry.generation) return
 					entry.indexed = indexed
-					entry.builtGeneration = generation
-				}
-			})
-			.finally(() => {
-				entry.pending = null
-			})
+					entry.built = built
+				})
+				.finally(() => {
+					entry.pending = null
+				})
+		}
+		await entry.pending
+		if (entry.indexed !== null && entry.built?.schemaGeneration === entry.schemaGeneration) {
+			if (entry.built.indexVersion !== null || entry.built.generation === entry.generation) {
+				return entry.indexed
+			}
+		}
 	}
-	await entry.pending
-	return getSuggestionIndex(vaultPath)
 }
 
 export function invalidatePropertySuggestions(vaultPath?: string): void {
-	if (vaultPath) {
-		const entry = getSuggestionCacheEntry(vaultPath)
-		entry.generation++
-		entry.indexed = null
-		return
-	}
-	for (const entry of suggestionCache.values()) {
-		entry.generation++
-		entry.indexed = null
-	}
+	const targets = vaultPath ? [getSuggestionCacheEntry(vaultPath)] : suggestionCache.values()
+	for (const entry of targets) entry.generation++
+}
+
+export function invalidatePropertySuggestionSchema(vaultPath?: string): void {
+	const targets = vaultPath ? [getSuggestionCacheEntry(vaultPath)] : suggestionCache.values()
+	for (const entry of targets) entry.schemaGeneration++
 }
 
 export async function suggestProperties(

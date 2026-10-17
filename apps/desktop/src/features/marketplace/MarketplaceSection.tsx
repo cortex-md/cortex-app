@@ -1,7 +1,11 @@
 import { useVaultStore } from "@cortex/core"
 import {
+	formatCount,
+	getItemStats,
 	groupMarketplaceEntries,
 	isEntryInstalled,
+	isVerifiedEntry,
+	type MarketplaceItemStats,
 	type MarketplaceSortOrder,
 	type MarketplaceTab,
 	marketplaceSortLabels,
@@ -29,6 +33,7 @@ import {
 	InputGroupAddon,
 	InputGroupInput,
 	ScrollArea,
+	SimpleTooltip,
 	Skeleton,
 	Spinner,
 	Tabs,
@@ -36,8 +41,11 @@ import {
 	TabsTrigger,
 } from "@cortex/ui"
 import {
+	ArrowBigUp,
+	BadgeCheck,
 	CheckIcon,
 	ChevronDown,
+	Download,
 	MoreHorizontal,
 	Package,
 	PackageSearch,
@@ -61,11 +69,12 @@ import {
 } from "../plugins/communityPluginsAccess"
 import { MarketplaceDetail } from "./MarketplaceDetail"
 import { applyMarketplaceTheme, getMarketplaceThemeName } from "./marketplaceThemes"
+import type { MarketplaceViewTab } from "./marketplaceWorkspaceView"
 
 interface MarketplaceSectionProps {
 	initialTab: MarketplaceTab
 	initialSelectedEntryId?: string | null
-	onTabChange?: (tab: MarketplaceTab) => void
+	onTabChange?: (tab: MarketplaceViewTab) => void
 }
 
 interface MarketplaceCatalogRowProps {
@@ -76,6 +85,8 @@ interface MarketplaceCatalogRowProps {
 	hasUpdate: boolean
 	canInstall: boolean
 	releaseDate?: string
+	stats: MarketplaceItemStats | null
+	verified: boolean
 	rowRef?: Ref<HTMLButtonElement>
 	onSelect: () => void
 }
@@ -140,6 +151,8 @@ function MarketplaceCatalogRow({
 	hasUpdate,
 	canInstall,
 	releaseDate,
+	stats,
+	verified,
 	rowRef,
 	onSelect,
 }: MarketplaceCatalogRowProps) {
@@ -147,26 +160,52 @@ function MarketplaceCatalogRow({
 
 	return (
 		<div className="marketplace-catalog-item" data-active={isActive}>
-			<Button
-				ref={rowRef}
-				variant="ghost"
-				type="button"
-				className="marketplace-catalog-row"
-				aria-current={isActive ? "true" : undefined}
-				data-active={isActive}
-				data-installed={isInstalled}
-				title={entry.description}
-				onClick={onSelect}
-			>
-				<MarketplaceArtwork entry={entry} />
-				<span className="marketplace-catalog-copy">
-					<span className="marketplace-catalog-title">{entry.name}</span>
-					<span className="marketplace-catalog-meta">
-						{entry.author}
-						{formattedReleaseDate && ` · ${formattedReleaseDate}`}
+			<SimpleTooltip label={entry.description} side="right">
+				<Button
+					size="sm"
+					ref={rowRef}
+					variant="ghost"
+					type="button"
+					className="marketplace-catalog-row"
+					aria-current={isActive ? "true" : undefined}
+					data-active={isActive}
+					data-installed={isInstalled}
+					onClick={onSelect}
+				>
+					<MarketplaceArtwork entry={entry} />
+					<span className="marketplace-catalog-copy">
+						<span className="marketplace-catalog-title">
+							{entry.name}
+							{verified && (
+								<BadgeCheck
+									className="marketplace-verified-badge"
+									aria-label="Verified by Cortex"
+								/>
+							)}
+						</span>
+						<span className="marketplace-catalog-meta">
+							{entry.author}
+							{formattedReleaseDate && ` · ${formattedReleaseDate}`}
+						</span>
+						{stats && (stats.votes !== undefined || stats.downloads !== undefined) && (
+							<SimpleTooltip label="Votes on GitHub">
+								<span className="marketplace-catalog-stats">
+									<span>
+										<SimpleTooltip label="Downloads">
+											<ArrowBigUp aria-hidden="true" />
+										</SimpleTooltip>
+										{formatCount(stats.votes)}
+									</span>
+									<span>
+										<Download aria-hidden="true" />
+										{formatCount(stats.downloads)}
+									</span>
+								</span>
+							</SimpleTooltip>
+						)}
 					</span>
-				</span>
-			</Button>
+				</Button>
+			</SimpleTooltip>
 			<span className="marketplace-catalog-action">
 				<MarketplaceRowAction
 					entry={entry}
@@ -191,6 +230,7 @@ function MarketplaceCatalogGroup({ label, count, children }: MarketplaceCatalogG
 	return (
 		<div className="marketplace-catalog-group">
 			<Button
+				size="sm"
 				variant="ghost"
 				type="button"
 				className="marketplace-catalog-group-header"
@@ -245,6 +285,9 @@ export function MarketplaceSection({
 	const updatesChecking = useMarketplaceStore((state) => state.updatesChecking)
 	const releaseDates = useMarketplaceStore((state) => state.releaseDates)
 	const releaseDatesLoading = useMarketplaceStore((state) => state.releaseDatesLoading)
+	const stats = useMarketplaceStore((state) => state.stats)
+	const verified = useMarketplaceStore((state) => state.verified)
+	const blocked = useMarketplaceStore((state) => state.blocked)
 	const setActiveTab = useMarketplaceStore((state) => state.setActiveTab)
 	const setSearchQuery = useMarketplaceStore((state) => state.setSearchQuery)
 	const setFilterInstalled = useMarketplaceStore((state) => state.setFilterInstalled)
@@ -285,10 +328,22 @@ export function MarketplaceSection({
 					filterInstalled,
 					sortOrder,
 					releaseDates,
+					stats,
+					blocked,
 				},
 				{ isInstalled: (id) => isEntryInstalled(id, activeTab) },
 			),
-		[activeTab, filterInstalled, pluginEntries, releaseDates, searchQuery, sortOrder, themeEntries],
+		[
+			activeTab,
+			blocked,
+			filterInstalled,
+			pluginEntries,
+			releaseDates,
+			searchQuery,
+			sortOrder,
+			stats,
+			themeEntries,
+		],
 	)
 
 	const selectedEntry =
@@ -309,8 +364,8 @@ export function MarketplaceSection({
 		selectedRowRef.current?.scrollIntoView({ block: "nearest" })
 	}, [selectedEntry])
 
-	const handleTabChange = (tab: MarketplaceTab) => {
-		setActiveTab(tab)
+	const handleTabChange = (tab: MarketplaceViewTab) => {
+		if (tab !== "templates") setActiveTab(tab)
 		onTabChange?.(tab)
 	}
 
@@ -333,6 +388,8 @@ export function MarketplaceSection({
 			hasUpdate={Boolean(availableUpdates[entry.id])}
 			canInstall={Boolean(vault) && (activeTab === "themes" || allowCommunity)}
 			releaseDate={releaseDates[entry.id]}
+			stats={getItemStats(stats, activeTab, entry.id)}
+			verified={isVerifiedEntry(verified, activeTab, entry.id)}
 			rowRef={entry.id === selectedEntryId ? selectedRowRef : undefined}
 			onSelect={() => handleEntrySelect(entry)}
 		/>
@@ -395,10 +452,14 @@ export function MarketplaceSection({
 						onChange={(event) => setSearchQuery(event.target.value)}
 					/>
 				</InputGroup>
-				<Tabs value={activeTab} onValueChange={(value) => handleTabChange(value as MarketplaceTab)}>
+				<Tabs
+					value={activeTab}
+					onValueChange={(value) => handleTabChange(value as MarketplaceViewTab)}
+				>
 					<TabsList className="marketplace-catalog-tabs">
 						<TabsTrigger value="plugins">Plugins</TabsTrigger>
 						<TabsTrigger value="themes">Themes</TabsTrigger>
+						<TabsTrigger value="templates">Templates</TabsTrigger>
 					</TabsList>
 				</Tabs>
 
@@ -425,12 +486,14 @@ export function MarketplaceSection({
 					</div>
 				)}
 
-				{releaseDatesLoading && sortOrder !== "default" && !isLoading && (
-					<div className="marketplace-catalog-status">
-						<Spinner className="size-3" />
-						Loading release dates...
-					</div>
-				)}
+				{releaseDatesLoading &&
+					(sortOrder === "newest" || sortOrder === "oldest") &&
+					!isLoading && (
+						<div className="marketplace-catalog-status">
+							<Spinner className="size-3" />
+							Loading release dates...
+						</div>
+					)}
 
 				<ScrollArea className="marketplace-catalog-scroll">
 					{isLoading && <MarketplaceCatalogSkeleton />}

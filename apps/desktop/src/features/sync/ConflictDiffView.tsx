@@ -40,13 +40,13 @@ export function ConflictDiffView({ conflict, onResolve, onClose }: Props) {
 				</div>
 
 				<div className="dialog-chrome-footer flex items-center justify-end gap-2">
-					<Button variant="ghost" size="sm" onClick={onClose}>
+					<Button variant="ghost" onClick={onClose}>
 						Cancel
 					</Button>
-					<Button variant="secondary" size="sm" onClick={() => onResolve({ type: "keep_local" })}>
+					<Button variant="secondary" onClick={() => onResolve({ type: "keep_local" })}>
 						Keep Local
 					</Button>
-					<Button variant="secondary" size="sm" onClick={() => onResolve({ type: "keep_remote" })}>
+					<Button variant="secondary" onClick={() => onResolve({ type: "keep_remote" })}>
 						Keep Remote
 					</Button>
 				</div>

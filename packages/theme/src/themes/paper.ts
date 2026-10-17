@@ -3,6 +3,8 @@ import type { Theme } from "../types"
 
 const systemFontStack = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 const codeFontStack = 'Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+const monoFontStack =
+	'ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace'
 const mist = {
 	50: "#fbfbfc",
 	100: "#f5f5f7",
@@ -77,6 +79,12 @@ const yellow = {
 	"d-900": "#1a1608",
 }
 const accentForeground = resolveAccessibleForeground(rose[400], slate[900])
+
+const textPrimary = stone[800]
+
+function calloutBackground(color: string): string {
+	return `color-mix(in srgb, ${color} 7%, #fcfcfb)`
+}
 
 export const paperTheme: Theme = {
 	name: "paper",
@@ -153,7 +161,7 @@ export const paperTheme: Theme = {
 		fonts: {
 			ui: systemFontStack,
 			editor: systemFontStack,
-			mono: systemFontStack,
+			mono: monoFontStack,
 		},
 		typography: {
 			ui: {
@@ -211,9 +219,21 @@ export const paperTheme: Theme = {
 			statusbarBorder: stone[200],
 			scrollbarThumb: stone[300],
 			scrollbarHover: stone[400],
-			shadowRaised: "0 1px 3px rgba(17,19,26,0.08), 0 1px 2px rgba(17,19,26,0.06)",
+			shadowRaised:
+				"0 0 0 1px rgba(28,25,23,0.06), 0 1px 2px rgba(28,25,23,0.07), 0 3px 8px -3px rgba(28,25,23,0.08)",
 			shadowFloating: "0 10px 15px rgba(17,19,26,0.08), 0 4px 6px rgba(17,19,26,0.05)",
 			shadowOverlay: "0 20px 25px rgba(17,19,26,0.08), 0 10px 10px rgba(17,19,26,0.04)",
+			shadowFloatingPill:
+				"0 0 0 1px rgba(28,25,23,0.05), 0 2px 4px rgba(28,25,23,0.05), 0 10px 24px -8px rgba(28,25,23,0.18)",
+			shadowPrimary: "0 1px 2px rgba(190,18,60,0.18)",
+		},
+		controls: {
+			surfaceRaised: "#ffffff",
+			surfaceRaisedHover: "#faf9f8",
+			hairline: "rgba(28,25,23,0.1)",
+			fillQuiet: "rgba(28,25,23,0.05)",
+			fillQuietStrong: "rgba(28,25,23,0.085)",
+			fillSelected: "rgba(28,25,23,0.065)",
 		},
 		tag: {
 			bg: stone[150],
@@ -228,18 +248,18 @@ export const paperTheme: Theme = {
 		heading: {
 			fontWeight: "600",
 			inlineTitleMarginBottom: "1rem",
-			h1FontSize: "1.125em",
-			h2FontSize: "1.05em",
-			h3FontSize: "1em",
-			h4FontSize: "0.9em",
-			h5FontSize: "0.85em",
-			h6FontSize: "0.85em",
-			h1Color: rose[700],
-			h2Color: rose[600],
-			h3Color: "#3f6fa8",
-			h4Color: "#6b3a8a",
-			h5Color: stone[700],
-			h6Color: stone[500],
+			h1FontSize: "1.4em",
+			h2FontSize: "1.22em",
+			h3FontSize: "1.08em",
+			h4FontSize: "1em",
+			h5FontSize: "0.9em",
+			h6FontSize: "0.9em",
+			h1Color: textPrimary,
+			h2Color: textPrimary,
+			h3Color: textPrimary,
+			h4Color: textPrimary,
+			h5Color: textPrimary,
+			h6Color: textPrimary,
 		},
 		markdown: {
 			contentWidth: "720px",
@@ -248,25 +268,28 @@ export const paperTheme: Theme = {
 			blockSpacing: "1em",
 			codeFontFamily: codeFontStack,
 			codeFontSize: "14px",
+			inlineCodeColor: "#8a2c55",
+			linkMarkColor: "rgba(251,113,133,0.24)",
+			highlightColor: "rgba(251,113,133,0.16)",
 			codePaddingInline: "16px",
 			codePaddingBlock: "8px",
 			calloutPaddingBlock: "12px",
 			calloutPaddingInlineStart: "24px",
 			calloutPaddingInlineEnd: "12px",
 			callouts: {
-				note: { color: rose[700], backgroundColor: rose[50] },
-				abstract: { color: stone[700], backgroundColor: stone[100] },
-				info: { color: rose[600], backgroundColor: rose[50] },
-				todo: { color: rose[700], backgroundColor: rose[50] },
-				tip: { color: "#2f6f57", backgroundColor: green[100] },
-				success: { color: "#2f6f57", backgroundColor: green[100] },
-				question: { color: "#765800", backgroundColor: yellow[100] },
-				warning: { color: "#765800", backgroundColor: yellow[100] },
-				failure: { color: red[600], backgroundColor: red[100] },
-				danger: { color: red[600], backgroundColor: red[100] },
-				bug: { color: red[600], backgroundColor: red[100] },
-				example: { color: "#3f6fa8", backgroundColor: stone[100] },
-				quote: { color: stone[600], backgroundColor: stone[100] },
+				note: { color: "#2f6fb0", backgroundColor: calloutBackground("#2f6fb0") },
+				abstract: { color: "#0f7b72", backgroundColor: calloutBackground("#0f7b72") },
+				info: { color: "#2f6fb0", backgroundColor: calloutBackground("#2f6fb0") },
+				todo: { color: "#2f6fb0", backgroundColor: calloutBackground("#2f6fb0") },
+				tip: { color: "#0f7b72", backgroundColor: calloutBackground("#0f7b72") },
+				success: { color: "#2f7a4f", backgroundColor: calloutBackground("#2f7a4f") },
+				question: { color: "#b45309", backgroundColor: calloutBackground("#b45309") },
+				warning: { color: "#8f6200", backgroundColor: calloutBackground("#8f6200") },
+				failure: { color: "#b4233c", backgroundColor: calloutBackground("#b4233c") },
+				danger: { color: "#b4233c", backgroundColor: calloutBackground("#b4233c") },
+				bug: { color: "#b4233c", backgroundColor: calloutBackground("#b4233c") },
+				example: { color: "#6d4bb0", backgroundColor: calloutBackground("#6d4bb0") },
+				quote: { color: "#6b655f", backgroundColor: calloutBackground("#6b655f") },
 			},
 		},
 		sizing: {

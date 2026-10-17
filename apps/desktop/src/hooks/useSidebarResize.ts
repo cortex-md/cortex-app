@@ -10,6 +10,7 @@ export function useSidebarResize(
 	leftSidebarCollapsed: boolean,
 	leftSidebarWidth: number,
 	setLeftSidebarWidth: (width: number) => void,
+	minWidth: number,
 ): SidebarResize {
 	const sidebarResizing = useRef(false)
 	const sidebarResizeStart = useRef({ x: 0, width: 0 })
@@ -19,7 +20,7 @@ export function useSidebarResize(
 	const sidebarElementRef = useRef<HTMLElement | null>(null)
 
 	const applySidebarResizeWidth = (width: number) => {
-		sidebarResizeWidth.current = clampLeftSidebarWidth(width)
+		sidebarResizeWidth.current = clampLeftSidebarWidth(width, minWidth)
 		if (sidebarResizeFrame.current !== null) return
 		sidebarResizeFrame.current = window.requestAnimationFrame(() => {
 			sidebarResizeFrame.current = null
@@ -56,6 +57,7 @@ export function useSidebarResize(
 		const pointerId = event.pointerId
 		const handleElement = event.currentTarget
 		handleElement.setPointerCapture?.(pointerId)
+		sidebarElementRef.current?.setAttribute("data-resizing", "")
 
 		const handlePointerMove = (moveEvent: PointerEvent) => {
 			if (moveEvent.pointerId !== pointerId) return
@@ -68,6 +70,7 @@ export function useSidebarResize(
 			document.removeEventListener("pointermove", handlePointerMove)
 			document.removeEventListener("pointerup", handlePointerEnd)
 			document.removeEventListener("pointercancel", handlePointerEnd)
+			sidebarElementRef.current?.removeAttribute("data-resizing")
 			if (handleElement.hasPointerCapture?.(pointerId)) {
 				handleElement.releasePointerCapture(pointerId)
 			}

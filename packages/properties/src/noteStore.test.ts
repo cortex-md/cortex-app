@@ -4,7 +4,7 @@ import { resolveAuthorConfig } from "./actors"
 import { projectRawNote } from "./frontmatter"
 import { getPropertyMap, loadNotePropertiesSnapshot, setProperty } from "./noteStore"
 import { getPropertyType } from "./registry"
-import { updateVaultSchema } from "./schemaStore"
+import { notifyVaultSchemaChanged, updateVaultSchema } from "./schemaStore"
 
 describe("note property store", () => {
 	it("validates schema-backed values and preserves orphaned select IDs", async () => {
@@ -30,6 +30,7 @@ describe("note property store", () => {
 				properties: [{ ...selectProperty, type: "missing:type" }],
 			}),
 		)
+		notifyVaultSchemaChanged("/vault")
 		await expect(setProperty("/vault/note.md", "workflow", "value")).rejects.toThrow("unavailable")
 	})
 

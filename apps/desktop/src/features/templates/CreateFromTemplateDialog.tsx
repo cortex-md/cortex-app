@@ -1,92 +1,56 @@
 import {
+	type TemplateDefinition,
+	trackCreatedFiles,
 	useCanWriteVaultPath,
 	useTemplateStore,
-	useUIStore,
 	useVaultStore,
 	useWorkspaceStore,
 } from "@cortex/core"
+import { getTemplateGroups } from "@cortex/core/templates"
+import { useSettingsStore } from "@cortex/settings"
 import {
 	Button,
+	Command,
+	CommandGroup,
+	CommandItem,
+	CommandList,
 	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
 	DialogTitle,
+	FolderPicker,
 	Input,
-	Label,
-	NativeSelect,
-	NativeSelectOption,
-	Textarea,
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	Kbd,
 } from "@cortex/ui"
-import { LayoutTemplateIcon, SettingsIcon } from "lucide-react"
-import { useCallback, useEffect, useMemo, useReducer } from "react"
+import {
+	FileIcon,
+	LayoutTemplateIcon,
+	PlusIcon,
+	SearchIcon,
+	Settings2Icon,
+	StoreIcon,
+} from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
 import { ModalHost } from "@/utils/ModalHost"
+import { openMarketplaceView } from "../marketplace/openMarketplaceView"
+import { TemplateNotePreview } from "./TemplateNotePreview"
+import { openNewTemplate, openTemplatesView } from "./templateActions"
+import { useTemplateFolderOptions } from "./useTemplateFolderOptions"
+import "./templates.css"
+import { closeCreateFromTemplate, createFromTemplateModal } from "@/utils/modals"
 
-interface TemplatePreviewState {
-	targetFolder: string
-	fileName: string
+const BLANK_KEY = "__blank__"
+
+interface PreviewState {
+	key: string
 	content: string
-}
-
-interface CreateFromTemplateState {
-	templateId: string
-	noteTitle: string
-	targetFolder: string
-	fileName: string
-	contentPreview: string
+	folder: string
 	error: string | null
-	creating: boolean
-}
-
-type CreateFromTemplateField = "templateId" | "noteTitle" | "targetFolder" | "fileName"
-
-type CreateFromTemplateAction =
-	| { type: "fieldChanged"; field: CreateFromTemplateField; value: string }
-	| { type: "previewResolved"; preview: TemplatePreviewState; includeLocation: boolean }
-	| { type: "previewRejected"; error: string }
-	| { type: "createStarted" }
-	| { type: "createFailed"; error: string }
-	| { type: "createFinished" }
-
-const initialCreateFromTemplateState: CreateFromTemplateState = {
-	templateId: "",
-	noteTitle: "",
-	targetFolder: "",
-	fileName: "",
-	contentPreview: "",
-	error: null,
-	creating: false,
-}
-
-function createFromTemplateReducer(
-	state: CreateFromTemplateState,
-	action: CreateFromTemplateAction,
-): CreateFromTemplateState {
-	switch (action.type) {
-		case "fieldChanged":
-			return { ...state, [action.field]: action.value }
-		case "previewResolved":
-			return {
-				...state,
-				targetFolder: action.includeLocation ? action.preview.targetFolder : state.targetFolder,
-				fileName: action.includeLocation ? action.preview.fileName : state.fileName,
-				contentPreview: action.preview.content,
-				error: null,
-			}
-		case "previewRejected":
-			return { ...state, error: action.error }
-		case "createStarted":
-			return { ...state, creating: true, error: null }
-		case "createFailed":
-			return { ...state, creating: false, error: action.error }
-		case "createFinished":
-			return { ...state, creating: false }
-	}
 }
 
 export function CreateFromTemplateDialog() {
-	const open = useUIStore((state) => state.createFromTemplateOpen)
-	const closeCreateFromTemplate = useUIStore((state) => state.closeCreateFromTemplate)
+	const open = createFromTemplateModal.useTarget() !== null
 
 	return (
 		<ModalHost open={open} onOpenChange={(nextOpen) => !nextOpen && closeCreateFromTemplate()}>
@@ -95,237 +59,251 @@ export function CreateFromTemplateDialog() {
 	)
 }
 
-function CreateFromTemplateContent() {
+function useTemplatePreview(templateId: string | null, title: string): PreviewState | null {
 	const vault = useVaultStore((state) => state.vault)
-	const refreshFiles = useVaultStore((state) => state.refreshFiles)
-	const templates = useTemplateStore((state) => state.templates)
-	const ensureTemplatesLoaded = useTemplateStore((state) => state.ensureTemplatesLoaded)
 	const previewNoteFromTemplate = useTemplateStore((state) => state.previewNoteFromTemplate)
-	const createNoteFromTemplate = useTemplateStore((state) => state.createNoteFromTemplate)
-	const openTab = useWorkspaceStore((state) => state.openTab)
-	const closeCreateFromTemplate = useUIStore((state) => state.closeCreateFromTemplate)
-	const openSettings = useUIStore((state) => state.openSettings)
-	const [state, dispatch] = useReducer(createFromTemplateReducer, initialCreateFromTemplateState)
-	const { templateId, noteTitle, targetFolder, fileName, contentPreview, error, creating } = state
-	const targetFolderWritable = useCanWriteVaultPath(
-		vault ? (targetFolder.trim() ? `${vault.path}/${targetFolder.trim()}` : vault.path) : null,
+	const [preview, setPreview] = useState<PreviewState | null>(null)
+
+	useEffect(() => {
+		if (!vault || !templateId) return
+		let cancelled = false
+		previewNoteFromTemplate(vault, { templateId, noteTitle: title })
+			.then((result) => {
+				if (!cancelled) {
+					setPreview({
+						key: templateId,
+						content: result.content,
+						folder: result.targetFolder,
+						error: null,
+					})
+				}
+			})
+			.catch((previewError: unknown) => {
+				if (!cancelled) {
+					setPreview({
+						key: templateId,
+						content: "",
+						folder: "",
+						error: previewError instanceof Error ? previewError.message : String(previewError),
+					})
+				}
+			})
+		return () => {
+			cancelled = true
+		}
+	}, [previewNoteFromTemplate, templateId, title, vault])
+
+	return preview?.key === templateId ? preview : null
+}
+
+interface PickerLinksProps {
+	activeTemplateId: string | undefined
+}
+
+function PickerLinks({ activeTemplateId }: PickerLinksProps) {
+	const run = (action: () => void) => () => {
+		closeCreateFromTemplate()
+		action()
+	}
+	return (
+		<div className="template-picker-more">
+			<Button variant="ghost" size="xs" onClick={run(() => openNewTemplate({ start: "blank" }))}>
+				<PlusIcon />
+				New template
+			</Button>
+			<Button variant="ghost" size="xs" onClick={run(() => openTemplatesView(activeTemplateId))}>
+				<Settings2Icon />
+				Manage templates
+			</Button>
+			<Button variant="ghost" size="xs" onClick={run(() => openMarketplaceView("templates"))}>
+				<StoreIcon />
+				Find more in Marketplace
+			</Button>
+		</div>
+	)
+}
+
+interface PickerFooterProps {
+	folder: string
+	error: string | null
+	creating: boolean
+	onFolderChange: (folder: string) => void
+	onCreate: () => void
+}
+
+function PickerFooter({ folder, error, creating, onFolderChange, onCreate }: PickerFooterProps) {
+	const vaultPath = useVaultStore((state) => state.vault?.path ?? null)
+	const folderOptions = useTemplateFolderOptions()
+	const folderWritable = useCanWriteVaultPath(
+		vaultPath ? (folder.trim() ? `${vaultPath}/${folder.trim()}` : vaultPath) : null,
 		true,
 	)
-
-	const selectedTemplate = useMemo(
-		() => templates.find((template) => template.id === templateId) ?? templates[0],
-		[templateId, templates],
+	const message =
+		error ??
+		(folderWritable ? null : "You only have view access to this folder. Choose another folder.")
+	return (
+		<div className="template-picker-foot">
+			<div className="template-picker-folder">
+				<FolderPicker
+					options={folderOptions}
+					value={folder}
+					onChange={onFolderChange}
+					placeholder="Vault root"
+					allowCustomValue
+				/>
+			</div>
+			{message ? <span className="template-picker-error">{message}</span> : null}
+			<span className="flex-1" />
+			<Button disabled={creating || Boolean(message)} onClick={onCreate}>
+				{creating ? "Opening…" : "Create note"}
+				<Kbd>↵</Kbd>
+			</Button>
+		</div>
 	)
+}
+
+function CreateFromTemplateContent() {
+	const vault = useVaultStore((state) => state.vault)
+	const createFile = useVaultStore((state) => state.createFile)
+	const templates = useTemplateStore((state) => state.templates)
+	const ensureTemplatesLoaded = useTemplateStore((state) => state.ensureTemplatesLoaded)
+	const createNoteFromTemplate = useTemplateStore((state) => state.createNoteFromTemplate)
+	const initialTemplateId = createFromTemplateModal.useTarget()?.templateId ?? null
+	const openTab = useWorkspaceStore((state) => state.openTab)
+	const showTeam = useSettingsStore((state) => state.settings.templates.showTeam)
+	const [query, setQuery] = useState("")
+	const [selectedKey, setSelectedKey] = useState<string>(initialTemplateId ?? "")
+	const [titles, setTitles] = useState<Record<string, string>>({})
+	const [folders, setFolders] = useState<Record<string, string>>({})
+	const [creating, setCreating] = useState(false)
+	const [error, setError] = useState<string | null>(null)
 
 	useEffect(() => {
-		if (vault) ensureTemplatesLoaded(vault)
+		if (vault) void ensureTemplatesLoaded(vault)
 	}, [ensureTemplatesLoaded, vault])
 
-	useEffect(() => {
-		if (!vault || !selectedTemplate) return
-		let cancelled = false
-		previewNoteFromTemplate(vault, {
-			templateId: selectedTemplate.id,
-			noteTitle,
-		})
-			.then((preview) => {
-				if (cancelled) return
-				dispatch({ type: "previewResolved", preview, includeLocation: true })
-			})
-			.catch((previewError) => {
-				if (!cancelled) {
-					dispatch({
-						type: "previewRejected",
-						error: previewError instanceof Error ? previewError.message : String(previewError),
-					})
-				}
-			})
-		return () => {
-			cancelled = true
-		}
-	}, [noteTitle, previewNoteFromTemplate, selectedTemplate, vault])
+	const groups = useMemo(
+		() => getTemplateGroups(templates, { includeRecent: true, showTeam, query }),
+		[query, showTeam, templates],
+	)
+	const visibleKeys = useMemo(
+		() => [...groups.flatMap((group) => group.templates.map((template) => template.id)), BLANK_KEY],
+		[groups],
+	)
+	const activeKey = visibleKeys.includes(selectedKey) ? selectedKey : visibleKeys[0]
+	const activeTemplate: TemplateDefinition | undefined = templates.find(
+		(template) => template.id === activeKey,
+	)
+	const blankLabel = query.trim() ? `Blank note “${query.trim()}”` : "Blank note"
+	const title = titles[activeKey] ?? (activeKey === BLANK_KEY ? query.trim() : "")
+	const resolvedPreview = useTemplatePreview(activeTemplate?.id ?? null, title)
+	const folder = folders[activeKey] ?? resolvedPreview?.folder ?? ""
 
-	useEffect(() => {
-		if (!vault || !selectedTemplate || !fileName) return
-		let cancelled = false
-		previewNoteFromTemplate(vault, {
-			templateId: selectedTemplate.id,
-			noteTitle,
-			targetFolder,
-			fileName,
-		})
-			.then((preview) => {
-				if (cancelled) return
-				dispatch({ type: "previewResolved", preview, includeLocation: false })
-			})
-			.catch((previewError) => {
-				if (!cancelled) {
-					dispatch({
-						type: "previewRejected",
-						error: previewError instanceof Error ? previewError.message : String(previewError),
-					})
-				}
-			})
-		return () => {
-			cancelled = true
-		}
-	}, [fileName, noteTitle, previewNoteFromTemplate, selectedTemplate, targetFolder, vault])
-
-	const handleCreate = useCallback(async () => {
-		if (!vault || !selectedTemplate) return
-		dispatch({ type: "createStarted" })
+	const handleCreate = async () => {
+		if (!vault || creating) return
+		setCreating(true)
+		setError(null)
 		try {
-			const filePath = await createNoteFromTemplate(vault, {
-				templateId: selectedTemplate.id,
-				noteTitle,
-				targetFolder,
-				fileName,
-			})
-			await refreshFiles()
+			const targetFolder = folder.trim()
+			const parentPath = targetFolder ? `${vault.path}/${targetFolder}` : vault.path
+			const filePath = activeTemplate
+				? await createNoteFromTemplate(vault, {
+						templateId: activeTemplate.id,
+						noteTitle: title,
+						targetFolder,
+					})
+				: await createFile(parentPath, title.trim() || "Untitled")
+			if (activeTemplate) trackCreatedFiles([filePath])
 			openTab(filePath)
 			closeCreateFromTemplate()
 		} catch (createError) {
-			dispatch({
-				type: "createFailed",
-				error: createError instanceof Error ? createError.message : String(createError),
-			})
-		} finally {
-			dispatch({ type: "createFinished" })
+			setError(createError instanceof Error ? createError.message : String(createError))
+			setCreating(false)
 		}
-	}, [
-		closeCreateFromTemplate,
-		createNoteFromTemplate,
-		fileName,
-		noteTitle,
-		openTab,
-		refreshFiles,
-		selectedTemplate,
-		targetFolder,
-		vault,
-	])
+	}
 
 	return (
-		<DialogContent className="create-from-template-dialog-content overflow-hidden p-0">
-			<DialogHeader className="dialog-chrome-header">
-				<DialogTitle>New note from template</DialogTitle>
-				<DialogDescription>{selectedTemplate?.name ?? "Templates"}</DialogDescription>
-			</DialogHeader>
-			<div className="grid gap-4 p-5">
-				{templates.length === 0 ? (
-					<div className="flex min-h-32 flex-col items-center justify-center gap-3 rounded-[8px] border border-border bg-bg-secondary/45 p-5 text-center">
-						<LayoutTemplateIcon className="size-8 text-muted-foreground" />
-						<div className="text-sm text-muted-foreground">No templates yet.</div>
-						<Button
-							type="button"
-							variant="outline"
-							onClick={() => {
-								closeCreateFromTemplate()
-								openSettings("templates")
-							}}
-						>
-							<SettingsIcon />
-							Manage templates
-						</Button>
-					</div>
-				) : (
-					<>
-						<div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
-							<div className="flex flex-col gap-1.5">
-								<Label htmlFor="create-template-select">Template</Label>
-								<NativeSelect
-									id="create-template-select"
-									value={selectedTemplate?.id ?? ""}
-									onChange={(event) =>
-										dispatch({
-											type: "fieldChanged",
-											field: "templateId",
-											value: event.target.value,
-										})
-									}
-								>
-									{templates.map((template) => (
-										<NativeSelectOption key={template.id} value={template.id}>
-											{template.name}
-										</NativeSelectOption>
+		<DialogContent
+			className="template-picker overflow-hidden p-0"
+			showCloseButton={false}
+			aria-describedby={undefined}
+		>
+			<DialogTitle className="sr-only">New note from template</DialogTitle>
+			<Command
+				className="template-picker-command"
+				shouldFilter={false}
+				value={activeKey}
+				onValueChange={setSelectedKey}
+			>
+				<div className="template-picker-find">
+					<InputGroup variant="search">
+						<InputGroupAddon>
+							<SearchIcon />
+						</InputGroupAddon>
+						<InputGroupInput
+							autoFocus
+							value={query}
+							placeholder="New note from template…"
+							aria-label="Find a template"
+							onChange={(event) => setQuery(event.target.value)}
+						/>
+					</InputGroup>
+				</div>
+				<div className="template-picker-split">
+					<div className="template-picker-list">
+						<CommandList className="template-picker-options">
+							{groups.map((group) => (
+								<CommandGroup key={group.id} heading={group.label}>
+									{group.templates.map((template) => (
+										<CommandItem
+											key={`${group.id}:${template.id}`}
+											value={template.id}
+											onSelect={() => void handleCreate()}
+										>
+											<LayoutTemplateIcon />
+											<span className="truncate">{template.name}</span>
+										</CommandItem>
 									))}
-								</NativeSelect>
-							</div>
-							<div className="flex flex-col gap-1.5">
-								<Label htmlFor="template-note-title">Note title</Label>
-								<Input
-									id="template-note-title"
-									value={noteTitle}
-									placeholder={selectedTemplate?.name ?? "Untitled"}
-									onChange={(event) =>
-										dispatch({
-											type: "fieldChanged",
-											field: "noteTitle",
-											value: event.target.value,
-										})
-									}
-								/>
-							</div>
-							<div className="flex flex-col gap-1.5">
-								<Label htmlFor="template-target-folder">Folder</Label>
-								<Input
-									id="template-target-folder"
-									value={targetFolder}
-									onChange={(event) =>
-										dispatch({
-											type: "fieldChanged",
-											field: "targetFolder",
-											value: event.target.value,
-										})
-									}
-								/>
-							</div>
-							<div className="flex flex-col gap-1.5">
-								<Label htmlFor="template-file-name">Saved title</Label>
-								<Input
-									id="template-file-name"
-									value={fileName}
-									onChange={(event) =>
-										dispatch({
-											type: "fieldChanged",
-											field: "fileName",
-											value: event.target.value,
-										})
-									}
-								/>
-							</div>
-						</div>
-						<div className="flex flex-col gap-1.5">
-							<Label htmlFor="template-preview">Preview</Label>
-							<Textarea
-								id="template-preview"
-								readOnly
-								value={contentPreview}
-								className="max-h-[240px] min-h-36 overflow-auto font-mono"
-							/>
-						</div>
-					</>
-				)}
-				{error && <div className="text-sm text-destructive">{error}</div>}
-				{!error && !targetFolderWritable && (
-					<div className="text-sm text-destructive">
-						You only have view access to this folder. Choose another folder.
+								</CommandGroup>
+							))}
+							<CommandGroup>
+								<CommandItem value={BLANK_KEY} onSelect={() => void handleCreate()}>
+									<FileIcon />
+									<span className="truncate">{blankLabel}</span>
+								</CommandItem>
+							</CommandGroup>
+						</CommandList>
+						<PickerLinks activeTemplateId={activeTemplate?.id} />
 					</div>
-				)}
-			</div>
-			<DialogFooter className="dialog-chrome-footer">
-				<Button type="button" variant="outline" onClick={closeCreateFromTemplate}>
-					Cancel
-				</Button>
-				{templates.length > 0 && (
-					<Button
-						type="button"
-						disabled={creating || Boolean(error) || !targetFolderWritable}
-						onClick={handleCreate}
-					>
-						{creating ? "Creating" : "Create note"}
-					</Button>
-				)}
-			</DialogFooter>
+					<div className="template-picker-paper">
+						<Input
+							className="template-picker-title"
+							value={title}
+							placeholder="Untitled"
+							aria-label="Note name"
+							onChange={(event) =>
+								setTitles((current) => ({ ...current, [activeKey]: event.target.value }))
+							}
+							onKeyDown={(event) => {
+								if (event.key === "Enter") {
+									event.preventDefault()
+									void handleCreate()
+								}
+							}}
+						/>
+						{activeTemplate && resolvedPreview ? (
+							<TemplateNotePreview content={resolvedPreview.content} />
+						) : null}
+					</div>
+				</div>
+			</Command>
+			<PickerFooter
+				folder={folder}
+				error={error ?? resolvedPreview?.error ?? null}
+				creating={creating}
+				onFolderChange={(value) => setFolders((current) => ({ ...current, [activeKey]: value }))}
+				onCreate={() => void handleCreate()}
+			/>
 		</DialogContent>
 	)
 }

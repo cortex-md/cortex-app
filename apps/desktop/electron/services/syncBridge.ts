@@ -1,18 +1,26 @@
 import { access } from "node:fs/promises"
 import { join } from "node:path"
+import { DatabaseSync } from "node:sqlite"
 import type {
 	CollabFileSyncRole,
 	EffectiveAccess,
+	NoteSyncMetadata,
 	Sync,
 	SyncPreferences,
 	WatchEvent,
 } from "@cortex/platform"
-import { getVaultFilePath, isPathOrDescendant, VAULT_FILES } from "@cortex/platform/utils"
+import {
+	getVaultFilePath,
+	isPathOrDescendant,
+	toVaultRelativePath,
+	VAULT_FILES,
+} from "@cortex/platform/utils"
 import type { AccountIdentity } from "@cortex/sync-api"
 import {
 	createVaultKey,
 	ensureOwnVaultKey,
 	type FromWorkerMessage,
+	loadVaultKey as loadVaultKeyWithDeps,
 	type MainMethods,
 	RpcChannel,
 	type RpcRequest,
@@ -22,7 +30,6 @@ import {
 	type ToWorkerMessage,
 	unlockVaultKey,
 	type VaultRef,
-	vekSecretKey,
 	type WorkerMethods,
 } from "@cortex/sync-engine"
 import { type UtilityProcess, utilityProcess, webContents } from "electron"
@@ -87,19 +94,11 @@ async function requireIdentity(): Promise<AccountIdentity> {
 }
 
 async function loadVaultKey(vaultId: string): Promise<string | null> {
-	const secretKey = vekSecretKey(vaultId)
-	const identity = await serverApi.currentIdentity()
-	if (!secrets.get(secretKey) && identity) {
-		await requestVaultKey(await serverApi.client(), secrets, vaultId, identity)
-	}
-	const encoded = secrets.get(secretKey)
-	if (encoded && identity) {
-		void serverApi
-			.client()
-			.then((api) => ensureOwnVaultKey(api, secrets, vaultId, identity))
-			.catch((error) => console.warn("[sync] vault key self-registration failed:", error))
-	}
-	return encoded
+	return await loadVaultKeyWithDeps(vaultId, {
+		secrets,
+		currentIdentity: () => serverApi.currentIdentity(),
+		client: () => serverApi.client(),
+	})
 }
 
 async function handleMainRequest(request: RpcRequest<MainMethods>): Promise<unknown> {
@@ -194,6 +193,41 @@ async function hasSyncDb(vaultPath: string): Promise<boolean> {
 	}
 }
 
+interface NoteMetadataRow {
+	createdAt: string | null
+	createdBy: string | null
+	lastEditedAt: string | null
+	lastEditedBy: string | null
+	lastDeviceId: string | null
+	syncStatus: string | null
+}
+
+function readNoteMetadataFromDb(vaultPath: string, filePath: string): NoteSyncMetadata | null {
+	const relativePath = toVaultRelativePath(filePath, vaultPath) ?? filePath
+	const db = new DatabaseSync(getVaultFilePath(vaultPath, VAULT_FILES.syncDb), { readOnly: true })
+	try {
+		const row = db
+			.prepare(
+				`SELECT n.createdAt, n.createdBy, n.lastEditedAt, n.lastEditedBy, n.lastDeviceId, f.syncStatus
+				FROM noteMetadata n LEFT JOIN fileState f ON f.filePath = n.filePath WHERE n.filePath = ?`,
+			)
+			.get(relativePath) as NoteMetadataRow | undefined
+		if (!row) return null
+		return {
+			createdAt: row.createdAt,
+			createdBy: row.createdBy,
+			lastEditedAt: row.lastEditedAt,
+			lastEditedBy: row.lastEditedBy,
+			lastDeviceId: row.lastDeviceId,
+			synced: row.syncStatus === "synced",
+		}
+	} catch {
+		return null
+	} finally {
+		db.close()
+	}
+}
+
 export function notifyLocalFileChange(absolutePath: string, kind: WatchEvent["kind"]): void {
 	for (const session of sessions.values()) {
 		if (!session.worker || !session.vaultPath) continue
@@ -236,6 +270,44 @@ export function disposeSyncSession(ownerId: number): void {
 
 export function stopSyncWorkers(): void {
 	for (const ownerId of [...sessions.keys()]) disposeSyncSession(ownerId)
+}
+
+function waitForExit(child: UtilityProcess, timeoutMs: number): Promise<void> {
+	return new Promise((resolve) => {
+		const timer = setTimeout(resolve, timeoutMs)
+		child.once("exit", () => {
+			clearTimeout(timer)
+			resolve()
+		})
+	})
+}
+
+/** Asks each worker to drain and close `sync.db` before it is killed, so no file stays locked. */
+export async function stopSyncWorkersGracefully(timeoutMs: number): Promise<void> {
+	const workers = [...sessions.values()].flatMap((session) =>
+		session.worker ? [session.worker] : [],
+	)
+	await Promise.all(
+		workers.map(async (worker) => {
+			const exited = waitForExit(worker.process, timeoutMs)
+			let timer: NodeJS.Timeout | undefined
+			try {
+				await Promise.race([
+					worker.rpc.call("shutdown", {}),
+					new Promise((_, reject) => {
+						timer = setTimeout(() => reject(new Error("shutdown timed out")), timeoutMs)
+					}),
+				])
+			} catch (error) {
+				console.warn("[sync] worker did not shut down cleanly:", error)
+			} finally {
+				clearTimeout(timer)
+			}
+			worker.process.kill()
+			await exited
+		}),
+	)
+	stopSyncWorkers()
 }
 
 export const syncService = {
@@ -289,14 +361,19 @@ export const syncService = {
 	forceSyncFile: async (path) => command(currentSession(), { type: "forceSyncFile", path }),
 	resolveConflict: async (path, resolution) =>
 		command(currentSession(), { type: "resolveConflict", path, resolution }),
-	getConflicts: async (_vaultId, vaultPath) =>
-		(await hasSyncDb(vaultPath))
-			? await ensureWorker(currentSession()).rpc.call("getConflicts", { vaultPath })
-			: [],
-	getNoteMetadata: async (vaultPath, filePath) =>
-		(await hasSyncDb(vaultPath))
-			? await ensureWorker(currentSession()).rpc.call("getNoteMetadata", { vaultPath, filePath })
-			: null,
+	getConflicts: async (_vaultId, vaultPath) => {
+		const session = currentSession()
+		if (!session.worker || !(await hasSyncDb(vaultPath))) return []
+		return await session.worker.rpc.call("getConflicts", { vaultPath })
+	},
+	getNoteMetadata: async (vaultPath, filePath) => {
+		const session = currentSession()
+		if (!(await hasSyncDb(vaultPath))) return null
+		if (session.worker) {
+			return await session.worker.rpc.call("getNoteMetadata", { vaultPath, filePath })
+		}
+		return readNoteMetadataFromDb(vaultPath, filePath)
+	},
 	getVersionHistory: async (vaultId, vaultPath, filePath) =>
 		await ensureWorker(currentSession()).rpc.call("getVersionHistory", {
 			vault: await vaultRef(vaultId, vaultPath),

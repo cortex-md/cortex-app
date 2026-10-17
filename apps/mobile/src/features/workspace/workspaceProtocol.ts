@@ -1,4 +1,4 @@
-import type { HotkeyOverrides } from "@cortex/hotkeys"
+import type { HotkeyOverrides } from "@cortex/commands/hotkeys"
 import type { Capabilities, Platform, WatchEvent, WatchOptions } from "@cortex/platform"
 import type { JsonValue, PluginHostMessage, PluginUiMessage } from "@cortex/plugin-host-core"
 import type {
@@ -53,23 +53,62 @@ export type WorkspaceServiceCall =
 	| { kind: "bookmark"; action: "add" | "remove" | "toggle"; path: string; force?: boolean }
 	| { kind: "watch"; path: string; options?: WatchOptions }
 	| { kind: "unwatch"; watchId: number }
+	| { kind: "saveImage"; filePath: string; mimeType: string; base64: string }
+
+export interface WorkspaceFindResult {
+	current: number
+	total: number
+}
 
 /** Answers the request with the same `id`; `value` is any JSON value. */
 export type WorkspaceReply = { type: "reply"; id: number; value?: unknown; error?: string }
 
 /** Native → workspace WebView, through the `receive` imperative handle. */
+export interface CollabCursorState {
+	anchor: unknown
+	head: unknown
+}
+
+export type CollabBridgeMessage =
+	| {
+			kind: "attach"
+			filePath: string
+			update: string
+			peers: string | null
+			canWrite: boolean
+			user: { name: string; color: string; colorLight: string }
+	  }
+	| { kind: "update"; filePath: string; update: string }
+	| { kind: "peers"; filePath: string; update: string }
+	| { kind: "cursor"; filePath: string; cursor: CollabCursorState | null }
+	| { kind: "detach"; filePath: string }
+
 export type WorkspaceInboundMessage =
 	| { type: "plugin"; message: PluginUiMessage }
+	| { type: "collab"; message: CollabBridgeMessage }
 	| { type: "state"; patch: Partial<WorkspaceState> }
 	| { type: "openDocument"; document: WorkspaceDocument }
 	| { type: "closeDocument"; id: number; filePath: string }
 	| { type: "showEditor"; visible: boolean }
+	| { type: "bottomInset"; value: number }
+	| { type: "flush"; id: number }
 	| { type: "watchEvent"; watchId: number; event: WatchEvent }
+	| { type: "command"; commandId: string; payload?: JsonValue }
+	| { type: "find"; id: number; query: string; direction?: "next" | "prev" }
 	| WorkspaceReply
 
 /** Workspace WebView → native, through the `send` async prop. Requests carry an `id`. */
+export interface EditorCommandSummary {
+	id: string
+	label: string
+	category: string
+	aliases?: string[]
+}
+
 export type WorkspaceOutboundMessage =
 	| { type: "ready" }
+	| { type: "editorCommands"; commands: EditorCommandSummary[] }
+	| { type: "collab"; message: CollabBridgeMessage }
 	| { type: "plugin"; message: PluginHostMessage }
 	| { type: "commit"; id: number; filePath: string; body: string; revision: number }
 	| { type: "cursor"; cursor: WorkspaceCursor }

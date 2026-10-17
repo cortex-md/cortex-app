@@ -8,6 +8,7 @@ import {
 	useRemoteVaultStore,
 } from "../../stores/remoteVaultStore"
 import { useSubscriptionStore } from "../../stores/subscriptionStore"
+import { DEFAULT_SELF_HOSTED_SYNC_SERVER_URL } from "../../sync/serverConfig"
 
 const { updateSyncConfig } = vi.hoisted(() => ({ updateSyncConfig: vi.fn() }))
 
@@ -71,7 +72,7 @@ describe("remoteVaultStore sync config", () => {
 			...createDefaultSyncConfig(),
 			remoteVaultId: "remote-vault-id",
 			selfHosted: true,
-			serverUrl: DEFAULT_SYNC_SERVER_URL,
+			serverUrl: DEFAULT_SELF_HOSTED_SYNC_SERVER_URL,
 			selfHostedEnvironment: {},
 		})
 	})

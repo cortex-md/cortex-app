@@ -1,4 +1,5 @@
 import type { InviteKeyLink, SecretStore } from "@cortex/sync-api"
+import { fromBase64, fromBase64Url, toBase64, toBase64Url } from "./bytes"
 import {
 	assertVaultKey,
 	decodeVek,
@@ -14,8 +15,8 @@ export function createInviteKeyLink(secrets: SecretStore, vaultId: string): Invi
 	if (!encoded) return null
 	const linkKey = generateKey()
 	return {
-		encryptedVaultKey: encrypt(decodeVek(encoded), linkKey).toString("base64"),
-		linkKey: linkKey.toString("base64url"),
+		encryptedVaultKey: toBase64(encrypt(decodeVek(encoded), linkKey)),
+		linkKey: toBase64Url(linkKey),
 	}
 }
 
@@ -25,10 +26,10 @@ export function storeInviteKey(
 	encryptedVaultKey: string,
 	linkKey: string,
 ): void {
-	const key = Buffer.from(linkKey, "base64url")
-	let vek: Buffer
+	const key = fromBase64Url(linkKey)
+	let vek: Uint8Array
 	try {
-		vek = assertVaultKey(decrypt(Buffer.from(encryptedVaultKey, "base64"), key))
+		vek = assertVaultKey(decrypt(fromBase64(encryptedVaultKey), key))
 	} catch {
 		throw new Error("This invite link's key does not match. Ask for a new link.")
 	}

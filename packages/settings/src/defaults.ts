@@ -14,6 +14,8 @@ export const DEFAULT_APPEARANCE_SETTINGS = {
 	uiFontFamily: SYSTEM_FONT_FAMILY,
 	uiFontSize: 14,
 	nativeWindowEffects: true,
+	showRibbon: true,
+	workspaceMode: "full",
 	editorFontFamily: SYSTEM_FONT_FAMILY,
 	editorFontSize: 16,
 	lineHeight: 1.5,
@@ -39,8 +41,24 @@ export const DEFAULT_FILES_SETTINGS = {
 	hideHiddenFiles: true,
 } as const
 
+export const DEFAULT_DAILY_NOTES_SETTINGS = {
+	folder: "Daily",
+	format: "yyyy-MM-dd",
+	templateId: "",
+} as const
+
+export const DEFAULT_TEMPLATES_SETTINGS = {
+	showTeam: true,
+	editorHintDismissed: false,
+} as const
+
 export const DEFAULT_PLUGINS_SETTINGS = {
 	allowCommunity: false,
+} as const
+
+export const DEFAULT_UPDATES_SETTINGS = {
+	autoCheck: true,
+	channel: "stable",
 } as const
 
 export const DEFAULT_TASKS_SETTINGS = {
@@ -61,6 +79,9 @@ export const DEFAULT_APP_SETTINGS = {
 	appearance: DEFAULT_APPEARANCE_SETTINGS,
 	editor: DEFAULT_EDITOR_SETTINGS,
 	files: DEFAULT_FILES_SETTINGS,
+	dailyNotes: DEFAULT_DAILY_NOTES_SETTINGS,
+	templates: DEFAULT_TEMPLATES_SETTINGS,
 	plugins: DEFAULT_PLUGINS_SETTINGS,
 	tasks: DEFAULT_TASKS_SETTINGS,
+	updates: DEFAULT_UPDATES_SETTINGS,
 } as const

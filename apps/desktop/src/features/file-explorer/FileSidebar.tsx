@@ -1,30 +1,54 @@
-import { executeCommand } from "@cortex/commands"
+import { useHotkeysStore } from "@cortex/commands/hotkeys"
 import {
 	selectActiveTabFilePath,
 	useCanWriteVaultPath,
 	useVaultStore,
 	useWorkspaceStore,
 } from "@cortex/core"
-import { useHotkeysStore } from "@cortex/hotkeys"
 import { useSettingsStore } from "@cortex/settings"
 import {
 	Button,
 	DropdownMenu,
 	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuShortcut,
 	DropdownMenuTrigger,
+	SimpleTooltip,
 } from "@cortex/ui"
-import { FilePlusIcon, FolderPlusIcon, PlusIcon, RepeatIcon, Table2Icon } from "lucide-react"
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
-import { useCommandHotkey } from "../../hooks/useCommandHotkey"
-import { useContextMenu } from "../context-menu/useContextMenu"
+import { FolderPlusIcon, PlusIcon } from "lucide-react"
+import {
+	type RefObject,
+	useCallback,
+	useEffect,
+	useEffectEvent,
+	useMemo,
+	useRef,
+	useState,
+} from "react"
+import type { MenuItem } from "@/utils/context-menu"
+import { MenuItemList, useContextMenu } from "../context-menu/useContextMenu"
 import { FileSidebarTree } from "./FileSidebarTree"
 import { type FileExplorerCommandId, setFileExplorerCommandHandler } from "./fileExplorerCommands"
 import { createFileExplorerHotkeyBindings } from "./fileExplorerKeyboard"
+import { buildCreateMenuItems } from "./fileMenu"
 import { type FileCreateType, useFileSidebarActions } from "./useFileSidebarActions"
 import { useFileSidebarTreeModel } from "./useFileSidebarTreeModel"
+
+function deferMenuActions(
+	items: MenuItem[],
+	pendingRef: RefObject<(() => void) | null>,
+): MenuItem[] {
+	return items.map((item) => {
+		if (item.type === "separator" || item.type === "label" || item.type === "submenu") return item
+		const action = item.action
+		return action
+			? {
+					...item,
+					action: () => {
+						pendingRef.current = () => void action()
+					},
+				}
+			: item
+	})
+}
 
 interface FileSidebarHeaderProps {
 	vaultPath: string
@@ -33,26 +57,32 @@ interface FileSidebarHeaderProps {
 
 function FileSidebarHeader({ vaultPath, onCreate }: FileSidebarHeaderProps) {
 	const canCreateAtRoot = useCanWriteVaultPath(vaultPath, true)
-	const newNoteKeys = useCommandHotkey("file.new")
-	const newDatabaseKeys = useCommandHotkey("database.new")
 	const pendingCreateRef = useRef<(() => void) | null>(null)
+	const createItems = deferMenuActions(
+		buildCreateMenuItems({
+			onNewNote: () => onCreate(vaultPath, "file"),
+			onNewFolder: () => onCreate(vaultPath, "folder"),
+		}),
+		pendingCreateRef,
+	)
 	return (
-		<div className="file-sidebar-header flex items-center justify-between flex-shrink-0">
-			<span className="file-sidebar-title">Files</span>
+		<div className="file-sidebar-header flex items-center flex-shrink-0 gap-0.5">
+			<span className="file-sidebar-title mr-auto">Files</span>
 			{canCreateAtRoot && (
 				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon"
-							className="sidebar-action-button text-text-muted hover:text-text-primary hover:bg-bg-hover"
-							title="Create"
-							aria-label="Create"
-						>
-							<PlusIcon size={16} />
-						</Button>
-					</DropdownMenuTrigger>
+					<SimpleTooltip label="Create" side="bottom">
+						<DropdownMenuTrigger asChild>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon-sm"
+								className="file-sidebar-header-action"
+								aria-label="Create"
+							>
+								<PlusIcon size={14} />
+							</Button>
+						</DropdownMenuTrigger>
+					</SimpleTooltip>
 					<DropdownMenuContent
 						align="end"
 						onCloseAutoFocus={(event) => {
@@ -63,43 +93,23 @@ function FileSidebarHeader({ vaultPath, onCreate }: FileSidebarHeaderProps) {
 							action()
 						}}
 					>
-						<DropdownMenuItem
-							onSelect={() => {
-								pendingCreateRef.current = () => onCreate(vaultPath, "file")
-							}}
-						>
-							<FilePlusIcon />
-							Note
-							{newNoteKeys && <DropdownMenuShortcut>{newNoteKeys}</DropdownMenuShortcut>}
-						</DropdownMenuItem>
-						<DropdownMenuItem
-							onSelect={() => {
-								pendingCreateRef.current = () => executeCommand("database.new")
-							}}
-						>
-							<Table2Icon />
-							Database
-							{newDatabaseKeys && <DropdownMenuShortcut>{newDatabaseKeys}</DropdownMenuShortcut>}
-						</DropdownMenuItem>
-						<DropdownMenuItem
-							onSelect={() => {
-								pendingCreateRef.current = () => onCreate(vaultPath, "folder")
-							}}
-						>
-							<FolderPlusIcon />
-							Folder
-						</DropdownMenuItem>
-						<DropdownMenuSeparator />
-						<DropdownMenuItem
-							onSelect={() => {
-								pendingCreateRef.current = () => executeCommand("database.convert-folder")
-							}}
-						>
-							<RepeatIcon />
-							Turn a folder into a database
-						</DropdownMenuItem>
+						<MenuItemList items={createItems} />
 					</DropdownMenuContent>
 				</DropdownMenu>
+			)}
+			{canCreateAtRoot && (
+				<SimpleTooltip label="New folder" side="bottom">
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon-sm"
+						className="file-sidebar-header-action"
+						aria-label="New folder"
+						onClick={() => onCreate(vaultPath, "folder")}
+					>
+						<FolderPlusIcon size={14} />
+					</Button>
+				</SimpleTooltip>
 			)}
 		</div>
 	)
@@ -107,7 +117,6 @@ function FileSidebarHeader({ vaultPath, onCreate }: FileSidebarHeaderProps) {
 
 export function FileSidebar() {
 	const vault = useVaultStore((s) => s.vault)
-	const files = useVaultStore((s) => s.files)
 	const activeFilePath = useWorkspaceStore(selectActiveTabFilePath)
 	const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
 	const [focusedPathOverride, setFocusedPathOverride] = useState<string | null>(null)
@@ -152,7 +161,6 @@ export function FileSidebar() {
 
 	const { tree, rows, nodeRows, nodeRowIndexByPath, nodeByPath, focusedPath, rowVirtualizer } =
 		useFileSidebarTreeModel({
-			files,
 			vaultPath,
 			hasVault: Boolean(vault),
 			expanded,

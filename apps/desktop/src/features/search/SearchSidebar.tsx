@@ -13,7 +13,7 @@ import {
 	type SearchResult,
 	useSearchStore,
 } from "@cortex/search"
-import { Button, Spinner } from "@cortex/ui"
+import { Button, SimpleTooltip, Spinner } from "@cortex/ui"
 import { ChevronDownIcon, ChevronsDownUpIcon, SearchIcon } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback"
@@ -78,6 +78,7 @@ function SearchResultGroup({
 	return (
 		<div className="sidebar-search-file">
 			<Button
+				size="sm"
 				variant="ghost"
 				className="sidebar-search-file-header"
 				aria-expanded={!collapsed}
@@ -95,6 +96,7 @@ function SearchResultGroup({
 				(result.snippets.length > 0 ? (
 					result.snippets.map((snippet, index) => (
 						<Button
+							size="sm"
 							key={`${result.id}:${snippet.text}`}
 							variant="ghost"
 							className="sidebar-search-snippet"
@@ -106,7 +108,12 @@ function SearchResultGroup({
 						</Button>
 					))
 				) : (
-					<Button variant="ghost" className="sidebar-search-snippet" onClick={() => openMatch(0)}>
+					<Button
+						size="sm"
+						variant="ghost"
+						className="sidebar-search-snippet"
+						onClick={() => openMatch(0)}
+					>
 						<span>Open note</span>
 					</Button>
 				))}
@@ -159,7 +166,7 @@ export function SearchSidebar() {
 
 	const handleSubmit = (value: string) => {
 		setLocalQuery(value)
-		runQuery(value)
+		void runQuery(value)
 		useSearchStore.getState().addRecentQuery(value)
 	}
 
@@ -200,20 +207,21 @@ export function SearchSidebar() {
 			}
 			headerAction={
 				visibleResults.length > 0 && (
-					<Button
-						variant="ghost"
-						size="icon-xs"
-						className="sidebar-tool-action"
-						aria-label={allCollapsed ? "Expand all" : "Collapse all"}
-						title={allCollapsed ? "Expand all" : "Collapse all"}
-						onClick={() =>
-							setCollapsedIds(
-								allCollapsed ? new Set() : new Set(visibleResults.map((result) => result.id)),
-							)
-						}
-					>
-						<ChevronsDownUpIcon />
-					</Button>
+					<SimpleTooltip label={allCollapsed ? "Expand all" : "Collapse all"} side="bottom">
+						<Button
+							variant="ghost"
+							size="icon-xs"
+							className="sidebar-tool-action"
+							aria-label={allCollapsed ? "Expand all" : "Collapse all"}
+							onClick={() =>
+								setCollapsedIds(
+									allCollapsed ? new Set() : new Set(visibleResults.map((result) => result.id)),
+								)
+							}
+						>
+							<ChevronsDownUpIcon />
+						</Button>
+					</SimpleTooltip>
 				)
 			}
 			count={

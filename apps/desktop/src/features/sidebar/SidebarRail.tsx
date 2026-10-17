@@ -1,18 +1,14 @@
 import { useMarketplaceStore } from "@cortex/marketplace"
-import {
-	Button,
-	LucideIcon,
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from "@cortex/ui"
-import { SettingsIcon, StoreIcon } from "lucide-react"
-import { type KeyboardEvent, type ReactNode, useRef } from "react"
+import { Button, LucideIcon, SimpleTooltip } from "@cortex/ui"
+import { LayoutTemplateIcon, SettingsIcon, StoreIcon } from "lucide-react"
+import { type KeyboardEvent, type MouseEvent, useRef } from "react"
+import { useContextMenu } from "../context-menu/useContextMenu"
 import type { SidebarViewItem } from "../file-explorer/sidebarViewUtils"
 import { useInternalDragSource } from "../split-view/useInternalDragSource"
 import { TasksRailBadge } from "../tasks/TasksSidebar"
 import { TASKS_SIDEBAR_VIEW_ID } from "../tasks/taskModel"
+import { openTemplatesView } from "../templates/templateActions"
+import { ribbonMenuItems } from "./ribbon"
 
 interface SidebarRailProps {
 	items: SidebarViewItem[]
@@ -29,17 +25,6 @@ interface SidebarRailViewButtonProps {
 	buttonRef: (element: HTMLButtonElement | null) => void
 	onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void
 	onSelect: (id: string) => void
-}
-
-function RailTooltip({ label, children }: { label: string; children: ReactNode }) {
-	return (
-		<Tooltip>
-			<TooltipTrigger asChild>{children}</TooltipTrigger>
-			<TooltipContent side="right" sideOffset={6}>
-				{label}
-			</TooltipContent>
-		</Tooltip>
-	)
 }
 
 function SidebarRailViewButton({
@@ -59,8 +44,9 @@ function SidebarRailViewButton({
 	)
 
 	return (
-		<RailTooltip label={item.label}>
+		<SimpleTooltip side="right" label={item.label}>
 			<Button
+				size="sm"
 				ref={buttonRef}
 				variant="ghost"
 				type="button"
@@ -77,14 +63,18 @@ function SidebarRailViewButton({
 				{...dragProps}
 			>
 				{typeof item.icon === "string" ? (
-					<LucideIcon name={item.icon} size={18} strokeWidth={2} />
+					<LucideIcon name={item.icon} size={19} strokeWidth={2} />
 				) : (
-					<item.icon size={18} strokeWidth={2} />
+					<item.icon size={19} strokeWidth={2} />
 				)}
 				{item.id === TASKS_SIDEBAR_VIEW_ID && <TasksRailBadge />}
 			</Button>
-		</RailTooltip>
+		</SimpleTooltip>
 	)
+}
+
+function openTemplates() {
+	openTemplatesView()
 }
 
 function MarketplaceRailButton({ onOpen }: { onOpen: () => void }) {
@@ -97,22 +87,23 @@ function MarketplaceRailButton({ onOpen }: { onOpen: () => void }) {
 			: "Marketplace"
 
 	return (
-		<RailTooltip label={label}>
+		<SimpleTooltip side="right" label={label}>
 			<Button
+				size="sm"
 				variant="ghost"
 				type="button"
 				aria-label={label}
 				className="sidebar-rail-button"
 				onClick={onOpen}
 			>
-				<StoreIcon size={18} strokeWidth={2} />
+				<StoreIcon size={19} strokeWidth={2} />
 				{updateCount > 0 && (
 					<span className="sidebar-rail-badge" aria-hidden="true">
 						{updateCount}
 					</span>
 				)}
 			</Button>
-		</RailTooltip>
+		</SimpleTooltip>
 	)
 }
 
@@ -125,6 +116,12 @@ export function SidebarRail({
 	onOpenSettings,
 }: SidebarRailProps) {
 	const buttonRefs = useRef<Array<HTMLButtonElement | null>>([])
+	const { showMenu, menu } = useContextMenu()
+
+	const handleContextMenu = (event: MouseEvent<HTMLElement>) => {
+		event.preventDefault()
+		showMenu(ribbonMenuItems(), { x: event.clientX, y: event.clientY })
+	}
 
 	const handleKeyDown = (index: number, event: KeyboardEvent<HTMLButtonElement>) => {
 		let targetIndex: number | null = null
@@ -138,36 +135,48 @@ export function SidebarRail({
 	}
 
 	return (
-		<TooltipProvider delayDuration={320}>
-			<nav className="sidebar-rail" aria-label="Sidebar views">
-				<div className="sidebar-rail-views" role="tablist" aria-orientation="vertical">
-					{items.map((item, index) => (
-						<SidebarRailViewButton
-							key={item.id}
-							item={item}
-							isActive={!collapsed && item.id === activeId}
-							buttonRef={(element) => {
-								buttonRefs.current[index] = element
-							}}
-							onKeyDown={(event) => handleKeyDown(index, event)}
-							onSelect={onSelect}
-						/>
-					))}
-				</div>
-				<span className="sidebar-rail-fill" />
-				<MarketplaceRailButton onOpen={onOpenMarketplace} />
-				<RailTooltip label="Settings">
-					<Button
-						variant="ghost"
-						type="button"
-						aria-label="Settings"
-						className="sidebar-rail-button"
-						onClick={onOpenSettings}
-					>
-						<SettingsIcon size={18} strokeWidth={2} />
-					</Button>
-				</RailTooltip>
-			</nav>
-		</TooltipProvider>
+		<nav className="sidebar-rail" aria-label="Sidebar views" onContextMenu={handleContextMenu}>
+			<div className="sidebar-rail-views" role="tablist" aria-orientation="vertical">
+				{items.map((item, index) => (
+					<SidebarRailViewButton
+						key={item.id}
+						item={item}
+						isActive={!collapsed && item.id === activeId}
+						buttonRef={(element) => {
+							buttonRefs.current[index] = element
+						}}
+						onKeyDown={(event) => handleKeyDown(index, event)}
+						onSelect={onSelect}
+					/>
+				))}
+			</div>
+			<span className="sidebar-rail-fill" />
+			<SimpleTooltip side="right" label="Templates">
+				<Button
+					size="sm"
+					variant="ghost"
+					type="button"
+					aria-label="Templates"
+					className="sidebar-rail-button"
+					onClick={openTemplates}
+				>
+					<LayoutTemplateIcon size={19} strokeWidth={2} />
+				</Button>
+			</SimpleTooltip>
+			<MarketplaceRailButton onOpen={onOpenMarketplace} />
+			<SimpleTooltip side="right" label="Settings">
+				<Button
+					size="sm"
+					variant="ghost"
+					type="button"
+					aria-label="Settings"
+					className="sidebar-rail-button"
+					onClick={onOpenSettings}
+				>
+					<SettingsIcon size={19} strokeWidth={2} />
+				</Button>
+			</SimpleTooltip>
+			{menu}
+		</nav>
 	)
 }

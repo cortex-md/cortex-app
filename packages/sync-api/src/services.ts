@@ -164,8 +164,10 @@ export function createServerApiServices(options: ServerApiOptions): ServerApiSer
 	) => {
 		assertPasswordStrength(password)
 		const api = await client(serverUrl)
-		if (!keys.crypto) {
-			return await endpoints.register(api, session, email, password, displayName)
+		if (!keys.crypto || (await prelogin(api, email)) === null) {
+			const user = await endpoints.register(api, session, email, password, displayName)
+			await loginWithFreshDevice(serverUrl, email, password)
+			return user
 		}
 		const created = await createAccountIdentity(keys.crypto, password)
 		const user = await endpoints.register(
@@ -177,6 +179,7 @@ export function createServerApiServices(options: ServerApiOptions): ServerApiSer
 			created,
 		)
 		keys.storePrivateKey(user.userId, created.privateKey)
+		await loginWithFreshDevice(serverUrl, email, created.authKey)
 		return { ...user, recoveryKey: created.recoveryKey }
 	}
 

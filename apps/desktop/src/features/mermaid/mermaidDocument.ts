@@ -1,6 +1,9 @@
 import { noteCache } from "@cortex/core"
 import { type ParsedCodeBlockEmbed, parseFencedCodeBlocks } from "@cortex/editor/code-block-embeds"
+import { hashMermaidSource, normalizeMermaidSource } from "@cortex/editor/mermaid"
 import { projectRawNote } from "@cortex/properties"
+
+export { hashMermaidSource, normalizeMermaidSource }
 
 export const MERMAID_FENCE_LANGUAGE = "mermaid"
 export const MERMAID_DIAGRAM_VIEW_ID = "mermaid-diagram"
@@ -33,20 +36,6 @@ export interface MermaidDiagramLookup {
 const mermaidDirectivePattern = /^%%\{.*\}%%$/
 const mermaidCommentPattern = /^%%(?!\{)/
 const titleMaxLength = 52
-
-export function normalizeMermaidSource(source: string): string {
-	return source.trimEnd()
-}
-
-export function hashMermaidSource(source: string): string {
-	const normalized = normalizeMermaidSource(source)
-	let hash = 2166136261
-	for (let index = 0; index < normalized.length; index++) {
-		hash ^= normalized.charCodeAt(index)
-		hash = Math.imul(hash, 16777619)
-	}
-	return `mmd-${(hash >>> 0).toString(36)}`
-}
 
 export function createMermaidDiagramTitle(source: string): string {
 	const firstLine = normalizeMermaidSource(source)

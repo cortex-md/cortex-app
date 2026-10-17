@@ -1,10 +1,4 @@
-import {
-	selectSortedTags,
-	useEditorStore,
-	useTagsStore,
-	useUIStore,
-	useVaultStore,
-} from "@cortex/core"
+import { selectSortedTags, useEditorStore, useTagsStore, useVaultStore } from "@cortex/core"
 import {
 	Button,
 	ColorPicker,
@@ -16,9 +10,11 @@ import {
 	CommandItem,
 	CommandList,
 	CommandShortcut,
+	SimpleTooltip,
 } from "@cortex/ui"
 import { useCallback, useState } from "react"
 import { formatCount } from "@/utils/format"
+import { tagPickerModal, toggleTagPicker } from "@/utils/modals"
 
 const emptyTags: string[] = []
 const TAG_PICKER_FOOTER_HINTS = [
@@ -28,14 +24,13 @@ const TAG_PICKER_FOOTER_HINTS = [
 ]
 
 export function TagPicker() {
-	const tagPickerOpen = useUIStore((s) => s.tagPickerOpen)
+	const tagPickerOpen = tagPickerModal.useTarget() !== null
 	const activeFilePath = useEditorStore((s) => s.activeFilePath)
 	if (!tagPickerOpen || !activeFilePath) return null
 	return <TagPickerDialog activeFilePath={activeFilePath} />
 }
 
 function TagPickerDialog({ activeFilePath }: { activeFilePath: string }) {
-	const toggleTagPicker = useUIStore((s) => s.toggleTagPicker)
 	const vault = useVaultStore((s) => s.vault)
 	const allTags = useTagsStore(selectSortedTags)
 	const tagColors = useTagsStore((s) => s.tagColors)
@@ -65,7 +60,7 @@ function TagPickerDialog({ activeFilePath }: { activeFilePath: string }) {
 		await addTagToFile(activeFilePath, newTag)
 		setInputValue("")
 		closeModal()
-	}, [activeFilePath, inputValue, addTagToFile, closeModal])
+	}, [activeFilePath, inputValue, addTagToFile])
 
 	const handleColorChange = useCallback(
 		(tag: string, color: string | null) => {
@@ -99,8 +94,9 @@ function TagPickerDialog({ activeFilePath }: { activeFilePath: string }) {
 				<CommandEmpty className="py-4">
 					{inputValue.trim() && !inputMatchesExisting ? (
 						<Button
+							size="sm"
 							variant="ghost"
-							className="mx-auto h-auto gap-2 rounded-[8px] px-3 py-2 text-sm text-brand hover:bg-muted/55 hover:text-brand/80 active:scale-100 dark:hover:bg-muted/55"
+							className="mx-auto h-auto gap-2 rounded-[var(--row-radius)] px-3 py-2 text-brand-text hover:text-brand-text active:scale-100"
 							onClick={handleCreateTag}
 						>
 							Create tag "{inputValue.trim()}"
@@ -137,18 +133,19 @@ function TagPickerDialog({ activeFilePath }: { activeFilePath: string }) {
 											{formatCount(entry.filePaths.length, "note")}
 										</span>
 									</span>
-									<Button
-										variant="ghost"
-										size="icon-xs"
-										aria-label={`Set color for ${entry.tag}`}
-										className="tag-picker-color-button"
-										style={{ backgroundColor: entry.color ?? "transparent" }}
-										title="Set tag color"
-										onClick={(e) => {
-											e.stopPropagation()
-											setEditingColorFor(editingColorFor === entry.tag ? null : entry.tag)
-										}}
-									/>
+									<SimpleTooltip label="Set tag color">
+										<Button
+											variant="ghost"
+											size="icon-xs"
+											aria-label={`Set color for ${entry.tag}`}
+											className="tag-picker-color-button"
+											style={{ backgroundColor: entry.color ?? "transparent" }}
+											onClick={(e) => {
+												e.stopPropagation()
+												setEditingColorFor(editingColorFor === entry.tag ? null : entry.tag)
+											}}
+										/>
+									</SimpleTooltip>
 									{isActive && <CommandShortcut>Added</CommandShortcut>}
 								</CommandItem>
 							)

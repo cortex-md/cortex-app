@@ -1,25 +1,24 @@
 import { useMembersStore } from "@cortex/core"
+import { roleInfo } from "@cortex/core/members"
 import type { VaultInvite, VaultMember } from "@cortex/platform"
-import { getPlatform } from "@cortex/platform"
 import {
+	Badge,
 	Button,
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
+	Input,
+	SimpleTooltip,
 	Spinner,
+	StatusBadge,
+	toast,
 } from "@cortex/ui"
-import {
-	FolderLockIcon,
-	Mail,
-	MoreHorizontalIcon,
-	UserMinus,
-	UserPlusIcon,
-	XIcon,
-} from "lucide-react"
-import { useMemo, useState } from "react"
-import { formatCount, formatShortDate } from "@/utils/format"
+import { FolderLockIcon, Mail, MoreHorizontalIcon, UserMinus, UserPlusIcon } from "lucide-react"
+import { type FormEvent, useMemo, useState } from "react"
+import { formatShortDate } from "@/utils/format"
+import { useConfirmAction } from "../settings/ConfirmActionDialog"
 import {
 	SettingsEmptyState,
 	SettingsGroup,
@@ -31,7 +30,6 @@ import {
 import { GuestAccessDialog } from "./GuestAccessDialog"
 import { InviteDialog } from "./InviteDialog"
 import { memberDisplayName } from "./memberDirectory"
-import { roleInfo } from "./memberRoles"
 import { RoleMenu } from "./RoleMenu"
 import { UserAvatar } from "./UserAvatar"
 
@@ -50,59 +48,61 @@ export function PeopleTab({ vaultId, canManage, inviteRoles, memberRoles }: Peop
 	const clearError = useMembersStore((state) => state.clearError)
 	const [inviteOpen, setInviteOpen] = useState(false)
 	const [accessMember, setAccessMember] = useState<VaultMember | null>(null)
+	const { confirm, dialog } = useConfirmAction()
 
-	const remove = async (member: VaultMember) => {
-		const confirmed = await getPlatform().dialog.showConfirm({
-			title: "Remove from vault",
-			message: `${memberDisplayName(member)} loses access to this vault and its notes.`,
-			destructive: true,
+	const remove = (member: VaultMember) =>
+		confirm({
+			title: `Remove ${memberDisplayName(member)}?`,
+			description: `${memberDisplayName(member)} loses access to this vault and its notes.`,
 			confirmLabel: "Remove",
+			destructive: true,
+			onConfirm: async () => {
+				clearError()
+				await removeMember(vaultId, member.userId)
+			},
 		})
-		if (!confirmed) return
-		clearError()
-		await removeMember(vaultId, member.userId)
-	}
 
 	return (
 		<>
-			<div className="members-tab-header" data-settings-field="sync-members.invite">
-				<span className="members-tab-count">{formatCount(members.length, "person", "people")}</span>
-				{canManage && (
-					<Button size="sm" onClick={() => setInviteOpen(true)}>
-						<UserPlusIcon />
-						Invite people
-					</Button>
-				)}
-			</div>
-			<SettingsGroup data-settings-field="sync-members.members">
-				{loading && members.length === 0 ? (
-					<SettingsEmptyState className="settings-loading-state">
-						<Spinner className="size-4" />
-						Loading members
-					</SettingsEmptyState>
-				) : members.length === 0 ? (
-					<SettingsEmptyState>
-						No members yet. Invite someone to start working together.
-					</SettingsEmptyState>
-				) : (
-					<SettingsList>
-						{members.map((member) => (
-							<MemberRow
-								key={member.userId}
-								member={member}
-								canManage={canManage}
-								roles={memberRoles}
-								onChangeRole={(role) => {
-									clearError()
-									void updateMemberRole(vaultId, member.userId, role)
-								}}
-								onChangeAccess={() => setAccessMember(member)}
-								onRemove={() => void remove(member)}
-							/>
-						))}
-					</SettingsList>
-				)}
-			</SettingsGroup>
+			{canManage && (
+				<InviteRow
+					vaultId={vaultId}
+					roles={inviteRoles}
+					onMoreOptions={() => setInviteOpen(true)}
+				/>
+			)}
+			<SettingsSection title="Members" action={<Badge variant="secondary">{members.length}</Badge>}>
+				<SettingsGroup data-settings-field="sync-members.members">
+					{loading && members.length === 0 ? (
+						<SettingsEmptyState className="settings-loading-state">
+							<Spinner className="size-4" />
+							Loading members
+						</SettingsEmptyState>
+					) : members.length === 0 ? (
+						<SettingsEmptyState>
+							No members yet. Invite someone to start working together.
+						</SettingsEmptyState>
+					) : (
+						<SettingsList>
+							{members.map((member) => (
+								<MemberRow
+									key={member.userId}
+									member={member}
+									canManage={canManage}
+									roles={memberRoles}
+									onChangeRole={(role) => {
+										clearError()
+										void updateMemberRole(vaultId, member.userId, role)
+									}}
+									onChangeAccess={() => setAccessMember(member)}
+									onRemove={() => remove(member)}
+								/>
+							))}
+						</SettingsList>
+					)}
+				</SettingsGroup>
+			</SettingsSection>
+			{dialog}
 			{canManage && <InvitedList vaultId={vaultId} />}
 			{canManage && (
 				<>
@@ -143,26 +143,30 @@ function MemberRow({
 	const name = memberDisplayName(member)
 	const editable = canManage && member.role !== "owner"
 	return (
-		<SettingsListItem data-has-icon="true" title={`Joined ${formatShortDate(member.joinedAt)}`}>
+		<SettingsListItem data-has-icon="true">
 			<UserAvatar name={name} avatarUrl={member.avatarUrl} className="settings-member-avatar" />
 			<div className="settings-member-copy">
 				<span className="settings-field-label">{name}</span>
-				{member.email !== name && (
-					<span className="settings-field-description">{member.email}</span>
-				)}
+				<span className="settings-field-description">
+					{[
+						member.email !== name ? member.email : null,
+						`Joined ${formatShortDate(member.joinedAt)}`,
+					]
+						.filter(Boolean)
+						.join(" · ")}
+				</span>
 			</div>
 			<div className="settings-row-trail">
 				{!member.hasKey && (
-					<span
-						className="settings-pill"
-						title={
+					<SimpleTooltip
+						label={
 							member.publicKey
 								? "An admin device grants access automatically the next time it is online."
 								: "This member has not set up encryption yet."
 						}
 					>
-						Waiting for access
-					</span>
+						<Badge variant="outline">Waiting for access</Badge>
+					</SimpleTooltip>
 				)}
 				{editable ? (
 					<RoleMenu
@@ -172,7 +176,7 @@ function MemberRow({
 						onChange={onChangeRole}
 					/>
 				) : (
-					<span className="settings-row-kind">{roleInfo(member.role).label}</span>
+					<Badge variant="secondary">{roleInfo(member.role).label}</Badge>
 				)}
 				{editable && (
 					<DropdownMenu>
@@ -213,22 +217,26 @@ function InvitedList({ vaultId }: { vaultId: string }) {
 	const deleteInvite = useMembersStore((state) => state.deleteInvite)
 	const clearError = useMembersStore((state) => state.clearError)
 	const pending = useMemo(() => invites.filter((invite) => !invite.accepted), [invites])
+	const { confirm, dialog } = useConfirmAction()
 	if (pending.length === 0) return null
 
-	const cancel = async (invite: VaultInvite) => {
-		const confirmed = await getPlatform().dialog.showConfirm({
-			title: "Cancel invite",
-			message: `The invite link for ${invite.inviteeEmail} will stop working.`,
-			destructive: true,
+	const cancel = (invite: VaultInvite) =>
+		confirm({
+			title: "Cancel invite?",
+			description: `The invite link for ${invite.inviteeEmail} will stop working.`,
 			confirmLabel: "Cancel invite",
+			destructive: true,
+			onConfirm: async () => {
+				clearError()
+				await deleteInvite(vaultId, invite.id)
+			},
 		})
-		if (!confirmed) return
-		clearError()
-		await deleteInvite(vaultId, invite.id)
-	}
 
 	return (
-		<SettingsSection title="Invited">
+		<SettingsSection
+			title="Pending"
+			action={<StatusBadge dot={false}>{pending.length}</StatusBadge>}
+		>
 			<SettingsGroup>
 				<SettingsList>
 					{pending.map((invite) => (
@@ -244,18 +252,92 @@ function InvitedList({ vaultId }: { vaultId: string }) {
 							</div>
 							<div className="settings-row-trail">
 								<Button
-									variant="ghost"
-									size="icon-xs"
-									onClick={() => void cancel(invite)}
+									variant="destructive-soft"
+									size="xs"
+									onClick={() => cancel(invite)}
 									aria-label={`Cancel invite for ${invite.inviteeEmail}`}
-									className="settings-row-remove"
 								>
-									<XIcon />
+									Cancel
 								</Button>
 							</div>
 						</SettingsListItem>
 					))}
 				</SettingsList>
+			</SettingsGroup>
+			{dialog}
+		</SettingsSection>
+	)
+}
+
+interface InviteRowProps {
+	vaultId: string
+	roles: readonly string[]
+	onMoreOptions(): void
+}
+
+function InviteRow({ vaultId, roles, onMoreOptions }: InviteRowProps) {
+	const createInvite = useMembersStore((state) => state.createInvite)
+	const clearError = useMembersStore((state) => state.clearError)
+	const inlineRoles = roles.filter((role) => role !== "guest")
+	const [email, setEmail] = useState("")
+	const [role, setRole] = useState(
+		inlineRoles.includes("editor") ? "editor" : (inlineRoles[0] ?? "editor"),
+	)
+	const [busy, setBusy] = useState(false)
+	const [error, setError] = useState<string | null>(null)
+	const trimmed = email.trim()
+	const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)
+
+	const submit = async (event: FormEvent) => {
+		event.preventDefault()
+		if (!valid || busy) return
+		clearError()
+		setBusy(true)
+		setError(null)
+		try {
+			await createInvite(vaultId, trimmed, role, "")
+			toast(`Invite sent to ${trimmed}`)
+			setEmail("")
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : String(cause))
+		} finally {
+			setBusy(false)
+		}
+	}
+
+	return (
+		<SettingsSection
+			fieldId="sync-members.invite"
+			title="Invite"
+			footer={error ?? "Editors can change notes. Viewers can read and search."}
+			action={
+				roles.includes("guest") ? (
+					<Button variant="ghost" size="xs" onClick={onMoreOptions}>
+						More options…
+					</Button>
+				) : undefined
+			}
+		>
+			<SettingsGroup>
+				<form className="members-invite-row" onSubmit={(event) => void submit(event)}>
+					<Input
+						type="email"
+						value={email}
+						placeholder="name@example.com"
+						aria-label="Email to invite"
+						onChange={(event) => setEmail(event.target.value)}
+					/>
+					<RoleMenu
+						label="Role for the invite"
+						value={role}
+						roles={inlineRoles}
+						onChange={setRole}
+					/>
+					<Button type="submit" disabled={!valid || busy}>
+						{busy ? <Spinner className="size-3" /> : <UserPlusIcon />}
+						Invite
+					</Button>
+				</form>
 			</SettingsGroup>
 		</SettingsSection>
 	)

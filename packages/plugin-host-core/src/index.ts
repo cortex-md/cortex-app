@@ -52,6 +52,7 @@ export {
 	usePluginStore,
 } from "./pluginStore"
 export type { PluginMarkdownStyleHost } from "./pluginStyles"
+export { type PluginSyncSnapshot, selectPluginSyncSnapshot } from "./pluginSyncState"
 export {
 	type ControlledPluginViewState,
 	createPluginViewController,
