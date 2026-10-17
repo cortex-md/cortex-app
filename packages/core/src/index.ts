@@ -445,6 +445,7 @@ export {
 } from "./stores/templateStore"
 export {
 	clampLeftSidebarWidth,
+	getLeftSidebarMinWidth,
 	LEFT_SIDEBAR_WIDTH_BOUNDS,
 	type LeftSidebarLayout,
 	type LeftSidebarView,

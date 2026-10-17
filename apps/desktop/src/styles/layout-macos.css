@@ -1,6 +1,6 @@
 body[data-platform="macos"] .app-shell {
 	--app-collapsed-tabbar-start-padding: 76px;
-	--sidebar-transition-duration: var(--macos-duration-slow);
+	--sidebar-transition-duration: 180ms;
 	--sidebar-transition-ease: var(--macos-ease);
 	position: relative;
 	background: transparent;

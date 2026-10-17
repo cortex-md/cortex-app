@@ -1,4 +1,5 @@
 import {
+	getLeftSidebarMinWidth,
 	LEFT_SIDEBAR_WIDTH_BOUNDS,
 	useUIStore,
 	useVaultStore,
@@ -314,10 +315,12 @@ function SidebarShell() {
 	const leftSidebarWidth = useUIStore((s) => s.leftSidebarWidth)
 	const setLeftSidebarWidth = useUIStore((s) => s.setLeftSidebarWidth)
 	const collapsedWidth = useCollapsedSidebarWidth()
+	const minWidth = getLeftSidebarMinWidth(collapsedWidth > 0)
 	const { sidebarElementRef, handleSidebarResizeStart } = useSidebarResize(
 		leftSidebarCollapsed,
 		leftSidebarWidth,
 		setLeftSidebarWidth,
+		minWidth,
 	)
 
 	return (
@@ -329,7 +332,7 @@ function SidebarShell() {
 				} ${collapsedWidth === 0 ? "app-sidebar--no-ribbon" : ""}`}
 				style={{
 					width: leftSidebarCollapsed ? collapsedWidth : leftSidebarWidth,
-					minWidth: leftSidebarCollapsed ? collapsedWidth : LEFT_SIDEBAR_WIDTH_BOUNDS.min,
+					minWidth: leftSidebarCollapsed ? collapsedWidth : minWidth,
 					maxWidth: leftSidebarCollapsed ? collapsedWidth : LEFT_SIDEBAR_WIDTH_BOUNDS.max,
 				}}
 				aria-label="Sidebar panel"

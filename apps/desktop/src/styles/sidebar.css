@@ -1211,6 +1211,17 @@
 	display: flex;
 	gap: 6px;
 }
+
+.app-sidebar[data-resizing],
+.app-sidebar[data-resizing] .sidebar-panel {
+	transition: none !important;
+}
+
+.app-sidebar[data-resizing] {
+	cursor: col-resize;
+	user-select: none;
+}
+
 .sidebar-panel-top {
 	display: flex;
 	align-items: center;

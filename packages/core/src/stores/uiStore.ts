@@ -44,7 +44,8 @@ export interface UIState {
 }
 
 export const LEFT_SIDEBAR_WIDTH_BOUNDS = {
-	min: 228,
+	min: 160,
+	minWithRibbon: 200,
 	max: 448,
 }
 
@@ -53,8 +54,15 @@ const DEFAULT_LEFT_SIDEBAR_LAYOUT: LeftSidebarLayout = {
 	width: 292,
 }
 
-export function clampLeftSidebarWidth(width: number): number {
-	return Math.min(LEFT_SIDEBAR_WIDTH_BOUNDS.max, Math.max(LEFT_SIDEBAR_WIDTH_BOUNDS.min, width))
+export function getLeftSidebarMinWidth(showRibbon: boolean): number {
+	return showRibbon ? LEFT_SIDEBAR_WIDTH_BOUNDS.minWithRibbon : LEFT_SIDEBAR_WIDTH_BOUNDS.min
+}
+
+export function clampLeftSidebarWidth(
+	width: number,
+	minWidth: number = LEFT_SIDEBAR_WIDTH_BOUNDS.min,
+): number {
+	return Math.min(LEFT_SIDEBAR_WIDTH_BOUNDS.max, Math.max(minWidth, width))
 }
 
 export const useUIStore = create<UIState>()(
