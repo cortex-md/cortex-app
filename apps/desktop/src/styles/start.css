@@ -9,10 +9,22 @@
 	font-family: var(--font-ui);
 }
 
+/* No tab bar here, so the whole top strip moves the window, not only the sidebar-wide titlebar region. */
+.start-screen::before {
+	position: absolute;
+	top: 0;
+	right: 0;
+	left: 0;
+	height: var(--titlebar-height, 48px);
+	content: "";
+	-webkit-app-region: drag;
+}
+
 .start-account {
 	position: absolute;
 	top: 6px;
 	right: 12px;
+	-webkit-app-region: no-drag;
 	display: inline-flex;
 	align-items: center;
 	gap: 8px;
