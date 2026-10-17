@@ -52,6 +52,9 @@ jobs:
           - name: macOS Apple Silicon
             platform: macos-15
             electron_args: --mac --arm64
+          - name: macOS Intel
+            platform: macos-15-intel
+            electron_args: --mac --x64
           - name: Windows
             platform: windows-latest
             electron_args: --win --x64
@@ -76,6 +79,13 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Install rpm tooling
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
+      - name: Updater tests
+        run: bunx vitest run --project desktop-electron
 
       - name: Apply release version
         env:
@@ -105,27 +115,66 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           IS_PRERELEASE: ${{ needs.release-metadata.outputs.is_prerelease }}
         run: |
-          args=(${{ matrix.electron_args }})
+          args=(${{ matrix.electron_args }} --publish never)
           if [ "$RUNNER_OS" != "macOS" ]; then
             unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
           elif [ -n "$CSC_LINK" ] && [ -n "$APPLE_ID" ] && [ -n "$APPLE_TEAM_ID" ]; then
             args+=(-c.mac.notarize=true)
-          elif [ "$IS_PRERELEASE" = "true" ]; then
-            echo "::warning::Unsigned macOS prerelease: auto-update and notifications will not work on macOS."
+          else
+            echo "::warning::No Apple certificate: macOS builds are ad-hoc signed. Users approve the first launch once; Cortex updates itself afterwards."
             unset CSC_LINK CSC_KEY_PASSWORD
             export CSC_IDENTITY_AUTO_DISCOVERY=false
             args+=(-c.mac.identity=- -c.mac.hardenedRuntime=false)
-          else
-            echo "::error::Stable macOS releases need MAC_CERTIFICATE_P12, MAC_CERTIFICATE_PASSWORD, APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID."
-            exit 1
           fi
           bun run --cwd apps/desktop pack -- "${args[@]}"
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            for app in apps/desktop/release/mac*/Cortex.app; do
+              codesign --verify --deep --strict "$app"
+            done
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: cortex-${{ matrix.platform }}
-          path: apps/desktop/release/**/*
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
+            apps/desktop/release/*.rpm
+          if-no-files-found: error
+
+  update-manifest:
+    name: Sign update manifest
+    needs:
+      - release-metadata
+      - build-electron
+    runs-on: ubuntu-22.04
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create and sign latest.json
+        env:
+          RELEASE_VERSION: ${{ needs.release-metadata.outputs.version }}
+          RELEASE_TAG: ${{ needs.release-metadata.outputs.tag_name }}
+          ARTIFACTS_DIR: artifacts
+          OUTPUT_DIR: update-manifest
+          REQUIRED_PLATFORMS: darwin-arm64,darwin-x64,win32-x64,linux-x64
+          CORTEX_UPDATE_PRIVATE_KEY: ${{ secrets.CORTEX_UPDATE_PRIVATE_KEY }}
+        run: node scripts/release/create-update-manifest.mjs
+
+      - name: Upload update manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-manifest
+          path: update-manifest/*
           if-no-files-found: error
 
   publish-release:
@@ -133,6 +182,7 @@ jobs:
     needs:
       - release-metadata
       - build-electron
+      - update-manifest
     runs-on: ubuntu-22.04
     environment: release
     permissions:

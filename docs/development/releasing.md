@@ -14,17 +14,46 @@ workflows in `.github/workflows` expect.
    (`apply-desktop-release-version.mjs`), validates the sync server config
    (`validate-desktop-sync-config.mjs`), and builds and packages with electron-builder
    (`apps/desktop/electron-builder.yml`).
-3. `publish-release` creates the GitHub release with every artifact, in the `release` environment.
+3. `update-manifest` waits for every platform, then `scripts/release/create-update-manifest.mjs`
+   writes `latest.json` (version, channel, SHA-256 and size of each update package) and signs it
+   into `latest.json.sig` with `CORTEX_UPDATE_PRIVATE_KEY`. It fails when a required platform
+   (`darwin-arm64`, `darwin-x64`, `win32-x64`, `linux-x64`) has no package.
+4. `publish-release` creates the GitHub release with the installers, the update packages, and the
+   signed manifest, in the `release` environment.
 
 ```bash
 git tag v0.2.0
 git push origin v0.2.0
 ```
 
+Artifacts are named `Cortex-<version>-<os>-<arch>.<ext>`. Update packages are the mac `zip`, the
+Windows NSIS `exe`, and the `AppImage`; `dmg`, `deb`, and `rpm` are for manual installs only.
+
 macOS signing and notarization need `MAC_CERTIFICATE_P12`, `MAC_CERTIFICATE_PASSWORD`, `APPLE_ID`,
-`APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID`. Without them, macOS builds are unsigned
-prereleases: auto-update and notifications don't work there. Electron fuses are on, so a local
-unsigned build needs an ad-hoc identity to launch.
+`APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID`. Without them, macOS builds are ad-hoc signed
+(required on Apple Silicon): users approve the first launch once, and the built-in updater works
+afterwards because it does not depend on Squirrel.Mac. Native notifications still need a signed
+build. Electron fuses are on, so a local unsigned build needs an ad-hoc identity to launch.
+
+### Update Signing Key
+
+Generate the Ed25519 pair once, from a trusted machine:
+
+```bash
+node scripts/release/generate-update-keys.mjs --out ~/cortex-update-key
+```
+
+- Paste the printed public key into `apps/desktop/electron/updates/publicKey.ts` and release it.
+- Store the content of `cortex-update.key` as the `CORTEX_UPDATE_PRIVATE_KEY` secret of the
+  `release` environment, then delete the local copy or keep it offline.
+- Never rotate the key casually: installed builds accept only manifests signed by the key they
+  shipped with. A new key must first ship in a release signed with the old one.
+
+Release format: `latest.json` holds `version`, `channel` (`stable`, or `beta` for versions with a
+suffix), `releasedAt`, `notes`, and `platforms` keyed by `<platform>-<arch>` with `type`
+(`zip`, `nsis`, `appimage`), `url`, `sha256`, and `size`. The signature covers the exact bytes of
+the file. Stable clients read `releases/latest/download/latest.json`; beta clients read the newest
+release that has a manifest, so prereleases update beta users only.
 
 ## Plugin API (`@cortex.md/api`)
 

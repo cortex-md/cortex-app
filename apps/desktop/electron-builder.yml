@@ -12,6 +12,7 @@ asar: true
 asarUnpack:
   - node_modules/font-list/**
 compression: maximum
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 electronLanguages:
   - en
   - en-US
@@ -42,12 +43,13 @@ mac:
 win:
   target:
     - nsis
+nsis:
+  oneClick: true
+  perMachine: false
 linux:
   target:
     - AppImage
     - deb
+    - rpm
   category: Office
-publish:
-  provider: github
-  owner: cortex-md
-  repo: cortex-app
+publish: null
