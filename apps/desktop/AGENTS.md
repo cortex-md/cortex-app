@@ -33,8 +33,13 @@ Validate desktop changes with the root gate (`check`, `typecheck`, `check:bounda
 - File services resolve paths through `assertAllowedPath` (user data, temp, registered vaults,
   dialog grants). The credentials file is never readable from the renderer.
 - Services keep IO in main but call the pure rules from `@cortex/platform/{vault,utils,hash}`.
-- Only runtime-loaded packages go in `dependencies` (`adm-zip`, `electron-updater`, `font-list`,
+- Only runtime-loaded packages go in `dependencies` (`adm-zip`, `font-list`,
   `write-file-atomic`); everything else is a `devDependency` so electron-builder does not pack it.
+- Updates are self-hosted (`electron/updates/`, facade `services/appUpdates.ts`): an Ed25519-signed
+  `latest.json` is verified before any field is read, packages are checked by streamed SHA-256, and
+  per-platform `UpdateInstaller`s replace the app. Never trust a manifest URL outside the Cortex
+  GitHub releases or skip the signature check. Work that must finish before the app quits to install
+  registers a `shutdownHooks` hook (`flush` cancels the install on failure, `teardown` runs last).
 - Sync runs in a `utilityProcess` worker (`electron/syncWorker.ts` over `@cortex/sync-engine`) owned by
   `services/syncBridge.ts`. Auth, tokens, account keys, the VEK, collab keys, and server HTTP stay
   in main (`services/serverApi.ts`, `services/collab.ts`); the renderer never sees secrets.

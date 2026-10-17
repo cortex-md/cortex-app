@@ -1,6 +1,6 @@
 import type {
 	AlertDialogOptions,
-	AppUpdateInstallEvent,
+	AppUpdateStatus,
 	Collab,
 	CollabChannelEvent,
 	ConfirmDialogOptions,
@@ -229,14 +229,19 @@ export const electronPlatform: Platform = {
 			listen(name as MainEventName, listener as (payload: unknown) => void),
 	},
 	appUpdates: extend(main.appUpdates, {
-		installUpdate: async (onEvent?: (event: AppUpdateInstallEvent) => void) => {
-			const unlisten = listen("app-update-install", (event) => onEvent?.(event))
-			try {
-				return await main.appUpdates.installUpdate()
-			} finally {
-				unlisten()
-			}
-		},
+		onStatusChanged: (callback: (status: AppUpdateStatus) => void) =>
+			listen("app-update-status", callback),
+		onBeforeInstall: (handler: () => Promise<void>) =>
+			listen("app-update-before-install", ({ requestId }) => {
+				handler().then(
+					() => main.appUpdates.completeBeforeInstall(requestId, null),
+					(error: unknown) =>
+						main.appUpdates.completeBeforeInstall(
+							requestId,
+							error instanceof Error ? error.message : String(error),
+						),
+				)
+			}),
 	}),
 	font: main.font,
 	http: {

@@ -12,6 +12,7 @@ import {
 	registerPrivilegedSchemes,
 } from "./protocols"
 import { setTrustedRendererUrl } from "./security"
+import { deferQuitForUpdate, setupAppUpdates } from "./services/appUpdates"
 import { addRegistryChangedListener } from "./services/registry"
 import { startReminderScheduler } from "./services/reminderScheduler"
 import { disposeSyncSession, stopSyncWorkers } from "./services/syncBridge"
@@ -84,6 +85,7 @@ if (!gotLock) {
 		registerCortexFileProtocol()
 		registerIpcHandlers()
 		configureWindows(rendererUrl, preloadPath())
+		setupAppUpdates()
 		addRegistryChangedListener(setupApplicationMenu)
 		onWindowsChanged((reason) => {
 			if (reason === "focus") syncApplicationMenu()
@@ -120,7 +122,10 @@ if (!gotLock) {
 		app.setAsDefaultProtocolClient("cortex")
 	}
 
-	app.on("before-quit", stopSyncWorkers)
+	app.on("before-quit", (event) => {
+		if (deferQuitForUpdate(event)) return
+		stopSyncWorkers()
+	})
 
 	app.on("window-all-closed", () => {
 		if (process.platform !== "darwin") {

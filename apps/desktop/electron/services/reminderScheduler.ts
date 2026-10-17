@@ -54,18 +54,32 @@ function isValidRequest(value: unknown): value is ScheduledNotificationRequest {
 	)
 }
 
+let persistWrite: Promise<void> = Promise.resolve()
+
+function persistNow(): Promise<void> {
+	const snapshot: PersistedReminders = {
+		schedules: Object.fromEntries(schedules),
+		fired: Object.fromEntries(fired),
+	}
+	persistWrite = persistWrite
+		.then(() => writeFileAtomic(remindersPath(), JSON.stringify(snapshot), "utf8"))
+		.catch((error) => console.warn("[reminders] failed to persist schedule:", error))
+	return persistWrite
+}
+
 function persistSoon(): void {
 	if (persistTimer) clearTimeout(persistTimer)
 	persistTimer = setTimeout(() => {
 		persistTimer = null
-		const snapshot: PersistedReminders = {
-			schedules: Object.fromEntries(schedules),
-			fired: Object.fromEntries(fired),
-		}
-		writeFileAtomic(remindersPath(), JSON.stringify(snapshot), "utf8").catch((error) =>
-			console.warn("[reminders] failed to persist schedule:", error),
-		)
+		void persistNow()
 	}, PERSIST_DELAY_MS)
+}
+
+export async function flushReminderWrites(): Promise<void> {
+	if (!persistTimer) return await persistWrite
+	clearTimeout(persistTimer)
+	persistTimer = null
+	await persistNow()
 }
 
 async function loadPersistedReminders(): Promise<void> {

@@ -1,17 +1,43 @@
-export type AppUpdateCheckSource = "startup" | "manual"
+export type AppUpdateCheckSource = "startup" | "scheduled" | "manual"
+
+export type AppUpdateChannel = "stable" | "beta"
 
 export type AppUpdateState =
 	| "idle"
 	| "checking"
 	| "up-to-date"
 	| "available"
+	| "downloading"
+	| "verifying"
+	| "ready"
 	| "installing"
-	| "installed"
 	| "error"
 	| "unsupported"
 
+export type AppUpdateErrorCode =
+	| "NETWORK"
+	| "MANIFEST_INVALID"
+	| "SIGNATURE_INVALID"
+	| "HASH_MISMATCH"
+	| "NO_PLATFORM_BUILD"
+	| "NOT_IN_APPLICATIONS"
+	| "NO_WRITE_PERMISSION"
+	| "UNSUPPORTED_INSTALL_TYPE"
+	| "INSTALL_FAILED"
+
+/**
+ * `automatic` replaces the app in place, `manual` opens the downloaded package or the release page
+ * for the user to finish, `unsupported` means this build cannot update (development builds).
+ */
+export type AppUpdateInstallMode = "automatic" | "manual" | "unsupported"
+
 export interface AppUpdateCheckOptions {
 	source: AppUpdateCheckSource
+}
+
+export interface AppUpdatePreferences {
+	autoCheck: boolean
+	channel: AppUpdateChannel
 }
 
 export interface AppUpdateMetadata {
@@ -20,6 +46,12 @@ export interface AppUpdateMetadata {
 	body: string | null
 	date: string | null
 	target: string | null
+	downloadUrl: string | null
+}
+
+export interface AppUpdateError {
+	code: AppUpdateErrorCode
+	message: string
 }
 
 export interface AppUpdateStatus {
@@ -27,33 +59,26 @@ export interface AppUpdateStatus {
 	currentVersion: string | null
 	pendingUpdate: AppUpdateMetadata | null
 	lastCheckedAt: string | null
-	lastError: string | null
+	lastError: AppUpdateError | null
+	installMode: AppUpdateInstallMode
+	installOnQuit: boolean
 	downloaded: number
 	contentLength: number | null
 }
 
-export type AppUpdateInstallEvent =
-	| {
-			event: "started"
-			data: {
-				contentLength: number | null
-			}
-	  }
-	| {
-			event: "progress"
-			data: {
-				chunkLength: number
-				downloaded: number
-				contentLength: number | null
-			}
-	  }
-	| {
-			event: "finished"
-	  }
-
 export interface AppUpdates {
 	getStatus(): Promise<AppUpdateStatus>
+	configure(preferences: AppUpdatePreferences): Promise<AppUpdateStatus>
 	checkForUpdate(options: AppUpdateCheckOptions): Promise<AppUpdateStatus>
-	installUpdate(onEvent?: (event: AppUpdateInstallEvent) => void): Promise<AppUpdateStatus>
+	downloadUpdate(): Promise<AppUpdateStatus>
+	installNow(): Promise<AppUpdateStatus>
+	setInstallOnQuit(enabled: boolean): Promise<AppUpdateStatus>
+	moveToApplications?(): Promise<boolean>
 	fetchChangelog(version: string): Promise<string | null>
+	onStatusChanged(listener: (status: AppUpdateStatus) => void): () => void
+	/**
+	 * Registers the work that must finish before the app quits to install (pending note and state
+	 * writes). A rejection cancels the install so unsaved edits are never lost.
+	 */
+	onBeforeInstall?(handler: () => Promise<void>): () => void
 }

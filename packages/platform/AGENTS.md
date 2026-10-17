@@ -15,8 +15,9 @@
 - Settings is an in-app modal owned by desktop React state. Do not add settings routing/window
   options to `NativeWindow`; Marketplace opening remains a desktop workspace concern.
 - Desktop update checks and installation belong in the `AppUpdates` contract. Keep it
-  platform-neutral: expose status, metadata, progress events, install, and changelog reads without
-  importing Electron updater APIs or React types.
+  platform-neutral: status (state, typed `lastError.code`, `installMode`, progress), preferences
+  (`configure`), download, install now or on quit, `onStatusChanged`, the optional `onBeforeInstall`
+  flush handler, and changelog reads, without importing Electron or React types.
 - Local file asset URL resolution belongs on `App.resolveFileAssetUrl(...)` so React features do not
   import Electron asset helpers directly.
 - Hot note reads should use `FileSystem.readFileSnapshot(...)` when callers need content, hash, and

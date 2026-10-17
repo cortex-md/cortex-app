@@ -1,9 +1,8 @@
 import type {
 	Account,
 	AlertDialogOptions,
-	AppUpdateCheckOptions,
-	AppUpdateInstallEvent,
 	AppUpdateStatus,
+	AppUpdates,
 	Auth,
 	CollabAvailability,
 	CollabChannelEvent,
@@ -79,11 +78,9 @@ export interface MainApi {
 	}
 	window: NativeWindow
 	menu: NativeMenu
-	appUpdates: {
-		getStatus(): Promise<AppUpdateStatus>
-		checkForUpdate(options: AppUpdateCheckOptions): Promise<AppUpdateStatus>
-		installUpdate(): Promise<AppUpdateStatus>
-		fetchChangelog(version: string): Promise<string | null>
+	appUpdates: Omit<AppUpdates, "onStatusChanged" | "onBeforeInstall" | "moveToApplications"> & {
+		moveToApplications(): Promise<boolean>
+		completeBeforeInstall(requestId: string, error: string | null): Promise<void>
 	}
 	notifications: {
 		getPermission(): Promise<NativeNotificationPermissionState>
@@ -122,7 +119,8 @@ export interface MainEvents {
 	"vault-file-changed": WatchEvent & { watcherId: string }
 	"deep-link-open": string[]
 	"auth-session-expired": undefined
-	"app-update-install": AppUpdateInstallEvent
+	"app-update-status": AppUpdateStatus
+	"app-update-before-install": { requestId: string }
 	"sync-state-changed": SyncStateEvent
 	"sync-file-event": SyncFileEvent
 	"sync-initial-progress": InitialSyncProgressEvent

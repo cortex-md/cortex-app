@@ -79,3 +79,7 @@ export async function stopWatchersFor(ownerId: number): Promise<void> {
 	const owned = [...watchers].filter(([, entry]) => entry.ownerId === ownerId)
 	await Promise.all(owned.map(([watcherId]) => stopWatching(watcherId)))
 }
+
+export async function stopAllWatchers(): Promise<void> {
+	await Promise.all([...watchers.keys()].map((watcherId) => stopWatching(watcherId)))
+}

@@ -51,10 +51,14 @@ export type {
 	NativeScrollbarStyle,
 } from "./interfaces/Appearance"
 export type {
+	AppUpdateChannel,
 	AppUpdateCheckOptions,
 	AppUpdateCheckSource,
-	AppUpdateInstallEvent,
+	AppUpdateError,
+	AppUpdateErrorCode,
+	AppUpdateInstallMode,
 	AppUpdateMetadata,
+	AppUpdatePreferences,
 	AppUpdateState,
 	AppUpdateStatus,
 	AppUpdates,

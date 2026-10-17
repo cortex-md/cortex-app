@@ -2,6 +2,7 @@ import { DATABASE_VIEW_ID, NEW_DATABASE_VIEW_ID, SHARED_NOTE_VIEW_ID } from "@co
 import { CORE_OWNER, type ContributionSet, registerContributions } from "@cortex/plugin-host-core"
 import { BookmarkIcon, CircleCheckIcon, FolderClosed, SearchIcon, TagIcon } from "lucide-react"
 import { type ComponentType, lazy } from "react"
+import { AppUpdateIndicator } from "../features/app-updates/AppUpdateIndicator"
 import { BookmarksSidebar } from "../features/bookmarks/BookmarksSidebar"
 import { DRAWING_BOARD_VIEW_ID } from "../features/drawings/drawingDocument"
 import { FileSidebar } from "../features/file-explorer/FileSidebar"
@@ -112,6 +113,7 @@ const coreContributions: ContributionSet = {
 	],
 	sidebarItems: coreSidebarViews.map(({ id, label, icon }) => ({ id, label, icon, viewKey: id })),
 	statusBarItems: [
+		{ id: "app-update", position: "right", priority: 110, component: AppUpdateIndicator },
 		{ id: "sync", position: "right", priority: 100, component: SyncIndicator },
 		{ id: "words", position: "right", priority: 0, component: StatusBarWordCount },
 		{ id: "cursor", position: "right", priority: -10, component: StatusBarCursor },

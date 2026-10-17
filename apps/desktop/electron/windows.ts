@@ -108,10 +108,22 @@ function createMain(params: Record<string, string>, vaultPath: string | null): M
 	return entry
 }
 
+const firstRevealListeners = new Set<() => void>()
+let firstRevealDone = false
+
+export function onFirstWindowRevealed(listener: () => void): void {
+	if (firstRevealDone) listener()
+	else firstRevealListeners.add(listener)
+}
+
 function revealWindow(entry: MainWindowEntry): void {
 	if (entry.showFallback) clearTimeout(entry.showFallback)
 	entry.showFallback = null
 	if (isAlive(entry.window) && !entry.window.isVisible()) entry.window.show()
+	if (firstRevealDone) return
+	firstRevealDone = true
+	for (const listener of firstRevealListeners) listener()
+	firstRevealListeners.clear()
 }
 
 function focusWindow(window: BrowserWindow): void {
