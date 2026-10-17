@@ -1,1177 +1,149 @@
-# AGENTS.md — @cortex/core
-
-This file provides guidance to Codex when working with state management in the Cortex core package.
-
-## Purpose
-
-`@cortex/core` exports:
-- **Zustand stores** — React hooks for global state (vaultStore, editorStore, workspaceStore, uiStore)
-- **NoteCache** — In-memory file cache with auto-save and snapshots
-- Supporting utilities and types
-
-All stores follow consistent patterns using **Zustand + Immer** for immutable-style updates.
-
-## Store Pattern
-
-Every store uses this structure:
-
-```typescript
-import { create } from "zustand"
-import { devtools } from "zustand/middleware"
-import { immer } from "zustand/middleware/immer"
-
-export interface MyState {
-  // State properties
-  count: number
-  items: string[]
-
-  // Action methods
-  increment: () => void
-  addItem: (item: string) => void
-  asyncAction: () => Promise<void>
-}
-
-export const useMyStore = create<MyState>()(
-  devtools(
-    immer((set, get) => ({
-      // Initial state
-      count: 0,
-      items: [],
-
-      // Synchronous actions
-      increment: () =>
-        set((state) => {
-          state.count++
-        }),
-
-      addItem: (item) =>
-        set((state) => {
-          state.items.push(item)
-        }),
-
-      // Async actions can use get()
-      asyncAction: async () => {
-        const current = get().count
-        // ... do something
-        set((state) => {
-          state.count = current + 1
-        })
-      },
-    })),
-    { name: "myStore" }, // DevTools name
-  ),
-)
-```
-
-## Key Patterns
-
-### 1. Types First
-Define the state interface before implementation:
-
-```typescript
-export interface MyState {
-  // Data
-  value: string | null
-  loading: boolean
-  error: string | null
-
-  // Actions
-  fetchValue: (id: string) => Promise<void>
-  clear: () => void
-}
-```
-
-This makes the store's public API crystal clear.
-
-### 2. Immer Mutations Look Like Mutations
-With Immer, you write code that *looks* like mutations, but creates immutable updates:
-
-```typescript
-// ✅ Looks like mutation, but immutable under the hood
-set((state) => {
-  state.count++
-  state.items.push(newItem)
-  state.nested.value = newValue
-})
-
-// ❌ Don't manually spread — Immer does that
-set((state) => ({
-  ...state,
-  count: state.count + 1,
-}))
-```
-
-### 3. Async Actions Use get()
-For async operations, access current state via `get()`:
-
-```typescript
-openVault: async (path: string) => {
-  const platform = getPlatform()
-  set({ loading: true, error: null })
-  try {
-    const metadata = await platform.vault.openVault(path)
-    const files = await platform.vault.scanVault(path)
-    const stopWatcher = await platform.fs.startWatching(path, () => {
-      get().refreshFiles() // Call another action via get()
-    })
-    set((state) => {
-      state.vault = metadata
-      state.files = files
-      state.loading = false
-      state.stopWatcher = stopWatcher
-    })
-  } catch (e) {
-    set((state) => {
-      state.loading = false
-      state.error = String(e)
-    })
-  }
-}
-```
-
-### 4. Use in Components
-Components call stores as hooks:
-
-```typescript
-export default function App() {
-  // Destructure what you need
-  const { count, increment, asyncAction } = useMyStore()
-
-  const handleClick = async () => {
-    await asyncAction()
-  }
-
-  return (
-    <div>
-      <p>Count: {count}</p>
-      <button onClick={increment}>+1</button>
-      <button onClick={handleClick}>Async</button>
-    </div>
-  )
-}
-```
-
-Zustand automatically re-renders only components that use changed state (shallow comparison).
-
-### 5. Early Returns
-Don't set state if operation is not needed:
-
-```typescript
-refreshFiles: async () => {
-  const { vault } = get()
-  if (!vault) return  // Early return if no vault
-  try {
-    const files = await getPlatform().vault.scanVault(vault.path)
-    set((state) => {
-      state.files = files
-    })
-  } catch (error) {
-    console.error("[Vault refresh failed]", { vaultPath: vault.path, error })
-    set({ error: String(error) })
-  }
-}
-```
-
-Background failures must update an existing store error field or emit a structured log. Do not add
-empty `catch` blocks.
-
-Remove dormant stores instead of keeping unexported Zustand state. A store belongs in `@cortex/core`
-only when it is exported, wired into an active feature, or covered by an intentional test roadmap.
-When stores need another store's current vault path or auth refresh side effect, use the internal
-runtime bridge for that concern instead of adding reciprocal store imports.
-
-### 6. Reactive Tag Index
-
-`tagsStore.fileTags` is the reactive source of file-to-tag associations. Components should select
-`fileTags[filePath]` and `tagColors` directly instead of subscribing to getter functions or creating
-their own caches.
-Use `tagsStore.setTagsForFile(filePath, tags)` for complete YAML `tags` replacements so NoteCache,
-frontmatter, and the local tag index update together. Inline body tags remain indexed by
-`extractAllTags`, but property-style tag editing should only mutate the YAML `tags` array.
-
-Vault-wide indexes may read independent note files concurrently, but store mutations must happen
-after collection so Zustand state, NoteCache entries, and derived maps are updated in one coherent
-step. Keep per-file NoteCache external-change handling serialized by path because content, hash, and
-dirty-state checks are ordered.
-Note-opening surfaces that need hash, metadata, or cache identity should use `noteCache.readEntry`.
-Keep `noteCache.read` as a content-only compatibility wrapper.
-Keep vault-wide tag indexing bounded; do not issue one `readFile` per Markdown file at the same
-time on large vaults.
-Implement bounded concurrency with `Promise.all` worker pools that do not await inside loops; keep
-the per-file work independent and merge results afterward.
-Tags, links, tasks and note properties come from one index, `indexing/noteMetadataIndex.ts`
-(`noteMetadataIndex`): one read and one parse per changed note (`extractNoteMetadata`: frontmatter
-once, `collectNoteTags` with the shared `@cortex/properties/tags` rule, `extractWikiLinks` on the body,
-`parseTasks` on the raw note), keyed by `{mtime, size}` fingerprints and persisted as the versioned
-`.cortex/cache/notes-index.json` (local cache, never synced). `tagsStore`, `linksStore` and
-`tasksStore` keep their state shapes and selectors and are derived views: their
-`buildIndexFromFiles`/`updateFileInIndex`/`removeFileFromIndex`/`cancelIndexing`/`reset` delegate to
-the shared index, so one call updates all three. Builds are single-flight per vault and reuse the
-in-memory index (or the persisted one on first open). Per-file updates patch only the tags, links or
-tasks of that file and skip `setState` when they are unchanged; batch updates go through
-`updateMany`. Do not add another vault-wide note parser; extend `NoteMetadata` instead. Components
-read sorted tags through `useTagsStore(selectSortedTags)`.
-The active workspace tab is read with `useWorkspaceStore(selectActiveTab)` or
-`useWorkspaceStore(selectActiveTabFilePath)` instead of inline pane lookups.
-NoteCache external-change loads should continue until the latest observed hash has been processed,
-but still process one hash at a time per path.
-Independent platform reads inside one step, such as reading file contents and hashing the same file,
-may run through `Promise.all` when neither result affects whether the other call should happen.
-For remote sync/member mutations, run independent entitlement and auth-refresh checks together, then
-perform the mutation only after both have completed.
-
-### Workspace Tab Restore
-
-Workspace restore must keep inactive file tabs suspended and call `noteCache.openTab` only for the
-active file tab in each pane. This keeps large restored workspaces from loading every hidden note
-into memory at startup. Opening or activating a suspended file tab should remain the point where its
-NoteCache entry is created.
-File tabs may represent non-Markdown files. Non-Markdown tabs, including PDFs, must not call
-`NoteCache`, must not become editor active-file state, and should persist view state through the
-workspace tab state instead.
-
-### Note Sync Attribution
-
-Use `loadNoteSyncAttribution` to combine local `sync.db` note metadata with the remote vault member
-snapshot. Attribution represents the latest completed sync version only; local file modification
-times and unsynced edits must not replace it. `membersStore.ensureMembers` deduplicates member loads
-by server and vault so note surfaces and properties reuse one identity snapshot.
-
-`syncStore.noteMetadataRevisions` is keyed by vault-relative file path. Increment only after
-successful `synced` or `merged` file events so visible note surfaces can refresh their local metadata
-without scanning or contacting the server.
-
-### Note Path Presentation
-
-Use `getNotePathPresentation(filePath, vaultPath)` for note titles and breadcrumbs. It returns the
-vault-relative segments, omits the vault itself, and removes the Markdown extension from the note.
-Use `getNoteTitleError(title)` to validate editable note titles before appending `.md`.
-Creating a note or folder succeeds when the platform filesystem write/create call succeeds. Hashing,
-metadata reads, cache priming, file refreshes, and indexing are post-create work; retry transient
-metadata/hash reads briefly and log remaining failures instead of reporting that the file was not
-created after it already exists on disk.
-
-### Workspace Tabs
-
-`workspaceStore.openTab(path)` creates a tab only when the file is not already open; otherwise it
-activates the existing tab. Use `reuseActive: true` only for navigation surfaces that should replace
-the current unpinned file tab, such as single-clicking a file in the sidebar. Explicit new-tab
-gestures should call the default `openTab(path)` unless they intentionally need duplicate tabs.
-Use `openViewTab(..., { ephemeral: true })` for temporary app-owned surfaces such as update
-changelogs. Ephemeral tabs behave like normal tabs during the session, but `persistWorkspace` must
-filter them and their `viewState` out so temporary content is never written into a vault workspace
-snapshot.
-Plugins must use `api.workspace.openMarkdownTab(...)` for temporary Markdown notes; do not expose
-`workspaceStore` or raw ephemeral `openViewTab` access to plugin code.
-
-### Platform Test Mocks
-
-Store tests that mock `getPlatform().app` should include the complete app contract used by shared
-callers: `getCurrentAppVersion`, `openExternalUrl`, and `resolveFileAssetUrl`.
-
-### Vault File Moves
-
-Use `vaultStore.moveFile(oldPath, targetParentPath)` for sidebar and app-initiated moves. It keeps
-folder moves prefix-aware across NoteCache, open tabs, bookmarks, and property UI state, and it must
-fail on destination collisions instead of auto-renaming or overwriting.
-
-### Bookmarks
-
-Bookmarks are vault-scoped note favorites stored in `.cortex/bookmarks.json` as versioned
-`BookmarkEntry` objects with vault-relative Markdown paths. Keep `bookmarkedPaths` in sync with the
-ordered list for O(1) lookup, normalize absolute desktop paths before persistence, and update
-bookmarks through `vaultStore` rename/move/delete flows so favorites do not become stale.
-Bookmark order is the persisted insertion order; do not add UI or plugin API reorder behavior unless
-the product explicitly reintroduces manual ordering.
-Bookmark path rules (`normalizeBookmarkPath`, and `requireBookmarkPath` for the plugin-facing errors)
-live in the pure `utils/bookmarkPaths.ts`.
-
-### Sync History Presentation
-
-`sync/logPresentation.ts` maps raw sync log entries (`Pushed:`, `Pulled:`, `Conflict detected:`,
-`Sync state:` …) to `SyncLogPresentation` (kind, tone, title, paths, detail), aggregates bursts of
-transfers into one item, and groups items by "Just now", "Earlier today", "Yesterday" or date.
-`utils/textDiff.ts` is the framework-free diff used by history surfaces: Myers line diff with a
-cost guard, similarity-paired word diffs, folded unchanged lines with stable row ids, and
-`countWordChanges` for version deltas. Keep both pure so mobile can reuse them.
-`vaultStore.createFileWithContent` creates a uniquely named note with given content.
-
-### Local Version History
-
-`history/localHistory.ts` keeps per-note versions for every vault, synced or not, under
-`.cortex/history/` (`VAULT_FILES.history`; never synced and skipped by the watcher through
-`isInternalVaultFile`). Layout: `index.json` (`{ version: 1, notes: { "<vault-relative path>": "<noteId>" } }`)
-plus one folder per note id (blake3 of the first path, 24 hex chars) holding full-content files named
-`<timestamp>-<edit|external|restore>-<content hash>.txt`. Renames and moves only rewrite the index
-(`moveLocalHistory`, called from `migrateVaultPathReferences`), so history follows the note.
-Capture points are the single write paths: NoteCache autosave snapshots the previous disk content at
-most once per 5 minutes per note (`edit`); disk refreshes of cached notes snapshot the replaced
-content, and a dirty conflict snapshots the incoming disk text (`external`); `mutateNote` snapshots
-`previous` before every write (`historyReason`, default `external`). `captureLocalVersion` is
-fire-and-forget on one serialized queue, skips empty text and content equal to the latest version.
-Retention: every version from the last 24 h, then the newest per day up to 30 days, then a
-200 MB per-vault cap (`LOCAL_HISTORY_SIZE_CAP_BYTES`, oldest first). The capturing note is pruned
-inline; the whole vault is pruned at most every 30 minutes, 30 s after a capture, never at startup.
-`listLocalVersions`/`readLocalVersion` feed the history UI; `restoreLocalVersion` checks write
-access, writes through `mutateNote` (which snapshots the current text first) and flushes;
-`captureCurrentNoteVersion` snapshots before a server restore. Unopened notes changed by the sync
-engine are not captured locally (the server keeps their history).
-`buildHistoryEntries` merges local and server versions into one timeline of real changes: consecutive
-entries with the same content hash (local `hash`, server `checksum` prefix) collapse into one,
-preferring the server entry, and the newest run equal to the current note text is dropped.
-
-### Tasks and Reminders
-
-`tasksStore` exposes Markdown checkbox tasks parsed with the pure rules from `@cortex/tasks` by the
-shared `noteMetadataIndex` (see Reactive Tag Index), fed by `indexNoteContent`/`removeIndexedPath`
-in `runtime/appRuntime.ts`; the inbox is read alongside every build and is never persisted. Quick-add
-tasks are appended to `.cortex/inbox.md` (`VAULT_FILES.taskInbox`), which is always synced and is
-reloaded on `sync.onFileEvent` because the vault watcher ignores `.cortex`. All task mutations go
-through one line rewrite on top of `notes/mutateNote.ts` and return a `TaskLineEdit` that
-`revertTaskEdit` can undo.
-
-`mutateNote(path, transform)` is the only read-modify-write path for note text outside the editor:
-it serializes writes per path, reads from `noteCache` when the note is open, and writes through
-`noteCache.writeExternal` or `fs.atomicWriteFile`. Tasks, tags, properties (`notes.updateNote`), and
-database config writes use it, so concurrent edits to the same note cannot drop each other. It also
-records the replaced text in local version history.
-`runtime/tasksRuntime.ts` re-plans reminders with `planReminders` whenever tasks or the `tasks`
-settings change (debounced, plus a periodic re-plan) and replaces the platform queue through the
-optional `notifications.schedule(vaultPath, …)`; notification actions arrive on
-`notifications.onActivation`, wait until the vault and task index are ready, and apply
-`applyTaskNotificationAction` from `@cortex/tasks` (shared with the Electron main process). Both only run with eager
-indexing, so mobile (`indexing: "lazy"`) is unaffected until its adapter schedules notifications.
-
-### Vault Onboarding
-
-New-vault onboarding content and marker logic lives in `packages/core/src/onboarding`. The visible
-welcome note is a normal Markdown file in the vault root, while app and vault markers are stored via
-`getPlatform().storage` so desktop and future mobile adapters share the same behavior. Desktop may
-choose when to present or open the pending note, but it should not duplicate note content or marker
-rules.
-
-## Existing Stores
-
-### vaultStore
-Manages the current vault (folder), its file tree, and the vault registry (recent vaults):
-
-```typescript
-export interface VaultState {
-  vault: VaultMetadata | null        // Current vault metadata
-  files: FileEntry[]                 // Files in vault
-  recentVaults: VaultRegistryEntry[] // Recent vaults from registry
-  loading: boolean
-  error: string | null
-  stopWatcher: (() => void) | null   // Function to stop file watcher
-  pendingOnboardingNotePath: string | null
-
-  openVault: (path: string, options?: OpenVaultOptions) => Promise<void>
-  switchVault: (path: string, options?: OpenVaultOptions) => Promise<void> // close + open, no-op for same path
-  resolveFolderOpen: (folderPath: string) => VaultRegistryEntry | null    // registered vault for a picked folder
-  loadVaultSnapshot: (path: string) => Promise<void> // Load metadata/files/settings without a watcher
-  closeVault: () => Promise<void>
-  refreshFiles: () => Promise<void>
-  loadRecentVaults: () => Promise<void>  // Also refreshes macOS menu recents
-  clearPendingOnboardingNotePath: () => void
-  removeRecentVault: (uuid: string) => Promise<void>
-  createFile: (parentPath: string, name: string) => Promise<string>
-  createFolder: (parentPath: string, name: string) => Promise<string>
-  deleteFile: (filePath: string) => Promise<void>
-  renameFile: (oldPath: string, newName: string) => Promise<string>
-  duplicateFile: (filePath: string) => Promise<string>
-  openDailyNote: () => Promise<string | null>
-}
-```
-
-**Usage**: `const { vault, files, recentVaults, openVault, closeVault } = useVaultStore()`
-
-`openVault` loads settings (through `useSettingsStore.loadSettings`), bookmarks, sync preferences,
-and templates once; app shells must not reload them. Every vault switch call site uses
-`switchVault`/`resolveFolderOpen` instead of composing `closeVault` + `openVault`.
-
-`vaultStore` owns one `VaultIndex` (`src/vault/vaultIndex.ts`, read through `getVaultIndex()`): a
-path map, sorted children per folder (folders first, numeric and case/accent-insensitive through
-`getFileNameSortKey` from `@cortex/platform/utils`, the single ordering rule), persistent
-`FileTreeNode`s (unchanged folders keep their identity; database view notes are hidden and their
-folders marked `isDatabase` from `useDatabaseStore.viewNotePaths`), and versions per folder. It is
-patched, never rebuilt: watcher batches (`created`/`modified` with the main-process `entry`,
-`deleted` with the subtree) and every in-app create/delete/rename/move/duplicate/daily note go
-through `applyFileChanges`; a created folder from outside the app is listed with `scanFolder`, and
-only a create without an `entry` (mobile) or an explicit `refreshFiles` rescans, diffed with
-`replaceAll`. `files` stays as a compatibility snapshot rebuilt only on structural changes, so its
-`mtime`/`size` can lag; read fresh metadata with `getVaultIndex().get(path)`,
-`useVaultModifiedTime(s)`, `useVaultEntry`, `useFolderEntries`, `useVaultFileTree`,
-`useVaultFolderPaths`, or `useVaultEntryLookup`. Each commit bumps `fileTreeVersion`/
-`fileEntryVersion` and sends a `VaultIndexDelta` (`added`, `removed`, `modified`, `changedFolders`)
-to `subscribeVaultIndexChanges` listeners; runtimes consume deltas instead of diffing `files`.
-Watcher events are batched (200ms) and serialized; after each batch `subscribeVaultFileChanges`
-listeners receive the changes and open notes are refreshed through NoteCache's per-path
-external-change flow.
-
-`renameFile` is the authority for file and note-title renames. It validates portable filenames,
-flushes the old NoteCache path before the filesystem operation, migrates cache timers and snapshots,
-updates every matching workspace tab, rewrites matching bookmarks, and patches the vault index.
-Callers must not repeat those updates after invoking it.
-
-When stores create note files by writing directly through the platform, they must seed the written
-content into `noteCache` through the shared clean-note creation helper before the note is opened.
-That helper uses `FileSystem.writeFileSnapshot(...)` when the adapter provides it, then falls back to
-`writeFile` plus post-write hash/metadata retry and fallback cache priming. Stores must not report a
-creation failure after the file already exists on disk. When stores delete files or folders, they
-must forget the deleted NoteCache path and folder descendants so new notes cannot inherit stale
-frontmatter or properties from a previous file at the same path. Freshly-created local notes should
-mark their NoteCache entry as locally created so desktop properties do not apply stale remote
-metadata for a reused path before sync publishes new metadata.
-
-### editorStore
-Tracks the currently active file and editor state:
-
-```typescript
-export interface EditorState {
-  activeFilePath: string | null
-  mode: EditorMode  // "source" | "live-preview" | "reading"
-  cursor: CursorPosition | null
-
-  setActiveFile: (filePath: string | null) => void
-  updateCursor: (cursor: CursorPosition) => void
-  setMode: (mode: EditorMode) => void
-  flushActive: () => Promise<void>  // Flush current file to disk
-}
-```
-
-**Usage**: `const { activeFilePath, mode, setMode } = useEditorStore()`
-
-### workspaceStore
-Manages the vault-scoped layout (split panes, tabs, their positions, and persisted sidebar layout):
-
-```typescript
-export interface WorkspaceState {
-  splitTree: SplitTree                    // Recursive layout tree
-  panes: Record<string, Pane>            // All panes by ID
-  activePaneId: string                   // Currently focused pane
-  // ... + many layout actions
-
-  openTab: (filePath: string, opts?: OpenTabOptions) => void
-  openViewTab: (viewId: string, title: string, opts?: OpenTabOptions) => void
-  updateViewTabState: (tabId: string, paneId: string, viewState: ViewTabState) => void
-  moveTabToNewSplit: (tabId: string, fromPaneId: string, targetPaneId: string, direction: SplitDirection, position: "before" | "after") => void
-  loadWorkspace: (vaultPath: string) => Promise<void>
-  persistWorkspace: (vaultPath: string) => void
-}
-```
-
-**Usage**: Complex layout operations. See `apps/desktop/src/App.tsx` for examples.
-`persistWorkspace()` writes `.cortex/workspace.json`; keep `leftSidebar` in that snapshot so resize and collapsed state are restored per vault.
-
-Tabs are either `file` or `view`. File tabs may be duplicated with `forceNew`/`newTab`; view tabs carry per-tab serializable `viewState` so plugin views keep state when moved between panes. `dragStore` coordinates `tab`, `file`, and `sidebar-view` drag sources, cursor position for the desktop drag preview, pane edge drops for splits, and tab-bar insertion targets with `insertIndex`.
-
-### uiStore
-Manages UI chrome, app-level overlays, and settings entry points:
-
-```typescript
-export interface UIState {
-  leftSidebarCollapsed: boolean
-  leftSidebarWidth: number
-  leftSidebarView: string
-
-  toggleLeftSidebar: () => void
-  setLeftSidebarCollapsed: (collapsed: boolean) => void
-  setLeftSidebarWidth: (width: number) => void
-  setLeftSidebarLayout: (layout: Partial<LeftSidebarLayout>) => void
-  resetLeftSidebarLayout: () => void
-  setLeftSidebarView: (view: string) => void
-}
-```
-
-`LEFT_SIDEBAR_WIDTH_BOUNDS` and `clampLeftSidebarWidth()` are exported with `uiStore`; use them anywhere sidebar width is read from pointer input or restored from persisted state.
-
-`quickFinderPreview` and `recentCommandIds` (the Command Palette MRU, capped by
-`RECENT_COMMAND_LIMIT` from `@cortex/commands`) persist with the workspace file. Record palette
-runs through `recordRecentCommand(id)`; `setRecentCommandIds` normalizes untrusted persisted values
-and a vault without a workspace file starts with an empty list.
-
-`leftSidebarView` accepts dynamic plugin view IDs. The desktop host owns registration lookup and
-falls back to `"files"` when the active plugin view disappears.
-
-**Usage**: Prefer selectors such as `useUIStore((s) => s.leftSidebarWidth)` in frequently re-rendered app chrome. Marketplace opening is desktop-owned workspace behavior; do not add Marketplace routing or tab state back to `uiStore`.
-
-### syncStore
-Manages the active sync engine state, file sync status, conflicts, and event subscriptions:
-
-```typescript
-export interface SyncState {
-  engineState: SyncEngineState  // "idle" | "connecting" | "live" | "offline" | "recovering" | "denied"
-  syncingFiles: Record<string, string>
-  lastSyncedAt: number | null
-  error: string | null
-  conflicts: Record<string, ConflictInfo>
-  vekRequired: boolean
-  syncPreferences: SyncPreferences  // includes excludedPaths, ignoreImages, and syncBookmarks
-
-  loadSyncPreferences: (vaultPath: string) => Promise<void>
-  saveSyncPreferences: (vaultPath: string, preferences: SyncPreferences) => Promise<void>
-  updateSyncPreference: (key, value) => Promise<void>
-  toggleExcludedPath: (relativePath, excluded) => Promise<void>
-  isPathExcluded: (relativePath) => boolean
-  startSync: (vaultId, vaultPath, serverUrl) => Promise<void>
-  stopSync: () => Promise<void>
-  subscribeEvents: () => Promise<void>   // Listens to sync engine events forwarded by the main process
-  unsubscribeEvents: () => void
-}
-```
-
-`subscribeEvents()` bridges sync engine events to Zustand state. It also listens for `sync-log` events from the engine and pipes them into `syncLogStore`. The `onVaultAccessDenied` listener marks the engine `denied` and records the reason; it never unlinks the vault. The UI offers Retry and Unlink.
-Sync preferences are vault-scoped in the `preferences` section of `.cortex/sync.json` (`writeSyncPreferences`); `excludedPaths` are gitignore-style patterns that may reference paths not currently present in the vault. Use `normalizeSyncPreferences()` and `normalizeSyncPathPattern()` for migration/input cleanup, and `shouldIgnoreSyncPath()` for UI checks; these are re-exported from `@cortex/platform/sync-rules`, the same policy the sync engine uses. Bookmarks stay local unless `syncBookmarks` is enabled, in which case `.cortex/bookmarks.json` follows the same sync path as other opted-in Cortex metadata.
-
-`sync-file-event` is state-only. Do not read or hash note files from sync event handlers. The native
-watcher is the authority for disk mutations, while property schema events invalidate the
-framework-free schema subscription without scanning the vault.
-
-**Usage**: `const { engineState, startSync, stopSync } = useSyncStore()`
-
-### syncLogStore
-Platform-independent in-memory log buffer (500 entries, FIFO). No platform imports — ready for React Native.
-
-```typescript
-export interface SyncLogState {
-  entries: SyncLogEntry[]  // { id, timestamp, level, message, metadata? }
-  log: (level: SyncLogLevel, message: string, metadata?: Record<string, string>) => void
-  clear: () => void
-}
-```
-
-**Logging responsibility split**:
-- **The sync engine** emits `sync-log` events for all engine-originated logs (state changes, sync errors, conflicts, initial sync). These are bridged to this store via `syncStore.subscribeEvents()`.
-- **Frontend** calls `useSyncLogStore.getState().log()` directly only for events it originates (lifecycle start/stop in `runtime/appRuntime.ts` `startSyncLifecycle`, access denied handling).
-- Never duplicate: if the engine already emits a log for an event, the frontend must NOT add its own log call for the same event.
-
-**Usage**: `const { entries, clear } = useSyncLogStore()`
-
-### authStore
-Manages authentication state for the active sync server:
-
-- Auth is scoped by normalized `serverUrl`; Cortex Cloud and self-hosted servers must not share tokens.
-- `login(email, password, serverUrl)` and `register(..., serverUrl)` authenticate against the vault's configured sync server.
-- Auth identity keeps `userId`, email, and an optional persisted display name. UI may derive a
-  readable fallback from email, but must not perform a member request just to render the account.
-- `logout(allDevices, serverUrl)` stops and disables active sync before clearing only that server
-  session. It must not unlink the vault or clear Self-host configuration.
-- `login`/`register` resolve to the one-time recovery key (or `null`) returned by the platform when
-  identity keys were just created; the UI shows it once. `resetPassword(serverUrl, token,
-  newPassword, recoveryKey)` completes a `cortex://reset-password` link.
-
-### accountStore
-Server account state for the active sync server: `ensureCapabilities(serverUrl?)` caches
-`/meta/v1/capabilities` per server (`useServerCapabilities()` reads it for the current sync config),
-`fetchOverview()` loads profile and devices (with per-vault last sync) in one request, and profile,
-email, password and avatar mutations. UI hides features the server turned off from capabilities.
-`loadKeyStatus()` caches `keyStatus` (kdf version, local identity, recovery, fingerprint);
-`setupKeys(password)` creates or unlocks the identity for legacy sessions and
-`regenerateRecoveryKey()` returns a new recovery key to show once.
-
-### accessStore
-Effective path access of the running sync session. `syncStore` seeds it with `sync.getAccess()` after
-start and follows `onAccessChanged`. A `null` from the engine (session closed, denied, worker exit)
-keeps the last known access for the same vault; `resetAccess()` runs on vault close and unlink.
-`null` with no prior access (local or never synced) means full access. `src/sync/access.ts` `createAccessEvaluator` implements the deepest-match rule (`all`
-→ edit; deepest covering rule wins, folder rules end with `/`; otherwise `base`) and memoizes per
-path; `canWritePath`/`canReadPath`/`levelForPath` take vault-relative paths; `canWriteVaultPath`,
-`canReadVaultPath`, `useCanWriteVaultPath`, and `useCanReadVaultPath` take absolute paths. Tag and
-property writers assert edit access (bulk tag rename skips unwritable files). `vaultStore` mutations, `templateStore`
-note creation, `getFileEntryActions` and `canMoveEntryTo` refuse or hide writes where access is
-below edit. `findAccessRule`/`findInheritedRestriction` read `membersStore.accessRules` for the
-management UI.
-
-### membersStore
-`fetchOverview(vaultId)` loads members (with avatars and key state), groups, access rules (admins
-only), presence, invites and member devices in one request; prefer it over separate loads and never
-request per row. It refetches automatically when the effective access changes. Groups use
-`createGroup`/`updateGroup`/`deleteGroup`; access uses `setAccessRule` (a rule with
-`restricted: false` and no entries deletes it). Guests' accessible paths are their user entries.
-`createInvite` accepts `{ grants }` for guests and returns the invite (its `inviteUrl` may include
-the `#k=` key fragment).
-`acceptInviteLink(token, linkKey)` joins from a `cortex://invite/{token}#k=...` link.
-
-### noteSharesStore
-Public links of the linked vault keyed by vault-relative path: `fetchShares`, `publish(vaultId,
-path, bundle, expiresAt?)`, `updateExpiry`, `revoke`. Bundles are built by the desktop renderer.
-
-### remoteVaultStore
-Manages vault-scoped sync configuration. `syncConfig` is persisted in the `config` section of `vault_path/.cortex/sync.json` and includes `enabled`, `remoteVaultId`, `selfHosted`, `serverUrl`, `offlineMode`, and non-secret `selfHostedEnvironment` values. `linkedVaultId` mirrors `syncConfig.remoteVaultId`. `clearLink()` clears memory only; `unlinkVault(path)` clears only the remote vault link from disk and preserves the rest of the sync config. Reads and writes go through `src/sync/syncConfig.ts` (`readSyncConfig`, `updateSyncConfig`, `linkRemoteVault`, `unlinkRemoteVault`, one `createDefaultSyncConfig`) through `getVaultSyncState` (immediate, serialized atomic writes); platform adapters do not implement sync-config methods.
-
-`setSyncEnabled(path, true)` must confirm the server-scoped auth status before persisting. Self-host
-selection and server/environment configuration remain available while signed out; enabling sync
-still requires a valid account on the selected server.
-
-### Sync Settings Models
-
-`src/sync` owns framework-free settings data shared with future clients: the typed self-host field
-catalog, ordered `.env` serialization, vault-scoped keychain key generation, engine-state labels and
-tones, and relative last-sync formatting with an injectable clock. React hooks, native dialogs,
-clipboard access, exports, and keychain reads remain desktop adapter responsibilities.
-Self-host `.env` serialization must quote and escape values that contain whitespace, comments,
-quotes, newlines, or shell interpolation characters. Keep catalog order stable while preserving
-secrets as keychain-backed inputs.
-Keep the self-host environment catalog aligned with the sync server's minimal production variables.
-Expose only the maintainer-facing essentials in the catalog: runtime mode/proxy trust, database URL,
-auth secret, and `CORTEX_STORAGE_BACKEND=local|s3|r2`. Advanced server
-limits, CORS, pool sizing, retention, and bucket creation policy stay as server defaults unless the
-sync server intentionally promotes them to the self-host path. Secret fields must remain
-keychain-backed and non-secret values must stay in the vault sync config.
+# @cortex/core
+
+Platform-neutral app logic shared by desktop and mobile: Zustand stores, `NoteCache`, the vault
+index, indexing, runtimes, sync state, templates, and pure utilities. No React DOM, Electron, Node,
+or React Native imports; all I/O goes through `getPlatform()` from `@cortex/platform`.
+
+## Stores
+
+- Stores use Zustand (Immer where the store already does). Define the state interface first, keep
+  actions inside the store, and select narrow slices in components
+  (`useStore((s) => s.field)`), never the whole store in hot UI.
+- No DOM, `window.location`, or unrelated side effects inside stores. Lifecycle side effects belong
+  in runtimes (`src/runtime`).
+- Stores do not import each other reciprocally. Read another store with `getState()` inside an
+  action, use the internal runtime bridge for vault path / auth refresh concerns, and use dynamic
+  imports between sync-related stores to avoid cycles.
+- Remove dormant stores. A store exists only when it is exported and wired into a feature.
+- Background failures update a store error field or emit a structured log. No empty `catch`.
+- Independent awaits run with `Promise.all`; vault-wide work uses bounded worker pools
+  (`mapWithConcurrency`), never one unbounded read per file. Collect first, then apply one coherent
+  state update.
+
+## Vault Model
+
+- `vaultStore` owns one `VaultIndex` (`src/vault/vaultIndex.ts`, `getVaultIndex()`): path map,
+  sorted children per folder (ordering rule: `getFileNameSortKey` from `@cortex/platform/utils`),
+  persistent `FileTreeNode`s, and per-folder versions. It is **patched, never rebuilt**: watcher
+  batches and every in-app create/delete/rename/move/duplicate go through `applyFileChanges`; only a
+  create without an `entry` (mobile) or an explicit `refreshFiles` rescans (diffed by `replaceAll`).
+- Read fresh metadata through `getVaultIndex()`, `useVaultEntry`, `useFolderEntries`,
+  `useVaultFileTree`, `useVaultModifiedTime(s)`, `useVaultFolderPaths`, `useVaultEntryLookup`.
+  `files` is a compatibility snapshot rebuilt only on structural changes; its `mtime`/`size` can lag.
+- Runtimes consume `VaultIndexDelta`s (`subscribeVaultIndexChanges`) instead of diffing `files`.
+- `openVault` loads settings, bookmarks, sync preferences, and templates once; app shells never
+  reload them. Every vault switch uses `switchVault` / `resolveFolderOpen`.
+- `renameFile` / `moveFile` are the authority for renames and moves: they flush the old NoteCache
+  path, migrate cache entries, tabs, bookmarks, comments, history, and property UI state, and fail on
+  destination collisions. Callers never repeat those updates.
+- Creating a note succeeds when the filesystem write succeeds; hashing, metadata, cache priming, and
+  indexing are post-create work (retry briefly, then log). Seed created content into `noteCache`
+  through the shared clean-note creation helper; deletes forget the path and descendants.
+- Path helpers, `VAULT_FILES`, and `mapWithConcurrency` live in `@cortex/platform/utils` and are
+  re-exported here; never re-implement them.
 
 ## NoteCache
 
-The `NoteCache` class manages file contents with caching and auto-save:
-
-```typescript
-// Access via singleton
-import { noteCache } from "@cortex/core"
-
-// Lifecycle
-noteCache.start()              // Start auto-save timer
-noteCache.stop()               // Stop timer
-await noteCache.openTab(path)  // Load file into cache
-await noteCache.closeTab(path) // Unload from cache
-await noteCache.write(path, content, metadata)  // Write to cache
-await noteCache.flush(path)    // Flush to disk
-
-// External content updates (e.g. tag additions from tagsStore)
-noteCache.writeExternal(path, content)  // Update cache + notify listeners
-
-// Subscribe to external content changes (for CM6 editor sync)
-const unsub = noteCache.onContentChange(path, (newContent) => {
-  // Dispatch CM6 transaction to update editor view
-})
-```
-
-Before each managed save, NoteCache calls `prepareNoteForSave` from `@cortex/properties` so
-configured IDs, creation metadata, and last-edited metadata remain canonical.
-Filesystem creation metadata is the local fallback. Linked vaults read the device-local sync
-metadata snapshot through the platform abstraction; stores and components must not fetch history
-or members independently to render system properties.
-
-Note opening is latency-sensitive. `openTab(path)` should start a best-effort preload, `read(path)`
-must share any active preload, and initial disk reads should use `platform.fs.readFileSnapshot(path)`
-so content, hash, and filesystem metadata arrive through one platform call. Dirty cached entries
-remain authoritative until flushed.
-
-External changes are coordinated per path. Keep one active filesystem read, retain only the newest
-observed hash, and publish content only when bytes changed.
-
-`write()` only marks the entry dirty; the content-to-disk comparison happens once per flush. Flushes
-are single-flight per path, re-prepare when content changed during `prepareNoteForSave`, and use
-`FileSystem.writeFileSnapshot` (hash + metadata from the same write) with a write/hash/metadata
-fallback. `onDiskContentChange` fires after a flush or an external reload so indexes reuse cached
-content instead of rereading disk.
-
-**Key features**:
-- Reads from disk on `openTab()`
-- Auto-saves every 2 seconds while file is open
-- Tracks diffs for undo/redo snapshots
-- Flushes on app close or explicit call
-- `writeExternal()` updates cache and notifies listeners without triggering auto-save
-- `onContentChange()` allows components to react to programmatic content changes (e.g. tag edits syncing to the editor)
-
-### Live Documents
-
-- `writeLive(path, raw, { persist, prepare, notify })` updates a cached note from a live Yjs
-  document. `persist` marks it dirty for the normal 2 s autosave; `prepare` keeps
-  `prepareNoteForSave` for that save (only local editor edits set it, which prevents
-  `last_edited` ping-pong between peers); `notify` defaults to true.
-- `attachLiveDocument(path, { applyExternalContent })` routes disk changes for that path into the
-  live document instead of overwrite/conflict handling; `hasLiveDocument` makes
-  `NoteDocumentSession.updateBody` skip its write. `restoreDiskContent` drops unsaved viewer
-  content, and `onPathChange` reports renames and forgotten paths.
-
-## App Runtime
-
-`startAppRuntime(options)` (from `src/runtime/appRuntime.ts`) is the shared desktop/mobile lifecycle:
-NoteCache start/stop, vault session (tag colors, workspace load + debounced persistence, resets on
-close) and indexing. Indexing runs one idle full pass per vault, then stays incremental: vault index
-deltas queue added/removed notes, watcher `modified` events reindex uncached notes, and NoteCache disk
-events reindex open notes. App shells pass platform hooks (`onVaultOpened`, `onWorkspaceRestored`,
-`scheduleIdleWork`) instead of subscribing React roots to `files`. Options: `persistWorkspace`
-(default true; mobile passes false), `trackActiveFile` (default true: mirrors the active pane's
-active Markdown tab into `editorStore.activeFilePath`, including renames/moves, so apps never call
-`setActiveFile` manually), and `indexing: "eager" | "lazy"` (mobile is `lazy` and skips search/tag
-indexing until it has a search screen). The full pass runs `useSearchStore.indexVault`, then
-`noteMetadataIndex.build` (sequential on purpose: the metadata load parses on the renderer thread
-and running it beside search made the first Quick Finder open ~5x slower at 50k notes); the incremental queue batches metadata updates through
-`noteMetadataIndex.updateMany`. Search indexing calls are async and go through the `@cortex/search`
-backend chosen by the host (`setSearchBackend`; desktop uses a Web Worker), so the runtime fires them
-without awaiting except for the full pass. The properties runtime gets a `noteIndex` service that
-returns the indexed frontmatter of every note, so property suggestions never read the vault. `startSyncLifecycle()`
-owns the `canStartSync` rule and is started by the desktop shell only.
-
-`runtime/appStartup.ts` owns startup for every app: `bootstrapApp()` loads app info, the first-run
-marker, recent vaults and global settings; `openLastVault()` opens `resolveStartupVault(...)` (the
-registry's most recent vault when `settings.general.autoOpenLastVault`), closes partial state and
-throws on failure. The first-run marker has one rule: it is written once any vault is open or listed
-in the registry. `flushPendingWrites()` flushes NoteCache and the active editor (desktop
-`beforeunload` and update install, mobile `AppState` background/inactive).
-
-`runtime/vaultSession.ts`: `openVaultSession(path, options)` (switch + throw on failure),
-`getRegistryOpenOptions(entry)`, `resolvePickedFolder(path)` (registry hit or new folder with the
-default name from `vault.openVault` metadata), `createVaultFromFolder(path, { name, icon,
-syncPreferences })`, `DEFAULT_VAULT_NAME`, and
-`consumePendingOnboardingNote(open)`.
-
-`runtime/fileActions.ts`: `createFileCommandEntries({ openFile })` returns the shared `file.new`,
-`file.duplicate`, `file.delete` (platform confirm) and `navigate.daily-note` `CommandEntry`s; apps
-register them in their command owner and execute ids. `getFileEntryActions(target)` is the single
-rename/move/duplicate/delete catalog for desktop menus and mobile sheets (rename/move are hosted by
-the app UI). `vaultStore.deleteFile` closes tabs under the deleted path. `reportAppError` and
-`getErrorMessage` live in `utils/reportAppError.ts`.
-
-`openNoteDocumentSession(filePath, { onChange })` is the shared editor document model: it projects
-frontmatter once per frontmatter change, `updateBody` recombines the cached frontmatter prefix with
-the body, writes through NoteCache, and marks tabs dirty without parsing YAML per keystroke.
-`snapshot.revision` increments only when the body changes from outside the editor.
-`updateBody(body, { baseRevision })` returns `false` without writing when `baseRevision` is older
-than the current revision (an editor commit based on a stale external body); hosts that commit
-asynchronously (mobile DOM bridge) pass it and surface the rejection. Desktop commits synchronously
-and omits it.
-
-`initializeCoreProperties({ deviceType })` builds the single properties runtime used by desktop and
-mobile. Path helpers (`getParentPath`, `getBaseName`, `getNoteTitle`, `toVaultRelativePath`,
-`isPathOrDescendant`, …), `VAULT_FILES`, and `mapWithConcurrency` live in `@cortex/platform/utils`
-and are re-exported here; never re-implement them. Pure file tree projection lives in
-`utils/fileTree.ts`, including `createFileTreeViewModelFromTree` over the vault index roots (rows,
-titles, folder paths, all-expanded; `createFileTreeViewModel`/`buildFileTree` remain for tests and
-benchmarks),
-`getFileTreeNodeTitle`, and the move rules `canMoveEntryTo`/`getMoveDestinations`. Entry name rules
-(`validateEntryName`, `getEditableEntryName`, `toEntryFileName`) live in `utils/fileName.ts`.
-
-### Live Collaboration Runtime
-
-- `startAppRuntime` starts `collab/collabRuntime.ts`, which stays idle until a note is retained.
-  `retainCollabNote`/`useCollabNote(filePath, visible)` check the linked vault, sync enabled and
-  online, signed-in user, read access, a note under 1 MiB, and `platform.collab.availability`
-  before lazily importing `@cortex/collab` and `collab/collabPersistence.ts`.
-- Rooms are the linked remote vault id plus the vault-relative path; parts come from
-  `collab/noteParts.ts` (`locateFrontmatter`). Vault, link, sync, or user changes close all
-  sessions; `noteCache.onPathChange` renames or closes them.
-- `collabPersistence` composes the Y parts once per microtask and calls `writeLive` with
-  `persist = canWrite`, `prepare` only for editor origins, and `notify` only for non-editor
-  origins. Cache content changes (properties, prepare-on-save, disk) flow back into Y with
-  `EXTERNAL_ORIGIN` for writers only. Viewers never persist and restore disk content on close.
-- `useCollabNoteState` returns `{ binding, snapshot }` from `useSyncExternalStore`; `binding` is
-  stable per document and non-null only after the first reconcile while the session is usable.
-
-## Adding a New Store
-
-1. **Create file**: `packages/core/src/stores/myStore.ts`
-2. **Define interface**: `export interface MyState { ... }`
-3. **Implement store**: Use Zustand + Immer + devtools pattern
-4. **Export from index**: Add to `packages/core/src/index.ts`
-5. **Use in components**: `const { state, action } = useMyStore()`
-
-Example:
-
-```typescript
-// packages/core/src/stores/myStore.ts
-import { create } from "zustand"
-import { devtools } from "zustand/middleware"
-import { immer } from "zustand/middleware/immer"
-
-export interface MyState {
-  items: string[]
-  addItem: (item: string) => void
-  removeItem: (item: string) => void
-}
-
-export const useMyStore = create<MyState>()(
-  devtools(
-    immer((set) => ({
-      items: [],
-      addItem: (item) =>
-        set((state) => {
-          state.items.push(item)
-        }),
-      removeItem: (item) =>
-        set((state) => {
-          state.items = state.items.filter((i) => i !== item)
-        }),
-    })),
-    { name: "myStore" },
-  ),
-)
-```
-
-Then export from `packages/core/src/index.ts`:
-```typescript
-export { useMyStore } from "./stores/myStore"
-export type { MyState } from "./stores/myStore"
-```
-
-## Store Dependency Graph
-
-Stores **should not directly depend on each other**, but may read state via `get()`:
-
-```
-vaultStore (file operations)
-  ├─ uses getPlatform() → platform abstraction
-  └─ creates and duplicates notes through @cortex/properties defaults
-
-editorStore (editor state)
-  └─ no dependencies
-
-workspaceStore (layout)
-  ├─ reads vaultStore.vault (for persistence path)
-  └─ reads editorStore.activeFilePath (for context)
-
-uiStore (UI chrome)
-  └─ no dependencies
-
-templateStore (vault-scoped templates)
-  ├─ uses ./templates → safe placeholder rendering
-  ├─ uses getPlatform() → .cortex/templates manifest, body files and shares.json
-  ├─ keeps team templates in memory (source "team", remoteBodies); writeManifest never persists them
-  └─ creates notes through @cortex/properties defaults
-
-syncStore (sync engine state)
-  ├─ uses getPlatform().sync → sync IPC methods + event listeners
-  ├─ imports syncLogStore → bridges engine sync-log events
-  ├─ dynamic imports vaultStore, remoteVaultStore → auto-unlink on access denied
-  └─ subscribes to 8 sync events (state, file, progress, conflict, complete, vek, log, denied)
-
-syncLogStore (sync log buffer)
-  └─ no dependencies (pure in-memory store, platform-independent)
-
-authStore (auth state)
-  ├─ uses getPlatform().auth
-  └─ dynamic imports syncStore → stopSync on logout
-
-remoteVaultStore (vault-scoped sync config)
-  ├─ uses sync/syncConfig.ts (getVaultSyncState) → reads/writes sync.json `config`
-  ├─ uses getPlatform().remoteVault → remote vault HTTP (create/list/get/update/delete)
-  └─ dynamic imports authStore → checks auth for the configured server URL
-
-tagsStore (tag management)
-  ├─ uses getPlatform() → file I/O
-  ├─ uses noteCache.writeExternal() when file is open (syncs to editor)
-  └─ falls back to platform.fs.writeFile() when file is not cached
-
-noteCache (file cache)
-  ├─ uses getPlatform() → file I/O
-  └─ triggered by editor/workspace
-```
-
-Keep dependencies minimal. If you need state from another store, use `useOtherStore.getState()` inside an action (not in component). Use dynamic imports (`await import("./otherStore")`) to avoid circular dependency issues between sync-related stores.
-
-## Zustand DevTools
-
-In development (via `devtools` middleware):
-- Open browser DevTools → Redux tab
-- See all store state and actions
-- Time-travel debug: click actions to revert state
-- Export/import state snapshots
-
-## Testing
-
-Tests live in `src/__tests__/`. Run with:
-
-```bash
-bun run --cwd packages/core vitest run
-# or from the monorepo root:
-bun run test
-```
-
-### Mocking `@cortex/platform`
-
-`getPlatform()` must be mocked in every test that touches stores or NoteCache. Add `vi.mock` directly in the test file (not in setup.ts) when you need per-test mock control:
-
-```typescript
-const mockReadFile = vi.fn()
-const mockWriteFile = vi.fn()
-
-vi.mock("@cortex/platform", () => ({
-  getPlatform: vi.fn(() => ({
-    fs: {
-      readFile: mockReadFile,
-      readFileSnapshot: vi.fn().mockResolvedValue({
-        content: "",
-        hash: "abc123",
-        metadata: { createdAt: 0, modifiedAt: 0 },
-      }),
-      writeFile: mockWriteFile,
-      hashFile: vi.fn().mockResolvedValue("abc123"),
-      getFileMetadata: vi.fn().mockResolvedValue({ createdAt: 0, modifiedAt: 0 }),
-    },
-  })),
-}))
-```
-
-### Resetting Store State Between Tests
-
-Use `setState` to reset stores in `beforeEach`:
-
-```typescript
-beforeEach(() => {
-  useSyncLogStore.setState({ entries: [], nextId: 0 })
-  useEditorStore.setState({ activeFilePath: null, mode: "live-preview", cursor: null })
-})
-```
-
-### Fake Timers for NoteCache Debounce
-
-NoteCache auto-saves with a 2-second debounce. Use fake timers:
-
-```typescript
-vi.useFakeTimers()
-
-noteCache.write("/file.md", "new content", {})
-await vi.advanceTimersByTimeAsync(2001) // trigger debounce
-expect(mockWriteFile).toHaveBeenCalled()
-
-vi.useRealTimers()
-```
-
-### Spying on NoteCache Methods
-
-```typescript
-vi.spyOn(noteCache, "flush").mockResolvedValue()
-vi.spyOn(noteCache, "openTab").mockResolvedValue()
-```
-
-## No Side Effects in Stores
-
-Stores should:
-- ✅ Update state
-- ✅ Call async platform methods
-- ✅ Coordinate with other stores via `get()`
-- ❌ No direct DOM manipulation
-- ❌ No window.location changes
-- ❌ No unrelated side effects
-
-If you need side effects, handle them in components or via useEffect.
-
-## Performance
-
-Zustand uses **shallow comparison** for re-renders:
-
-```typescript
-// ✅ Only component using `count` re-renders when count changes
-const count = useMyStore((state) => state.count)
-
-// ✅ More selective subscriptions prevent unnecessary re-renders
-const { count, increment } = useMyStore((state) => ({
-  count: state.count,
-  increment: state.increment,
-}))
-
-// ⚠️ Less common but valid — whole state
-const state = useMyStore()
-```
-
-For large stores, consider selector functions to minimize re-renders.
-
-## Building & Debugging
-
-```bash
-# Type check
-bun run typecheck
-
-# Lint & format
-bun run check
-bun run check:fix
-
-# Import in app
-import { useVaultStore, useEditorStore } from "@cortex/core"
-```
-
-Stores are tree-shaken at build time, so importing only what you need is efficient.
-
-## Cortex Cloud Sync Entitlement
-
-`resolveSyncServerUrl(syncConfig)` is the source of truth for the active sync server: Cortex Cloud
-uses the build-provided cloud URL, while self-hosted sync uses the vault-scoped `serverUrl`.
-`useSubscriptionStore` validates Cortex Cloud entitlement with a short cache and only at workflow
-boundaries such as login, enabling sync, linking/creating remote vaults, and opening Sync settings.
-Billing CTAs should open the configured web billing URL; core and desktop must not create checkout
-sessions.
-The billing site owns checkout and redirects back to the open desktop app with
-`cortex://sync/checkout-complete`. Treat that deep link only as a prompt to force-refresh Cortex
-Cloud subscription status; do not trust it as proof of payment or add checkout creation to core.
-Do not add plan checks to file watcher, queue, note save, or per-file sync paths. Self-hosted sync
-must not require a Cortex Cloud plan. When the native engine reports a subscription denial, preserve
-the remote vault link and queued sync work so renewal can resume without relinking.
-
-## Frontmatter Utilities
-
-`@cortex/properties` owns YAML parsing and targeted frontmatter mutation. `@cortex/core` keeps the
-following compatibility facade for tags and existing plugin metadata consumers:
-
-```typescript
-import {
-  parseFrontmatter,
-  createDefaultFrontmatter,
-  hasFrontmatter,
-  updateFrontmatterField,
-  addTagToFrontmatter,
-  removeTagFromFrontmatter,
-  extractAllTags,
-  extractInlineTags,
-  extractYamlArray,
-} from "@cortex/core"
-```
-
-Pure, store-free subpaths for realms that must not load the stores (the mobile workspace WebView):
-`@cortex/core/frontmatter` (`utils/frontmatter.ts`) and `@cortex/core/bookmark-paths`
-(`utils/bookmarkPaths.ts`). Keep both free of store, NoteCache, and platform-instance imports.
-
-- `parseFrontmatter(content)` — Extracts typed `{ data, body }` from markdown string
-- `createDefaultFrontmatter(options?)` — Generates a default YAML block with only `created` unless
-  callers pass tags or extra fields explicitly
-- `hasFrontmatter(content)` — Checks for a structured YAML frontmatter block
-- `updateFrontmatterField(content, key, value)` — Safely updates a single YAML field
-- `addTagToFrontmatter(content, tag)` / `removeTagFromFrontmatter(content, tag)` — Tag manipulation
-- `extractAllTags(content)` — Returns both YAML frontmatter tags and inline `#hashtags`
-- `extractInlineTags(content)` — Extracts only inline `#hashtags` from body, using the shared
-  `@cortex/properties/tags` rule (word boundary, skips code spans, fenced code, and link anchors) that
-  Live Preview and Reading View also use; `renameTagInContent` rewrites the same ranges
-- `extractYamlArray(raw)` — Reads an array from parsed YAML
-
-New property and frontmatter behavior belongs in `@cortex/properties`. `tagsStore` may continue to
-use the compatibility facade; other packages should import the canonical properties APIs directly.
-NoteCache always stores complete raw notes. Desktop editors project only the Markdown body and
-recombine edits with the current cached frontmatter prefix before calling `noteCache.write`.
-
-## Workspace Tab Ownership
-
-- A non-suspended file tab owns exactly one `NoteCache.openTab(filePath)` reference, even when the
-  same file is open in duplicate tabs.
-- Suspending an inactive file tab releases that one cache reference with `noteCache.closeTab`; a
-  suspended tab must not mount editor/cache read hooks until it is reactivated.
-- Activating a suspended file tab must reacquire the cache reference before clearing
-  `isSuspended`.
-- Closing a suspended tab must not call `noteCache.closeTab` again. Closing, replacing, or moving
-  away from a non-suspended file tab releases only that tab's own reference.
-- Automatic snapshots should skip unchanged duplicates; manual, pre-save, and pre-sync snapshots
-  remain explicit history entries even when content matches the previous snapshot.
-
-## Navigation, Links, Outline, and Tag Pages
-
-- `workspaceStore.navigation` keeps one back/forward history per pane through the pure helpers in
-  `utils/navigationHistory.ts`. Every action that activates a tab records it; `navigateHistory`
-  restores a location without recording it again.
-- `closeOtherTabs(tabId, paneId, scope)` owns "close others" and "close to the right".
-- `useLinksStore` exposes outgoing wiki links from the shared `noteMetadataIndex` (incremental
-  updates from `appRuntime`). Resolve targets with
-  `createWikiLinkResolver(files, vaultPath)` and derive backlinks with `selectBacklinks`; open links
-  with `openWikiLink`, which creates the note when no target exists.
-- `editorStore.updateDocument(filePath, body)` derives word count and headings for the active note;
-  read them through `selectActiveDocument`. `requestReveal`/`openNoteAtLine` ask the editor host to
-  scroll to a line.
-- `utils/tagHierarchy.ts` builds nested tag trees and tag page models; `tagsStore.renameTag` rewrites
-  frontmatter and inline tags (including nested `parent/child` tags) and moves tag colours.
-- `utils/time.ts` formats relative times and normalizes `FileEntry.mtime` (seconds) to milliseconds.
+- UI reads and writes notes only through `noteCache`. It always stores the complete raw note;
+  editors receive only the Markdown body and recombine edits with the cached frontmatter prefix
+  (`openNoteDocumentSession`). Frontmatter never enters CodeMirror.
+- `openTab` starts a preload, `read` shares it, and first reads use `fs.readFileSnapshot`. Dirty
+  entries stay authoritative until flushed. `write` only marks dirty; flushes are single-flight per
+  path, call `prepareNoteForSave` from `@cortex/properties`, and use `writeFileSnapshot`.
+- External changes are serialized per path: one active read, keep only the newest observed hash,
+  publish only when bytes changed. `onDiskContentChange` lets indexes reuse cached content.
+- `mutateNote(path, transform)` is the only read-modify-write path for note text outside the editor
+  (tasks, tags, properties, database config). It serializes per path and records local history.
+- Live documents (`writeLive`, `attachLiveDocument`) route collaboration content through the cache;
+  only local editor edits set `prepare`, which prevents `last_edited` ping-pong between peers.
+
+## Workspace and Tabs
+
+- Restore keeps inactive tabs suspended; only the active file tab per pane calls
+  `noteCache.openTab`. A non-suspended file tab owns exactly one cache reference; suspending releases
+  it, reactivating reacquires it before clearing `isSuspended`, closing a suspended tab never
+  releases twice.
+- Non-Markdown tabs (PDF) never touch NoteCache or editor active-file state.
+- `openTab(path)` activates an existing tab; `reuseActive` only for sidebar-style navigation.
+- Ephemeral view tabs (`openViewTab(..., { ephemeral: true })`) are never persisted. Plugins open
+  temporary Markdown only through `api.workspace.openMarkdownTab`.
+- Workspace state persists to `.cortex/workspace.json` (debounced by `startAppRuntime`), including
+  the left sidebar layout, `quickFinderPreview`, and `recentCommandIds` (`recordRecentCommand`).
+- `getRecentFilePaths` is the single "recent notes" order (global `lastAccessed`, then recently
+  closed). Use selectors such as `selectActiveTab` instead of inline pane lookups.
+
+## Indexing
+
+- `noteMetadataIndex` (`src/indexing/noteMetadataIndex.ts`) is the only vault-wide note parser: one
+  read and one parse per changed note (fingerprint `{mtime, size}`) producing tags (shared
+  `@cortex/properties/tags` rule), wiki links, tasks, and frontmatter properties. Persisted as
+  `.cortex/cache/notes-index.json`. Extend `NoteMetadata` instead of adding another parser.
+- `tagsStore`, `linksStore`, and `tasksStore` are derived views of that index; their build/update
+  calls delegate to it. Components select `fileTags[path]`, `tagColors`, `selectSortedTags`.
+- `startAppRuntime` runs one idle full pass per vault (search, then metadata — sequential on purpose
+  so the metadata parse does not compete with first interactions), then stays incremental.
+  Property suggestions read the index through the properties `noteIndex` service.
+- Mobile uses `indexing: "lazy"`; databases run in every mode.
 
 ## Databases
 
-- `startDatabaseRuntime` runs in every indexing mode (mobile included). It finds folder-note
-  candidates through the vault index (one lookup per folder on vault open, then index deltas), reads
-  only new or changed candidates, and loads rows only for folders held through
-  `retainDatabase(folder)`, from that folder's indexed children; a retained folder reloads only when
-  its children change. Do not add a vault-wide frontmatter index for it.
-- Row reads use `noteCache.getEntry` for open notes and batched `fs.readTextFiles` (500 paths per
-  call) for the rest, never `noteCache.readEntry`.
-- `databaseRowCache.ts` persists each opened database's rows to `.cortex/cache/database-rows/<hash>.json`
-  (local only, never synced) with the file fingerprint per row. The first load of a folder seeds rows
-  whose fingerprint still matches the vault index entry and reads only the rest; writes are debounced.
-  Bump `CACHE_VERSION` whenever `createDatabaseRow` output changes.
-- Write through `databaseActions.ts`: `updateDatabaseCell` patches the row optimistically and reverts
-  on failure, `updateDatabaseConfig` debounces the view-note write and flushes on release,
-  `createDatabaseRow`/`createDatabase`/`convertFolderToDatabase` create files in one write each.
-  `createDatabaseRow` is serialized per folder so concurrent creates never pick the same file name.
-- `databaseWrites.ts` tracks pending config and cell writes. The runtime keeps the store config while
-  a config write is pending and overlays pending cell values on re-read rows, so watcher echoes never
-  revert optimistic edits. `loadRows` is coalesced per folder and skips rows updated mid-read.
-- Folders keep receiving row updates after release while their rows stay cached, so reopening a
-  database never shows stale values.
-- `removeDatabase` only removes the `database` key; the folder note is deleted only when nothing else
-  remains in it. `vaultStore.renameFile`/`moveFile` flush pending config writes first, and a row
-  rename updates `view.order` entries.
-- `vaultStore.renameFile` renames a database folder note with its folder. `workspaceStore` keeps view
-  tabs whose `viewState.filePath` points inside a renamed or deleted path in step.
-- `convertFolderToDatabase` repairs a folder whose view note was renamed outside Cortex: it renames the
-  first direct child that still has a `database` key back to `Folder/Folder.md` before creating one.
-- Row templates are saved with `saveDatabaseRowTemplate` into `config.templates` and removed with
-  `removeDatabaseRowTemplate`.
-- `createDatabase` accepts a `preset` object (team or Marketplace templates) in place of `presetId`;
-  `exportDatabasePreset` turns a loaded database into a shareable `DatabasePreset` (properties used by
-  views, row templates and up to three sample rows when asked).
+- `startDatabaseRuntime` finds folder-note candidates through the vault index and loads rows only
+  for folders held by `retainDatabase(folder)`, from that folder's children. No vault-wide
+  frontmatter scan.
+- Row reads use `noteCache.getEntry` for open notes and batched `fs.readTextFiles` otherwise.
+  `databaseRowCache.ts` persists rows under `.cortex/cache/database-rows/`; bump `CACHE_VERSION` when
+  `createDatabaseRow` output changes.
+- Writes go through `databaseActions.ts` (optimistic cell patches with revert, debounced config
+  writes, per-folder serialized row creation). Pending writes overlay re-read rows so watcher echoes
+  never revert optimistic edits.
 
-## Template Sharing
+## Sync
 
-- `runtime/templateSharing.ts` shares note templates (`createNoteTemplateBundle`) and databases
-  (`database.json` preset bundle) through `getPlatform().templateShares`. The local link per template
-  lives in `templateStore.shares`, keyed by `noteTemplateShareKey` / `databaseTemplateShareKey` and
-  persisted in `.cortex/templates/shares.json`.
-- Team payloads are encrypted with the vault key in the main process; link and Marketplace payloads
-  are plain structure only. Changing the audience sends the new payload with the PATCH.
-- `refreshTeamTemplates` lists the linked vault's team templates (skipping the user's own), caches
-  bundles by id and version, and feeds `templateStore.setRemoteTemplates` and
-  `useTemplateSharingStore.teamDatabasePresets`. Using a team template makes a local copy; notes
-  already created never change.
+- `resolveSyncServerUrl(syncConfig)` is the source of truth for the active server. Auth is scoped by
+  normalized server URL; Cloud and self-hosted sessions never share tokens.
+- Sync config and preferences live in `.cortex/sync.json` (`config` / `preferences`), written through
+  `src/sync/syncConfig.ts` and `writeSyncPreferences`. Ignore rules come from
+  `@cortex/platform/sync-rules` (the same policy as the sync engine).
+- `sync-file-event` handlers are state-only: never read or hash files from sync events. The native
+  watcher is the disk authority; `sync.db` is the only source of note sync metadata.
+- Sync logs: the engine logs everything it originates; the frontend logs only its own lifecycle
+  decisions. Never duplicate a log, never log tokens or secrets.
+- Access-denied marks the engine `denied` and never unlinks the vault. Logout stops and disables
+  sync for that server only. Enabling sync requires a valid session for the selected server.
+- Cortex Cloud entitlement is checked only at workflow boundaries (login, enable, link, Sync
+  settings), never in watcher, queue, save, or per-file paths. Self-hosted never needs a plan.
+  `cortex://sync/checkout-complete` only triggers a refresh; it is not proof of payment.
+- Self-host settings models (`src/sync`) stay framework-free; secrets stay keychain-backed.
+- Members, access, invites, and shares load through one overview request per screen; access checks
+  use `createAccessEvaluator` (deepest rule wins) and the `canWrite*/canRead*` helpers.
 
-## Comments and Mentions
+## Local History
 
-- `useCommentsStore` keeps one `CommentsFile` per absolute note path for the open vault. Every write
-  applies a pure `@cortex/comments` operation optimistically, then re-reads the sidecar, applies the
-  same operation, and writes it with `atomicWriteFile` through a per-file serial queue, so a sync
-  that landed in between is never overwritten. An empty file deletes the sidecar.
-- `getCommentAuthorId()` returns the signed-in user id on remote vaults and `LOCAL_AUTHOR_ID`
-  otherwise. `focusedThreadId`, `draft`, `anchorRanges`, and `revealRequest` coordinate the editor
-  and the Comments panel.
-- `vaultStore` moves sidecars in `migrateVaultPathReferences` (files and folders) and removes them in
-  `deleteFile`.
-- `startCommentsRuntime` (part of `startAppRuntime`) watches `.cortex/comments` with its own
-  `startWatching(..., { includeHidden: true })` (the vault watcher hides `.cortex`) and reloads
-  sidecars on those events and on applied sync events, debounced per file, sends
-  native notifications for new mentions and replies (`diffIncomingMessages`, only messages created
-  after the runtime started) and for new `@[[Name]]` mentions of the current user in synced notes. It
-  respects `tasks.mentionsEnabled`, quiet hours, and `tasks.sound`. Activations with
-  `payload.kind === "comment"` open the note and focus the thread, and `actionId: "reply"` posts the
-  inline reply. `resolveCommentMentions` maps comment text to member ids.
+- `history/localHistory.ts` keeps versions under `.cortex/history/` (never synced). Capture points
+  are the single write paths (autosave at most every 5 min per note, external refreshes, every
+  `mutateNote`). Captures are serialized and fire-and-forget; retention is 24 h full, then daily for
+  30 days, capped at 200 MB per vault. Renames only rewrite the index.
 
-## Vault Settings Import
+## Other Domains
 
-- `runtime/vaultSettingsImport.ts` `applyVaultSettingsImport(vault, input, { applyVaultSettings })`
-  applies settings migrated from another app (today the Obsidian importer in
-  `@cortex/import-export`). Templates are created through `templateStore` and skipped by name,
-  bookmarks go through `bookmarksStore.addBookmark` (Markdown notes only), and property types are
-  merged into the vault schema with `createPropertyDefinition`/`updateVaultSchema`, never replacing
-  an existing key or name. Attachment location and daily notes settings change only when
-  `applyVaultSettings` is set.
-- `vaultStore.openDailyNote` reads the `dailyNotes` settings section (folder, `formatTemplateDate`
-  pattern that may contain `/`, optional template id rendered through
-  `templateStore.previewNoteFromTemplate`); the defaults keep `Daily/yyyy-MM-dd.md`.
-- `createWikiLinkResolver` and `openWikiLink` ignore `#Heading` and `#^block` subpaths
-  (`getWikiLinkNoteTarget`), so heading and block links open the note instead of creating
-  `Note#Heading.md`.
-- `createVaultFromFolder` accepts `createOnboardingNote: false`; desktop uses it for folders that are
-  already Obsidian vaults.
+- Bookmarks: `.cortex/bookmarks.json`, vault-relative Markdown paths, insertion order, updated
+  through vault rename/move/delete flows.
+- Tasks: parsed with `@cortex/tasks`; quick-add tasks go to `.cortex/inbox.md`; reminders are
+  re-planned by `runtime/tasksRuntime.ts`.
+- Comments: one sidecar per note in `.cortex/comments/`; writes re-read, re-apply, and write
+  atomically through a per-file queue.
+- Templates (`@cortex/core/templates`): pure, deterministic, no user JavaScript, safe relative body
+  paths; `formatTemplateDate` is the single date formatter.
+- Onboarding content and markers live in `src/onboarding`; the first-run marker is written once any
+  vault is open or registered.
+- Frontmatter: new property behavior belongs in `@cortex/properties`; core keeps a compatibility
+  facade (`parseFrontmatter`, tag helpers). `@cortex/core/frontmatter` and
+  `@cortex/core/bookmark-paths` stay store-free for the mobile WebView realm.
+- Wiki links: resolve with `createWikiLinkResolver`; `#Heading` and `#^block` subpaths open the note.
 
-## Template Language (`@cortex/core/templates`)
+## Testing
 
-`@cortex/core/templates` owns the platform-neutral template language used by desktop and future
-React Native clients. Keep it free of React, DOM, Electron, Node-only APIs, and filesystem access.
-
-- Export pure functions and serializable types only.
-- Do not execute user JavaScript or add dynamic evaluation.
-- Keep template rendering deterministic from the provided `TemplateRenderContext`.
-- Manifest `bodyPath` values must normalize to safe relative paths under the templates directory.
-  Reject absolute paths, drive-letter paths, and `..` traversal before any platform filesystem code
-  joins paths.
-- Render unknown placeholders as empty values so unfinished templates stay usable, while keeping
-  explicit validation errors for unsupported filters and malformed expressions.
-- Add focused parser tests only for language features that can corrupt template output.
-- `formatTemplateDate(date, pattern)` is the single date formatter for template filters and daily
-  note file names; it supports `yyyy yy MM M dd d HH H mm m ss s ww w` only.
-- `getTemplateValueGroups` is the single catalog for "Insert value" menus and the `{{` autocomplete
-  (Dates / The new note / Vault with live examples); `getTemplateValueLabel` names chips.
-- `getFileNameParts`/`createFileNamePattern` convert between chip lists and `fileNamePattern`;
-  `getFileNameParts` returns `null` for patterns with literal text so the UI falls back to raw input.
-- `createTemplateBodyFromNote` keeps only headings; `createNoteTemplateBundle` /
-  `readNoteTemplateBundle` define the shared note template payload (`template.json` + `template.md`).
+- Mock `@cortex/platform` per test file (`vi.mock`) with the full contract the code under test
+  touches (for `app`: `getCurrentAppVersion`, `openExternalUrl`, `resolveFileAssetUrl`).
+- Reset stores with `setState` in `beforeEach`; use fake timers for the 2 s NoteCache debounce.
+- Test data integrity (index deltas, cache ownership, migrations, sync rules), not UI wiring.

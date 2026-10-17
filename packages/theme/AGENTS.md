@@ -10,7 +10,7 @@
 
 ## Community Themes
 
-- `docs/community-themes.md` is the public theme-authoring contract for community manifests,
+- `apps/web/src/content/docs/themes/` is the public theme-authoring contract for community manifests,
   variables, and stable selector hooks.
 - Community manifests contain identity, metadata, and safe relative paths for light and dark CSS.
 - Community manifests are discovered eagerly, but desktop loads and injects only the active
@@ -19,7 +19,7 @@
 - Desktop injects community CSS directly and lets the browser own parsing, cascade, selectors, and
   `var()` resolution.
 - Adding, removing, or renaming public CSS variables or stable selector hooks requires updating
-  `docs/community-themes.md` and the matching contract tests.
+  `apps/web/src/content/docs/themes/` and the matching contract tests.
 - Theme tokens own typography defaults. Desktop Settings should emit runtime overrides only for
   explicit non-default user preferences; explicit user overrides may remain stronger than theme CSS.
 - Community family placeholder themes use the matching built-in light/dark tokens as generator

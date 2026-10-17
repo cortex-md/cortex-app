@@ -33,7 +33,8 @@
 
 - Cortex is local-first, open source, and based on plain Markdown files.
 - Describe sync as client-side encryption with encrypted blob storage. Do not make absolute security guarantees.
-- Do not claim a public download, license, or platform release unless the repository adds one.
+- The repository is AGPL-3.0-or-later (the `@cortex.md/api` plugin package is MIT). Do not claim a
+  public download or platform release that the GitHub Releases page does not have.
 - Present open source as collaborative product trust, not a repository showcase. Keep GitHub links discreet.
 - Keep Sync and Plugins as separate product stories: Sync explains ownership, encryption, history,
   and self-hosting; Plugins explains extension through a clear API example and practical benefits.

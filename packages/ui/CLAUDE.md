@@ -1,4 +1,1 @@
-# CLAUDE.md — @cortex/ui
-
-Read `AGENTS.md` in this package for the current guidance. This file is only a compatibility
-pointer so the package manual has one source of truth.
+@AGENTS.md

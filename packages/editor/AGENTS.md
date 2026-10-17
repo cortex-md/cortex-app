@@ -1,5 +1,39 @@
 # @cortex/editor
 
+Editable Markdown surfaces: CodeMirror runtime loading, extensions, Live Preview, Reading View,
+and Side-by-Side. Production CodeMirror value imports stay behind `loadEditorRuntime()`
+(`src/runtime.ts`).
+
+## Live Preview Invariants
+
+- Note editors receive only the Markdown body; frontmatter never enters the CodeMirror document,
+  cursor, selection, or coordinate model. `@cortex/properties` owns metadata.
+- `@cortex/editor` projects Markdown semantics into CodeMirror. It must not create a renderer or
+  reparse table cells inside widgets.
+- One block `StateField` and one visible-range `ViewPlugin`: document changes do one block
+  traversal, visual updates one viewport traversal. Block decorations come only from a
+  `StateField`; `ViewPlugin` facets provide inline marks, replacements, and widgets.
+- Never override CodeMirror's default arrow-key, pointer, or cursor placement. Any selection
+  overlapping a rendered block forces source mode while it exists.
+- Line-number gutters are absolutely positioned and never take layout width: `.cm-content` stays
+  centered exactly like the note header and properties, and numbers right-align just before the
+  text. Block chrome that needs breathing room (callouts) extends its painted `::before` instead of
+  padding lines.
+- Use `EditorView.blockWrappers` for block geometry. Replacement decorations stay within one source
+  line; never replace ranges that contain line breaks.
+- CSS must not add vertical padding, margins, transforms, or non-baseline alignment to editable
+  `.cm-line` content or inline marks; paint block chrome with non-interactive pseudo-elements.
+- Interactive widgets consume pointer events before CodeMirror moves the selection; hover state is
+  scoped to the owning widget or block.
+- Keep the Lezer GFM extensions enabled (tables, strikethrough, task lists, autolinks).
+- Plugins extend Markdown through portable `contributes.markdown.inline` / `semantic` nodes;
+  Unified `processors` run only for `reading-view` and `export`, never in Live Preview.
+- Shared Markdown semantics live in `src/markdown.css`; Live Preview projection styles in
+  `src/livePreview/styles.css`. Live Preview, Reading View, and Side-by-Side share the
+  `--markdown-*` layout variables from `@cortex/theme` and must stay aligned.
+- Vim uses `@replit/codemirror-vim` in a reconfigurable compartment before all keymaps;
+  `drawSelection()` only with Vim; the command-line panel stays at the bottom of the note surface.
+
 ## Reading View
 
 - `ReadingView` keeps rendered HTML tied to the source Markdown content and renderer registry
@@ -77,6 +111,9 @@
 - Markdown list markers and task checkboxes must stay visually aligned between Reading View and
   Live Preview. Share task checkbox styling through markdown CSS variables and keep Live Preview
   widgets backed by Markdown source changes instead of separate checkbox state.
+- A bullet task item (`- [ ]`) shows only its checkbox: off the cursor line the bullet and its
+  space become a `.cm-list-marker.is-task` widget that the default themes hide (Reading View hides
+  it too); on the cursor line the raw source shows. Ordered task items keep their number.
 - Markdown heading typography must stay aligned across Reading View, Live Preview, and CodeMirror
   syntax highlighting. Built-in themes use the Markdown v3 scale from `@cortex/theme`; H2 and H3
   get margin marks (`::before` on `h2`/`h3` and `.cm-line.cm-h2`/`.cm-h3`), and CodeMirror heading

@@ -65,7 +65,7 @@
   using that normalized form and use `displayPath` only when showing the native provider path to
   users.
 - Expo mobile adapters should implement the full `Platform` object from the start, even when a
-  capability is not ready. Unsupported Phase 0 methods should reject clearly or return typed
+  capability is not ready. Unsupported methods should reject clearly or return typed
   unsupported states such as notification/app-update unsupported results; they must not silently
   report successful vault, sync, keychain, or remote operations.
 - Mobile adapters may use Expo APIs for app storage, appearance, deep links, external URLs, device

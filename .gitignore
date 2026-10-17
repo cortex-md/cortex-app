@@ -12,15 +12,18 @@ target
 .impeccable/
 *.tsbuildinfo
 docs/internal/
-.claudeignore
 coverage/
-.codex/*
-!.codex/skills/
-.codex/skills/*
-!.codex/skills/cortex-architecture/
-!.codex/skills/cortex-architecture/**
+
+# Personal agent state (project guidance lives in AGENTS.md)
+.claudeignore
 .claude/
+.codex/
 .agents/
+.cursor/
+.windsurf/
+.aider*
+.gemini/*
+!.gemini/settings.json
 plans/
 docs/mobile/
 skills-lock.json

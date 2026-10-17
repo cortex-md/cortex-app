@@ -65,6 +65,14 @@ Full Apple-kit → primitive mapping lives in `CLAUDE.md`.
 - Overlay primitives share surface, item, and motion helpers from `lib/native-styles.ts`; keep
   `data-slot`, `data-popup-surface`, and `data-command-surface` stable so desktop CSS, plugins, and
   community themes can restyle overlays without component forks.
+- Popup surfaces (dropdown, context menu, popover, searchable pickers) share the floating-toolbar
+  language: `--surface-raised` with `--shadow-floating-pill`, no border, `--popup-radius` (14px),
+  `--popup-item-radius` (9px). A search field inside a popover is a borderless `fill-quiet` pill.
+  Change the shared surface, never one menu.
+- `SimpleTooltip` forwards trigger props and ref, so it can sit inside any Radix `asChild` trigger.
+- `Button` always renders `data-slot="button"`, even as the `asChild` target of a tooltip,
+  dropdown, or popover trigger; desktop CSS (including `-webkit-app-region: no-drag` on titlebar
+  buttons) depends on it.
 - High-use primitive geometry and typography should use public CSS variables with fallbacks instead
   of fixed arbitrary values when the rendered default can stay unchanged.
 - Command surfaces expose `CommandFooterHints` (a `{ keys, label, align? }[]` list; `align: "end"`
