@@ -160,24 +160,29 @@ export class SettingsManager {
 				...this.globalSettings.appearance,
 			},
 			plugins: this.globalSettings.plugins,
+			updates: this.globalSettings.updates,
 		})
 	}
 
-	private getVaultSettingsSnapshot(): Omit<AppSettings, "plugins"> {
-		const { plugins: _plugins, ...cache } = this.cache
+	private getVaultSettingsSnapshot(): Omit<AppSettings, "plugins" | "updates"> {
+		const { plugins: _plugins, updates: _updates, ...cache } = this.cache
 		const {
 			nativeWindowEffects: _nativeWindowEffects,
 			workspaceMode: _workspaceMode,
 			...appearance
 		} = cache.appearance
-		return { ...cache, appearance } as Omit<AppSettings, "plugins">
+		return { ...cache, appearance } as Omit<AppSettings, "plugins" | "updates">
 	}
 }
 
 const GLOBAL_APPEARANCE_KEYS = new Set(["nativeWindowEffects", "workspaceMode"])
 
 function isGlobalSetting(section: keyof AppSettings, key: string): boolean {
-	return section === "plugins" || (section === "appearance" && GLOBAL_APPEARANCE_KEYS.has(key))
+	return (
+		section === "plugins" ||
+		section === "updates" ||
+		(section === "appearance" && GLOBAL_APPEARANCE_KEYS.has(key))
+	)
 }
 
 function pickGlobalSettings(settings: AppSettings): unknown {
@@ -187,6 +192,7 @@ function pickGlobalSettings(settings: AppSettings): unknown {
 			workspaceMode: settings.appearance.workspaceMode,
 		},
 		plugins: settings.plugins,
+		updates: settings.updates,
 	}
 }
 

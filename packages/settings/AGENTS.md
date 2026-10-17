@@ -35,6 +35,8 @@
 - `plugins.allowCommunity` (restricted mode, `DEFAULT_PLUGINS_SETTINGS`, off by default) is also
   app-wide: `SettingsManager` keeps the whole `plugins` section in the app data settings file
   (`isGlobalSetting`) and strips it from the vault snapshot.
+- The `updates` section (`autoCheck`, `channel: "stable" | "beta"`) is app-wide the same way; the
+  desktop renderer forwards it to the main-process updater with `appUpdates.configure`.
 
 - The `tasks` section (`DEFAULT_TASKS_SETTINGS`, `TasksSettingsSchema`) holds task reminder and
   notification preferences: reminders on/off, default reminder offset, the reminder time for tasks

@@ -9,6 +9,7 @@ import {
 	DEFAULT_PLUGINS_SETTINGS,
 	DEFAULT_TASKS_SETTINGS,
 	DEFAULT_TEMPLATES_SETTINGS,
+	DEFAULT_UPDATES_SETTINGS,
 } from "./defaults"
 
 export const WORKSPACE_MODES = ["full", "writing"] as const
@@ -45,6 +46,11 @@ export const PluginsSettingsSchema = z.object({
 	allowCommunity: z.boolean().default(DEFAULT_PLUGINS_SETTINGS.allowCommunity),
 })
 
+export const UpdatesSettingsSchema = z.object({
+	autoCheck: z.boolean().default(DEFAULT_UPDATES_SETTINGS.autoCheck),
+	channel: z.enum(["stable", "beta"]).default(DEFAULT_UPDATES_SETTINGS.channel),
+})
+
 export const GlobalAppSettingsSchema = z.object({
 	appearance: z
 		.object({
@@ -56,6 +62,7 @@ export const GlobalAppSettingsSchema = z.object({
 			workspaceMode: DEFAULT_APPEARANCE_SETTINGS.workspaceMode,
 		}),
 	plugins: PluginsSettingsSchema.default(DEFAULT_PLUGINS_SETTINGS),
+	updates: UpdatesSettingsSchema.default(DEFAULT_UPDATES_SETTINGS),
 })
 
 export const EditorSettingsSchema = z.object({
@@ -122,6 +129,7 @@ export const AppSettingsSchema = z.object({
 	templates: TemplatesSettingsSchema.default(DEFAULT_APP_SETTINGS.templates),
 	plugins: PluginsSettingsSchema.default(DEFAULT_APP_SETTINGS.plugins),
 	tasks: TasksSettingsSchema.default(DEFAULT_APP_SETTINGS.tasks),
+	updates: UpdatesSettingsSchema.default(DEFAULT_APP_SETTINGS.updates),
 })
 
 export type AppearanceSettings = z.infer<typeof AppearanceSettingsSchema>
@@ -132,6 +140,7 @@ export type DailyNotesSettings = z.infer<typeof DailyNotesSettingsSchema>
 export type TemplatesSettings = z.infer<typeof TemplatesSettingsSchema>
 export type PluginsSettings = z.infer<typeof PluginsSettingsSchema>
 export type TasksSettings = z.infer<typeof TasksSettingsSchema>
+export type UpdatesSettings = z.infer<typeof UpdatesSettingsSchema>
 export type AppSettings = z.infer<typeof AppSettingsSchema>
 export type GlobalAppSettings = z.infer<typeof GlobalAppSettingsSchema>
 

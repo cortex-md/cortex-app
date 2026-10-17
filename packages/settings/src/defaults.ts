@@ -56,6 +56,11 @@ export const DEFAULT_PLUGINS_SETTINGS = {
 	allowCommunity: false,
 } as const
 
+export const DEFAULT_UPDATES_SETTINGS = {
+	autoCheck: true,
+	channel: "stable",
+} as const
+
 export const DEFAULT_TASKS_SETTINGS = {
 	remindersEnabled: true,
 	defaultReminder: "at",
@@ -78,4 +83,5 @@ export const DEFAULT_APP_SETTINGS = {
 	templates: DEFAULT_TEMPLATES_SETTINGS,
 	plugins: DEFAULT_PLUGINS_SETTINGS,
 	tasks: DEFAULT_TASKS_SETTINGS,
+	updates: DEFAULT_UPDATES_SETTINGS,
 } as const

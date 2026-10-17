@@ -9,6 +9,7 @@ export {
 	DEFAULT_PLUGINS_SETTINGS,
 	DEFAULT_TASKS_SETTINGS,
 	DEFAULT_TEMPLATES_SETTINGS,
+	DEFAULT_UPDATES_SETTINGS,
 	SYSTEM_FONT_FAMILY,
 	SYSTEM_FONT_STACK,
 } from "./defaults"
@@ -37,6 +38,7 @@ export type {
 	SettingsChangeEvent,
 	TasksSettings,
 	TemplatesSettings,
+	UpdatesSettings,
 	WorkspaceMode,
 } from "./types"
 export {
@@ -50,5 +52,6 @@ export {
 	PluginsSettingsSchema,
 	TasksSettingsSchema,
 	TemplatesSettingsSchema,
+	UpdatesSettingsSchema,
 	WORKSPACE_MODES,
 } from "./types"
