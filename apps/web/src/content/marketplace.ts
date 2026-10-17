@@ -27,6 +27,8 @@ export const marketplaceCopy = {
 	staleNotice: "Showing the last list we loaded. GitHub isn’t answering right now.",
 	back: "Marketplace",
 	screenshots: "Screenshots",
+	previousScreenshot: "Previous screenshot",
+	nextScreenshot: "Next screenshot",
 	permissions: "Permissions",
 	permissionsNote:
 		"Cortex asks for these before the plugin runs. They apply to the vault you install it in.",

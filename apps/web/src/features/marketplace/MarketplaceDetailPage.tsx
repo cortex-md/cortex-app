@@ -1,6 +1,17 @@
+import { Button } from "@cortex/ui/button"
 import { cn } from "@cortex/ui/lib/utils"
-import { ArrowUpRight, BadgeCheck, BookOpen, ChevronLeft, Flag, Github, Shield } from "lucide-react"
+import {
+	ArrowUpRight,
+	BadgeCheck,
+	BookOpen,
+	ChevronLeft,
+	ChevronRight,
+	Flag,
+	Github,
+	Shield,
+} from "lucide-react"
 import type React from "react"
+import { useEffect, useRef, useState } from "react"
 import {
 	getCapabilityLabel,
 	marketplaceCopy,
@@ -11,6 +22,7 @@ import { trackEvent } from "../../lib/analytics"
 import type { DiscussionCommentsResult } from "../../server/discussions"
 import type { MarketplaceItem } from "../../server/marketplace"
 import type { MarketplaceReadme } from "../../server/readme"
+import { RenderedMarkdown } from "../docs/components/RenderedMarkdown"
 import { ItemGlyph, itemTone, ThemeWindow } from "./MarketplaceArt"
 import { StaleNotice, SubmitBanner } from "./MarketplaceBits"
 import { MarketplaceComments } from "./MarketplaceComments"
@@ -60,7 +72,9 @@ function ScreenshotFigure({ url, alt, single }: { url: string; alt: string; sing
 		<figure
 			className={cn(
 				"m-0 min-w-0 overflow-hidden rounded-[22px] bg-cell",
-				single ? "w-full" : "h-[360px] flex-[0_0_auto] max-sm:h-60 max-sm:flex-[0_0_86%]",
+				single
+					? "w-full"
+					: "h-[360px] flex-[0_0_auto] snap-start max-sm:h-60 max-sm:flex-[0_0_86%]",
 			)}
 		>
 			<a
@@ -68,8 +82,10 @@ function ScreenshotFigure({ url, alt, single }: { url: string; alt: string; sing
 				href={url}
 				target="_blank"
 				rel="noopener noreferrer"
+				draggable={false}
 			>
 				<img
+					draggable={false}
 					className={cn(
 						"object-cover",
 						single ? "aspect-[16/9] w-full" : "aspect-[16/10] h-full w-auto max-sm:w-full",
@@ -87,18 +103,174 @@ function ScreenshotFigure({ url, alt, single }: { url: string; alt: string; sing
 	)
 }
 
+interface StripEdges {
+	atStart: boolean
+	atEnd: boolean
+}
+
+interface StripDrag {
+	pointerId: number
+	startX: number
+	startScroll: number
+	moved: boolean
+}
+
+const dragThreshold = 6
+
+function getStripEdges(strip: HTMLElement): StripEdges {
+	return {
+		atStart: strip.scrollLeft <= 1,
+		atEnd: strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 1,
+	}
+}
+
+function getScrollBehavior(): ScrollBehavior {
+	return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
+}
+
+function snapToNearestSlide(strip: HTMLElement) {
+	const slides = Array.from(strip.children) as HTMLElement[]
+	const nearest = slides.reduce<HTMLElement | undefined>(
+		(best, slide) =>
+			!best ||
+			Math.abs(slide.offsetLeft - strip.scrollLeft) < Math.abs(best.offsetLeft - strip.scrollLeft)
+				? slide
+				: best,
+		undefined,
+	)
+	if (nearest) strip.scrollTo({ left: nearest.offsetLeft, behavior: getScrollBehavior() })
+}
+
+function ScreenshotStrip({
+	className,
+	children,
+}: {
+	className?: string
+	children: React.ReactNode
+}) {
+	const stripRef = useRef<HTMLDivElement | null>(null)
+	const dragRef = useRef<StripDrag | null>(null)
+	const suppressClickRef = useRef(false)
+	const [edges, setEdges] = useState<StripEdges>({ atStart: true, atEnd: true })
+
+	useEffect(() => {
+		const strip = stripRef.current
+		if (!strip) return
+		const updateEdges = () => {
+			const next = getStripEdges(strip)
+			setEdges((current) =>
+				current.atStart === next.atStart && current.atEnd === next.atEnd ? current : next,
+			)
+		}
+		updateEdges()
+		strip.addEventListener("scroll", updateEdges, { passive: true })
+		const observer = new ResizeObserver(updateEdges)
+		observer.observe(strip)
+		return () => {
+			strip.removeEventListener("scroll", updateEdges)
+			observer.disconnect()
+		}
+	}, [])
+
+	function scrollByPage(direction: 1 | -1) {
+		const strip = stripRef.current
+		if (!strip) return
+		strip.scrollBy({ left: direction * strip.clientWidth * 0.8, behavior: getScrollBehavior() })
+	}
+
+	function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
+		if (event.pointerType !== "mouse" || event.button !== 0) return
+		dragRef.current = {
+			pointerId: event.pointerId,
+			startX: event.clientX,
+			startScroll: event.currentTarget.scrollLeft,
+			moved: false,
+		}
+	}
+
+	function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
+		const drag = dragRef.current
+		if (!drag || drag.pointerId !== event.pointerId) return
+		const deltaX = event.clientX - drag.startX
+		if (!drag.moved && Math.abs(deltaX) < dragThreshold) return
+		if (!drag.moved) {
+			drag.moved = true
+			event.currentTarget.setPointerCapture(event.pointerId)
+			event.currentTarget.dataset.dragging = ""
+		}
+		event.currentTarget.scrollLeft = drag.startScroll - deltaX
+	}
+
+	function handlePointerEnd(event: React.PointerEvent<HTMLDivElement>) {
+		const drag = dragRef.current
+		if (!drag || drag.pointerId !== event.pointerId) return
+		dragRef.current = null
+		if (!drag.moved) return
+		suppressClickRef.current = true
+		delete event.currentTarget.dataset.dragging
+		snapToNearestSlide(event.currentTarget)
+	}
+
+	function handleClickCapture(event: React.MouseEvent<HTMLDivElement>) {
+		if (!suppressClickRef.current) return
+		suppressClickRef.current = false
+		event.preventDefault()
+		event.stopPropagation()
+	}
+
+	const arrowClass =
+		"absolute top-[calc(50%-14px)] z-[1] -translate-y-1/2 opacity-0 shadow-lift transition-opacity duration-150 group-hover/strip:opacity-100 focus-visible:opacity-100 disabled:opacity-0! max-sm:hidden"
+
+	return (
+		<div className="group/strip relative">
+			<div
+				ref={stripRef}
+				className={cn(
+					"relative flex snap-x snap-mandatory gap-3.5 overflow-x-auto overscroll-x-contain [scrollbar-width:none] data-[dragging]:cursor-grabbing data-[dragging]:snap-none data-[dragging]:select-none max-sm:-mr-5 max-sm:pr-5",
+					className,
+				)}
+				onPointerDown={handlePointerDown}
+				onPointerMove={handlePointerMove}
+				onPointerUp={handlePointerEnd}
+				onPointerCancel={handlePointerEnd}
+				onClickCapture={handleClickCapture}
+			>
+				{children}
+			</div>
+			<Button
+				variant="secondary"
+				size="icon-sm"
+				className={cn(arrowClass, "left-3")}
+				aria-label={marketplaceCopy.previousScreenshot}
+				disabled={edges.atStart}
+				onClick={() => scrollByPage(-1)}
+			>
+				<ChevronLeft aria-hidden="true" />
+			</Button>
+			<Button
+				variant="secondary"
+				size="icon-sm"
+				className={cn(arrowClass, "right-3")}
+				aria-label={marketplaceCopy.nextScreenshot}
+				disabled={edges.atEnd}
+				onClick={() => scrollByPage(1)}
+			>
+				<ChevronRight aria-hidden="true" />
+			</Button>
+		</div>
+	)
+}
+
 function Screenshots({ item }: { item: MarketplaceItem }) {
 	const shotClass =
-		"relative m-0 h-[360px] min-w-0 flex-[1_0_0] rounded-[22px] bg-cell p-[22px] max-sm:h-60 max-sm:flex-[0_0_86%] max-sm:p-3.5"
+		"relative m-0 h-[360px] min-w-0 flex-[1_0_0] snap-start rounded-[22px] bg-cell p-[22px] max-sm:h-60 max-sm:flex-[0_0_86%] max-sm:p-3.5"
 	const captionClass =
 		"absolute bottom-[-28px] left-[22px] text-[13px] leading-none font-medium text-text-muted"
-	const stripClass =
-		"flex gap-3.5 overflow-x-auto pb-7 [scrollbar-width:none] max-sm:-mr-5 max-sm:pr-5"
 	const screenshotAlt = (index: number) => `${item.name} screenshot ${index + 1}`
 
 	if (item.kind === "themes" && item.palettes.length > 0) {
 		return (
-			<div className={stripClass}>
+			<ScreenshotStrip className="pb-7">
 				{item.palettes.map((palette) => (
 					<figure key={palette.label} className={shotClass}>
 						<ThemeWindow palette={palette} size="shot" />
@@ -108,7 +280,7 @@ function Screenshots({ item }: { item: MarketplaceItem }) {
 				{item.screenshots.map((url, index) => (
 					<ScreenshotFigure key={url} url={url} alt={screenshotAlt(index)} single={false} />
 				))}
-			</div>
+			</ScreenshotStrip>
 		)
 	}
 
@@ -118,11 +290,11 @@ function Screenshots({ item }: { item: MarketplaceItem }) {
 
 	if (item.screenshots.length > 1) {
 		return (
-			<div className={cn(stripClass, "pb-2")}>
+			<ScreenshotStrip className="pb-2">
 				{item.screenshots.map((url, index) => (
 					<ScreenshotFigure key={url} url={url} alt={screenshotAlt(index)} single={false} />
 				))}
-			</div>
+			</ScreenshotStrip>
 		)
 	}
 
@@ -291,10 +463,9 @@ export function MarketplaceDetailPage({
 							<h2 id="marketplace-readme" className={sectionTitle}>
 								{marketplaceCopy.readme}
 							</h2>
-							<div
+							<RenderedMarkdown
 								className="markdown-surface docs-markdown rounded-2xl bg-bg-elevated px-6 py-5 shadow-ring max-sm:px-4 [&>:first-child]:mt-0 [&>:last-child]:mb-0"
-								// biome-ignore lint/security/noDangerouslySetInnerHtml: README HTML is sanitized by renderReleaseMarkdown on the server.
-								dangerouslySetInnerHTML={{ __html: readme.html }}
+								html={readme.html}
 							/>
 						</section>
 					) : null}
