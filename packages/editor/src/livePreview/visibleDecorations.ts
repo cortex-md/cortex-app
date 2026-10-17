@@ -205,6 +205,8 @@ function addQuoteMarker(
 	replacementRange(runtime, ranges, node.from, Math.min(node.to + 1, line.to))
 }
 
+const TASK_MARKER_AFTER_BULLET = /^ \[[ xX]\]/
+
 function addListMarker(
 	runtime: EditorRuntimeModules,
 	widgets: LivePreviewWidgets,
@@ -216,6 +218,14 @@ function addListMarker(
 	if (selectionOverlapsRange(view, line.from, line.to)) return
 	const source = view.state.sliceDoc(node.from, node.to)
 	const bullet = /^[*+-]$/.test(source)
+	if (bullet && TASK_MARKER_AFTER_BULLET.test(view.state.sliceDoc(node.to, node.to + 4))) {
+		ranges.push(
+			runtime.view.Decoration.replace({
+				widget: new widgets.TextWidget("", "cm-list-marker is-task"),
+			}).range(node.from, node.to + 1),
+		)
+		return
+	}
 	ranges.push(
 		runtime.view.Decoration.replace({
 			widget: new widgets.TextWidget(

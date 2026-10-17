@@ -96,6 +96,10 @@
 	text-align: center;
 }
 
+.cm-list-marker.is-task {
+	display: none;
+}
+
 .cm-list-marker.is-bullet {
 	position: relative;
 	color: transparent;
