@@ -23,7 +23,21 @@
 
 .docs-markdown :is(h2, h3) {
 	color: var(--text-primary);
-	scroll-margin-top: 96px;
+	scroll-margin-top: 80px;
+}
+
+.docs-markdown :is(h2, h3)::before {
+	content: none;
+}
+
+.docs-markdown :is(h2, h3) > a[href^="#"],
+.docs-markdown .not-prose a,
+.docs-markdown .not-prose a:hover {
+	background: none;
+}
+
+.docs-markdown .not-prose a::after {
+	content: none;
 }
 
 .docs-markdown h2 {

@@ -1,6 +1,7 @@
 import {
 	CommandDialog,
 	CommandEmpty,
+	CommandFooterHints,
 	CommandGroup,
 	CommandInput,
 	CommandItem,
@@ -28,7 +29,7 @@ import {
 	PencilLine,
 	Search,
 } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { docsCopy, docsSourceBaseUrl } from "../../../content/docs"
 import { createDocLlmText } from "../llmsPage"
 import type { DocPage, DocsNavigationSummaryGroup, DocsSearchEntry } from "../registry"
@@ -87,6 +88,72 @@ function useDocsSearchShortcut(setOpen: (update: (open: boolean) => boolean) => 
 	}, [setOpen])
 }
 
+const searchSurfaceClass = cn(
+	"mt-24 w-[min(680px,calc(100vw-32px))] self-start rounded-2xl bg-site-panel shadow-panel sm:max-w-[680px] max-sm:mt-16",
+	"[&_[data-slot=command-input-wrapper]]:h-12 [&_[data-slot=command-input-wrapper]]:gap-2.5 [&_[data-slot=command-input-wrapper]]:border-[var(--hairline)] [&_[data-slot=command-input-wrapper]]:pr-2.5 [&_[data-slot=command-input-wrapper]]:pl-4 [&_[data-slot=command-input-wrapper]]:text-text-muted",
+	"[&_[data-slot=command-input]]:h-12 [&_[data-slot=command-input]]:text-[15px] [&_[data-slot=command-input]]:text-text-primary [&_[data-slot=command-input]]:placeholder:text-text-muted",
+	"[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pt-2.5 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:text-[11.5px] [&_[cmdk-group-heading]]:leading-4 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-text-muted",
+	"[&_[data-slot=command-footer]]:min-h-9 [&_[data-slot=command-footer]]:border-[var(--hairline)] [&_[data-slot=command-footer]]:border-t [&_[data-slot=command-footer]]:px-3.5 [&_[data-slot=command-footer-hint]]:gap-[7px] [&_[data-slot=command-footer-hint]]:text-[11.5px] [&_[data-slot=command-footer-hint]]:font-medium [&_[data-slot=command-footer-hint]]:text-text-muted [&_[data-slot=command-footer-key]]:font-semibold [&_[data-slot=command-footer-key]]:text-text-secondary",
+)
+const searchRowClass =
+	"group/row min-h-[42px] gap-3 rounded-[10px] px-2.5 py-1.5 text-text-secondary data-[selected=true]:bg-fill-selected data-[selected=true]:text-text-primary"
+const searchIconClass =
+	"inline-flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-[var(--fill-quiet)] text-text-muted group-data-[selected=true]/row:bg-[var(--surface-raised)] group-data-[selected=true]/row:text-text-primary group-data-[selected=true]/row:shadow-raised"
+const searchFooterHints = [
+	{ keys: ["↑", "↓"], label: "Navigate" },
+	{ keys: ["↵"], label: "Open" },
+	{ keys: ["Esc"], label: "Close", align: "end" as const },
+]
+
+function HighlightedTitle({ text, query }: { text: string; query: string }) {
+	const needle = query.trim().toLowerCase()
+	const start = needle ? text.toLowerCase().indexOf(needle) : -1
+	if (start < 0) return text
+	const end = start + needle.length
+	return (
+		<>
+			{text.slice(0, start)}
+			<mark className="bg-transparent font-semibold text-brand-text">{text.slice(start, end)}</mark>
+			{text.slice(end)}
+		</>
+	)
+}
+
+function DocsSearchRow({
+	entry,
+	query,
+	onSelect,
+}: {
+	entry: DocsSearchEntry
+	query: string
+	onSelect: (entry: DocsSearchEntry) => void
+}) {
+	const Icon = entry.type === "page" ? FileText : Hash
+
+	return (
+		<CommandItem
+			className={searchRowClass}
+			value={entry.searchText}
+			onSelect={() => onSelect(entry)}
+		>
+			<span className={searchIconClass} aria-hidden="true">
+				<Icon className="size-4" />
+			</span>
+			<span className="flex min-w-0 flex-1 flex-col">
+				<span className="truncate text-[14px] leading-5 font-medium text-text-primary">
+					<HighlightedTitle text={entry.title} query={query} />
+				</span>
+				<span className="truncate text-[12.5px] leading-[17px] text-text-muted">
+					{entry.description}
+				</span>
+			</span>
+			<span className="max-w-[160px] shrink-0 truncate text-[12px] text-text-muted max-sm:hidden">
+				{entry.section}
+			</span>
+		</CommandItem>
+	)
+}
+
 function DocsSearchDialog({
 	open,
 	onOpenChange,
@@ -97,6 +164,8 @@ function DocsSearchDialog({
 	loadSearchEntries: () => Promise<DocsSearchEntry[]>
 }) {
 	const [entries, setEntries] = useState<DocsSearchEntry[]>([])
+	const [query, setQuery] = useState("")
+	const listRef = useRef<HTMLDivElement | null>(null)
 
 	useEffect(() => {
 		if (!open || entries.length > 0) return
@@ -116,50 +185,63 @@ function DocsSearchDialog({
 		() => entries.filter((entry) => entry.type === "heading"),
 		[entries],
 	)
+	const hasQuery = query.trim().length > 0
 
-	function renderEntry(entry: DocsSearchEntry) {
-		const Icon = entry.type === "page" ? FileText : Hash
+	function handleQueryChange(nextQuery: string) {
+		setQuery(nextQuery)
+		requestAnimationFrame(() => listRef.current?.scrollTo({ top: 0 }))
+	}
 
-		return (
-			<CommandItem
-				key={entry.id}
-				className="rounded-md px-3 py-2 text-text-primary data-[selected=true]:bg-brand-subtle data-[selected=true]:text-brand-text"
-				value={entry.searchText}
-				onSelect={() => {
-					onOpenChange(false)
-					navigateToHref(entry.href)
-				}}
-			>
-				<Icon className="size-4 text-text-muted" aria-hidden="true" />
-				<span className="min-w-0 flex-1">
-					<span className="block truncate text-[14px] leading-5 font-medium">{entry.title}</span>
-					<span className="block truncate text-[12px] leading-4 text-text-muted">
-						{entry.description}
-					</span>
-				</span>
-				<span className="shrink-0 text-[11px] leading-4 text-text-muted">{entry.section}</span>
-			</CommandItem>
-		)
+	function handleOpenChange(nextOpen: boolean) {
+		if (!nextOpen) setQuery("")
+		onOpenChange(nextOpen)
+	}
+
+	function handleSelect(entry: DocsSearchEntry) {
+		handleOpenChange(false)
+		navigateToHref(entry.href)
 	}
 
 	return (
 		<CommandDialog
 			open={open}
-			onOpenChange={onOpenChange}
+			onOpenChange={handleOpenChange}
 			title={docsCopy.searchLabel}
 			description={docsCopy.searchDescription}
-			className="bg-bg-elevated p-0 text-text-primary shadow-panel"
-			commandProps={{ className: "bg-transparent text-text-primary" }}
+			className={searchSurfaceClass}
+			showCloseButton={false}
+			commandProps={{ loop: true, className: "bg-transparent text-text-primary" }}
 		>
 			<CommandInput
-				className="text-text-primary placeholder:text-text-muted"
+				autoFocus
 				placeholder={docsCopy.searchPlaceholder}
+				value={query}
+				onValueChange={handleQueryChange}
+				trailing={<Kbd className="text-[11px] text-text-muted">Esc</Kbd>}
 			/>
-			<CommandList className="max-h-[420px] px-2 py-2">
-				<CommandEmpty>{docsCopy.searchEmpty}</CommandEmpty>
-				<CommandGroup heading="Pages">{pageEntries.map(renderEntry)}</CommandGroup>
-				<CommandGroup heading="Headings">{headingEntries.map(renderEntry)}</CommandGroup>
+			<CommandList ref={listRef} className="max-h-[min(452px,62vh)] px-1.5 pt-1 pb-1.5">
+				<CommandEmpty className="flex flex-col gap-0.5 px-2.5 pt-[22px] pb-3 text-left">
+					<strong className="text-[14px] leading-5 font-semibold text-text-primary">
+						{docsCopy.searchEmptyTitle(query.trim())}
+					</strong>
+					<span className="text-[13px] leading-[18px] text-text-secondary">
+						{docsCopy.searchEmpty}
+					</span>
+				</CommandEmpty>
+				<CommandGroup heading={docsCopy.searchPagesHeading} className="p-0">
+					{pageEntries.map((entry) => (
+						<DocsSearchRow key={entry.id} entry={entry} query={query} onSelect={handleSelect} />
+					))}
+				</CommandGroup>
+				{hasQuery ? (
+					<CommandGroup heading={docsCopy.searchHeadingsHeading} className="p-0">
+						{headingEntries.map((entry) => (
+							<DocsSearchRow key={entry.id} entry={entry} query={query} onSelect={handleSelect} />
+						))}
+					</CommandGroup>
+				) : null}
 			</CommandList>
+			<CommandFooterHints hints={searchFooterHints} />
 		</CommandDialog>
 	)
 }
@@ -460,7 +542,7 @@ export function DocsShell({ page, navigation, loadSearchEntries }: DocsShellProp
 
 	return (
 		<div className="mx-auto grid w-[min(1360px,100%)] grid-cols-[264px_minmax(0,1fr)_224px] max-[1100px]:grid-cols-[240px_minmax(0,1fr)] max-[820px]:grid-cols-[minmax(0,1fr)]">
-			<aside className="sticky top-[68px] h-[calc(100dvh-68px)] self-start overflow-y-auto pt-6 pr-4 pb-10 pl-6 max-[820px]:hidden">
+			<aside className="sticky top-14 h-[calc(100dvh-56px)] self-start overflow-y-auto pt-6 pr-4 pb-10 pl-6 max-[820px]:hidden">
 				<DocsSidebar {...sidebarProps} />
 			</aside>
 
@@ -554,7 +636,7 @@ export function DocsShell({ page, navigation, loadSearchEntries }: DocsShellProp
 				</article>
 			</div>
 
-			<aside className="sticky top-[68px] max-h-[calc(100dvh-68px)] self-start overflow-y-auto pt-8 pr-6 pb-10 pl-2 max-[1100px]:hidden">
+			<aside className="sticky top-14 max-h-[calc(100dvh-56px)] self-start overflow-y-auto pt-8 pr-6 pb-10 pl-2 max-[1100px]:hidden">
 				<DocsTableOfContents page={page} activeHeadingId={activeHeadingId} />
 			</aside>
 
