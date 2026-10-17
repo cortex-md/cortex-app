@@ -131,6 +131,17 @@ jobs:
           CORTEX_BILLING_URL: ${{ vars.CORTEX_BILLING_URL }}
         run: bun run --cwd apps/desktop build
 
+      - name: Select Xcode 26
+        if: runner.os == 'macOS'
+        run: |
+          xcode=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$xcode" ]; then
+            echo "::error::Xcode 26 is required to compile build/icon.icon (Icon Composer) into the app icon."
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode"
+          actool --version
+
       - name: Package
         shell: bash
         env:
@@ -145,6 +156,9 @@ jobs:
           ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/electron-builder
         run: |
           args=(${{ matrix.electron_args }} --publish never)
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            args+=(-c.mac.icon=icon.icon)
+          fi
           if [ "$RUNNER_OS" != "macOS" ]; then
             unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
           elif [ -n "$CSC_LINK" ] && [ -n "$APPLE_ID" ] && [ -n "$APPLE_TEAM_ID" ]; then

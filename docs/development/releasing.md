@@ -33,6 +33,11 @@ git push origin v0.2.0
 The notes file is the single source for the GitHub release, the site changelog (which reads the
 `New` and `Fixed` sections), and the update notes inside the app.
 
+App icons live in `apps/desktop/build/`: `icon.icon` is the Icon Composer source for macOS (Liquid
+Glass, dark and tinted variants, plus a generated `.icns` for older macOS), compiled in CI with
+Xcode 26 (`-c.mac.icon=icon.icon`); `icon.png` (1024 px) is the source electron-builder converts for
+Windows, Linux, and local macOS builds, which skip the `.icon` because they lack Xcode 26.
+
 Artifacts are named `Cortex-<os>-<arch>.<ext>` without the version, so
 `releases/latest/download/<name>` links on the site always point at the newest release. Deploy
 site changes that rename download links only after that release is published. Update packages are the mac `zip`, the
