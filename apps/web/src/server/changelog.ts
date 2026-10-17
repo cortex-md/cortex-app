@@ -400,9 +400,11 @@ export function parseReleaseNotes(markdown: string, title = ""): ReleaseNotes {
 	return { intro, groups }
 }
 
+// Apple Silicon first; `.msi` covers the v0.1.x (Tauri) releases, `.exe` the NSIS installer.
 const downloadMatchers: Array<[ReleaseDownloadPlatform, RegExp]> = [
+	["macos", /(?:aarch64|arm64)\.dmg$/iu],
 	["macos", /\.dmg$/iu],
-	["windows", /\.msi$/iu],
+	["windows", /\.(?:exe|msi)$/iu],
 	["debian", /\.deb$/iu],
 	["linux", /\.appimage$/iu],
 ]
@@ -410,6 +412,7 @@ const downloadMatchers: Array<[ReleaseDownloadPlatform, RegExp]> = [
 export function mapReleaseDownloads(assets: GithubRelease["assets"]): ReleaseDownload[] {
 	const downloads: ReleaseDownload[] = []
 	for (const [platform, pattern] of downloadMatchers) {
+		if (downloads.some((download) => download.platform === platform)) continue
 		const asset = assets?.find((candidate) => pattern.test(candidate.name))
 		if (asset) {
 			downloads.push({ platform, fileName: asset.name, url: asset.browser_download_url })

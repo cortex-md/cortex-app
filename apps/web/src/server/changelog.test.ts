@@ -3,6 +3,7 @@ import {
 	fetchChangelogReleases,
 	type GithubRelease,
 	mapGithubRelease,
+	mapReleaseDownloads,
 	normalizeReleaseVersion,
 	renderReleaseMarkdown,
 	stripDuplicateReleaseTitle,
@@ -127,5 +128,31 @@ describe("changelog releases", () => {
 		expect(html).toContain("data-code-frame")
 		expect(html).toMatch(/<span style="--shiki-light:#[0-9a-f]+;--shiki-dark:#[0-9a-f]+"/iu)
 		expect(html).not.toContain("background-color")
+	})
+
+	it("maps installers from both the Tauri and the Electron release names", () => {
+		const asset = (name: string) => ({
+			name,
+			browser_download_url: `https://github.com/cortex-md/cortex-app/releases/download/v1/${name}`,
+		})
+		const platforms = (names: string[]) =>
+			mapReleaseDownloads(names.map(asset)).map(({ platform, fileName }) => [platform, fileName])
+
+		expect(
+			platforms([
+				"Cortex-mac-x64.dmg",
+				"Cortex-mac-arm64.dmg",
+				"Cortex-win-x64.exe",
+				"Cortex-linux-x86_64.AppImage",
+			]),
+		).toEqual([
+			["macos", "Cortex-mac-arm64.dmg"],
+			["windows", "Cortex-win-x64.exe"],
+			["linux", "Cortex-linux-x86_64.AppImage"],
+		])
+		expect(platforms(["Cortex-macos-aarch64.dmg", "Cortex-windows-x64.msi"])).toEqual([
+			["macos", "Cortex-macos-aarch64.dmg"],
+			["windows", "Cortex-windows-x64.msi"],
+		])
 	})
 })

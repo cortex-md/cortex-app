@@ -31,7 +31,10 @@ function getDownloadDetail(download: ReleaseDownload) {
 	if (download.platform === "macos") {
 		return /aarch64|arm64/u.test(fileName) ? "Apple Silicon · .dmg" : ".dmg"
 	}
-	if (download.platform === "windows") return /x64|amd64/u.test(fileName) ? "x64 · .msi" : ".msi"
+	if (download.platform === "windows") {
+		const extension = fileName.endsWith(".msi") ? ".msi" : ".exe"
+		return /x64|amd64/u.test(fileName) ? `x64 · ${extension}` : extension
+	}
 	if (download.platform === "debian") return ".deb"
 	return "AppImage"
 }
