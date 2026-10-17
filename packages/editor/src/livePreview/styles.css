@@ -47,6 +47,7 @@
 }
 
 .cm-callout-wrapper::before {
+	inset: -8px 0;
 	background: var(--callout-bg, var(--accent-subtle));
 	box-shadow: inset 0 0 0 1px
 		color-mix(in srgb, var(--callout-color, var(--accent)) 16%, transparent);
@@ -63,6 +64,20 @@
 .cm-callout-wrapper.is-collapsed {
 	max-height: var(--editor-line-height, 27px);
 	overflow: hidden;
+}
+
+.cm-callout-wrapper.is-collapsed::before {
+	inset: 0;
+}
+
+.cm-quote-text {
+	color: var(--text-muted);
+	font-style: italic;
+}
+
+.cm-callout-wrapper .cm-quote-text {
+	color: inherit;
+	font-style: normal;
 }
 
 .cm-line.cm-horizontal-rule-line {

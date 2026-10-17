@@ -46,7 +46,7 @@ export function buildHighlightStyle(runtime: EditorRuntimeModules) {
 			{ tag: tags.strikethrough, textDecoration: "line-through" },
 			{ tag: tags.link, color: "var(--text-primary)" },
 			{ tag: tags.url, color: "var(--text-muted)" },
-			{ tag: tags.quote, color: "var(--text-muted)", fontStyle: "italic" },
+			{ tag: tags.quote, class: "cm-quote-text" },
 			{ tag: tags.monospace, fontFamily: "var(--font-mono)" },
 			{ tag: tags.meta, color: "var(--syntax-meta)" },
 			{ tag: tags.processingInstruction, color: "var(--syntax-meta)" },

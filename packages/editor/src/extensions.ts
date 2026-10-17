@@ -169,9 +169,23 @@ export function buildEditorTypographyRules(
 			pointerEvents: "none",
 		},
 		".cm-gutters": {
+			position: "absolute !important",
+			insetInlineStart: "0",
+			justifyContent: "flex-end",
+			width:
+				"calc((100% - min(100%, var(--markdown-content-width, 720px))) / 2 + var(--markdown-content-gutter, 40px) - 12px)",
+			height: "auto",
+			minHeight: "100%",
 			background: "transparent",
 			borderRight: "none",
 			color: "var(--text-muted)",
+			pointerEvents: "none",
+		},
+		".cm-lineNumbers .cm-gutterElement": {
+			padding: "0",
+			fontSize: "0.8em",
+			fontVariantNumeric: "tabular-nums",
+			textAlign: "right",
 		},
 		".cm-fold-hover-control": {
 			position: "absolute",
