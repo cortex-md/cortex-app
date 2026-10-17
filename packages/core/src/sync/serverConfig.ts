@@ -12,7 +12,7 @@ export const DEFAULT_SELF_HOSTED_SYNC_SERVER_URL = "http://localhost:8080"
 export const DEFAULT_SYNC_SERVER_URL = DEFAULT_CLOUD_SYNC_SERVER_URL
 
 export const BILLING_URL = normalizeServerUrl(
-	globalThis.__CORTEX_BILLING_URL__ || "http://localhost:3000/billing",
+	globalThis.__CORTEX_BILLING_URL__ || "https://cortex-md.tech/billing",
 )
 
 export function normalizeServerUrl(serverUrl: string): string {

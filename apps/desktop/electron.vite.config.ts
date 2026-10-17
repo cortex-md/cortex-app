@@ -6,7 +6,7 @@ import type { Plugin } from "vite"
 
 const syncServerUrl = process.env.CORTEX_SYNC_SERVER_URL || "https://api.cortex-md.tech"
 const registryRepo = process.env.CORTEX_REGISTRY_REPO || "cortex-md/registry"
-const billingUrl = process.env.CORTEX_BILLING_URL || "http://localhost:3000/billing"
+const billingUrl = process.env.CORTEX_BILLING_URL || "https://cortex-md.tech/billing"
 
 const productionCsp = [
 	"default-src 'self'",
