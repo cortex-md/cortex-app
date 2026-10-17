@@ -75,6 +75,12 @@ body:
     attributes:
       label: App version or commit
       placeholder: v0.1.0 or commit SHA
+  - type: input
+    id: vault-size
+    attributes:
+      label: Vault size
+      description: Rough number of notes, and whether sync or community plugins are enabled.
+      placeholder: ~2,000 notes, Cortex Sync on, 3 community plugins
   - type: textarea
     id: logs
     attributes:

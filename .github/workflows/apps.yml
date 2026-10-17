@@ -15,6 +15,7 @@ on:
     paths:
       - 'apps/mobile/**'
       - 'apps/web/**'
+      - 'packages/**'
       - 'bun.lock'
 
 concurrency:

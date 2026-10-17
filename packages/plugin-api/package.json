@@ -1,5 +1,6 @@
 {
 	"name": "@cortex.md/api",
+	"license": "MIT",
 	"version": "0.1.0",
 	"type": "module",
 	"main": "./dist/index.js",
@@ -12,7 +13,8 @@
 	},
 	"files": [
 		"dist",
-		"README.md"
+		"README.md",
+		"LICENSE"
 	],
 	"scripts": {
 		"build": "tsc -b --force && node scripts/prepare-dist.mjs",
