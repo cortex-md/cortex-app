@@ -438,7 +438,7 @@ export function SiteHeader({ sessionLoader = loadHeaderSession }: SiteHeaderProp
 					href="/"
 					aria-label="Cortex home"
 				>
-					<CortexMark className="size-6" />
+					<CortexMark className="size-6" size={24} />
 					Cortex
 				</a>
 

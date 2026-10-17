@@ -39,6 +39,19 @@
 			"expo-sqlite",
 			"expo-sharing",
 			[
+				"expo-splash-screen",
+				{
+					"image": "./assets/images/splash-icon.png",
+					"imageWidth": 200,
+					"resizeMode": "contain",
+					"backgroundColor": "#fcfcfb",
+					"dark": {
+						"image": "./assets/images/splash-icon.png",
+						"backgroundColor": "#1e1e1e"
+					}
+				}
+			],
+			[
 				"expo-image-picker",
 				{
 					"photosPermission": "Cortex inserts the photos you choose into your notes.",

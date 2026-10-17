@@ -23,7 +23,7 @@ export function DownloadSection() {
 			)}
 		>
 			<div className={homeWrapClass}>
-				<CortexMark className="mx-auto size-16 rounded-2xl shadow-lift" size={64} />
+				<CortexMark className="mx-auto size-16" size={64} />
 				<QuietHeading
 					id="download-title"
 					className="mt-7"

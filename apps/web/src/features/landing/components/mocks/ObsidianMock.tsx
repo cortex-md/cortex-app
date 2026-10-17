@@ -79,7 +79,7 @@ export function ObsidianMock() {
 			</div>
 			<div className={paneClass}>
 				<div className="mb-2 flex items-center gap-2 font-sans text-[14px] leading-none font-semibold">
-					<CortexMark className="size-[18px] rounded-[5px]" size={18} />
+					<CortexMark className="size-[18px]" size={18} />
 					{obsidianMock.targetName}
 					<small className="font-app text-[12px] font-normal text-text-muted">
 						{obsidianMock.targetApp}

@@ -19,7 +19,7 @@ function VaultOrbit() {
 			<div
 				className={`absolute top-1/2 left-1/2 z-[2] -mt-16 -ml-16 flex w-32 flex-col items-center gap-1 rounded-[26px] pt-[18px] pb-3.5 ${glassCard}`}
 			>
-				<CortexMark className="size-10 rounded-[11px]" size={40} />
+				<CortexMark className="size-10" size={40} />
 				<b className="text-[15px] leading-[1.2] font-semibold">{members.vault}</b>
 				<small className="text-[12px] leading-none font-medium text-status-success-foreground">
 					{members.vaultStatus}

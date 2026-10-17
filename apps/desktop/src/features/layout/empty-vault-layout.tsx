@@ -9,7 +9,9 @@ import { getPlatform } from "@cortex/platform"
 import { Button } from "@cortex/ui"
 import { ArrowRightIcon, FolderOpenIcon, FolderPlusIcon } from "lucide-react"
 import { type KeyboardEvent, useEffect, useRef, useState } from "react"
-import appIconUrl from "@/assets/app-icon.png"
+import markUrl64 from "@/assets/cortex-mark-64.webp"
+import markUrl128 from "@/assets/cortex-mark-128.webp"
+import markUrl192 from "@/assets/cortex-mark-192.webp"
 import { openAuth } from "@/utils/modals"
 import { openSettings } from "../settings/settingsModal"
 import { VaultTile } from "../vault/VaultTile"
@@ -116,7 +118,15 @@ export function EmptyVaultLayout() {
 		<div className="start-screen">
 			<AccountBadge />
 			<div className={`start-column ${hasRecentVaults ? "" : "start-column--first"}`}>
-				<img className="start-icon" src={appIconUrl} alt="" width={52} height={52} />
+				<img
+					className="start-icon"
+					src={markUrl128}
+					srcSet={`${markUrl64} 64w, ${markUrl128} 128w, ${markUrl192} 192w`}
+					sizes="52px"
+					alt=""
+					width={52}
+					height={52}
+				/>
 				{hasRecentVaults ? (
 					<>
 						<h1>Pick up where you left off</h1>
