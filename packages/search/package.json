@@ -12,6 +12,6 @@
 		"@cortex/platform": "workspace:*",
 		"@cortex/properties": "workspace:*",
 		"minisearch": "^7.1.1",
-		"zustand": "^5.0.11"
+		"zustand": "^5.0.16"
 	}
 }
