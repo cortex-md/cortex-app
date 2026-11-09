@@ -40,7 +40,7 @@
 		"doctor:mobile": "bun run --cwd apps/mobile doctor"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.5.15",
+		"@biomejs/biome": "2.6.5",
 		"@testing-library/jest-dom": "^6.9.1",
 		"@testing-library/react": "^16.3.3",
 		"@testing-library/user-event": "^14.6.8",
